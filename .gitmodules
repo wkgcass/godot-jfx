@@ -1,0 +1,6 @@
+[submodule "jfx"]
+	path = jfx
+	url = git@github.com:vproxy-tools/jfx.git
+[submodule "godot"]
+	path = godot
+	url = git@github.com:vproxy-tools/godot.git
