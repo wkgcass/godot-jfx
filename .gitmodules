@@ -4,3 +4,6 @@
 [submodule "godot"]
 	path = godot
 	url = git@github.com:vproxy-tools/godot.git
+[submodule "vfx"]
+	path = vfx
+	url = git@github.com:wkgcass/vfx.git
