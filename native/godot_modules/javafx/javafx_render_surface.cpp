@@ -15,7 +15,7 @@
 #include "servers/rendering/storage/texture_storage.h"
 
 static void update_region_on_render_thread(RID p_texture, Ref<Image> p_image, Rect2i p_region) {
-	RSG::texture_storage->texture_2d_update_region(p_texture, p_image, p_region);
+	RSG::texture_storage->texture_2d_update_region(p_texture, p_image, p_region, true);
 }
 
 void JavaFXRenderSurface::_bind_methods() {
@@ -557,10 +557,13 @@ void JavaFXRenderSurface::patch_texture(uint64_t p_handle, const Rect2i &p_regio
 		patch_input_bytes += p_pixels.size();
 		patch_full_bytes += image->get_data().size();
 	}
-	if (!found->second.referenced && OS::get_singleton()->get_environment("GODOT_JFX_REGION_UPLOAD") == "1") {
+	if (!found->second.referenced &&
+			(image->get_format() == Image::FORMAT_RGBA8 || image->get_format() == Image::FORMAT_RGBAF) &&
+			OS::get_singleton()->get_environment("GODOT_JFX_REGION_UPLOAD") != "0") {
 		// Preserve FIFO ordering with queued draws and frees. The callback owns
-		// its image revision; it never captures this surface or mutable map state.
-		RenderingServer::get_singleton()->call_on_render_thread(callable_mp_static(&update_region_on_render_thread).bind(found->second.rid, image, p_region));
+		// only the packed patch, so later uploads do not clone a full CPU shadow.
+		// It never captures this surface or mutable map state.
+		RenderingServer::get_singleton()->call_on_render_thread(callable_mp_static(&update_region_on_render_thread).bind(found->second.rid, patch, p_region));
 		found->second.image = image;
 		if (profile) { ++patch_region_count; patch_submit_us += OS::get_singleton()->get_ticks_usec() - submit_start; }
 		return;

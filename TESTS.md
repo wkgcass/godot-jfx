@@ -838,3 +838,22 @@ The fixture verifies the menu checkbox and Scene-root scope, coexistence with
 blackhole, left-only click positions and overlap, idle/expired restoration, GPU animation, transparent corners,
 disabling/re-enabling, resize and window-hide cleanup. It uses synthetic mouse events without consuming them; no physical input permission is needed.
 Details and artifact paths are in [VFX Demo](docs/vfx-demo.md#ripple-effect-in-the-intro-menu).
+
+## Menu redraw performance and partial texture updates
+
+`./scripts/profile-vfx-menu.ps1` profiles menu opening, ripple animation with the
+menu open/closed, and repeated sliding. Use `-FullUploads` for the previous
+complete-upload policy; `-RenderThread separate` selects the render thread.
+Require both `VFX_MENU_PERFORMANCE_PASS` and `GODOT_VFX_MENU_PERFORMANCE_PASS`
+for completion. Timing is diagnostic, not a fixed FPS acceptance threshold.
+The fixture uses synthetic events and does not operate physical input devices.
+See [menu profiling](docs/frame-benchmark.md#menu-redraw-and-ripple-profiling).
+
+`test-queued-texture-update.ps1` now also requires `PARTIAL_TEXTURE_UPDATE_PASS`:
+a partial upload before any draw must preserve untouched pixels, and a second
+partial upload must preserve the revision retained by the first queued draw.
+Both RGBA8 and floating-point RGBA textures are checked.
+This runs in both the default RD case and `-ViewportState`, including
+`-RenderThread separate`. Add `-Renderer gl_compatibility -ViewportState` for
+OpenGL patch coverage. Region uploads default on; referenced textures still
+use the immutable-revision path.

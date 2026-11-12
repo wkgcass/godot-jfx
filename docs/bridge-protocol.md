@@ -544,15 +544,24 @@ before every blit. `profile_patch_reuse_count`/`profile_patch_clone_count` show
 which branch runs. GPU texture revision ownership is unchanged. Texture-version,
 effect, churn, pending-readback stop and GPU-motion validation pass.
 
-Experimental `GODOT_JFX_REGION_UPLOAD=1` queues dirty-rectangle uploads on the
+By default, partial updates queue dirty-rectangle uploads on the
 RenderingServer thread for ordinary textures not retained by encoded draws.
 Vulkan uses the existing RenderingDevice staging/transfer/dependency path with
 rectangle offsets; OpenGL uses glTexSubImage2D. Only uncompressed, non-mipmapped
 2D RGBA8/RGBAF images qualify; storage backends retain a full-update fallback.
 Referenced textures still receive a new complete immutable GPU revision. The
-queued callback captures its RID/image by value, preserving ordering with draws
-and frees. The CPU shadow image currently remains a full copy. This experiment
-is disabled by default until image and performance validation is complete.
+queued callback captures its RID and packed patch pixels by value, preserving
+ordering with draws and frees. It no longer retains the entire CPU shadow while
+waiting for the separate render thread. Subsequent patches can reuse the private
+shadow instead of repeatedly copying its full pixel buffer. CPU shadows retained
+by full uploads/new texture revisions still use the reference-count/COW protection
+above. The internal storage API accepts either a full shadow (legacy callers) or
+an explicit packed patch. Vulkan/OpenGL validate the destination bounds and input
+size/format, and upload the patch directly for supported textures. An unsupported
+storage layout reconstructs a full update from the existing texture; the host
+continues using its original full-image path for formats other than RGBA8/RGBAF.
+Set `GODOT_JFX_REGION_UPLOAD=0` to compare against complete uploads. Full-image
+updates and updates to referenced textures retain their existing paths.
 
 `completed_render_sequence` exposes the existing main-thread completion watermark
 used by readback/shutdown. Unlike `applied_sequence`, it advances only when the

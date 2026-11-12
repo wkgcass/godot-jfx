@@ -25,7 +25,7 @@ func _ready() -> void:
 		options[key]=OS.get_environment("GODOT_JFX_"+key)
 		enabled[key]=options[key]!="0"
 	options["REGION_UPLOAD"]=OS.get_environment("GODOT_JFX_REGION_UPLOAD")
-	enabled["REGION_UPLOAD"]=options["REGION_UPLOAD"]=="1"
+	enabled["REGION_UPLOAD"]=options["REGION_UPLOAD"]!="0"
 	options["REUSE_SHADOW"]=OS.get_environment("GODOT_JFX_REUSE_SHADOW")
 	enabled["REUSE_SHADOW"]=options["REUSE_SHADOW"]!="0"
 	options["ASYNC_TARGET_TEXTURE"]=OS.get_environment("GODOT_JFX_ASYNC_TARGET_TEXTURE")

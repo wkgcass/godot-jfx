@@ -1,5 +1,55 @@
 # VFX frame benchmark
 
+## Menu redraw and ripple profiling
+
+`./scripts/profile-vfx-menu.ps1` measures the actual Intro menu with synthetic
+application events, without physical mouse/keyboard input. Five consecutive
+five-second phases cover closed idle, initial menu opening, open-menu ripples,
+closed-menu ripples, and repeated menu opening/closing. Ripples spawn every
+0.5 seconds; the final phase toggles the menu every 0.7 seconds with ripples off.
+The `MENU_PERF` records report JavaFX pulse timing, p95/max gaps and lost-focus
+counts, not physical display FPS. Host command counters are also captured.
+`-FullUploads` disables region uploads for a controlled comparison;
+`-RenderThread separate`, `-RD`, and `-Renderer gl_compatibility` select paths.
+Logs use `artifacts/logs/vfx-menu-<renderer>-<thread>-rd<0|1>-<default|full>.log`.
+
+The menu's frequent small texture patches previously re-uploaded complete
+textures. Updating only dirty rectangles for unreferenced textures removes this
+avoidable transfer work. Referenced textures still get immutable new revisions;
+full replacements and unsupported formats retain the existing complete-upload
+path. This changes the host upload policy, not VFX animations or shader quality.
+Region uploads are now the default, with `GODOT_JFX_REGION_UPLOAD=0` retained
+for diagnosis. On Windows/Intel Arc B390, mobile/safe Viewport (2026-11-12),
+the focused measured phases report:
+
+| Phase | Full uploads: pulses/s, p95 ms | Default region uploads: pulses/s, p95 ms |
+| --- | --- | --- |
+| Menu open with ripples | 19.524, 81.154 | 59.928, 18.559 |
+| Menu closed with ripples | 54.718, 20.216 | 60.076, 18.441 |
+| Repeated menu sliding, ripples off | 36.135, 76.826 | 59.776, 24.156 |
+
+Evidence is in `vfx-menu-mobile-safe-rd0-{full,default}.log` under
+`artifacts/logs`; each measured row has zero unfocused intervals.
+
+The separate render thread previously held a full CPU shadow for every queued
+region upload. This kept forcing full-image copy-on-write work even though the
+GPU upload was small. Callbacks now retain only packed patch pixels; Vulkan and
+OpenGL accept that representation directly. Full/referenced revisions remain
+protected. The same separate-mode fixture now reports:
+
+| Phase | Before packed patches: pulses/s, p95 ms | Packed patches: pulses/s, p95 ms |
+| --- | --- | --- |
+| Menu open with ripples | 16.077, 78.373 | 55.266, 23.905 |
+| Repeated menu sliding, ripples off | 39.964, 55.138 | 53.374, 29.527 |
+
+Evidence: `vfx-menu-mobile-separate-rd0-before-packed.log` and
+`vfx-menu-mobile-separate-rd0-default.log`. Both measured phases have zero lost
+focus intervals. The final sampled host counters show 0 shadow-image clones
+versus 4,248 before this change; aggregate patch blitting time fell from about
+5.07 seconds to 0.076 seconds in these instrumented runs. Initial compilation and scheduling still cause some long
+frames; these pulse measurements are not physical scanout rates.
+
+
 Latest shared-target-mesh build (2026-11-11), mobile/safe, 68 transitions:
 Viewport RD0/LCD1 = 58.604 pulse / 55.741 host-composition FPS;
 RD1/LCD1 = 59.662 / 56.786. Both have zero unfocused samples and pass cleanup.
@@ -261,11 +311,12 @@ ordinary run lost focus and is excluded. The focused diagnostic trace records
 substantial time outside host processing. These results do not prove improved
 smoothness from snapshot reuse, and the slower trace is retained for diagnosis.
 
-The optional `GODOT_JFX_REGION_UPLOAD=1` uses dirty-rectangle GPU uploads for
-unreferenced ordinary textures; default is off. Focused ordinary separate-mode
+Dirty-rectangle GPU uploads for unreferenced ordinary textures are now enabled
+by default; `GODOT_JFX_REGION_UPLOAD=0` restores full uploads for comparison.
+The earlier opt-in evaluation below predates the menu workload. Focused ordinary separate-mode
 on/off repeats reach 59.949/59.644 compositions/s, with maxima 62.396/50.392 ms.
 These runs establish near-60 averages, not consistent jitter improvement from
-the region path. The CPU shadow image is still copied. Detailed evidence is in
+the region path. CPU shadow reuse is described below. Detailed evidence is in
 `artifacts/logs/vfx-frame-benchmark-region-{on,off}-ordinary.log`.
 
 Safe CPU shadow reuse is a separate optimization. With GPU region uploads off,

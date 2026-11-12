@@ -1,5 +1,8 @@
 # VFX source build and Intro smoke
 
+Menu animation/ripple performance can be measured without physical input using
+`./scripts/profile-vfx-menu.ps1`; see [menu profiling](frame-benchmark.md#menu-redraw-and-ripple-profiling).
+
 ## Ripple Effect in the Intro menu
 
 The initially unchecked `Ripple Effect` checkbox follows `Blackhole Effect`.

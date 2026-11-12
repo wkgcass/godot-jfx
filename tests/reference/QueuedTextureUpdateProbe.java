@@ -96,7 +96,55 @@ public final class QueuedTextureUpdateProbe {
         c.drawQuads(new float[]{0,0,0,0,0,0,0, 0,16,0,0,1,0,1, 16,0,0,1,0,1,0, 16,16,0,1,1,1,1},colors,4,1,0,0,0,1,0);
         c.appendEndTargetPass();
     }
+    static void partialUpdates(boolean floating) {
+        GodotRenderCommands c = new GodotRenderCommands();
+        long texture = floating ? 0x100000040L : 0x100000030L;
+        long first = texture + 1, second = texture + 2;
+        if (floating) c.allocateFloatTexture(texture, 4, 4);
+        else c.allocateTexture(texture, 4, 4);
+        byte[] red = new byte[64], green = new byte[32], blue = new byte[32];
+        for (int i = 0; i < 16; i++) { red[i * 4] = (byte)255; red[i * 4 + 3] = (byte)255; }
+        for (int i = 0; i < 8; i++) {
+            green[i * 4 + 1] = (byte)255; green[i * 4 + 3] = (byte)255;
+            blue[i * 4 + 2] = (byte)255; blue[i * 4 + 3] = (byte)255;
+        }
+        patch(c, texture, 0, 0, 4, 4, red, floating);
+        // Before any draw: update only the left half of the existing texture.
+        patch(c, texture, 0, 0, 2, 4, green, floating);
+        c.allocateRenderTarget(first, 16, 16); c.allocateRenderTarget(second, 16, 16);
+        GodotShader shader = new GodotShader("shader_type canvas_item;\nrender_mode unshaded, blend_premul_alpha;\nuniform sampler2D inputTex;\nvoid fragment() { COLOR = texture(inputTex, UV); }", Map.of("inputTex", 0), Map.of(), selected -> {});
+        draw(c, shader, first, texture);
+        // A queued draw owns the old revision: the right-half patch must clone it.
+        patch(c, texture, 2, 0, 2, 4, blue, floating);
+        draw(c, shader, second, texture);
+        long sequence = c.submit();
+        for (long target : new long[]{first, second}) {
+            int[] pixels = GodotBridge.readPixels(target, sequence, 0, 0, 16, 16);
+            if (pixels == null || pixels.length != 256) throw new AssertionError("Missing partial update readback");
+            for (int y = 2; y < 14; y++) {
+                for (int x : new int[]{2, 3, 12, 13}) {
+                    int expected = x < 8 ? 0xff00ff00 : target == first ? 0xffff0000 : 0xff0000ff;
+                    if (pixels[y * 16 + x] != expected) throw new AssertionError("Partial update changed untouched pixels or a queued revision");
+                }
+            }
+        }
+        c.disposeTexture(texture); c.disposeTexture(first); c.disposeTexture(second); c.submit(); shader.dispose();
+        System.out.println("PARTIAL_TEXTURE_UPDATE_PASS format=" + (floating ? "RGBAF" : "RGBA8"));
+    }
+
+    static void patch(GodotRenderCommands c, long texture, int x, int y, int width, int height, byte[] rgba, boolean floating) {
+        if (!floating) {
+            c.updateTextureRegion(texture, x, y, width, height, rgba);
+            return;
+        }
+        var buffer = java.nio.ByteBuffer.allocate(rgba.length * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        for (byte component : rgba) buffer.putFloat((component & 255) / 255f);
+        c.updateFloatTextureRegion(texture, x, y, width, height, buffer.array());
+    }
+
     public static void main(String[] args) throws Exception {
+        partialUpdates(false);
+        partialUpdates(true);
         if ("1".equals(System.getenv("GODOT_JFX_TEST_VIEWPORT_STATE"))) {
             viewportState();
             System.out.println("QUEUED_TEXTURE_UPDATE_PASS");

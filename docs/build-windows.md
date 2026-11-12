@@ -183,4 +183,4 @@ switch to `0` as documented in bridge-protocol.md; unset it to restore the defau
 
 CPU shadow images also reuse exclusive ownership by default; set
 `GODOT_JFX_REUSE_SHADOW=0` to disable this diagnostic comparison. Experimental
-GPU region uploads remain opt-in via `GODOT_JFX_REGION_UPLOAD=1`.
+GPU region uploads are enabled by default; set `GODOT_JFX_REGION_UPLOAD=0` for a full-upload diagnostic comparison.
