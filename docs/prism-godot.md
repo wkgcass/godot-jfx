@@ -1,5 +1,23 @@
 # Prism-Godot implementation status
 
+## Runtime detection marker
+
+`javafx.application.GodotRuntime.PRISM_GODOT_ENABLED` is a public static volatile
+boolean, initially false. Godot Prism sets it true only after successful host
+validation and render-thread registration, and clears it when disposal begins.
+It reports the initialized Godot Prism backend, independently of the requested
+`prism.order` and of Viewport versus RD rendering. Applications should read it
+after JavaFX startup and treat the field as runtime-owned, not modify it.
+
+The class is in the exported `javafx.application` package, so reflection needs no
+internal-package exports. Applications supporting ordinary JavaFX can catch a
+missing class/field and treat it as unsupported. The marker itself is live and
+uncached; caching a reflected result is the caller's choice.
+
+2026-11-12 validation: the source JFX SDK builds successfully, and consumer
+checks distinguish initialized Godot from native D3D. Consumer reflection and
+caching changes are maintained separately from this runtime marker.
+
 This document combines implementation contracts with dated development evidence.
 Historical performance diagnoses describe the build and workload measured then;
 they are not current limits or proof for later binaries. The optional RD backend
