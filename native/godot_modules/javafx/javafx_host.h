@@ -14,6 +14,10 @@
 
 namespace godot_javafx { struct Runtime; }
 
+class CanvasLayer;
+class ColorRect;
+class TextureRect;
+
 class JavaFXHost : public JavaFXWindowSurface {
 	GDCLASS(JavaFXHost, JavaFXWindowSurface);
 	std::shared_ptr<godot_javafx::Runtime> runtime;
@@ -117,6 +121,29 @@ class JavaFXHost : public JavaFXWindowSurface {
 #ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	godot_javafx::rd_direct::CycleState rd_cycle_state;
 #endif
+
+	bool startup_enabled = false;
+	bool startup_logo_enabled = false;
+	bool startup_consumed = false;
+	bool startup_active = false;
+	bool startup_frame_ready = false;
+	bool startup_window_shown = false;
+	bool startup_logo_drawn = false;
+	int64_t startup_window_id = 0;
+	int64_t completing_window_id = 0;
+	uint64_t startup_logo_begin_us = 0;
+	uint64_t startup_fade_begin_us = 0;
+	uint64_t startup_logo_count = 0;
+	int startup_previous_update_mode = -1;
+	CanvasLayer *startup_overlay = nullptr;
+	ColorRect *startup_background = nullptr;
+	TextureRect *startup_image = nullptr;
+	Window *startup_window() const;
+	bool startup_show(int64_t p_id, bool p_visible);
+	void startup_tick();
+	void startup_post_draw();
+	void startup_cancel();
+	Dictionary get_startup_status() const;
 
 	void frame_presented();
 	void finish_pending_pass(bool p_target_drawn);

@@ -789,3 +789,9 @@ PATH/INCLUDE/LIB，播放不继承编译器搜索路径。原来不存在的变�
 断言：未启动 JVM 的宿主离树/析构不能改写应用默认光标。现有总 PASS 只有这些
 断言完成后才输出；验证通过向 viewport 投递合成 motion 读取当前形状完成，
 不移动系统鼠标。
+
+## 启动窗口
+
+`scripts/test-startup.ps1` 独立验证隐藏启动、首次窗口 logo、无 logo 模式、
+延迟首帧和后续窗口；不操作真实键鼠。参数及验收限制见
+[启动窗口验证](docs/startup-window.md#validation)。

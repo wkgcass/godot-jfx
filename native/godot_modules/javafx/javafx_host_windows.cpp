@@ -72,6 +72,7 @@ bool JavaFXHost::configure_native_window(int64_t p_id, const Rect2i &p_bounds, b
 	if (was_visible && !p_visible && !refresh_native_owners(p_id)) return false;
 	window->set_size(p_bounds.size); window->set_position(p_bounds.position);
 	window->set_visible(p_visible);
+	startup_show(p_id, p_visible);
 	if (p_visible && !was_visible && !refresh_native_owners()) return false;
 	set_window_input_enabled(p_id, native_windows.at(p_id).input_enabled);
 	if (p_visible && !was_visible) {
@@ -204,6 +205,7 @@ Dictionary JavaFXHost::get_native_window_info(int64_t p_id) const {
 }
 
 void JavaFXHost::destroy_native_window(int64_t p_id) {
+	if (startup_active && startup_window_id == p_id) startup_cancel();
 	ERR_FAIL_COND(!Thread::is_main_thread());
 	auto entry = native_windows.find(p_id);
 	if (entry == native_windows.end()) return;

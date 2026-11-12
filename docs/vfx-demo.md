@@ -169,3 +169,10 @@ actual JNativeHook warning, opens and closes KeyChooser through synthetic Godot
 input, and completes normally on PowerShell 5.1. A diagnostic native command
 returning exit code 7 is still rejected even when it prints the close marker.
 No physical mouse or keyboard input was synthesized.
+
+## Startup window
+
+`run-vfx-demo.ps1` hides engine/JVM startup and displays the Godot logo inside
+the first JavaFX window for at least one second, until the first frame is ready.
+Use `-NoGodotLogo` to reveal the prepared application directly. Subsequent
+windows do not repeat the logo. See [startup behavior and tests](startup-window.md).

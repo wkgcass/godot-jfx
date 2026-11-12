@@ -836,6 +836,7 @@ static void run_jvm(std::shared_ptr<Runtime> runtime, std::wstring library,
 } // namespace godot_javafx
 
 void JavaFXHost::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("get_startup_status"), &JavaFXHost::get_startup_status);
 	ClassDB::bind_static_method("JavaFXHost", D_METHOD("is_rd_direct_compiled"), &JavaFXHost::is_rd_direct_compiled);
 	ClassDB::bind_method(D_METHOD("create_native_window", "id", "owner", "bounds", "title", "flags"), &JavaFXHost::create_native_window);
 	ClassDB::bind_method(D_METHOD("configure_native_window", "id", "bounds", "visible"), &JavaFXHost::configure_native_window);
@@ -1066,6 +1067,9 @@ bool JavaFXHost::start_jvm(const String &p_jdk, const String &p_sdk, const Strin
 	option("-Dprism.order=godot");
 	previous_default_cursor_shape = int(Input::get_singleton()->get_default_cursor_shape());
 	default_cursor_state_saved = true;
+	const String startup = OS::get_singleton()->get_environment("GODOT_JFX_STARTUP");
+	startup_enabled = startup == "logo" || startup == "hidden";
+	startup_logo_enabled = startup == "logo";
 	worker = std::thread(godot_javafx::run_jvm, runtime,
 			std::wstring(reinterpret_cast<const wchar_t *>(library.utf16().get_data())),
 			std::move(options), std::string(p_main_class.utf8().get_data()));
@@ -1079,6 +1083,7 @@ void JavaFXHost::input(const Ref<InputEvent> &p_event) {
 }
 
 void JavaFXHost::window_input(const Ref<InputEvent> &p_event, int64_t p_id) {
+	if (startup_active && startup_window_id == p_id) return;
 	if (!runtime || runtime->status.load() != godot_javafx::RuntimeStatus::RUNNING) return;
 	Window *source = p_id ? get_native_window(p_id) : get_window();
 	if (!source) return;
@@ -1278,8 +1283,11 @@ void JavaFXHost::_notification(int p_what) {
 			if (!hover_tap_probe) hover_tap_epoch_us = 1; // Decided: probe off.
 		}
 		++process_ticks;
-		if (runtime->status.load() == godot_javafx::RuntimeStatus::FINISHED || runtime->status.load() == godot_javafx::RuntimeStatus::FAILED)
+		startup_tick();
+		if (runtime->status.load() == godot_javafx::RuntimeStatus::FINISHED || runtime->status.load() == godot_javafx::RuntimeStatus::FAILED) {
+			startup_cancel();
 			restore_vsync_pacing();
+		}
 		check_vsync_pacing(process_start);
 		apply_native_window_commands();
 		apply_host_commands();
@@ -1385,6 +1393,7 @@ void JavaFXHost::_notification(int p_what) {
 						offscreen_pass_pending = command.opcode == godot_javafx::Opcode::END_PASS;
 						if (offscreen_pass_pending) ++offscreen_passes;
 						completing_presentation = !offscreen_pass_pending;
+						if (completing_presentation) completing_window_id = pending_window_native ? pending_window_id : 0;
 						compose_target = completing_presentation && active_target.is_valid();
 						if (active_target.is_valid()) active_target->end_pass(); else commit_present();
 						present_pending = true;
@@ -1711,11 +1720,13 @@ void JavaFXHost::_notification(int p_what) {
 			hover_tap_last_buf_mem = buf_mem;
 		}
 		if (!reported_failure && runtime->status.load() == godot_javafx::RuntimeStatus::FAILED) {
+			startup_cancel();
 			reported_failure = true;
 			ERR_PRINT(get_runtime_error());
 		}
 		process_us += OS::get_singleton()->get_ticks_usec() - process_start;
 	} else if (p_what == NOTIFICATION_EXIT_TREE) {
+		startup_cancel();
 #ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 		if (godot_javafx::rd_direct::rd_profile_enabled() && g_prof_dispatch_us.load() > 0) {
 			print_line(vformat("HOST_GEOM_PROFILE mesh_us=%d dispatch_us=%d", int64_t(g_prof_mesh_us.load()), int64_t(g_prof_dispatch_us.load())));
@@ -1774,6 +1785,7 @@ void JavaFXHost::complete_offscreen_pass() {
 
 void JavaFXHost::frame_presented() {
 	finish_pending_pass(false);
+	startup_post_draw();
 }
 
 void JavaFXHost::finish_pending_pass(bool p_target_drawn) {
@@ -1834,7 +1846,10 @@ void JavaFXHost::finish_pending_pass(bool p_target_drawn) {
 			return;
 		}
 		active_target.unref(); target_parameters.clear(); target_instance_params.clear();
-		if (completing_presentation) ++completed_presentations;
+		if (completing_presentation) {
+			++completed_presentations;
+			if (startup_active && completing_window_id == startup_window_id) startup_frame_ready = true;
+		}
 		completing_presentation = false;
 		present_pending = false;
 		offscreen_pass_pending = false;
@@ -1962,6 +1977,7 @@ void JavaFXHost::apply_host_commands() {
 			case 4: request_window_focus(host_window); break;
 			case 5: {
 				set_visible(a != 0);
+				if (startup_show(0, a != 0)) break;
 				// Godot forbids hiding its root Window through Window::set_visible.
 				// Hide/show the existing HWND; never create a second native window.
 				HWND handle = reinterpret_cast<HWND>(display->window_get_native_handle(DisplayServerEnums::WINDOW_HANDLE));

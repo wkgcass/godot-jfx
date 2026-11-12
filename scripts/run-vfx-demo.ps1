@@ -1,10 +1,11 @@
 [CmdletBinding()]
-param([string]$Jdk='D:\jdk-25.0.3+9',[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[ValidateSet('safe','separate')][string]$RenderThread='safe',[switch]$Smoke)
+param([string]$Jdk='D:\jdk-25.0.3+9',[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[ValidateSet('safe','separate')][string]$RenderThread='safe',[switch]$Smoke,[switch]$NoGodotLogo)
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $saved=@{}
 $settings=@{
     GODOT_JFX_JDK=$Jdk;
+    GODOT_JFX_STARTUP=$(if($NoGodotLogo){'hidden'}else{'logo'});
     GODOT_JFX_DEMO_SMOKE=$(if($Smoke){'1'}else{'0'})
 }
 try {
