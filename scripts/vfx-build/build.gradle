@@ -1,6 +1,6 @@
 plugins { id 'java-library' }
 
-// Build the unchanged VFX sources against this repository's OpenJFX SDK.
+// Build VFX sources and the optional Intro shader demo against the local SDK.
 // The original Gradle 7 / JavaFX 11 plugin build is retained for upstream users.
 def workspace = file('../..')
 layout.buildDirectory = new File(workspace, 'artifacts/vfx')

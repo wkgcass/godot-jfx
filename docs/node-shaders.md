@@ -1,5 +1,11 @@
 # Per-node Godot CanvasItem shaders
 
+The VFX Intro menu includes a concrete subtree example: **Blackhole Effect**
+attaches this API to the Demo content VSceneGroup and updates numeric uniforms from
+mouse events. Its CanvasItem source is a Java 11-compatible string constant in `BlackholeEffectControl`, and works
+through either Viewport or RD when supported by the host. See
+[VFX Demo](vfx-demo.md#blackhole-effect-in-the-intro-menu) for operation and tests.
+
 `javafx.scene.effect.GodotShaderEffect` is an additive public extension in
 `javafx.graphics`. Existing controls and their skin/CSS code are unchanged:
 

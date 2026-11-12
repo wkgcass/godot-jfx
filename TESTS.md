@@ -1,5 +1,28 @@
 # 测试指南
 
+## VFX Godot 后端检测
+
+构建 JFX 和 VFX 后运行 `scripts/test-prism-godot-detection.ps1`。
+隔离类加载器分别验证标记类型缺失、字段缺失、类型错误、非静态/私有字段、
+false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PASS`。
+`test-vfx-blackhole.ps1` 及其 `-NativeD3D` 档验证真实后端下的开关显隐。
+首次检测应在 JavaFX 启动后；启动前的 false 也会被缓存。
+
+## VFX 黑洞特效
+
+先执行 `build-vfx.ps1` 更新 Demo 类（包括内嵌着色器），再运行
+`test-vfx-blackhole.ps1`（默认 mobile/safe/Viewport）；`-RD` 验证 RD，
+`-Renderer gl_compatibility` 验证 OpenGL，`-RenderThread separate` 可选。
+需要源码 Editor、SDK 和 VFX 产物，不需要真实键鼠授权。
+
+夹具检查实际 Intro 抽屉菜单末尾的复选框、效果只附着于内容 VSceneGroup、
+标题栏和底部导航不变、开关恢复、鼠标移动/拖动和缩放后的
+位置映射、鼠标位于组外时对组内边缘图形的扭曲，并读回 GPU 图像断言可见特效、鼠标静止时的画面稳定性、范围外不变和
+透明边缘保持；退出后检查窗口与
+宿主资源释放。必须同时有 `VFX_BLACKHOLE_PROBE_PASS`、`GODOT_VFX_BLACKHOLE_PASS`
+且无异常或着色器错误。`-NativeD3D` 只验证原生对照中不添加该选项，不代表 Godot
+特效通过。日志和逐步截图使用 `vfx-blackhole-<backend>-<thread>-rd<0/1>` 前缀。
+
 ## RD 编译开关验证
 
 先用 `build-windows.ps1 -Target godot-editor -WithJavaFXModule -JavaFXRDDirect no`

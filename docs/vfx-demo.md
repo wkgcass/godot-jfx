@@ -1,5 +1,80 @@
 # VFX source build and Intro smoke
 
+## Blackhole Effect in the Intro menu
+
+The Intro drawer now ends with an initially unchecked checkbox labeled
+`Blackhole Effect`. Open the top-left menu and scroll to the bottom.
+Checking enables the effect; unchecking turns it off.
+This is an intentional addition to the Demo, not a change to VFX library controls.
+
+The control applies the public `javafx.scene.effect.GodotShaderEffect` to the
+Demo content VSceneGroup node. Only its pages are shaded; the window title bar,
+menu drawer and bottom navigation remain unaffected. Mouse move, drag and press
+events update the center in target-local
+coordinates; resize updates the input extent. The shader samples the GPU input
+texture using the user-supplied pure lens template, with no accretion disk,
+photon ring, black core or time animation. The default lens and influence radii
+are 0.18 and 0.33 times the target height (1.5 times the supplied template);
+aspect correction keeps them circular.
+Positive distortion moves sampling toward the center, with a soft outer warp.
+The default distortion strength is 0.13341541, making the central inverted region
+radius 2.5 times its previous size at strength 0.045, with the other parameters
+unchanged (the inversion boundary satisfies distance = total displacement).
+Outside the influence radius sampling is unchanged. Sampled alpha follows the
+distortion, and the VSceneGroup clip keeps output inside its boundary. Hit testing continues to use the original JavaFX layout.
+
+The pointer is tracked across the Scene, including outside the Demo content.
+A lens centered outside the VSceneGroup still affects any content within its
+influence radius; output remains clipped to the VSceneGroup. Leaving the Scene
+temporarily removes the effect; reentry restores it if selected.
+Turning it off restores the previous target effect. Window hiding detaches event
+filters and the resize listener. No animation timer is needed. The shader uses
+node `UV`/`TEXTURE` and the target extent instead of screen sampling, so the same
+source works in Viewport and RD modes. No Robot, screen capture or CPU frame
+upload is used by the feature. Additional native Stages are independent windows
+and are not shaded by the Demo content effect.
+
+The shader is the `SHADER_SOURCE` constant in `BlackholeEffectControl.java`
+beside `IntroFXMain.java`, using ordinary concatenated strings compatible with
+Java 11. No shader resource file is loaded. The local build uses JDK 25.
+The public extension is resolved lazily to avoid a compile-time dependency for
+upstream JavaFX builds. `FXUtils.isPrismGodot()` reflectively reads the public
+boolean `javafx.application.GodotRuntime.PRISM_GODOT_ENABLED`, set only after
+Godot Prism initializes successfully and cleared on disposal. Missing classes,
+missing/inaccessible fields, incompatible field types, and false values return
+false. The first result is cached, including false: call it after JavaFX startup;
+a call before startup will cache false for that class loader's lifetime. No
+internal JavaFX exports or `prism.order` assumptions are needed.
+The Demo only creates the control when this check succeeds; on native D3D and
+ordinary JavaFX the control is absent.
+
+```powershell
+.\scripts\build-vfx.ps1
+.\scripts\run-vfx-demo.ps1
+.\scripts\test-vfx-blackhole.ps1
+.\scripts\test-vfx-blackhole.ps1 -RD
+.\scripts\test-vfx-blackhole.ps1 -Renderer gl_compatibility
+.\scripts\test-vfx-blackhole.ps1 -NativeD3D
+```
+
+The fixture uses the actual Intro menu and synthetic JavaFX events, never real
+mouse/keyboard input. GPU snapshots check visible changes, stationary-pointer
+stability, pointer movement,
+unchanged pixels outside the radius, alpha at a window corner, restoration after
+disable, and mapping after resize. An edge marker verifies distortion inside
+the group when the pointer is outside it, while title bar pixels remain unchanged.
+It also checks Scene exit/reentry and final host
+resource cleanup. Captures are under `artifacts/reference/vfx-blackhole-*` and
+logs under `artifacts/logs/vfx-blackhole-*`. The D3D case only checks that the
+unsupported control is absent. These checks are not physical-input or
+frame-rate acceptance.
+
+2026-11-12 validation of the pure lens shader and checkbox: the source VFX build
+and the complete fixture pass on
+Editor mobile/safe with RD off and on, plus OpenGL/safe. GPU captures were
+inspected. Native D3D also passes the absent-control check. No Runtime or
+physical-input acceptance is claimed for this addition.
+
 2026-11-03 animation graph: `test-vfx-animation.ps1` exercises original page 23
 through host clicks. It selects a/b, plays to b, then selects a/d and soft-stops
 before d. The observer checks actual Circle movement and endpoint, selection

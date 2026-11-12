@@ -7,8 +7,10 @@ and FXML. The primary Stage uses the Godot root window; additional Stages use
 independent Godot-owned native windows. GodotView embeds a Godot 2D scene inside
 JavaFX, and GodotShaderEffect applies CanvasItem shaders to individual nodes.
 
-The original VFX Demo builds against the local JavaFX SDK without business-source
-changes. This is an active implementation, not a declaration of complete JavaFX
+The VFX Demo builds against the local JavaFX SDK. Its Intro menu now includes an
+optional Blackhole Effect to exercise a Godot shader on the Demo content VSceneGroup;
+VFX also provides a cached Godot backend detection helper. This is an active
+implementation, not a declaration of complete JavaFX
 compatibility. See [acceptance status](docs/acceptance-status.md) for evidence and
 remaining work. The user's remaining white-edge issue is explicitly waived.
 
