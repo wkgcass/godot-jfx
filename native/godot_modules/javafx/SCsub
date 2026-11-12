@@ -1,0 +1,22 @@
+Import("env")
+Import("env_modules")
+
+import os
+
+env_javafx = env_modules.Clone()
+# JNI must translate STL allocation failure into a Java exception. Keep this
+# scoped to the module; Godot's other translation units retain their defaults.
+if env_javafx.msvc:
+    env_javafx["CPPDEFINES"] = [
+        define for define in env_javafx["CPPDEFINES"]
+        if not (isinstance(define, tuple) and define[0] == "_HAS_EXCEPTIONS")
+    ]
+    env_javafx.Append(CXXFLAGS=["/EHsc"], CPPDEFINES=[("_HAS_EXCEPTIONS", 1)])
+else:
+    env_javafx["CXXFLAGS"] = [flag for flag in env_javafx["CXXFLAGS"] if flag != "-fno-exceptions"]
+    env_javafx.Append(CXXFLAGS=["-fexceptions"])
+jdk = os.environ.get("JAVA_HOME", "")
+if not os.path.isfile(os.path.join(jdk, "include", "jni.h")):
+    raise RuntimeError("JavaFX module requires JAVA_HOME pointing to an installed JDK")
+env_javafx.Append(CPPPATH=[os.path.join(jdk, "include"), os.path.join(jdk, "include", "win32")])
+env_javafx.add_source_files(env.modules_sources, "*.cpp")

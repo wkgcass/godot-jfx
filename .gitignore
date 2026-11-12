@@ -1,0 +1,7 @@
+.tools/
+.gradle-cache/
+scripts/vfx-build/.gradle/
+artifacts/
+tests/godot/.godot/
+__pycache__/
+*.obj

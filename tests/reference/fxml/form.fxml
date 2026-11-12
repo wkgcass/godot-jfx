@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.shape.Rectangle?>
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="FXMLProbe$FormController"
+      fx:id="root" spacing="12" prefWidth="420" prefHeight="260" focusTraversable="true" stylesheets="@probe.css">
+    <Label fx:id="heading" text="%heading"/>
+    <fx:include fx:id="included" source="fragment.fxml"/>
+    <Rectangle fx:id="swatch" id="swatch" width="64" height="28"/>
+    <TextField fx:id="name" text="世界"/>
+    <Button fx:id="open" text="打开独立窗口" onAction="#openDetail"/>
+</VBox>

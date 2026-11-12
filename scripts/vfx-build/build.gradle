@@ -1,0 +1,30 @@
+plugins { id 'java-library' }
+
+// Build the unchanged VFX sources against this repository's OpenJFX SDK.
+// The original Gradle 7 / JavaFX 11 plugin build is retained for upstream users.
+def workspace = file('../..')
+layout.buildDirectory = new File(workspace, 'artifacts/vfx')
+repositories { mavenCentral() }
+dependencies {
+    implementation fileTree(new File(workspace, 'jfx/build/sdk/lib')) { include '*.jar' }
+    api 'com.github.kwhat:jnativehook:2.2.2'
+    api 'io.vproxy:commons:1.3.4'
+    testImplementation 'junit:junit:4.13.2'
+}
+java { modularity.inferModulePath = true }
+sourceSets {
+    main {
+        java.srcDirs = [new File(workspace, 'vfx/src/main/java')]
+        resources.srcDirs = [new File(workspace, 'vfx/src/main/resources')]
+    }
+    test {
+        java.srcDirs = [new File(workspace, 'vfx/src/test/java')]
+        resources.srcDirs = [new File(workspace, 'vfx/src/test/resources')]
+    }
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.register('stageRuntime', Sync) {
+    dependsOn tasks.testClasses
+    from(configurations.testRuntimeClasspath) { exclude 'javafx*.jar' }
+    into new File(workspace, 'artifacts/vfx/dependencies')
+}

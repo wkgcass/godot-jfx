@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.*?>
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="FXMLProbe$DetailController"
+      spacing="16" prefWidth="360" prefHeight="140" stylesheets="@probe.css">
+    <Label fx:id="message"/>
+    <Button fx:id="close" text="关闭" onAction="#closeDetail"/>
+</VBox>
