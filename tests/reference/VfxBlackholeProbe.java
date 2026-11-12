@@ -60,7 +60,7 @@ public final class VfxBlackholeProbe extends IntroFXMain {
         require(toggle != null && !toggle.isSelected() && !toggle.isDisabled(),
             "Godot toggle unavailable or enabled by default");
         var children = toggle.getParent().getChildrenUnmodifiable();
-        require(children.indexOf(toggle) == children.size() - 2, "Toggle is not at the end of the menu");
+        require(children.indexOf(toggle) == children.size() - 4, "Blackhole toggle must precede ripple toggle");
         // Bubble a synthetic scroll through the menu viewport; no private state access.
         Event.fireEvent(toggle.getParent(), new ScrollEvent(ScrollEvent.SCROLL,
             0, 0, 0, 0, false, false, false, false, false, false,

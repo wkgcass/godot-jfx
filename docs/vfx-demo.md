@@ -1,8 +1,57 @@
 # VFX source build and Intro smoke
 
+## Ripple Effect in the Intro menu
+
+The initially unchecked `Ripple Effect` checkbox follows `Blackhole Effect`.
+It is available only when `FXUtils.isPrismGodot()` succeeds. The ripple effect
+attaches to the main Demo Scene root, so the title bar, menu drawer, content and
+bottom navigation all participate. Separate native Stage windows are unaffected.
+It can run together with the content-scoped blackhole effect; either checkbox
+can be switched off independently.
+
+A Scene event filter observes left-button presses without consuming them. Each
+press spawns a ripple at the target-local normalized pointer position; right and
+middle buttons do not spawn ripples. There is no automatic/random spawning.
+An AnimationTimer updates up to sixteen GPU ripple slots using monotonic time.
+Each drop expands outward at 0.32 times the window height per second and fades
+over 3 seconds. Active offsets add together; when all slots are occupied, further
+presses do not add a ripple until a slot expires. The timer stops when no drops
+remain and restarts on the next accepted press.
+No per-frame texture upload, CPU image processing or physical pointer polling
+is used. The shader is embedded as Java 11-compatible strings in
+`RippleEffectControl.java`, with explicit float uniforms rather than shader arrays.
+It adapts the supplied water shader's primary/secondary waves, Gaussian wave
+width (0.025), wavelength (0.035), strength (0.012), decay power (1.3), and
+component-wise displacement cap (0.035). Screen UV/sampling is replaced by
+node-local UV/input-texture sampling; array entries are expanded into sixteen
+individual vec4 uniforms. Zero-offset pixels bypass sampling displacement, and
+the original output alpha is preserved, including window corners.
+
+Disabling restores the previous root effect and stops the timer. Re-enabling
+starts with no active drops. Window hiding removes the event filter and cleans
+up the controller. Controls retain
+their original JavaFX hit-testing positions while their rendered pixels move.
+
+```powershell
+.\scripts\build-vfx.ps1
+.\scripts\test-vfx-ripple.ps1
+.\scripts\test-vfx-ripple.ps1 -RD
+.\scripts\test-vfx-ripple.ps1 -Renderer gl_compatibility
+.\scripts\test-vfx-ripple.ps1 -NativeD3D
+```
+
+The fixture checks the actual menu, root attachment, independent blackhole toggle,
+and native-backend absence. Synthetic clicks on a test grid check idle stability,
+left-only spawning, unconsumed events, correct positions and overlapping drops,
+visible GPU distortion and expansion, transparent corners, expiry, disabling,
+resize and cleanup on hiding. The Godot
+wrapper checks window/resource teardown. Logs and snapshots use the
+`artifacts/logs/vfx-ripple-*` and `artifacts/reference/vfx-ripple-*` prefixes.
+These tests use no real mouse/keyboard input and are not a frame-rate benchmark.
+
 ## Blackhole Effect in the Intro menu
 
-The Intro drawer now ends with an initially unchecked checkbox labeled
+The Intro drawer includes an initially unchecked checkbox labeled
 `Blackhole Effect`. Open the top-left menu and scroll to the bottom.
 Checking enables the effect; unchecking turns it off.
 This is an intentional addition to the Demo, not a change to VFX library controls.

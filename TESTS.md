@@ -828,3 +828,13 @@ preserve fine black/white stripes at 2x snapshot scale, reporting
 `NODE_SHADER_HIDPI_IDENTITY_PASS`. This detects whole-subtree downsampling even
 when the shader itself leaves every pixel unchanged. Use `-Renderer mobile` or
 `-Renderer gl_compatibility`; `GODOT_JFX_RD_DIRECT=1` selects the RD path on mobile.
+
+## VFX click ripple effect
+
+After `build-vfx.ps1`, run `test-vfx-ripple.ps1` (mobile/safe/Viewport), `-RD`,
+`-Renderer gl_compatibility`, or `-NativeD3D`. Require `VFX_RIPPLE_PROBE_PASS`
+and, for Godot, `GODOT_VFX_RIPPLE_PASS`, with no shader/runtime errors.
+The fixture verifies the menu checkbox and Scene-root scope, coexistence with
+blackhole, left-only click positions and overlap, idle/expired restoration, GPU animation, transparent corners,
+disabling/re-enabling, resize and window-hide cleanup. It uses synthetic mouse events without consuming them; no physical input permission is needed.
+Details and artifact paths are in [VFX Demo](docs/vfx-demo.md#ripple-effect-in-the-intro-menu).
