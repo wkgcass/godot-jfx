@@ -92,3 +92,36 @@ by Godot's canvas parser and copied into the buffer before explicit overrides.
 `test-rd-regressions.ps1` checks omitted defaults and explicit overrides in the
 production draw path; the existing node-shader suite passes with RD on/off and
 OpenGL. Earlier translation-only results did not prove default-value behavior.
+
+## Animated input and dirty-region handling
+
+`GodotShaderEffect` always renders its complete input and invalidates its complete
+output bounds when input content changes. Arbitrary shaders can sample any input
+pixel, so the original dirty rectangle cannot describe the affected output.
+Cropping the input also changes normalized node UVs and can leave unwarped or
+stale copies beside the correct shader output during child animations.
+This follows the same conservative policy as JavaFX `DisplacementMap`; dirty
+region optimization remains enabled elsewhere. Effects on a whole Scene root
+therefore redraw that root when its descendants animate, which can cost more GPU
+work than local repainting. Shader syntax and public API are unchanged.
+
+After rebuilding JFX, run the independent regression (no VFX dependency):
+
+```powershell
+.\scripts\test-node-shader-dirty.ps1 -Renderer mobile
+.\scripts\test-node-shader-dirty.ps1 -Renderer mobile -RD
+.\scripts\test-node-shader-dirty.ps1 -Renderer gl_compatibility
+```
+
+A fixed horizontal-mirror shader receives a rectangle whose opacity animates and
+whose position changes. The host samples actual presented GPU frames, rather than
+requesting full JavaFX node snapshots: the mirrored rectangle must update, its
+unwarped location must stay empty, and its former location must clear. Both phases
+require repeated samples and teardown requires zero owned host resources. Logs
+and captures use `node-shader-dirty-<renderer>-<thread>-rd<0/1>` names under
+`artifacts/logs` and `artifacts/reference`. No real mouse or keyboard input is used.
+
+2026-11-12: the regression reproduced the unwarped duplicate before the fix.
+The source JFX SDK build, this regression and the existing node-shader suite pass
+on Windows Editor mobile/safe with RD off/on and OpenGL/safe. These bounded checks
+do not establish Runtime, cross-platform or performance acceptance.
