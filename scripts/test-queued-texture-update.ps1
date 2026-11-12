@@ -1,21 +1,16 @@
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile', [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [switch]$BatchBoundary, [switch]$ViewportState)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$BatchBoundary, [switch]$ViewportState)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
-$savedRd = $env:GODOT_JFX_RD_DIRECT
-$savedBatch = $env:GODOT_JFX_RD_BATCH
 $savedOffscreen = $env:GODOT_JFX_DIRECT_OFFSCREEN
 $savedBoundary = $env:GODOT_JFX_TEST_BATCH_BOUNDARY
 $savedViewport = $env:GODOT_JFX_TEST_VIEWPORT_STATE
 $savedInstance = $env:GODOT_JFX_INSTANCE_UNIFORMS
 $savedJvm = $env:JAVA_TOOL_OPTIONS
-$env:GODOT_JFX_RD_DIRECT = if($ViewportState){'0'}else{'1'}
-$env:GODOT_JFX_RD_BATCH = '1'
 $env:GODOT_JFX_DIRECT_OFFSCREEN = '1'
 Push-Location $root
 try {
-    if ($Renderer -eq 'gl_compatibility' -and !$ViewportState) { throw 'OpenGL requires -ViewportState' }
     if ($BatchBoundary -and $ViewportState) { throw 'Choose one fixture mode' }
     $env:GODOT_JFX_TEST_VIEWPORT_STATE = if($ViewportState){'1'}else{'0'}
     if($ViewportState){$env:GODOT_JFX_INSTANCE_UNIFORMS='1'}
@@ -34,4 +29,4 @@ try {
     if($BatchBoundary -and ($output -notmatch 'BATCH_BOUNDARY_PIXELS_PASS' -or $output -notmatch 'BATCH_BYTE_BOUNDARY_PIXELS_PASS')){throw "Batch boundary pixel check incomplete: $log"}
     if ($result -ne 0 -or $output -notmatch 'GODOT_QUEUED_TEXTURE_UPDATE_PASS' -or $output -notmatch 'QUEUED_TEXTURE_UPDATE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)') { throw "Queued texture update test failed: $log" }
     Write-Output "Queued texture update passed: $log"
-} finally { $env:GODOT_JFX_TEST_VIEWPORT_STATE=$savedViewport; $env:GODOT_JFX_INSTANCE_UNIFORMS=$savedInstance; $env:JAVA_TOOL_OPTIONS=$savedJvm; $env:GODOT_JFX_TEST_BATCH_BOUNDARY=$savedBoundary; $env:GODOT_JFX_RD_BATCH=$savedBatch; $env:GODOT_JFX_DIRECT_OFFSCREEN=$savedOffscreen; $env:GODOT_JFX_RD_DIRECT=$savedRd; $env:GODOT_JFX_JDK = $savedJdk; Pop-Location }
+} finally { $env:GODOT_JFX_TEST_VIEWPORT_STATE=$savedViewport; $env:GODOT_JFX_INSTANCE_UNIFORMS=$savedInstance; $env:JAVA_TOOL_OPTIONS=$savedJvm; $env:GODOT_JFX_TEST_BATCH_BOUNDARY=$savedBoundary; $env:GODOT_JFX_DIRECT_OFFSCREEN=$savedOffscreen; $env:GODOT_JFX_JDK = $savedJdk; Pop-Location }

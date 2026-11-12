@@ -1,14 +1,14 @@
 [CmdletBinding()]
-param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('safe','separate')][string]$RenderThread='safe')
+param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('safe')][string]$RenderThread='safe')
 $ErrorActionPreference='Stop'
-$names=@('GODOT_JFX_JDK','GODOT_JFX_LCD_SCREEN','GODOT_JFX_RD_DIRECT')
+$names=@('GODOT_JFX_JDK','GODOT_JFX_LCD_SCREEN')
 $saved=@{}; foreach($name in $names){$saved[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
     New-Item -ItemType Directory -Force artifacts/reference,artifacts/logs | Out-Null
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls -encoding UTF-8 -d artifacts/reference tests/reference/LcdOverlapProbe.java
     if($LASTEXITCODE -ne 0){throw 'LCD probe compilation failed'}
-    $env:GODOT_JFX_JDK=$Jdk; $env:GODOT_JFX_RD_DIRECT='1'
+    $env:GODOT_JFX_JDK=$Jdk
     foreach($mode in @('0','1')) {
         $env:GODOT_JFX_LCD_SCREEN=$mode
         $log="artifacts/logs/lcd-overlap-$RenderThread-$mode.log"

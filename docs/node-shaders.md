@@ -3,7 +3,7 @@
 The VFX Intro menu includes a concrete subtree example: **Blackhole Effect**
 attaches this API to the Demo content VSceneGroup and updates numeric uniforms from
 mouse events. Its CanvasItem source is a Java 11-compatible string constant in `BlackholeEffectControl`, and works
-through either Viewport or RD when supported by the host. See
+through the Viewport path. See
 [VFX Demo](vfx-demo.md#blackhole-effect-in-the-intro-menu) for operation and tests.
 
 `javafx.scene.effect.GodotShaderEffect` is an additive public extension in
@@ -63,20 +63,8 @@ Validation command:
 .\scripts\test-node-shaders.ps1 -Renderer mobile
 ```
 
-The runner preserves existing rendering environment variables. To explicitly
-exercise RD on Vulkan without changing later commands:
-
-```powershell
-$savedRd = $env:GODOT_JFX_RD_DIRECT
-try {
-    $env:GODOT_JFX_RD_DIRECT = '1'
-    .\scripts\test-node-shaders.ps1 -Renderer mobile
-} finally { $env:GODOT_JFX_RD_DIRECT = $savedRd }
-```
-
-Use `'0'` for the corresponding forced non-RD run. Record the selected value with
-the log: the standard filename includes renderer and thread mode, but not RD state,
-so copy it before another run overwrites it.
+Run `test-node-shaders.ps1 -Renderer mobile` or `-Renderer gl_compatibility`.
+Both use the same Viewport shader path and safe render-thread mode.
 
 The probe exercises separate parameter instances, 80 parameter changes, a
 GaussianBlur input chain, subtree shading, scaled clip/opacity, normalized UVs,
@@ -84,20 +72,6 @@ an unaffected sibling, a shader on an ordinary Button with Chinese text, mouse
 action updating a second shader, and zero native resources after teardown.
 Its PNGs are GPU framebuffer captures, not OS screenshots or physical-input
 acceptance of the final VFX demo.
-
-RD-direct mode (`GODOT_JFX_RD_DIRECT=1`) runs the same effect through the
-translated raw-GLSL pipeline: every fragment `COLOR` reference (including the
-adapter's compound `COLOR *=` modulation) maps to a local initialized from the
-vertex-color varying, one-line sources with several uniform declarations and
-default values translate, and historical acceptance runs passed in both RD states. These results describe
-the tested shader subset, not arbitrary CanvasItem source compatibility.
-
-The 2026-11-09 review found that translating a default declaration was not enough:
-the production RD uniform buffer still started at zero. Defaults are now evaluated
-by Godot's canvas parser and copied into the buffer before explicit overrides.
-`test-rd-regressions.ps1` checks omitted defaults and explicit overrides in the
-production draw path; the existing node-shader suite passes with RD on/off and
-OpenGL. Earlier translation-only results did not prove default-value behavior.
 
 ## Animated input and dirty-region handling
 
@@ -115,7 +89,6 @@ After rebuilding JFX, run the independent regression (no VFX dependency):
 
 ```powershell
 .\scripts\test-node-shader-dirty.ps1 -Renderer mobile
-.\scripts\test-node-shader-dirty.ps1 -Renderer mobile -RD
 .\scripts\test-node-shader-dirty.ps1 -Renderer gl_compatibility
 ```
 
@@ -129,7 +102,8 @@ and captures use `node-shader-dirty-<renderer>-<thread>-rd<0/1>` names under
 
 2026-11-12: the regression reproduced the unwarped duplicate before the fix.
 The source JFX SDK build, this regression and the existing node-shader suite pass
-on Windows Editor mobile/safe with RD off/on and OpenGL/safe. These bounded checks
+on earlier Windows Editor builds with multiple backend choices. Current runs
+use only Viewport + safe on mobile or OpenGL. These bounded checks
 do not establish Runtime, cross-platform or performance acceptance.
 
 ## High-DPI input resolution

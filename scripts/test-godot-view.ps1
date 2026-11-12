@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [switch]$Transform, [switch]$Runtime)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Transform, [switch]$Runtime)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -16,7 +16,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'GodotView probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_TEST_VIEW_TRANSFORM = if($Transform){'1'}else{'0'}
-    $suffix = if ($RenderThread -eq 'separate') { '-separate' } else { '' }
+    $suffix = ''
     if($Transform){$suffix += '-transform'}
     if($Runtime){$suffix += '-runtime'}
     $log = Join-Path $root "artifacts/logs/godot-view-$Renderer$suffix.log"

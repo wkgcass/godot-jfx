@@ -1,5 +1,12 @@
 # Glass-Godot IME
 
+> Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
+> safe. Custom RD-direct and separate-thread host support have been removed.
+> Dated RD/separate measurements below are historical evidence, not runnable
+> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> for current commands.
+
+
 Glass-Godot enables the Windows input method context of the corresponding Stage's
 existing Godot HWND when a JavaFX text control accepts input method events. IME
 does not create an extra native text control. Root host commands and native-window

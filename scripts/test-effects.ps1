@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [switch]$Runtime)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -10,7 +10,7 @@ try {
     & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED '-Dprism.order=d3d' '-Deffects.reference=artifacts/reference/d3d-effects.png' -cp artifacts/reference EffectsProbe *> artifacts/logs/effects-d3d.log
     if ($LASTEXITCODE -ne 0 -or (Get-Content artifacts/logs/effects-d3d.log -Raw) -notmatch 'EFFECTS_REFERENCE_PASS') { throw 'D3D effects reference failed' }
     $env:GODOT_JFX_JDK = $Jdk
-    $suffix = if ($RenderThread -eq 'separate') { '-separate' } else { '' }
+    $suffix = ''
     if ($Runtime) { $suffix += '-runtime' }
     $log = Join-Path $root "artifacts/logs/effects-$Renderer$suffix.log"
     if ($Runtime) {

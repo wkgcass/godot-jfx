@@ -1,5 +1,12 @@
 # 实现审查状态与验证限制
 
+> Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
+> safe. Custom RD-direct and separate-thread host support have been removed.
+> Dated RD/separate measurements below are historical evidence, not runnable
+> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> for current commands.
+
+
 本文顶部记录当前审查状态，其余章节保留各轮修复证据。历史章节中的“当前”“剩余”“未完成”仅指当时阶段；原始范围和累计修复收尾以顶部状态为准。测试与源码索引只是证据导航，不单独构成完成证明。
 
 ## 当前收尾状态与已有结果

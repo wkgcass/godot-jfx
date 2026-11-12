@@ -25,7 +25,7 @@ func _ready() -> void:
 			if window.is_embedded() or DisplayServer.get_window_list().size()!=2:
 				push_error("Expected independent native window");get_tree().quit(1);return
 			# Match the integration's explicit teardown fence before destroying
-			# a swapchain still referenced by the separate rendering thread.
+			# a window whose swapchain may still have queued rendering work.
 			RenderingServer.viewport_set_update_mode(window.get_viewport_rid(),RenderingServer.VIEWPORT_UPDATE_DISABLED)
 			RenderingServer.force_sync()
 			remove_child(window);window.free()

@@ -1,10 +1,22 @@
 # Logical windows in the single Godot host
 
+> Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
+> safe. Custom RD-direct and separate-thread host support have been removed.
+> Dated RD/separate measurements below are historical evidence, not runnable
+> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> for current commands.
+
+
 **Historical implementation, superseded 2026-11-02:** the user now requires each
 Stage to be an independent native OS window. That migration is now implemented
 with Godot-owned native windows. The embedded Stage model below is retained as
 historical diagnostics, not current Stage behavior or final acceptance evidence.
 See architecture.md and glass-godot.md for the current implementation.
+
+The `JavaFXWindowSurface` texture-layer compositor itself is still used: the
+primary Stage publishes through it, and each native secondary window owns its
+own compositor. Only the old mapping of secondary Stages to layers in one OS
+window is superseded. Its live rendering and resource-lifetime code is retained.
 
 The VFX Demo uses additional Stages for dialogs and loading windows. ComboBox,
 ContextMenu and tooltips also require popup windows. They must be logical layers

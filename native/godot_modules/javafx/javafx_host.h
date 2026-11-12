@@ -4,9 +4,6 @@
 #include "javafx_native_window.h"
 #include "windows_dnd.h"
 #include "prism_mesh.h"
-#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
-#include "javafx_rd_direct.h"
-#endif
 
 #include <memory>
 #include <thread>
@@ -45,7 +42,6 @@ class JavaFXHost : public JavaFXWindowSurface {
 	uint64_t hover_tap_epoch_us = 0;
 	uint64_t hover_tap_last_tick_us = 0, hover_tap_last_body_us = 0, hover_tap_last_pipes = 0;
 	uint64_t hover_tap_last_tex_mem = 0, hover_tap_last_buf_mem = 0;
-	double window_gpu_time_us = 0.0;
 	uint64_t profile_texture_us = 0, profile_target_us = 0, profile_geometry_us = 0, profile_shader_us = 0;
 	uint64_t profile_shader_creations = 0;
 	bool compose_target = false;
@@ -70,11 +66,6 @@ class JavaFXHost : public JavaFXWindowSurface {
 	// when a QUADS command tags fresh content, read by QUADS_REF, retired by
 	// GEOMETRY_FREE. Main-thread only; cleared when the JVM stops.
 	HashMap<uint64_t, Ref<ArrayMesh>> geometry_meshes;
-	// RD-direct mode consumes raw batch bytes instead of meshes; the same
-	// handle maps to the decoded vertex/color pair.
-#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
-	HashMap<uint64_t, std::pair<PackedFloat32Array, PackedByteArray>> geometry_raw;
-#endif
 
 	// One-shot VSync pacing health check. Some Windows display states pace FIFO
 	// presents far below the refresh rate (observed: a stable ~33 Hz plateau on
@@ -118,9 +109,6 @@ class JavaFXHost : public JavaFXWindowSurface {
 	void run_dnd_source(std::unique_ptr<godot_javafx::windows_dnd::SourceData> p_data);
 	void apply_native_window_commands();
 	Rect2i target_clip_rect;
-#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
-	godot_javafx::rd_direct::CycleState rd_cycle_state;
-#endif
 
 	bool startup_enabled = false;
 	bool startup_logo_enabled = false;
@@ -146,7 +134,7 @@ class JavaFXHost : public JavaFXWindowSurface {
 	Dictionary get_startup_status() const;
 
 	void frame_presented();
-	void finish_pending_pass(bool p_target_drawn);
+	void finish_pending_pass();
 	void complete_offscreen_pass();
 	void apply_host_commands();
 	// Second application point late in the frame (RenderingServer frame_pre_draw,
@@ -169,13 +157,6 @@ protected:
 	void input(const Ref<InputEvent> &p_event) override;
 
 public:
-	static bool is_rd_direct_compiled() {
-#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
-		return true;
-#else
-		return false;
-#endif
-	}
 	bool create_native_window(int64_t p_id, int64_t p_owner, const Rect2i &p_bounds, const String &p_title, int p_flags);
 	bool configure_native_window(int64_t p_id, const Rect2i &p_bounds, bool p_visible);
 	bool set_native_window_property(int64_t p_id, int p_property, int p_a, int p_b, const String &p_text);
@@ -194,19 +175,6 @@ public:
 	int64_t get_completed_presentations() const { return completed_presentations; }
 	int64_t get_backpressure_count() const;
 	Dictionary get_render_stats() const;
-	// Spike: cost of one offscreen viewport render cycle with K draw items.
-	Dictionary benchmark_offscreen_cycle(int p_items, int p_count);
-	// RD-direct backend P1 prototype: raw RenderingDevice offscreen cycle plus
-	// the texture-ledger bridge. Resources stay alive until release_rd_cycle.
-	Dictionary benchmark_rd_cycle(int p_items, int p_count, RID p_parent_item);
-	// P2 translate probe: same canvas shader batch through the viewport path
-	// and the translated RD pipeline, compared pixel by pixel. Two-phase: the
-	// engine frame renders the reference between phase A and finish.
-	Dictionary rd_translate_probe(const String &p_shader, RID p_texture, RID p_parent_item);
-	Dictionary rd_translate_probe_finish();
-	void release_rd_cycle();
-	double get_offscreen_gpu_time_us() const { return JavaFXRenderSurface::get_offscreen_gpu_time_us(); }
-	void set_window_gpu_time_us(double p_us) { window_gpu_time_us = p_us; }
 	bool has_pending_readback() const;
 	Dictionary get_custom_cursor_info() const { return custom_cursor_info; }
 	Dictionary get_window_icon_info(int64_t p_id) const;

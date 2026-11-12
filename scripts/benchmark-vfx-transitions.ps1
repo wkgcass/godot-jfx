@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('safe','separate')][string]$Backend='safe', [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile')
+param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('safe')][string]$Backend='safe', [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile')
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $savedJdk=$env:GODOT_JFX_JDK

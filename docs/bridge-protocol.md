@@ -1,19 +1,19 @@
 # JVM host and batch bridge (M2 foundation)
 
-## RD-direct build capability
+> Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
+> safe. Custom RD-direct and separate-thread host support have been removed.
+> Dated RD/separate measurements below are historical evidence, not runnable
+> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> for current commands.
 
-`GodotBridge.isRDDirectCompiled(): boolean` is registered through JNI with
-signature `()Z`. It reports whether the host was built with
-`javafx_rd_direct=yes`; it does not report the runtime selection or device
-availability. There is no change to frame opcodes or packet layouts. Both host
-variants use the same Java command encoder and SDK. Rebuild the SDK together
-with the host when adopting this JNI addition; older SDKs lack the method and
-cannot register the updated native method table.
 
-The host rejects an explicit `GODOT_JFX_RD_DIRECT=1` before starting the JVM
-when built with `javafx_rd_direct=no`. GDScript can query the same capability
-through `JavaFXHost.is_rd_direct_compiled()` or `get_render_stats()`'s
-`rd_direct_compiled` field. An RD-enabled build may still use Viewport targets.
+## Viewport-only host contract
+
+Rebuild the source host and JFX SDK together: the obsolete
+`GodotBridge.isRDDirectCompiled()` JNI method and its GDScript capability query
+were removed. Frame opcodes and packet layouts are unchanged. Targets use
+Viewport rendering only. JVM startup rejects separate rendering before creating
+the JVM; renderer selection (mobile or gl_compatibility) remains independent.
 
 ## Compact media planes (operations 27/28)
 
@@ -95,9 +95,8 @@ IME candidate coordinates are window-local and bounded to +/-1,000,000; completi
 requires zero arguments and pumps Windows commits before acknowledgement. IME
 preedit records carry the originating window ID like other input records.
 
-Only the Godot main thread applies these requests. Before native window mutation,
-RenderingServer.sync prevents swap-chain lifetime changes from overlapping an
-active separate-thread draw. nativeWindowInfo returns an empty array until an ID
+Only the Godot main thread applies these requests, using the same thread as
+Godot rendering. nativeWindowInfo returns an empty array until an ID
 has a published snapshot or after its destruction; otherwise it returns 11 longs:
 ID, owner, native window ID, x, y, width, height, visible, focused, mode, ack.
 nativeWindowAck provides the latest applied sequence even after all windows close.
@@ -106,7 +105,8 @@ the legacy host/render queues; Glass must await creation before using native sta
 Normal JVM return closes admission but preserves accepted requests for consumption;
 explicit stop/failure cancels remaining requests. No Java thread accesses Godot Nodes.
 
-test-native-window-bridge.ps1 passes GL and Vulkan separate-thread mode with
+Earlier test-native-window-bridge.ps1 runs passed GL and the retired Vulkan
+separate-thread mode with
 two native windows, Unicode titles, independent resize/visibility, 12 hide/show
 cycles, invalid requests, owner-tree destruction and clean native-window counts.
 Protocol tests cover rejection atomicity, FIFO draining and finish admission.
@@ -282,9 +282,8 @@ behavior through its texture/shader paths; see prism-godot.md for their limits.
 
 Native draws capture immutable RID revisions. Updates retain old RIDs only
 if an existing draw references them; otherwise the current RID is updated.
-Disposal similarly frees unreferenced resources immediately. CLEAR removes Canvas draw references; pending RD batches must also be committed
-before their retired texture revisions are freed. Reference flags remain set
-while such batches are pending. Live plus retired image
+Disposal similarly frees unreferenced resources immediately. CLEAR removes
+Canvas draw references after ordered Viewport pass completion. Live plus retired image
 bytes are bounded to 1 GiB in the projected ledger; CLEAR reclaims retired
 budget. This is owner-level accounting, not a measurement of GPU driver
 allocations or completion fences. Complete image payloads must also fit the
@@ -432,9 +431,8 @@ TARGET_ALLOCATE uses the same 16-byte payload as texture allocation: u64 handle,
 u32 width, u32 height. It reserves the same slot/generation and RGBA byte budget,
 but records render-target kind. CPU image/region updates to that kind are rejected
 transactionally. Ordinary shader/textured-quad sampling and disposal use the same
-handle operations. Native ownership is a RefCounted JavaFXRenderTarget. Its default viewport
-texture is borrowed; optional asynchronous proxies and RD offscreen textures
-have separate owned-resource lifetimes (see native-module.md). Referenced targets remain retained after
+handle operations. Native ownership is a RefCounted JavaFXRenderTarget. Its
+viewport texture is borrowed (see native-module.md). Referenced targets remain retained after
 logical disposal until draw commands are cleared. Initial contents are transparent.
 Target drawing/selection uses commands 16/17 below.
 
@@ -452,20 +450,14 @@ with RenderingServer.draw(false, 0) inside its process callback. This retains
 the post-draw lifetime boundary without swapping the window for each LCD-text
 or effect intermediate. Consumption is limited to 16 batches and a 4 ms elapsed
 budget (checked after each batch; a single draw can exceed it). PRESENT still
-uses the normal window presentation path. With a separate rendering thread,
-frame_post_draw is deferred to main and can describe an older draw. Before
-releasing a pending pass, the host therefore queues draw(false, 0) after its
-commands and synchronizes the RenderingServer command queue. UPDATE_ONCE avoids
-replaying a pass already consumed by a normal draw. This is command ordering,
-not a CPU pixel readback or a claim that the whole GPU is idle.
-END_PASS performs this fence immediately in the main-thread process callback for
-the separate renderer as well, within the same bounded batch loop. It no longer
-waits for a later display frame merely to trigger the fence. Final presentations
+uses the normal window presentation path.
+END_PASS completes within the bounded main-thread batch loop, without waiting
+for another display frame. Final presentations
 and native-window compositions retain their normal completion path.
 Queue admission stays bounded to three batches;
 capacity wakeups allow the Java render thread to refill between passes.
 
-The seven switches below default to enabled. Set an individual switch to `0`
+The retained switches below default to enabled. Set an individual switch to `0`
 to disable it for diagnosis; unset or `1` enables it. These defaults apply to
 the Godot backend only; native JavaFX D3D scheduling is unchanged.
 
@@ -483,21 +475,11 @@ the CPU fence and only counts completion after window composition. Independent
 native Stage routing is unchanged. Use `scripts/benchmark-vfx-frames.ps1` for
 the same original VFX animation on D3D and Vulkan; pulse rates and completed
 Godot presentations are distinct metrics, and the benchmark performs no readback.
-`GODOT_JFX_EARLY_COMPOSITION_FENCE=1` experimentally completes pending root
-composition before admitting the next batch in separate-thread mode. It drains
-both layer-owner and host completion state behind the existing draw/fence.
-It does not apply to pending independent native-window compositions or safe mode.
-`GODOT_JFX_ASYNC_PASS_FENCE=1` experimentally dispatches direct offscreen draws
-through the RenderingServer FIFO, capturing viewport RIDs by value. Subsequent
-mutations/frees stay in that FIFO; the host drains it once after consumed batches
-before readback and completed-sequence publication. Separate-mode
-direct_offscreen_render_us is then unavailable (reported as zero), not free GPU
-work. With `GODOT_JFX_ASYNC_PASS_FENCE=0`, the separate-thread fallback waits
-for each object-bound callback before returning, including when
-`GODOT_JFX_PASS_SYNC_INTERVAL=0`; otherwise the caller could destroy the object
-or read its timing field before the queued callback finishes. The interval only
-controls pacing in the synchronous safe-thread path. The default RID-by-value
-async path keeps its batch fence and does not gain a per-pass wait.
+Direct offscreen draws now execute synchronously on the Godot main thread.
+A completed-pass batch fence remains for GPU pacing and resource ordering;
+it is not a cross-thread callback. `GODOT_JFX_PASS_SYNC_INTERVAL` optionally
+adds per-pass pacing. Java command-queue bounds and completion notifications
+remain necessary because JavaFX still has its own application/render threads.
 `GODOT_JFX_SHADER_SOURCE_CACHE=1` enables bounded CPU source-conversion and
 ASCII-encoding caches; uniforms and sampler bindings are never cached with source.
 `GODOT_JFX_FRAME_PULSE=1` selects a separate `awaitFrameTick(after, timeout)` JNI
@@ -544,19 +526,18 @@ before every blit. `profile_patch_reuse_count`/`profile_patch_clone_count` show
 which branch runs. GPU texture revision ownership is unchanged. Texture-version,
 effect, churn, pending-readback stop and GPU-motion validation pass.
 
-By default, partial updates queue dirty-rectangle uploads on the
-RenderingServer thread for ordinary textures not retained by encoded draws.
+By default, partial updates upload dirty rectangles synchronously on the
+main/render thread in safe mode for ordinary textures not retained by encoded draws.
 Vulkan uses the existing RenderingDevice staging/transfer/dependency path with
 rectangle offsets; OpenGL uses glTexSubImage2D. Only uncompressed, non-mipmapped
 2D RGBA8/RGBAF images qualify; storage backends retain a full-update fallback.
 Referenced textures still receive a new complete immutable GPU revision. The
-queued callback captures its RID and packed patch pixels by value, preserving
-ordering with draws and frees. It no longer retains the entire CPU shadow while
-waiting for the separate render thread. Subsequent patches can reuse the private
+upload uses the packed patch directly in command order, without a queued
+callback or retaining the entire CPU shadow. Subsequent patches can reuse the private
 shadow instead of repeatedly copying its full pixel buffer. CPU shadows retained
 by full uploads/new texture revisions still use the reference-count/COW protection
-above. The internal storage API accepts either a full shadow (legacy callers) or
-an explicit packed patch. Vulkan/OpenGL validate the destination bounds and input
+above. The internal storage API accepts a packed patch; the unused full-shadow
+input branch has been removed. Vulkan/OpenGL validate the destination bounds and input
 size/format, and upload the patch directly for supported textures. An unsupported
 storage layout reconstructs a full update from the existing texture; the host
 continues using its original full-image path for formats other than RGBA8/RGBAF.
@@ -574,9 +555,7 @@ The viewport path of JavaFXRenderTarget caches up to 64 immutable shader RIDs
 by exact shader code. Materials preserve each draw's uniform/sampler state;
 compatible immutable bindings may be reused through a bounded material cache. Cache-full misses remain pass-owned; no in-use shader is
 evicted during a pass. Cached shaders count toward owned resources and are freed
-when the render target is destroyed. The optional RD path instead shares a
-256-entry / 16-MiB source/translated-payload cache, with queued draws retaining
-compiled pipelines independently of eviction. get_cached_shader_count() and
+when the render target is destroyed. get_cached_shader_count() and
 get_shader_creation_count() expose this policy for the shader-cache GPU probe.
 
 JavaFXHost.get_completed_presentations() counts completed PRESENT compositions,
@@ -676,7 +655,7 @@ ordered by window ID. There are at most 64 retained windows.
 WINDOW_REMOVE (24) contains the u64 window ID and also ends its batch. It is
 allowed outside a presentation with no unfinished drawing. Removal is idempotent
 and triggers composition of the remaining layers. Queue consumption pauses until
-composition cleanup, including separate-render-thread synchronization.
+the ordered composition cleanup completes.
 
 Published targets stay live in the resource ledger. TEXTURE_DISPOSE is rejected
 while any retained window references the handle. Remove every referencing layer

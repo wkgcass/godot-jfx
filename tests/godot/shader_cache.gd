@@ -7,8 +7,7 @@ func _ready() -> void:
 	if not check_sampler_collision(): fail("Sampler material hash collision regression"); return
 	var surface=ClassDB.instantiate("JavaFXRenderSurface"); add_child(surface)
 	var target=ClassDB.instantiate("JavaFXRenderTarget")
-	var proxy_count:=int(OS.get_environment("GODOT_JFX_ASYNC_TARGET_TEXTURE")=="1")
-	if not target.initialize(Vector2i(32,32), true): fail("Cache target allocation failed"); return
+	if not target.initialize(Vector2i(32,32)): fail("Cache target allocation failed"); return
 	var vertices:=PackedFloat32Array([0,0,0,0,0,0,0, 0,32,0,0,1,0,0, 32,0,0,1,0,0,0, 32,32,0,1,1,0,0])
 	var colors:=PackedByteArray([255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255])
 	for cycle in range(305):
@@ -21,7 +20,7 @@ func _ready() -> void:
 		target.draw_prism_quads(vertices,colors,code,{"tint":Vector4(0,1,0,1)},true,Rect2i(16,0,16,32))
 		target.end_pass()
 		surface.add_render_target(target,Rect2(0,0,32,32))
-		# Separate rendering defers post-draw notifications to the main thread.
+		# Post-draw notifications from older frames can already be queued.
 		# Drain notifications only after a fresh draw starts, so three queued
 		# notifications from old frames cannot satisfy this entire wait.
 		for frame in range(3):
@@ -42,7 +41,7 @@ func _ready() -> void:
 		target.finish_pass()
 		# Both quad draws share one content key, so the mesh cache holds one
 		# entry across passes instead of freeing meshes at each pass end.
-		if target.get_cached_shader_count()!=mini(variant+1,64) or target.get_owned_resource_count()!=5+proxy_count+target.get_cached_shader_count()+target.get_draw_slot_count()+target.get_cached_material_count() or target.get_cached_mesh_count()!=1:
+		if target.get_cached_shader_count()!=mini(variant+1,64) or target.get_owned_resource_count()!=5+target.get_cached_shader_count()+target.get_draw_slot_count()+target.get_cached_material_count() or target.get_cached_mesh_count()!=1:
 			fail("Shader cache/pass resource bound differs at cycle %d"%cycle); return
 		if cycle<5 and target.get_shader_creation_count()!=1:
 			fail("Repeated shader was re-created across draws/passes"); return
@@ -55,13 +54,6 @@ func _ready() -> void:
 			if memo.bytes < 3 * 1024 * 1024 or memo.entries >= 256:
 				fail("Name memo byte-pressure fixture did not evict smaller entries"); return
 			print("INSTANCE_UNIFORM_MEMO_BOUND " + str(memo))
-		if cycle == 274 and OS.get_environment("GODOT_JFX_TEST_QUEUED_NOTICES") == "1":
-			# Queue completed old frames while main-thread notification delivery
-			# is blocked here. Readback drains their render work, not callbacks.
-			for pending in range(8):
-				RenderingServer.force_draw(false)
-			var drained := get_viewport().get_texture().get_image()
-			print("QUEUED_NOTICE_INJECTION cycle=274 previous_pixel=", drained.get_pixel(8,16))
 		surface.clear_commands()
 	if target.get_shader_creation_count()!=538: fail("Overflow shaders were not pass-owned"); return
 	var target_id:int=target.get_instance_id()
@@ -77,7 +69,7 @@ func check_sampler_collision() -> bool:
 	var sources: Array = []
 	for index in range(96):
 		var source = ClassDB.instantiate("JavaFXRenderTarget")
-		if not source.initialize(Vector2i(1,1), true): return false
+		if not source.initialize(Vector2i(1,1)): return false
 		source.begin_pass(true)
 		var level := float(index + 1) / 97.0
 		source.add_rectangle(Rect2(0,0,1,1), Color(level,level,level,1))
@@ -102,7 +94,7 @@ func check_sampler_collision() -> bool:
 		push_error("No sampler hash collision found in bounded fixture"); return false
 	seen.clear()
 	var target = ClassDB.instantiate("JavaFXRenderTarget")
-	if not target.initialize(Vector2i(32,32), true): return false
+	if not target.initialize(Vector2i(32,32)): return false
 	var code := "shader_type canvas_item; render_mode unshaded, blend_premul_alpha; uniform sampler2D tex0; uniform sampler2D tex1; uniform sampler2D tex2; void fragment(){ COLOR=vec4(texture(tex0,UV).r,texture(tex1,UV).r,texture(tex2,UV).r,1.0); }"
 	var vertices := PackedFloat32Array([0,0,0,0,0,0,0, 0,32,0,0,1,0,0, 32,0,0,1,0,0,0, 32,32,0,1,1,0,0])
 	var colors := PackedByteArray([255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255])

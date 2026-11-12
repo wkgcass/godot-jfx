@@ -5,18 +5,13 @@ param(
     [string]$Jdk = $env:JAVA_HOME,
     [string]$VisualStudio = $(if ($env:VSINSTALLDIR) { $env:VSINSTALLDIR } else { Join-Path $env:ProgramFiles 'Microsoft Visual Studio/2022/Community' }),
     [ValidateRange(1, 64)][int]$Jobs = 8,
-    [switch]$WithJavaFXModule,
-    [ValidateSet('yes', 'no')][string]$JavaFXRDDirect = 'yes'
+    [switch]$WithJavaFXModule
 )
 $ErrorActionPreference = 'Stop'
-if ($PSBoundParameters.ContainsKey('JavaFXRDDirect') -and ($Target -eq 'jfx' -or !$WithJavaFXModule)) {
-    throw '-JavaFXRDDirect requires a Godot target with -WithJavaFXModule; the same JFX SDK supports both builds.'
-}
 $root = Split-Path $PSScriptRoot -Parent
 $logs = Join-Path $root 'artifacts/logs'
 New-Item -ItemType Directory -Force $logs | Out-Null
 $suffix = if ($WithJavaFXModule) { '-javafx' } else { '' }
-if ($WithJavaFXModule) { $suffix += "-rd-$JavaFXRDDirect" }
 $log = Join-Path $logs "$Target$suffix.log"
 $saved = @{}
 foreach ($name in @('JAVA_HOME', 'GRADLE_USER_HOME', 'VSCOMNTOOLS', 'VSINSTALLDIR')) {
@@ -42,7 +37,6 @@ try {
             if (!(Test-Path "$Jdk/include/jni.h")) { throw "Missing JDK JNI headers: $Jdk" }
             $env:JAVA_HOME = $Jdk
             $moduleArgs += "custom_modules=$(Join-Path $root 'native/godot_modules')"
-            $moduleArgs += "javafx_rd_direct=$JavaFXRDDirect"
         }
         & $python -m SCons -C godot platform=windows arch=x86_64 "target=$godotTarget" msvc_version=14.3 "-j$Jobs" "accesskit_sdk_path=$deps/accesskit" "mesa_libs=$deps/mesa" "agility_sdk_path=$deps/agility_sdk" "pix_path=$deps/pix" @moduleArgs *> $log
     }

@@ -36,13 +36,12 @@
 ## 运行与常用验证
 
 ```powershell
-# 默认：Godot Vulkan/mobile + safe；关闭窗口后退出
+# 唯一路径：Viewport + safe；默认渲染器为 Vulkan/mobile，关闭窗口后退出
 .\scripts\run-vfx-demo.ps1
 # 有界启动/关闭检查
 .\scripts\run-vfx-demo.ps1 -Smoke
 # 诊断后端（不代表每个测试都接受这些参数）
 .\scripts\run-vfx-demo.ps1 -Renderer gl_compatibility
-.\scripts\run-vfx-demo.ps1 -RenderThread separate
 
 .\scripts\test-protocol.cmd
 .\scripts\test-media-planes.ps1 -Renderer mobile

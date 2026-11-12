@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [switch]$StopFromHost, [switch]$Encoded, [switch]$Textures, [switch]$PrismTextures, [switch]$ShaderStates, [switch]$PrismContext,
-    [ValidateSet('gl_compatibility', 'mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe','separate')][string]$RenderThread='safe')
+    [ValidateSet('gl_compatibility', 'mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread='safe')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -18,7 +18,6 @@ if ($PrismTextures) { $suffix += '-prism-textures' }
 if ($ShaderStates) { if ($Textures -or $PrismTextures -or $Encoded -or $StopFromHost) { throw 'Shader probe is a separate mode.' }; $suffix += '-shaders' }
 if ($PrismContext) { if ($Textures -or $PrismTextures -or $Encoded -or $StopFromHost -or $ShaderStates) { throw 'Context probe is a separate mode.' }; $suffix += '-context' }
 if ($Renderer -ne 'gl_compatibility') { $suffix += "-$Renderer" }
-if ($RenderThread -ne 'safe') { $suffix += "-$RenderThread" }
 $log = Join-Path $root "artifacts/logs/m2-bridge$suffix.log"
 Push-Location $root
 try {

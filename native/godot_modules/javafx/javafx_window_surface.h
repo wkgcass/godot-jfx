@@ -3,9 +3,9 @@
 #include "javafx_render_surface.h"
 #include <map>
 
-// Legacy logical-window compositor, retained for protocol diagnostics.
-// Current Glass Stages use independent native windows via NATIVE_WINDOW_PRESENT;
-// this layer does not define their window ownership or input routing.
+// Shared texture-layer compositor for the primary host and native Stage surfaces.
+// Also exposed to protocol diagnostics. Native window ownership and input routing
+// belong to JavaFXHost; these layers do not represent embedded secondary Stages.
 class JavaFXWindowSurface : public JavaFXRenderSurface {
 	GDCLASS(JavaFXWindowSurface, JavaFXRenderSurface);
 	struct Layer {

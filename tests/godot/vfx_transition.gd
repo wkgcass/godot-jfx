@@ -37,7 +37,7 @@ func _ready() -> void:
 				# A lifetime high-water mark is not an additive counter. Its
 				# difference cannot describe the maximum within this interval.
 				if key.begins_with("max_"): delta["lifetime_"+key]=stats[key]
-				elif key in ["offscreen_gpu_us", "window_gpu_us"]: delta["last_"+key]=stats[key]
+				elif key == "offscreen_gpu_us": delta["last_"+key]=stats[key]
 				else: delta[key]=stats[key]-baseline.get(key,0)
 			delta["elapsed_ms"]=(Time.get_ticks_usec()-start_us)/1000.0
 			delta["presentation_fps"]=1000.0*delta["presentations"]/delta["elapsed_ms"]

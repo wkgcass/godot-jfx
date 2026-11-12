@@ -1,5 +1,12 @@
 # VFX frame benchmark
 
+> Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
+> safe. Custom RD-direct and separate-thread host support have been removed.
+> Dated RD/separate measurements below are historical evidence, not runnable
+> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> for current commands.
+
+
 ## Menu redraw and ripple profiling
 
 `./scripts/profile-vfx-menu.ps1` measures the actual Intro menu with synthetic
@@ -10,7 +17,7 @@ closed-menu ripples, and repeated menu opening/closing. Ripples spawn every
 The `MENU_PERF` records report JavaFX pulse timing, p95/max gaps and lost-focus
 counts, not physical display FPS. Host command counters are also captured.
 `-FullUploads` disables region uploads for a controlled comparison;
-`-RenderThread separate`, `-RD`, and `-Renderer gl_compatibility` select paths.
+`-Renderer gl_compatibility` selects OpenGL; all host tests use Viewport + safe.
 Logs use `artifacts/logs/vfx-menu-<renderer>-<thread>-rd<0|1>-<default|full>.log`.
 
 The menu's frequent small texture patches previously re-uploaded complete
@@ -50,6 +57,11 @@ versus 4,248 before this change; aggregate patch blitting time fell from about
 frames; these pulse measurements are not physical scanout rates.
 
 
+## Historical measurements before Viewport-only consolidation
+
+All configurations and tuning flags in this section describe older builds.
+Removed RD/separate flags are not accepted by the current host or wrappers.
+
 Latest shared-target-mesh build (2026-11-11), mobile/safe, 68 transitions:
 Viewport RD0/LCD1 = 58.604 pulse / 55.741 host-composition FPS;
 RD1/LCD1 = 59.662 / 56.786. Both have zero unfocused samples and pass cleanup.
@@ -60,7 +72,7 @@ These supersede earlier latest-build labels below. No physical scanout claim.
 
 Dated measurements below belong to their named builds and configurations. The
 current goal is average FPS close to 60; occasional long frames are recorded but
-are not a separate repair target. RD remains opt-in (`GODOT_JFX_RD_DIRECT=1`),
+are not a separate repair target. RD-direct is no longer available;
 and pulse, host composition and physical display rates are different metrics.
 
 ## 2026-11-11：当前构建收尾复验
@@ -86,8 +98,10 @@ max 114.793 ms。资源清理通过，backpressure 462、java_launch_upcalls 0�
 
 切页和表格报告只对累计计数做区间相减。`lifetime_max_draw_sync_us` 是宿主
 从创建至采样结束的最大同步耗时，不能解释为本次测量区间的最大值。
-启用 GPU 诊断时，`last_offscreen_gpu_us`、`last_window_gpu_us` 保留结束时
-最近一次测量值；不是区间累计耗时或平均值。旧报告对这些字段相减，差值不具备
+启用 GPU 诊断时，`last_offscreen_gpu_us` 保留结束时最近一次测量值；不是区间
+累计耗时或平均值。2026-11-13 复查删除了从未更新的宿主 `window_gpu_us` 字段
+及对应的 `last_window_gpu_us` 输出；窗口 GPU 时间仍由切页夹具直接读取视口，
+输出到 `VFX_TRANSITION_GPU`。旧报告对测量值相减，差值不具备
 上述物理意义，不能用于解释长帧或 GPU 成本。切页的可选 GPU 样本汇总另行输出。
 
 修正最大值报告后的普通 RD1/LCD1、mobile/safe 68 次切页为 59.184 Pulse FPS /
@@ -280,9 +294,8 @@ differ by marker transport; timings overlap and must not be summed as GPU work.
 `draw_offscreen_2d`, including canvas updates and draw encoding. The accompanying
 `profile_render_offscreen_calls` counts passes, and
 `profile_render_offscreen_slow_calls` counts individual calls exceeding 2 ms.
-These process-wide atomic counters cover both synchronous and queued direct
-offscreen dispatch. They are sampled without inserting a new fence, so adjacent
-host samples may straddle an in-flight render operation. They do not measure
+These process-wide atomic counters cover synchronous direct offscreen draws
+in safe mode. They are sampled without inserting a new GPU fence. They do not measure
 GPU completion, shader-set commands outside the draw, or presentation/VSync.
 Normal runs leave this instrumentation disabled. Trace mode requires these
 fields, to reject older host binaries missing the render-thread instrumentation.
@@ -291,8 +304,8 @@ Trace mode also buffers `VFX_FRAME_TRACE_PHASES`: main-thread process-frame,
 RenderingServer pre-draw and post-draw callback timestamps, using the same
 origin as host samples. The analyzer reports the longest adjacent event gaps.
 These include intervening work and scheduling, not just the named operation.
-Post-draw callbacks are deferred to the main thread in separate mode, and
-pre-draw can include explicit host draws in addition to the engine's regular
+Post-draw callbacks run on the main thread in safe mode, and pre-draw can
+include explicit host draws in addition to the engine's regular
 draw. Neither signal measures physical scanout or isolates GPU/VSync duration.
 No signals or phase arrays are used in ordinary benchmark runs.
 
@@ -333,7 +346,7 @@ Run from the repository root, using the locally built SDK and Godot Editor:
 ```powershell
 ./scripts/benchmark-vfx-frames.ps1 -Backend d3d
 ./scripts/benchmark-vfx-frames.ps1 -Backend safe
-./scripts/benchmark-vfx-frames.ps1 -Backend separate
+./scripts/benchmark-vfx-frames.ps1 -Backend safe
 ```
 
 The Java test navigates to the original VFX animation page and invokes its
@@ -416,7 +429,7 @@ unchanged interactive Demo using this tested accelerated configuration:
 
 The launcher defaults to Vulkan/safe, preserves ordinary VSync, inherits the
 accelerated render path and host-frame pulse, and restores its environment variables
-after the Demo closes. `-RenderThread separate` selects the other tested mode.
+after the Demo closes. Only safe rendering is supported.
 `-Smoke` automatically closes after startup for lifecycle verification; normal
 runs remain interactive. Explicit performance overrides are respected; the
 launcher no longer forces them to `1`. Backend defaults provide the acceleration.

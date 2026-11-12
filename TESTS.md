@@ -1,5 +1,16 @@
 # 测试指南
 
+## Viewport＋safe 支持边界
+
+当前宿主只支持 Viewport＋safe；渲染器仍可选择 mobile 或 gl_compatibility。
+RD-direct 实现、编译开关、专用探针和 separate 专用运行路径已删除。
+`test-render-mode-rejection.ps1` 故意直接传入 Godot 的 separate 参数，要求
+宿主在启动 JVM 前拒绝，输出唯一的预期错误，并释放全部宿主资源。
+负向夹具使用 OpenGL；不运行已撤销宿主支持的 Vulkan/separate 引擎清理路径。
+其他测试的 `-RenderThread` 仅接受 safe；`-RD` 与 `-JavaFXRDDirect` 已移除。
+历史日志中的 RD/separate 结果不能作为本次构建的验收证据。
+
+
 ## VFX Godot 后端检测
 
 构建 JFX 和 VFX 后运行 `scripts/test-prism-godot-detection.ps1`。
@@ -12,7 +23,7 @@ false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PAS
 
 先执行 `build-vfx.ps1` 更新 Demo 类（包括内嵌着色器），再运行
 `test-vfx-blackhole.ps1`（默认 mobile/safe/Viewport）；`-RD` 验证 RD，
-`-Renderer gl_compatibility` 验证 OpenGL，`-RenderThread separate` 可选。
+`-Renderer gl_compatibility` 验证 OpenGL；仅支持 safe 线程模式。
 需要源码 Editor、SDK 和 VFX 产物，不需要真实键鼠授权。
 
 夹具检查实际 Intro 抽屉菜单末尾的复选框、效果只附着于内容 VSceneGroup、
@@ -22,35 +33,6 @@ false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PAS
 宿主资源释放。必须同时有 `VFX_BLACKHOLE_PROBE_PASS`、`GODOT_VFX_BLACKHOLE_PASS`
 且无异常或着色器错误。`-NativeD3D` 只验证原生对照中不添加该选项，不代表 Godot
 特效通过。日志和逐步截图使用 `vfx-blackhole-<backend>-<thread>-rd<0/1>` 前缀。
-
-## RD 编译开关验证
-
-先用 `build-windows.ps1 -Target godot-editor -WithJavaFXModule -JavaFXRDDirect no`
-构建，再串行执行：
-
-```powershell
-.\scripts\test-rd-build.ps1 -ExpectCompiled no
-.\scripts\test-rd-build.ps1 -ExpectCompiled no -Renderer gl_compatibility
-.\scripts\test-rd-build.ps1 -ExpectCompiled no -RequestRD
-.\scripts\test-render-targets.ps1 -Renderer mobile
-```
-
-改为 `-JavaFXRDDirect yes` 重建后，执行 `test-rd-build.ps1 -ExpectCompiled yes`，
-再分别加 `-RequestRD`、`-RequestRD -Renderer gl_compatibility`；用
-`test-rd-regressions.ps1` 验证 RD 绘制与资源生命周期。`test-rd-build.ps1`
-还支持 `-RenderThread separate`。这些测试不操作真实键鼠。
-
-构建探针检查编译能力、实际选择的后端、红色像素读回和强制 Viewport 目标。
-关闭构建却请求 RD 时，必须有五条预期拒绝诊断（目标、JVM 启动和三个探针入口），
-其他配置不允许 ERROR；不能只靠 PASS 字符串判定。构建日志及模块库成员还应确认
-关闭时不包含 `javafx_rd_pass`、`javafx_rd_direct`、`javafx_shader_translate` 对象。
-
-测试需要重建后的源码 SDK 和 JDK 25（可用 `-Jdk` 覆盖）。脚本自动编译
-`RDBuildProbe.java`，在非拒绝场景启动 JVM 并要求 `RD_BUILD_JNI_PASS`，验证真实
-JNI 查询与干净退出；环境变量由脚本恢复。同一 SDK 应通过两种构建。
-能力查询报告“是否编入”，不代表当前选中了 RD。
-
-本文记录现有脚本的用途、启动方式和验收范围，不表示列出的测试在本次修改后都已重跑。当前通过记录见 [验收清单](docs/acceptance-status.md)，构建环境见 [AGENTS.md](AGENTS.md)。
 
 ## 运行前
 
@@ -74,13 +56,13 @@ GPU/GUI 测试串行执行；性能测试期间保持窗口前台，不进行其
 
 **前台与真实输入要求要分别判断**：Godot 合成输入和模块测试钩子不占用真实键鼠，但是否允许失焦取决于夹具；只有明确注明免前台的测试（如 ole-inject）才可据此后台运行。性能比较始终要求保持焦点并避免其他重负载。Robot 物理夹具会占用输入设备，须先获得用户授权、保持桌面空闲；同一会话中已有明确授权且未撤销时不必重复询问，开始前说明会操作真实输入。文件对话框专项使用限定本轮进程/标题的系统消息驱动，具体方式见该节。GPU/GUI 测试仍串行执行。
 
-表中命令选择 Vulkan（`mobile`）时已显式传参；未列参数使用脚本默认值。`gl_compatibility` 是 OpenGL。**可选参数以表中“可选公共参数”及后文该测试的专项说明为准**：`-RenderThread safe`/`separate`、`-Runtime` 并非所有脚本支持。`-Jdk` 用于覆盖 JDK 路径。RenderThread 的默认值随脚本不同，不应猜测。
+表中命令选择 Vulkan（`mobile`）时已显式传参；未列参数使用脚本默认值。`gl_compatibility` 是 OpenGL。**可选参数以表中“可选公共参数”及后文该测试的专项说明为准**：`-RenderThread safe`、`-Runtime` 并非所有脚本支持。`-Jdk` 用于覆盖 JDK 路径。RenderThread 固定为 safe。
 
 ## 拖放专项
 
 ```powershell
 .\scripts\test-drag-drop.ps1 -Renderer mobile
-.\scripts\test-drag-drop.ps1 -Renderer gl_compatibility -RenderThread separate
+.\scripts\test-drag-drop.ps1 -Renderer gl_compatibility -RenderThread safe
 ```
 
 前置条件为 G+J，需要构建修改后的 OpenJFX SDK。脚本使用 Godot 输入注入（按窗口 ID 投递，不要求窗口前台或置顶，可在其他应用持焦点时后台运行），不修改系统剪贴板；不需要创建拖放文件，文件列表只传递路径，不读取文件内容。可选参数为 `-Jdk`、`-Renderer`、`-RenderThread`、`-Robot`。
@@ -169,10 +151,8 @@ Windows 可能拒绝后台进程抢前台，`Stage.isFocused()` 单独不能证�
 不访问或改写真实剪贴板，也不等同端到端互操作验收。
 
 `test-render-targets.ps1` 在既有 100 轮复制/透明度/资源检查之前，增加 128 次
-Viewport 目标提交后立即释放。可用 `GODOT_JFX_ASYNC_PASS_FENCE=0` 和
-`GODOT_JFX_PASS_SYNC_INTERVAL=0`、`-RenderThread separate` 检查同步备用路径；
-同样覆盖默认异步路径。即使最终有 PASS，日志中的失效对象回调 ERROR 仍判失败。
-设置诊断环境变量后应恢复原值。此检查不使用真实键鼠。
+Viewport 目标提交后立即释放，检查 safe 模式下绘制和资源销毁顺序。
+即使最终有 PASS，日志中的失效对象回调 ERROR 仍判失败。此检查不使用真实键鼠。
 
 `test-shader-cache.ps1` 还要求 `SAMPLER_MATERIAL_COLLISION_PASS`：夹具创建 96 个
 真实纹理目标，在有界的三采样器组合中寻找实际 Dictionary 哈希碰撞，然后验证
@@ -180,18 +160,10 @@ Viewport 目标提交后立即释放。可用 `GODOT_JFX_ASYNC_PASS_FENCE=0` 和
 视为夹具失败，不跳过断言；不通过修改生产 hash 强制制造碰撞。原来的 305 轮
 着色器/缓存压力检查继续执行，像素失败会输出实际左右颜色。
 压力段读取像素前等待三轮新的 `frame_pre_draw` 和随后到达的 `frame_post_draw`，
-避免 separate 模式积压的旧完成通知直接满足全部等待；最终同步读回取得已提交绘制的结果。
-Surface、生成 Shader、RenderTarget、网格变换以及 RD corpus/LCD/translate 的
+最终同步读回取得已提交绘制的结果。
+Surface、生成 Shader、RenderTarget、网格变换的
 像素夹具也使用这一等待顺序，保持各自原有轮数及像素阈值。这不是 GPU 计时方法，
 也不能据此把 `frame_post_draw` 的送达时刻当成物理显示完成时刻。
-
-旧完成通知回归命令：
-`.\scripts\test-shader-cache.ps1 -Renderer mobile -RenderThread separate -QueuedNotifications`。
-此档只接受 separate，在第 274 轮末尾排队八次旧画面绘制并同步读回，积压返回
-主线程的完成通知。第 275 轮仍必须读到新的蓝色，而非上一轮红色，并通过其余
-全部检查；还必须出现 `QUEUED_NOTICE_INJECTION cycle=274`。日志另存为
-`shader-cache-mobile-separate-queued-notifications.log`，脚本退出恢复环境变量。
-此档人为增加绘制，只验证等待正确性，不能用于性能基准。
 
 碰撞夹具还销毁只被第一组引用的纹理，确认对象确已释放，再连续两轮绘制另一组；
 颜色必须保持一致、缓存必须仅剩一份材质，覆盖主哈希位置被删除后的查找与复用。
@@ -215,17 +187,10 @@ touch keyboard 警告。2026-11-10 当前产物运行返回关闭请求 HRESULT
 审查修复专项（不操作真实键鼠，也不读写剪贴板）：
 
 ```powershell
-.\scripts\test-rd-regressions.ps1
-.\scripts\test-rd-regressions.ps1 -RenderThread separate
-.\scripts\test-rd-regressions.ps1 -NoRing
-.\scripts\test-rd-regressions.ps1 -NoBatch
-.\scripts\test-rd-regressions.ps1 -Runtime
 .\scripts\test-render-command-validation.ps1
 .\scripts\test-image-pool-reuse.ps1
 .\scripts\test-drag-drop-ole-inject.ps1 -Timeout
 ```
-
-RD 专项前置 G，`-Runtime` 还需要最新源码 Runtime，脚本建立独立项目并导入缓存；强制 Vulkan/mobile + RD；不会把视口回退当作通过。验证 48 次绘制跨越 16 槽顶点环、清空/保留、多轮复制、复制源保留与释放、存活离屏纹理连续四轮复制仅创建一次 RD 采样绑定、96 个短生命周期不可变 Mesh 的解码/重复绘制及销毁、半透明颜色、uniform 默认值/显式覆盖/单元素数组/整型向量，以及相同长度和哈希的不同 Shader 交替绘制、参数哈希冲突和超过 128 项 Uniform 缓冲区容量的交替绘制；另通过 129 个参数版本淘汰旧 uniform buffer，再用 17 个可变批次触发环形缓冲提交，验证重新取用旧参数时最后一次可见绘制没有被失效绑定丢弃。全图像素容差 2/255，另保留一个未提交的红色目标，在另一目标绘制 260 个不同 Shader，检查共享缓存不超过 256 项、旧目标仍完整为红色、淘汰后的源码可重新绘制绿色。另验证屏幕采样看到当前 pass 的清空/蓝绿背景，而非上一 pass 的品红；采样交换红蓝通道，避免丢弃绘制后背景未变仍通过，覆盖 helper、fragment 直接采样及不同采样器名。要求 `RD_REGRESSIONS_PASS`、`RD_UNIFORM_RETIREMENT_PASS`、`RD_PIPELINE_EVICTION_PASS`、`RD_SCREEN_SNAPSHOT_PASS`、`RD_PIXEL_COORDINATES_PASS`、`RD_READBACK_OWNERSHIP_PASS`、`RD_VERTEX_INPUT_OWNERSHIP_PASS` 且无 ERROR；像素坐标分支逐像素检查 (x+0.5,y+0.5) 映射；另以半透明输出检查 blend_add、blend_mul、blend_disabled 同名辅助函数不会改变显式声明的混合模式。顶点输入所有权检查在绘制记录后、提交前改写输入顶点/颜色，要求输出仍保留原位置、两组 UV 与颜色。读回所有权检查保留三张 Image，覆盖修改其中一张、再次 GPU 读回、重绘和销毁目标后，各图片像素仍独立且有效。`draw_offscreen_pass` 与 `rd_readback` 脚本绑定用于提交和读回真实生产路径。日志 `rd-regressions-<thread>[-no-ring][-no-batch][-runtime].log`。显式设置 `GODOT_JFX_RD_PROFILE=1` 时另要求退出只输出一份 RD_PROFILE 汇总，验证清理入口只在 scene 卸载阶段执行；诊断模式不用于性能验收。
 
 编码器专项前置 J，不启动窗口或 JVM 宿主；重复非法 NaN/Z/溢出变换必须拒绝且不修改帧，之后有效几何必须先注册再引用；还验证调用方数组修改、确定性哈希槽碰撞、1024 条目和 32 MiB 数据上限、闲置释放后重新接纳几何（测试通过反射隔离编码逻辑，不证明 GPU 生命周期），要求 `RENDER_COMMAND_VALIDATION_PASS`。OLE `-Timeout` 前置 G+J，使用已有模块注入入口；阻塞 FX 线程让 Enter/Drop 过期，恢复后不得收到过期事件，随后正常拖放必须仍能通过，额外要求 `OLE_TIMEOUT_CANCEL_PASS`。日志为 `ole-inject-<renderer>-<thread>-timeout.log`。这不证明已开始执行的用户事件处理器可被撤销，也不替代真实 OLE 手势验收。
 
@@ -259,8 +224,6 @@ RD 专项前置 G，`-Runtime` 还需要最新源码 Runtime，脚本建立独�
 每行说明的是该测试的断言用途；详细用例和阈值仍以对应脚本及它启动的 `tests/reference`、`tests/godot` 探针为准。
 
 ### 底层协议、调度与生命周期
-
-`.\scripts\test-rd-missing-view.ps1 [-RenderThread safe|separate]` 需要源码 Editor，固定 Vulkan/mobile + RD-direct。通过空 sampler RID 触发临时白色回退，在相同参数下连续排队两次绘制，断言创建两个绑定，再读取白色像素；随后绑定有效纹理，验证全图绿色。要求 `RD_MISSING_VIEW_PASS`、退出码 0，且恰好只有一条预期的缺失视图 ERROR，其余 ERROR/SCRIPT ERROR/SHADER ERROR 一律失败。日志 `rd-missing-view-<thread>.log`。此测试不使用真实键鼠；不覆盖 GPU 分配失败或真实设备丢失。
 
 `.\scripts\test-clipboard-ownership.cmd` 使用 MSVC、Windows SDK 和默认 JDK 头文件，以 `/W4 /WX` 编译独立原生测试。它分配私有 HGLOBAL 内存，在持有资源时主动抛出分配异常，检查未发布块释放、已转交块保留、借用块解锁且不被释放；另检查 DIB 图片的正/负高度、24 位行补齐、截断尾行、超大宽度/头部、LONG_MIN、可选颜色表的像素起点及截断/超大颜色表；文件列表扫描覆盖 ANSI/UTF-16、奇数字节偏移、缺少列表终止符、截断路径、数量/长度限制和空列表；要求 `CLIPBOARD_OWNERSHIP_PASS` 和退出码 0。不打开或修改系统剪贴板，不需要备份用户内容；不替代真实剪贴板格式互操作测试，也不证明整个 JNI 调用的内存不足行为。
 
@@ -334,7 +297,6 @@ RD 专项前置 G，`-Runtime` 还需要最新源码 Runtime，脚本建立独�
 | `.\scripts\test-shaders.ps1 -Renderer mobile` | 生成 Shader 的完整性与 Godot 解析。前置：G+J；需要 JFX 构建生成资源。 | 与 D3D 变体集合及 SDK 内容一致；全部解析，部分像素检查，退出场景树后资源及几何缓存归零。 | `-Renderer` |
 | `.\scripts\test-shader-state.ps1` | Java Shader 描述符、常量与快照。前置：J。 | ShaderStateProbe 断言；不证明所有 GPU shader 编译成功。 | `-Jdk` |
 | `.\scripts\test-shader-source-cache.ps1` | Shader 源码编码缓存。前置：J。 | 缓存命中/边界等 Java 断言。 | `-Jdk` |
-| `.\scripts\test-shader-cache.ps1 -Renderer mobile` | Godot 渲染目标 Shader 缓存。前置：G；强制 viewport 与 instance uniforms，结束恢复环境。 | 305 轮/301 份源码，逐帧颜色、64 项目标缓存、全局名称 memo 的 256 项/4 MiB 上限及资源回收；后 35 轮加入长注释触发字节淘汰。 | `-Renderer`、`-RenderThread`、`-QueuedNotifications` |
 | `.\scripts\test-texture-lookup.ps1 -Renderer mobile` | Godot 纹理查询/生命周期诊断。前置：G。 | TEXTURE_LOOKUP_PASS 及无非预期错误。 | `-Renderer`、`-RenderThread` |
 | `.\scripts\test-render-targets.ps1 -Renderer mobile` | 离屏渲染目标、采样和释放。前置：G。 | GPU 颜色/复制及生命周期断言。 | `-Renderer`、`-RenderThread` |
 | `.\scripts\test-mesh-transform.ps1 -Renderer mobile` | QUADS 局部顶点随变换命令绘制（离屏 pass 与 surface 共享命令项两条路径，含变换复位）。前置：G；无 Java 探针。 | MESH_TRANSFORM_PROBE_PASS 与像素边界断言。 | `-Renderer` |
@@ -483,7 +445,7 @@ RD 专项前置 G，`-Runtime` 还需要最新源码 Runtime，脚本建立独�
 | `python scripts/analyze-media-handles.py artifacts/logs/media-churn-mobile-cycles24-process-types-providers.log --require-stable-aac` | 日志含完整 churn 和 Providers 信息 | AAC 不能比首个采样继续累计；缺少数据或增长会失败，不覆盖所有内存资源 |
 | `python scripts/analyze-vfx-soak.py artifacts/reference/vfx-soak-mobile-3-heap256.json` | 完成 soak，需核对其打印的实际 JSON 路径 | 统计各轮/主页/进程趋势；采样 console launcher 而非真实引擎的结果无效 |
 
-Media 性能脚本还支持 `-Backend separate`、`-FramePhases`、`-ClockSkew`、`-NoVSync`；后端固定 Vulkan，不接受 `-Renderer`。Runtime 不能与 D3D 组合。FramePhases 是 Godot 帧阶段诊断。当前 Native60 样本只有 16 秒，**不要与 Rate=2 组合做十秒测量**：预热后剩余媒体长度不足。VFX 的 `-Host120` 和 `-MailboxFps 60/120/240` 是调度诊断；Mailbox 只允许 Vulkan Godot，不能与 Host120 或 D3D 组合。不要把这些开关作为默认性能条件。
+Media 性能脚本还支持 `-FramePhases`、`-ClockSkew`、`-NoVSync`；后端固定 Vulkan，不接受 `-Renderer`。Runtime 不能与 D3D 组合。FramePhases 是 Godot 帧阶段诊断。当前 Native60 样本只有 16 秒，**不要与 Rate=2 组合做十秒测量**：预热后剩余媒体长度不足。VFX 的 `-Host120` 和 `-MailboxFps 60/120/240` 是调度诊断；Mailbox 只允许 Vulkan Godot，不能与 Host120 或 D3D 组合。不要把这些开关作为默认性能条件。
 
 参考图冻结模式用 `capture-vfx-reference.ps1 -FreezeFusion` 配对 `test-vfx-intro.ps1 -AllPages -FreezeFusion`，然后 `compare-vfx-pages.py --renderer mobile --frozen`。默认不要冻结。
 
@@ -505,27 +467,9 @@ Media 性能脚本还支持 `-Backend separate`、`-FramePhases`、`-ClockSkew`�
 句柄探针打印自进程类型统计；MF 探针无参数时检查 24 对启动/关闭，传文件时增加 Source Reader 创建/释放，要求 HRESULT 成功及 `MF_LIFECYCLE_PROBE_PASS`。它不读取播放中的全部样本，不代表完整解码链路。宿主帧探针输出配置和 `HOST_FRAME_RESULT`；它不是 JavaFX 性能门槛测试。
 
 ```powershell
-# RD 直连后端 P1 原型探针
-.\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://rd_direct_spike.tscn --rendering-method mobile --render-thread separate
 ```
 
-桥接预览在一次新的 pre-draw/post-draw 边界后读回，避免独立渲染线程的旧完成通知提前唤醒测试。视口成本对照由 `rd_spike.tscn` 单独输出 `RD_SPIKE` 数据；它没有像素断言或 PASS 门槛，不能单独作为正确性验收。
-
-前置：G（不需要 JVM）。探针经 `JavaFXHost.benchmark_rd_cycle` 走纯 RD 设备路径（自建 framebuffer/管线/纹理账本桥接），要求每轮 `pixels_ok`、`bridge_ok`、桥接上屏像素匹配（容差 6/255）并释放探针资源，输出 `RD_DIRECT_SPIKE_PASS` 与逐项单周期成本。`gl_compatibility` 下无 RenderingDevice，明确报错并退出 1，不输出 PASS；缺少设备不能证明 RD 或生产回退路径通过。这不是生产渲染验收，是 RD 直连立项（[docs/rd-direct-backend-plan.md](docs/rd-direct-backend-plan.md)）的设备路径与成本探针。
-
-```powershell
-# RD 直连 P2a 着色器翻译自对照（视口路径 vs 翻译 RD 管线，逐像素）
-.\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://rd_translate_spike.tscn --rendering-method mobile --render-thread separate
-```
-
-前置：G。探针两阶段（`rd_translate_probe` 录制 + 引擎帧渲染参考，`rd_translate_probe_finish` 回读对比）：同一批次（顶点/颜色/纹理/常量逐字节相同）分别经视口路径与翻译后 RD 管线渲染，回读逐像素对比；参考目标经 `initialize(…, true)` 强制视口路径——即使进程开了 RD 直连，保证对照双方相互独立。当前覆盖 Solid_Color/Solid_TextureRGB/AlphaTexture_Color 三族，要求 `translate_ok`、`max_diff ≤ 2`、`diffs_gt4 = 0`，左右预览上屏一致且非背景色。每族还在第一阶段后尝试启动共享状态的 cycle 基准，要求拒绝重叠调用，随后原对照仍通过；输出 `RD_TRANSLATE_OVERLAP_REJECT_PASS cases=3` 和 `RD_TRANSLATE_SPIKE_PASS`。`gl_compatibility` 下缺少 RenderingDevice，明确报错并退出 1，不输出 PASS；生产 OpenGL 回退需由对应功能测试验证。同样是立项探针而非生产验收。
-
-```powershell
-# RD 直连 P2b 全 corpus 翻译自对照（262 个生成着色器）
-.\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://rd_corpus_spike.tscn --rendering-method mobile --render-thread separate
-```
-
-前置：G 和完整 JFX gensrc。建议运行 `.\scripts\test-rd-corpus.ps1`：遍历 Prism 212 + Decora 50 个生成 Shader，以相同输入比较 RD 与强制视口参考；全部 262 项必须可编译、全图每通道最大差不超过 2/255。`exact` 是历史计数名，表示该容差内通过，不表示逐位一致。旧 edge 宽松分支已删除（它掩盖了 Y 坐标翻转）；无 RenderingDevice、缺失语料、翻译拒绝和任何超容差都失败，不再接受 GLES 回退或 deferred。包装器要求 `exact=262 edge=0 deferred=0 failed=0`、PASS、退出码 0 且无 ERROR，日志 `rd-corpus.log`。
+桥接预览在一次新的 pre-draw/post-draw 边界后读回，避免独立渲染线程的旧完成通知提前唤醒测试。
 
 ## 人工验收与记录
 
@@ -546,7 +490,7 @@ VFX 翻页基准可用 `GODOT_JFX_STACK_SAMPLE` 启用采样；必须是正整�
 
 ### 原生窗口立即关闭竞态
 
-`.\scripts\test-window-immediate-close.ps1` 默认使用 OpenGL / separate，可选 `-Renderer mobile`、`-RenderThread safe`、`-Runtime`。前置 G，Runtime 档还需源码 Runtime，脚本在 artifacts 建立独立项目，并使用源码 Editor 导入生成脚本缓存后运行。连续 32 次创建不可聚焦的原生 Window、切换 VSync 并立即关闭，中间不等待帧或渲染同步；随后等待渲染队列消费。必须有 32 个周期记录、`WINDOW_IMMEDIATE_CLOSE_PASS`、退出码 0 且无 ERROR。日志 `window-immediate-close-<renderer>-<thread>[-runtime].log`。此测试会短暂创建窗口，但不操作真实鼠标或键盘。
+`.\scripts\test-window-immediate-close.ps1` 默认使用 OpenGL / safe，可选 `-Renderer mobile`、`-RenderThread safe`、`-Runtime`。前置 G，Runtime 档还需源码 Runtime，脚本在 artifacts 建立独立项目，并使用源码 Editor 导入生成脚本缓存后运行。连续 32 次创建不可聚焦的原生 Window、切换 VSync 并立即关闭，中间不等待帧或渲染同步；随后等待渲染队列消费。必须有 32 个周期记录、`WINDOW_IMMEDIATE_CLOSE_PASS`、退出码 0 且无 ERROR。日志 `window-immediate-close-<renderer>-<thread>[-runtime].log`。此测试会短暂创建窗口，但不操作真实鼠标或键盘。
 
 ## LCD 着色器加载检查
 
@@ -554,11 +498,11 @@ VFX 翻页基准可用 `GODOT_JFX_STACK_SAMPLE` 启用采样；必须是正整�
 
 ## LCD 重叠文字对照
 
-`.\scripts\test-lcd-overlap.ps1 [-RenderThread separate]` 需要源码 Editor、JFX SDK 与 JDK，使用 Vulkan/mobile + RD。两次运行分别启用原有 LCDBuffer 路径和屏幕采样路径，绘制同位置错开的蓝/红、绿/黑中英文 LCD 文字。两次都是 Godot 后端，不是原生 D3D 对照。脚本要求每次 Java/宿主完成标记及无错误，截图等待新一帧绘制完成，空图像或 PNG 保存失败立即报错；第二次全图 RGBA 差异不超过 2/255、图像包含足够文字像素，并打印 `LCD_OVERLAP_DIFF_PASS`。日志为 `lcd-overlap-<thread>-0/1.log`，截图为 `lcd-overlap-0/1.png`。退出确认使用 Godot 合成点击，不移动真实鼠标或键盘；测试串行运行，期间保持显示缩放和字体环境一致。该夹具覆盖相邻文字节点重叠，不是全部字体或 LCD 兼容性证明。
+`.\scripts\test-lcd-overlap.ps1 [-RenderThread safe]` 需要源码 Editor、JFX SDK 与 JDK，使用 Vulkan/mobile + Viewport。两次运行分别启用原有 LCDBuffer 路径和屏幕采样路径，绘制同位置错开的蓝/红、绿/黑中英文 LCD 文字。两次都是 Godot 后端，不是原生 D3D 对照。脚本要求每次 Java/宿主完成标记及无错误，截图等待新一帧绘制完成，空图像或 PNG 保存失败立即报错；第二次全图 RGBA 差异不超过 2/255、图像包含足够文字像素，并打印 `LCD_OVERLAP_DIFF_PASS`。日志为 `lcd-overlap-<thread>-0/1.log`，截图为 `lcd-overlap-0/1.png`。退出确认使用 Godot 合成点击，不移动真实鼠标或键盘；测试串行运行，期间保持显示缩放和字体环境一致。该夹具覆盖相邻文字节点重叠，不是全部字体或 LCD 兼容性证明。
 
 ## 已排队纹理版本
 
-`.\scripts\test-queued-texture-update.ps1 [-RenderThread separate]` 使用源码 Editor、SDK、JDK，强制 mobile + RD。在一次 Java 命令提交中把红色纹理画入第一目标，结束 pass、将同一逻辑纹理更新为蓝色，再画入第二目标。读回必须分别完整为红/蓝；检查正数 RD 批次提交计数，要求 `QUEUED_TEXTURE_UPDATE_PASS`、`GODOT_QUEUED_TEXTURE_UPDATE_PASS`、正常退出且无错误。日志为 `queued-texture-update-mobile-<thread>.log`。不操作真实输入或系统剪贴板；验证 END_PASS 后尚未消费的纹理版本，不代替所有资源销毁场景。
+`.\scripts\test-queued-texture-update.ps1 [-RenderThread safe]` 使用源码 Editor、SDK、JDK，使用 Viewport＋safe。在一次 Java 命令提交中把红色纹理画入第一目标，结束 pass、将同一逻辑纹理更新为蓝色，再画入第二目标。读回必须分别完整为红/蓝；要求 `QUEUED_TEXTURE_UPDATE_PASS`、`GODOT_QUEUED_TEXTURE_UPDATE_PASS`、正常退出且无错误。日志为 `queued-texture-update-mobile-<thread>.log`。不操作真实输入或系统剪贴板；验证 END_PASS 后尚未消费的纹理版本，不代替所有资源销毁场景。
 
 ### 显式 FPS 限制保护
 
@@ -591,54 +535,38 @@ JNI，调用 submit 必须抛出 UnsatisfiedLinkError；此后该编码器禁止
 完成序号不推进。标记 `ENCODER_OWNERSHIP_FAILURE_PASS`；不启动窗口、不操作键鼠。
 它验证提交 Error 的禁用路径，不等同于真实宿主背压超时或停止测试。
 
-### RD 直接调用输入拒绝
-
-```powershell
-.\scripts\test-rd-input-validation.ps1 -RenderThread separate
-```
-
-前置 G，仅 Vulkan/mobile + RD；默认 safe，也可选择 separate。不启动 JVM，
-不操作真实键鼠。通过 Godot 公开绘制入口提交非零 Z、多余顶点尾项、NaN、
-超过 65536 个顶点、颜色长度不匹配五类输入，要求拒绝后目标仍透明；每次随后
-提交合法四边形，要求完整红色，确认失败不破坏后续 pass。
-
-该负向测试预期恰好五条固定错误（按案例顺序核对），不允许其他 ERROR、
-SCRIPT ERROR 或 SHADER ERROR；进程退出 0 且 RD_INPUT_VALIDATION_PASS cases=5。
-日志 rd-input-validation-<safe|separate>.log。此例不代替 Java 协议解码验证，
-也不将 C++ 内部已经验证的 raw 路径误称为新的脚本公开 API。
-
 ### Viewport 实例参数默认值
 
 实例参数默认值回归：
 
 ```powershell
-.\scripts\test-queued-texture-update.ps1 -RenderThread separate -ViewportState
+.\scripts\test-queued-texture-update.ps1 -RenderThread safe -ViewportState
 ```
 
-此模式与 -BatchBoundary 互斥，固定关闭 RD_DIRECT、启用实例参数，通过实际
+此模式与 -BatchBoundary 互斥，启用 Viewport 实例参数，通过实际
 Java/宿主协议连续复用同一离屏目标：显式红色、参数省略后的默认绿色、切换
 着色器后的默认蓝色、删除该参数后的固定白色。各轮 256 像素必须完全一致；要求 VIEWPORT_STATE_PASS、
 另用八个 shader 验证 float/int 的 1–4 分量（含负数与小数），要求 SHADER_CONSTANT_TYPES_PASS cases=8。宿主 RD 提交为零、退出资源归零。它替代本次调用的默认纹理版本场景，不将
 Viewport 验证冒充 RD 验证。不操作键鼠；环境变量结束后恢复。
-日志 queued-texture-update-mobile-<safe|separate>-viewport-state.log。
+日志 queued-texture-update-mobile-<safe>-viewport-state.log。
 
 ### 实际 GPU 跨批次状态
 
 实际 GPU 跨批次验证可运行：
 
 ```powershell
-.\scripts\test-queued-texture-update.ps1 -RenderThread separate -BatchBoundary
+.\scripts\test-queued-texture-update.ps1 -RenderThread safe -BatchBoundary
 ```
 
-沿用该脚本的源码 Editor/SDK 前置条件，固定 mobile、RD/direct-offscreen/batch。
+沿用该脚本的源码 Editor/SDK 前置条件，固定 Viewport＋safe，覆盖 direct-offscreen 与协议批次边界。
 可选模式用真实裁剪命令填满 65536 条命令的批次，观察编码器 count（不修改它），
 检查下一次绘制确实自动提交，再读回 16×16 图像逐像素断言红色与透明裁剪区。
 要求 BATCH_BOUNDARY_PIXELS_PASS、原纹理版本双侧 PASS 以及退出资源归零。
 反射所需 JAVA_TOOL_OPTIONS 仅在运行阶段设置并恢复；不操作真实键鼠。
-日志 queued-texture-update-mobile-separate-boundary.log。该模式同时运行字节上限
+日志 queued-texture-update-mobile-safe-boundary.log。该模式同时运行字节上限
 场景：三次合法 1 MiB 纹理上传后继续填充裁剪命令，确认先到达 4 MiB 字节边界、
 未达到命令数上限，再执行相同跨批次像素检查；要求额外的
-`BATCH_BYTE_BOUNDARY_PIXELS_PASS`。mobile/safe 和 separate 两模式均已通过。
+`BATCH_BYTE_BOUNDARY_PIXELS_PASS`。需在当前 mobile/safe 构建重新验证。
 
 ### 协议资源事务的负向检查
 
@@ -686,17 +614,6 @@ Y=-14、尺寸 740×576、手势连续和宿主资源归零，日志
 `review-native-table-displacement-v.log`、`review-native-table-displacement-h.log`。
 这仍是 Pulse 测量，不含像素断言或动态注入清理异常。
 
-### RD LCD 翻译诊断的像素与释放检查
-
-`.\scripts\test-rd-lcd.ps1 [-RenderThread safe|separate] [-Runtime]` 需要源码
-Editor、完整 JFX gensrc；Runtime 档另需源码 Runtime，脚本在 artifacts 下建立
-独立项目并导入。固定 Vulkan/mobile，比较运行时 LCD Shader 的 RD 翻译与
-强制 viewport 参考，要求 max_diff≤2、diffs_gt4=0、RD_LCD_SPIKE_PASS、退出码 0
-且完整日志无 ERROR/SCRIPT ERROR/SHADER ERROR。缺失 RenderingDevice 失败。
-日志 `rd-lcd-<thread>[-runtime].log`。此诊断含纹理/uniform set 的释放，不只看
-PASS 标记；旧实现曾在 PASS 后报 invalid ID 且仍退出 0。它不操作真实输入，
-也不能代替真实 JavaFX 重叠文字测试 `test-lcd-overlap.ps1`。
-
 ## 触摸键盘原生返回值
 
 `.\scripts\test-tabtip-result.cmd` 使用 MSVC 编译独立 C++ 测试，无需 Godot/JVM。
@@ -704,8 +621,8 @@ PASS 标记；旧实现曾在 PASS 后报 invalid ID 且仍退出 0。它不操�
 
 ## 菜单打开后渲染进展
 
-`.\scripts\test-menu-click.ps1 -Renderer mobile -RenderThread separate` 需要 G+J+V，
-默认 mobile/safe，强制 RD_DIRECT=1 并在退出后恢复。探针最大化原始 VFX Demo，
+`.\scripts\test-menu-click.ps1 -Renderer mobile -RenderThread safe` 需要 G+J+V，
+固定使用 Viewport＋safe，默认渲染器为 mobile。探针最大化原始 VFX Demo，
 浏览六页，然后由 Godot 按当前屏幕缩放合成菜单点击，不操作真实鼠标/键盘。
 测试用回调包装器调用原菜单动作并记录其成功次数（必须恰好一次），保持业务
 动作不变；六秒后正常结束，宿主还要求完成渲染序号及合成提交数相对点击前增加。
@@ -722,7 +639,7 @@ Glass Robot 在读取结束或异常时通过 finally 释放。它不移动真�
 ## 真实 Demo 的 LoadingStage 按钮悬停
 
 `.\scripts\test-hover-demo.ps1 -CompileOnly` 仅编译；需要 J+V，不启动窗口或操作输入。
-实际运行使用 `.\scripts\test-hover-demo.ps1 -Renderer mobile -RenderThread separate -Robot`，
+实际运行使用 `.\scripts\test-hover-demo.ps1 -Renderer mobile -RenderThread safe -Robot`，
 前置 G+J+V，**必须事先征得用户同意并保持桌面空闲**。该夹具仍为真实鼠标路径，
 不以合成输入替代八轮渐进靠近、2.5 秒保持、渐进移出与 1.2 秒间隔。
 
@@ -827,12 +744,11 @@ PATH/INCLUDE/LIB，播放不继承编译器搜索路径。原来不存在的变�
 preserve fine black/white stripes at 2x snapshot scale, reporting
 `NODE_SHADER_HIDPI_IDENTITY_PASS`. This detects whole-subtree downsampling even
 when the shader itself leaves every pixel unchanged. Use `-Renderer mobile` or
-`-Renderer gl_compatibility`; `GODOT_JFX_RD_DIRECT=1` selects the RD path on mobile.
+`-Renderer gl_compatibility`; both renderers use Viewport with safe threading.
 
 ## VFX click ripple effect
 
-After `build-vfx.ps1`, run `test-vfx-ripple.ps1` (mobile/safe/Viewport), `-RD`,
-`-Renderer gl_compatibility`, or `-NativeD3D`. Require `VFX_RIPPLE_PROBE_PASS`
+After `build-vfx.ps1`, run `test-vfx-ripple.ps1` (mobile/safe/Viewport), `-Renderer gl_compatibility`, or `-NativeD3D`. Require `VFX_RIPPLE_PROBE_PASS`
 and, for Godot, `GODOT_VFX_RIPPLE_PASS`, with no shader/runtime errors.
 The fixture verifies the menu checkbox and Scene-root scope, coexistence with
 blackhole, left-only click positions and overlap, idle/expired restoration, GPU animation, transparent corners,
@@ -843,7 +759,7 @@ Details and artifact paths are in [VFX Demo](docs/vfx-demo.md#ripple-effect-in-t
 
 `./scripts/profile-vfx-menu.ps1` profiles menu opening, ripple animation with the
 menu open/closed, and repeated sliding. Use `-FullUploads` for the previous
-complete-upload policy; `-RenderThread separate` selects the render thread.
+complete-upload policy; the host supports only safe threading.
 Require both `VFX_MENU_PERFORMANCE_PASS` and `GODOT_VFX_MENU_PERFORMANCE_PASS`
 for completion. Timing is diagnostic, not a fixed FPS acceptance threshold.
 The fixture uses synthetic events and does not operate physical input devices.
@@ -853,7 +769,6 @@ See [menu profiling](docs/frame-benchmark.md#menu-redraw-and-ripple-profiling).
 a partial upload before any draw must preserve untouched pixels, and a second
 partial upload must preserve the revision retained by the first queued draw.
 Both RGBA8 and floating-point RGBA textures are checked.
-This runs in both the default RD case and `-ViewportState`, including
-`-RenderThread separate`. Add `-Renderer gl_compatibility -ViewportState` for
+This runs in both the default texture case and `-ViewportState`, using safe threading. Add `-Renderer gl_compatibility -ViewportState` for
 OpenGL patch coverage. Region uploads default on; referenced textures still
 use the immutable-revision path.

@@ -45,32 +45,14 @@ Relative repository paths for tools, caches and generated files remain relative
 to this checkout. Clipboard/drag test file names are synthetic payloads and do
 not require corresponding files to exist.
 
-## Optional RD-direct compilation
+## Rendering configuration
 
-`javafx_rd_direct=yes` is the default SCons configuration for the JavaFX module.
-To omit its RD-direct renderer, shader translator and diagnostic probes:
-
-```powershell
-.\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule -JavaFXRDDirect no
-.\scripts\build-windows.ps1 -Target godot-runtime -WithJavaFXModule -JavaFXRDDirect no
-```
-
-Use `-JavaFXRDDirect yes` to restore both paths. This option requires a Godot
-target and `-WithJavaFXModule`; it is not a JavaFX SDK build option. Both host
-configurations use the same source-built JFX SDK. Existing output filenames
-remain unchanged, so the last build replaces that target's executable.
-Build logs include `-javafx-rd-yes` or `-javafx-rd-no` in their filenames.
-
-This only removes the JavaFX direct renderer, not Godot's RenderingDevice.
-The Vulkan driver also omits the JavaFX-specific Vulkan wait profiling hooks
-when the module or RD-direct compilation is disabled. Viewport remains usable
-with Vulkan and OpenGL. This does not remove the current Windows-only host
-dependencies or establish macOS/Linux support.
-
-At runtime, `GODOT_JFX_RD_DIRECT=1` selects RD only in a build containing it.
-Unset this variable (or set it to `0`) for a Viewport-only build; an explicit
-request for missing RD support fails with a diagnostic. A build containing RD
-still defaults to Viewport and uses Viewport on OpenGL.
+The JavaFX module now builds only the Viewport host, with safe rendering.
+There is no `-JavaFXRDDirect`/`javafx_rd_direct` build option or backend capability
+JNI query. Build logs are `godot-editor-javafx.log` and `godot-runtime-javafx.log`.
+Rebuild both the host and local JFX SDK after this removal. Godot's RenderingDevice
+and Vulkan/OpenGL renderer implementations remain enabled; the host still targets
+Windows x64, not newly validated macOS/Linux configurations.
 
 Run from the repository root in PowerShell. No prebuilt Godot or JavaFX SDK
 is used. Current M0 OpenJFX command builds upstream's default SDK: native
@@ -173,14 +155,13 @@ pixels; an explicitly opaque Scene fill still draws an opaque background.
 After building the local Godot module, JavaFX SDK and VFX classes, run
 `./scripts/run-vfx-demo.ps1`. This opens the original interactive Demo using
 Vulkan/safe and ordinary VSync. Secondary Stages use independent native windows.
-`-RenderThread separate` selects the separately threaded renderer.
+Only `safe` is supported by the JavaFX host.
 
-Host-frame pulses, batched passes, direct offscreen/final-target draws, early
-composition fences, asynchronous separate-thread pass fences and bounded shader
-source caches are backend defaults. The launcher does not force performance
+Host-frame pulses, batched passes, direct offscreen/final-target draws and
+bounded shader source caches are backend defaults. Completed-pass synchronization
+is retained for resource ordering. The launcher does not force performance
 environment variables. For diagnostics, set the corresponding `GODOT_JFX_*`
 switch to `0` as documented in bridge-protocol.md; unset it to restore the default.
 
 CPU shadow images also reuse exclusive ownership by default; set
-`GODOT_JFX_REUSE_SHADOW=0` to disable this diagnostic comparison. Experimental
-GPU region uploads are enabled by default; set `GODOT_JFX_REGION_UPLOAD=0` for a full-upload diagnostic comparison.
+`GODOT_JFX_REUSE_SHADOW=0` to disable this diagnostic comparison. GPU region uploads are enabled by default; set `GODOT_JFX_REGION_UPLOAD=0` for a full-upload diagnostic comparison.

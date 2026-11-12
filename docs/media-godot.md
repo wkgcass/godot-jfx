@@ -1,5 +1,12 @@
 # Media support
 
+> Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
+> safe. Custom RD-direct and separate-thread host support have been removed.
+> Dated RD/separate measurements below are historical evidence, not runnable
+> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> for current commands.
+
+
 Media is required by the latest user clarification. WebKit is excluded. The
 earlier instruction excluding both is superseded.
 

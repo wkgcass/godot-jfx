@@ -12,8 +12,7 @@ func before_draw() -> void:
 	record_phase("pre_draw")
 
 func after_draw() -> void:
-	# In separate mode Godot delivers this callback via the main-thread message
-	# queue. It is not a GPU timestamp or the instant of physical presentation.
+	# This CPU callback is not a GPU timestamp or physical presentation time.
 	record_phase("post_draw_callback")
 
 func _ready() -> void:
@@ -21,15 +20,13 @@ func _ready() -> void:
 	print("VFX_FRAME_DISPLAY ",JSON.stringify({"refresh_hz":DisplayServer.screen_get_refresh_rate(),"vsync":DisplayServer.window_get_vsync_mode(),"max_fps":Engine.max_fps,"low_processor_mode":OS.low_processor_usage_mode}))
 	var options:Dictionary={}
 	var enabled:Dictionary={}
-	for key in ["DIRECT_OFFSCREEN","BATCH_PASSES","DIRECT_PRESENT","EARLY_COMPOSITION_FENCE","ASYNC_PASS_FENCE","SHADER_SOURCE_CACHE","FRAME_PULSE"]:
+	for key in ["DIRECT_OFFSCREEN","BATCH_PASSES","DIRECT_PRESENT","SHADER_SOURCE_CACHE","FRAME_PULSE"]:
 		options[key]=OS.get_environment("GODOT_JFX_"+key)
 		enabled[key]=options[key]!="0"
 	options["REGION_UPLOAD"]=OS.get_environment("GODOT_JFX_REGION_UPLOAD")
 	enabled["REGION_UPLOAD"]=options["REGION_UPLOAD"]!="0"
 	options["REUSE_SHADOW"]=OS.get_environment("GODOT_JFX_REUSE_SHADOW")
 	enabled["REUSE_SHADOW"]=options["REUSE_SHADOW"]!="0"
-	options["ASYNC_TARGET_TEXTURE"]=OS.get_environment("GODOT_JFX_ASYNC_TARGET_TEXTURE")
-	enabled["ASYNC_TARGET_TEXTURE"]=options["ASYNC_TARGET_TEXTURE"]=="1"
 	print("VFX_FRAME_OPTIONS ",JSON.stringify(options))
 	print("VFX_FRAME_ENABLED ",JSON.stringify(enabled))
 	var host=ClassDB.instantiate("JavaFXHost");add_child(host)

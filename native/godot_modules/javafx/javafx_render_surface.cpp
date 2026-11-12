@@ -1,7 +1,4 @@
 #include "javafx_render_surface.h"
-#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
-#include "javafx_rd_pass.h"
-#endif
 
 #include "prism_mesh.h"
 
@@ -9,14 +6,9 @@
 #include "core/object/class_db.h"
 #include "core/os/thread.h"
 #include "core/os/os.h"
-#include "core/object/callable_mp.h"
 #include "servers/rendering/rendering_server.h"
 #include "servers/rendering/rendering_server_globals.h"
 #include "servers/rendering/storage/texture_storage.h"
-
-static void update_region_on_render_thread(RID p_texture, Ref<Image> p_image, Rect2i p_region) {
-	RSG::texture_storage->texture_2d_update_region(p_texture, p_image, p_region, true);
-}
 
 void JavaFXRenderSurface::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_surface_size", "size"), &JavaFXRenderSurface::set_surface_size);
@@ -140,9 +132,6 @@ void JavaFXRenderSurface::clear_draw_resources() {
 	// Clearing Canvas commands does not complete queued RD draws. Preserve
 	// their texture revisions until a commit has drained the pending batches;
 	// otherwise a later upload may overwrite a texture still awaiting sampling.
-#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
-	if (!godot_javafx::rd_direct::OffscreenPass::has_pending_batches())
-#endif
 	{
 		for (auto &entry : textures) entry.second.referenced = false;
 	}
@@ -378,7 +367,6 @@ Dictionary JavaFXRenderSurface::get_texture_resource_stats() const {
 			item["shaders"] = entry.second.target->get_cached_shader_count();
 			item["materials"] = entry.second.target->get_cached_material_count();
 			item["slots"] = entry.second.target->get_draw_slot_count();
-			item["rd"] = entry.second.target->is_rd_direct();
 		}
 		live.push_back(item);
 	}
@@ -400,16 +388,7 @@ int JavaFXRenderSurface::get_owned_resource_count() const {
 }
 
 void JavaFXRenderSurface::free_retired_textures() {
-	// Canvas clearing does not submit RD's deferred effect passes. Those
-	// passes may still sample these exact texture revisions, so drain them
-	// before the RS free invalidates their device views and uniform sets.
-#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
-	if (!retired_textures.is_empty()) godot_javafx::rd_direct::OffscreenPass::commit_batches();
-#endif
-
-	static const bool trace = OS::get_singleton()->get_environment("GODOT_JFX_RD_DEBUG") == "1";
 	for (RID rid : retired_textures) {
-		if (trace) print_line("RD_SURFACE_RETIRE_TEXTURE engine=" + itos(rid.get_id()));
 		JavaFXRenderTarget::live_sampler_rids.erase(rid);
 		RenderingServer::get_singleton()->free_rid(rid);
 	}
@@ -520,6 +499,7 @@ Dictionary JavaFXRenderSurface::get_texture_patch_profile() const {
 
 void JavaFXRenderSurface::patch_texture(uint64_t p_handle, const Rect2i &p_region, const PackedByteArray &p_pixels) {
 	ERR_FAIL_COND(!Thread::is_main_thread());
+	ERR_FAIL_COND_MSG(!RenderingServer::get_singleton()->is_on_render_thread(), "JavaFX texture uploads require --render-thread safe.");
 	auto found = textures.find(p_handle);
 	ERR_FAIL_COND(found == textures.end());
 	static const bool profile = OS::get_singleton()->get_environment("GODOT_JFX_PROFILE_COMMANDS") == "1";
@@ -560,10 +540,8 @@ void JavaFXRenderSurface::patch_texture(uint64_t p_handle, const Rect2i &p_regio
 	if (!found->second.referenced &&
 			(image->get_format() == Image::FORMAT_RGBA8 || image->get_format() == Image::FORMAT_RGBAF) &&
 			OS::get_singleton()->get_environment("GODOT_JFX_REGION_UPLOAD") != "0") {
-		// Preserve FIFO ordering with queued draws and frees. The callback owns
-		// only the packed patch, so later uploads do not clone a full CPU shadow.
-		// It never captures this surface or mutable map state.
-		RenderingServer::get_singleton()->call_on_render_thread(callable_mp_static(&update_region_on_render_thread).bind(found->second.rid, patch, p_region));
+		// Safe mode uploads the packed patch synchronously in command order.
+		RSG::texture_storage->texture_2d_update_region(found->second.rid, patch, p_region);
 		found->second.image = image;
 		if (profile) { ++patch_region_count; patch_submit_us += OS::get_singleton()->get_ticks_usec() - submit_start; }
 		return;

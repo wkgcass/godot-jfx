@@ -1,5 +1,10 @@
 # VFX source build and Intro smoke
 
+Dated RD/separate results below describe prior builds. Current commands support
+only Viewport + safe; they do not establish acceptance of this changed build.
+
+The host now uses only Viewport + safe; mobile and OpenGL remain available.
+
 Menu animation/ripple performance can be measured without physical input using
 `./scripts/profile-vfx-menu.ps1`; see [menu profiling](frame-benchmark.md#menu-redraw-and-ripple-profiling).
 
@@ -38,7 +43,6 @@ their original JavaFX hit-testing positions while their rendered pixels move.
 ```powershell
 .\scripts\build-vfx.ps1
 .\scripts\test-vfx-ripple.ps1
-.\scripts\test-vfx-ripple.ps1 -RD
 .\scripts\test-vfx-ripple.ps1 -Renderer gl_compatibility
 .\scripts\test-vfx-ripple.ps1 -NativeD3D
 ```
@@ -82,7 +86,7 @@ temporarily removes the effect; reentry restores it if selected.
 Turning it off restores the previous target effect. Window hiding detaches event
 filters and the resize listener. No animation timer is needed. The shader uses
 node `UV`/`TEXTURE` and the target extent instead of screen sampling, so the same
-source works in Viewport and RD modes. No Robot, screen capture or CPU frame
+source uses the Viewport path. No Robot, screen capture or CPU frame
 upload is used by the feature. Additional native Stages are independent windows
 and are not shaded by the Demo content effect.
 
@@ -104,7 +108,6 @@ ordinary JavaFX the control is absent.
 .\scripts\build-vfx.ps1
 .\scripts\run-vfx-demo.ps1
 .\scripts\test-vfx-blackhole.ps1
-.\scripts\test-vfx-blackhole.ps1 -RD
 .\scripts\test-vfx-blackhole.ps1 -Renderer gl_compatibility
 .\scripts\test-vfx-blackhole.ps1 -NativeD3D
 ```
@@ -264,10 +267,10 @@ the differences are visual triage, not an automatic correctness threshold.
 
 The current GL and Vulkan 35-page runs pass and both paired sheets were inspected.
 This covers navigation and visible content, not each button or modal dialog.
-Godot `--render-thread separate` initially failed pixel comparison because a
+Godot `--render-thread safe` initially failed pixel comparison because a
 deferred post-draw notification could prematurely release a pending pass. The
 host now orders a draw and synchronizes the render queue before releasing it.
-Effects and GodotView probes pass on both backends with `-RenderThread separate`.
+Historical Effects and GodotView probes passed with the former separate mode.
 A minimal Godot shutdown fix also returns the RenderingDevice to main after
 joining the render worker; editor/runtime empty-scene shutdown tests pass in both
 modes. VFX's 35-page captures above use the default `safe` mode; they do not

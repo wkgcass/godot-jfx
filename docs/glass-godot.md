@@ -1,5 +1,12 @@
 # Glass-Godot — windows, scheduling and input
 
+> Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
+> safe. Custom RD-direct and separate-thread host support have been removed.
+> Dated RD/separate measurements below are historical evidence, not runnable
+> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> for current commands.
+
+
 Recorded test results below describe their named workload and build; they are
 not an automatic rerun after every subsequent change. Consult acceptance-status.md
 and review-open-items.md for the current review evidence and remaining limits.
@@ -401,7 +408,7 @@ option packages the same fixture next to the source-built Release Runtime.
 
 `scripts/test-stage-churn.ps1 -Renderer gl_compatibility -RenderThread safe
 -Cycles 180 -HeapMiB 128` exercises repeated independent native Stage creation
-and closure through host input. Use `-Renderer mobile -RenderThread separate`
+and closure through host input. Use `-Renderer mobile -RenderThread safe`
 for Vulkan. The fixture checks native window identity/count, three alternating
 sizes, rendered pixels, closure, stable owned-resource and texture-memory baselines,
 and final resource drain. It does not force garbage collection; Java heap, natural

@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param([ValidateSet('gl_compatibility','mobile')][string]$Renderer='gl_compatibility',
-      [ValidateSet('safe','separate')][string]$RenderThread='separate', [switch]$Runtime)
+      [ValidateSet('safe')][string]$RenderThread='safe', [switch]$Runtime)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 Push-Location $root

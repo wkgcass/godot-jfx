@@ -5,7 +5,7 @@ func _ready() -> void:
 	# immediately release. Native RID destruction stays ordered after draws.
 	for cycle in range(128):
 		var transient = ClassDB.instantiate("JavaFXRenderTarget")
-		if not transient.initialize(Vector2i(8,8), true):
+		if not transient.initialize(Vector2i(8,8)):
 			fail("Cannot allocate transient Viewport target"); return
 		transient.begin_pass(true)
 		transient.add_rectangle(Rect2(0,0,8,8), Color.RED)
@@ -17,7 +17,6 @@ func _ready() -> void:
 			fail("Dispatched target object retained after release"); return
 	var surface = ClassDB.instantiate("JavaFXRenderSurface")
 	add_child(surface)
-	var proxy_count:=int(OS.get_environment("GODOT_JFX_ASYNC_TARGET_TEXTURE")=="1")
 	for cycle in range(100):
 		var source = ClassDB.instantiate("JavaFXRenderTarget")
 		var target = ClassDB.instantiate("JavaFXRenderTarget")
@@ -38,7 +37,7 @@ func _ready() -> void:
 		target.end_pass()
 		# Pass geometry lives in the bounded content cache now: one entry for
 		# the quad batch, kept out of the per-pass hygiene count.
-		if source.get_owned_resource_count() != 8+proxy_count or target.get_owned_resource_count() != 7+proxy_count or source.get_cached_mesh_count() != 1:
+		if source.get_owned_resource_count() != 8 or target.get_owned_resource_count() != 7 or source.get_cached_mesh_count() != 1:
 			fail("Unexpected render target allocation count")
 			return
 		var source_id: int = source.get_instance_id()

@@ -19,8 +19,4 @@ jdk = os.environ.get("JAVA_HOME", "")
 if not os.path.isfile(os.path.join(jdk, "include", "jni.h")):
     raise RuntimeError("JavaFX module requires JAVA_HOME pointing to an installed JDK")
 env_javafx.Append(CPPPATH=[os.path.join(jdk, "include"), os.path.join(jdk, "include", "win32")])
-rd_sources = {"javafx_rd_pass.cpp", "javafx_rd_direct.cpp", "javafx_shader_translate.cpp"}
-if env["javafx_rd_direct"]:
-    env_javafx.Append(CPPDEFINES=["GODOT_JAVAFX_RD_DIRECT_ENABLED"])
-sources = [source for source in Glob("*.cpp") if env["javafx_rd_direct"] or source.name not in rd_sources]
-env_javafx.add_source_files(env.modules_sources, sources)
+env_javafx.add_source_files(env.modules_sources, "*.cpp")

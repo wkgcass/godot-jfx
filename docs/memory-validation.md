@@ -1,5 +1,12 @@
 # Memory and resource validation
 
+> Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
+> safe. Custom RD-direct and separate-thread host support have been removed.
+> Dated RD/separate measurements below are historical evidence, not runnable
+> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> for current commands.
+
+
 The objective requires no sustained growth in memory or GPU resources. A zero
 tracked-resource count at shutdown only proves cleanup of the resources tracked
 by the module. It does not measure driver allocations or all process memory.

@@ -1,5 +1,36 @@
 # 历史工作记录
 
+## 2026-11-13 — 全量新增代码清单与字段/参数复查
+
+- 为主仓库、Godot、JFX 和 VFX 集成代码生成带路径与散列的审计清单 `artifacts/dead-code-audit/audit.json`；结合语法树复查头文件内联方法、字段读写和间接入口。
+- 删除从未被设置的窗口 GPU 计时字段、无调用的 setter 和多余继承转发 getter，不再在报告中输出虚假的窗口 GPU 零值；保留切页夹具直接读取视口的真实 GPU 样本。
+- 区域上传的所有调用均使用 packed patch，删除 Godot 两种存储后端及基类中无调用方的 full-shadow 参数分支，保留不支持布局时的完整更新回退。
+- 确认层合成器仍用于主 Stage 和次级原生窗口，仅修正 legacy-only 注释；没有删除协议验证、动态回调或正在使用的诊断入口。
+
+## 2026-11-13 — 移除后调用关系复查
+
+- 以主仓库 `9d1f2a2` 及其 Godot/JFX 子模块指针为基线，检查新增代码的引用、JNI 注册、ClassDB 绑定和测试调用。
+- 删除 RD spike 场景移除后遗留的 `benchmark_offscreen_cycle` 方法、绑定和专用头文件；删除离屏绘制的两层回调包装、计时成员及重复/无用 include。
+- safe 模式的区域纹理上传改为同步直接调用，去掉不再需要的 Callable 派发包装，并保留线程约束检查；同步协议、性能分析文档和分析脚本说明。
+- 剩余 Godot RD 区域上传、Viewport 绘制和资源回收修复仍被当前路径使用，不作删除；没有发现更多无调用方的宿主/JFX 适配方法。
+- 扩大复查后补删两个无调用方的旧剪贴板 JNI 入口（`clipboardWriteText`、`clipboardHasText`）及 render-target 的 `draw_prism_mesh` 包装/绑定；34 个剩余 JNI 声明均有注册和调用方，包含 Java 方法引用。扫描已跟踪的 493 个宿主、脚本、测试和文档文件，未发现孤立的 Java 参考探针或 Godot 测试脚本。
+
+## 2026-11-13 — Viewport＋safe 收敛
+
+- 删除 JavaFX RD-direct 生产路径、翻译器、探针、编译选项和 JNI 能力查询。
+- 删除 separate 专用完成通知补偿、异步纹理代理和 Windows GL/渲染线程所有权适配；保留 Godot 原生 RenderingDevice、渲染器和共享纹理区域上传。
+- 宿主仅接受 safe；启动/测试脚本不再提供 RD 或 separate 选项，通用纹理/Shader/窗口测试改为 Viewport。新增不支持线程模式的拒绝测试。
+- Editor、Runtime、JFX SDK、Media 源码构建及纹理、Shader、特效、GodotView、VFX 全页面、窗口生命周期、视频与 Robot 回归通过。Menu 展开涟漪和推拉约 60 pulses/s。
+- 剪贴板端到端测试在写入前因现有 DataObject 格式无法安全备份而拒绝；没有清空或改写剪贴板。保护/所有权单元测试通过。完整范围及负向测试限制见 acceptance-status.md 的当前条目。
+
+
+> Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
+> safe. Custom RD-direct and separate-thread host support have been removed.
+> Dated RD/separate measurements below are historical evidence, not runnable
+> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> for current commands.
+
+
 本文件保存各轮实施、失败、修复和验证记录。每条记录中的“当前”“下一步”“未实现”“全部通过”只指当时的代码和测试范围；它们不是今天的待办，也不是最新构建的验收证明。日期相同的记录按追加顺序保留，早期英文记录没有统一日期。
 
 当前功能状态见 [acceptance-status.md](acceptance-status.md)，当前实现审查及剩余工作见 [review-open-items.md](review-open-items.md)，测试命令见 [TESTS.md](../TESTS.md)。原始 156 项审查与其后累计修复的收尾分别记录，原始路径审查完成不代表累计修复已全部验收。性能目标以接近 60 FPS 为准，偶发长帧修复已由用户暂缓。

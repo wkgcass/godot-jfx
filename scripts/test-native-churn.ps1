@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param([ValidateSet('Idle','SubViewport','Window','JavaFXNativeWindow')][string]$Kind='Window',
       [ValidateSet('gl_compatibility','mobile')][string]$Renderer='gl_compatibility',
-      [ValidateSet('safe','separate')][string]$RenderThread='safe',
+      [ValidateSet('safe')][string]$RenderThread='safe',
       [ValidateRange(-1,2147483647)][long]$StaticRangeLimitBytes=-1)
 $ErrorActionPreference='Stop'
 $savedKind=$env:GODOT_JFX_NATIVE_CHURN_KIND

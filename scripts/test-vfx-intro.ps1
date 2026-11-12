@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [switch]$AllPages, [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [int]$PageLimit = 0, [switch]$FreezeFusion)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [switch]$AllPages, [ValidateSet('safe')][string]$RenderThread = 'safe', [int]$PageLimit = 0, [switch]$FreezeFusion)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK

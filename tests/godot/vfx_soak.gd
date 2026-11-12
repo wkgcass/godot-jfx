@@ -2,11 +2,10 @@ extends "res://vfx_intro.gd"
 
 func sample(host, round_index:int, page:int, direction:int) -> void:
 	var resources: Dictionary = host.get_texture_resource_stats()
-	var breakdown := {"shared_target_meshes":resources.get("shared_target_meshes", -1), "textures":resources["live"].size(), "targets":0, "rd_targets":0, "target_owned":0, "target_meshes":0, "target_shaders":0, "target_materials":0, "target_slots":0, "surface_meshes":resources["surface_meshes"], "retired_targets":resources["retired_targets"].size(), "retired_textures":resources["retired_textures"]}
+	var breakdown := {"shared_target_meshes":resources.get("shared_target_meshes", -1), "textures":resources["live"].size(), "targets":0, "target_owned":0, "target_meshes":0, "target_shaders":0, "target_materials":0, "target_slots":0, "surface_meshes":resources["surface_meshes"], "retired_targets":resources["retired_targets"].size(), "retired_textures":resources["retired_textures"]}
 	for entry in resources["live"]:
 		if entry.has("owned"):
 			breakdown["targets"] += 1
-			if entry["rd"]: breakdown["rd_targets"] += 1
 			for key in ["owned", "meshes", "shaders", "materials", "slots"]:
 				breakdown["target_"+key] += entry[key]
 	print("VFX_SOAK_SAMPLE ",JSON.stringify({"round":round_index,"page":page,"direction":direction,"elapsed_ms":Time.get_ticks_msec(),"owned":host.get_owned_resource_count(),"resources":breakdown,"texture_bytes":Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED),"static_bytes":OS.get_static_memory_usage()}))

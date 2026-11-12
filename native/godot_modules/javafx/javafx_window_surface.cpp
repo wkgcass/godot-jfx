@@ -80,22 +80,5 @@ bool JavaFXWindowSurface::compose_windows() {
 
 void JavaFXWindowSurface::composition_finished() {
 	if (!pending) return;
-	auto *rs = RenderingServer::get_singleton();
-	// A deferred post-draw signal may belong to an older frame. Queue our draw
-	// after the layer commands before releasing any retained source reference.
-	if (!rs->is_on_render_thread()) {
-		static const bool debug = OS::get_singleton()->get_environment("GODOT_JFX_RD_DEBUG") == "1";
-		static uint64_t compose_draw_us = 0;
-		static uint32_t compose_draw_count = 0;
-		const uint64_t t0 = debug ? OS::get_singleton()->get_ticks_usec() : 0;
-		rs->draw(false, 0.0); rs->sync();
-		if (debug) {
-			compose_draw_us += OS::get_singleton()->get_ticks_usec() - t0;
-			if (++compose_draw_count % 500 == 0) {
-				print_line(String("RD_COMPOSE_DRAW count=") + itos(compose_draw_count) +
-						" total_us=" + itos(compose_draw_us) + " avg_us=" + itos(compose_draw_us / compose_draw_count));
-			}
-		}
-	}
 	finish_present(); pending = false;
 }

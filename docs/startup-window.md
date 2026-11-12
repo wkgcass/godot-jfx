@@ -1,5 +1,12 @@
 # JavaFX startup window
 
+> Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
+> safe. Custom RD-direct and separate-thread host support have been removed.
+> Dated RD/separate measurements below are historical evidence, not runnable
+> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> for current commands.
+
+
 On Windows, `scripts/run-vfx-demo.ps1` sets `GODOT_JFX_STARTUP=logo` before
 starting Godot. The native window stays hidden during engine and JVM startup.
 The first JavaFX window requested with `show()` becomes the startup window:
@@ -33,7 +40,7 @@ Build the source Editor with `build-windows.ps1 -Target godot-editor
 
 ```powershell
 .\scripts\test-startup.ps1
-.\scripts\test-startup.ps1 -RenderThread separate
+.\scripts\test-startup.ps1 -RenderThread safe
 .\scripts\test-startup.ps1 -Renderer gl_compatibility
 .\scripts\run-vfx-demo.ps1 -Smoke -NoGodotLogo
 ```

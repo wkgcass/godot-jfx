@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[ValidateSet('safe','separate')][string]$RenderThread='safe')
+param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[ValidateSet('safe')][string]$RenderThread='safe')
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $saved=@{}

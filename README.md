@@ -42,15 +42,11 @@ The launcher defaults to Vulkan (`mobile`) with the `safe` render-thread mode.
 The Media step uses existing MSYS make/cygpath and UCRT64 GCC, builds its pinned
 makedepend helper inside `.tools`, and stages source-built Media libraries into
 the SDK. See build-windows.md for prerequisites and current validation status.
-Use `-Renderer gl_compatibility` for OpenGL or `-RenderThread separate` for the
-separate rendering thread. `-Smoke` runs a bounded startup/close check.
-The normal launcher remains interactive until the Demo is closed.
-
-For a Viewport-only host build, add `-JavaFXRDDirect no` to the Editor or
-Runtime build command together with `-WithJavaFXModule`. This excludes the
-JavaFX RD-direct implementation at compile time without disabling Godot's
-RenderingDevice. The default is `yes`; both builds use the same JFX SDK.
-See [build options](docs/build-windows.md) and [RD build tests](TESTS.md).
+Use `-Renderer gl_compatibility` for OpenGL. JavaFX hosting supports only
+Viewport rendering with `safe` threading; the custom RD-direct backend and
+separate-thread host support have been removed. Godot's own RenderingDevice
+remains available to the engine. `-Smoke` runs a bounded startup/close check;
+the normal launcher remains interactive until the Demo is closed.
 
 ## Implementation and delivery map
 

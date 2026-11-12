@@ -81,7 +81,7 @@ func _ready() -> void:
 			var idleDelta:Dictionary={}
 			for key in idle:
 				if key.begins_with("max_"): idleDelta["lifetime_"+key]=idle[key]
-				elif key in ["offscreen_gpu_us", "window_gpu_us"]: idleDelta["last_"+key]=idle[key]
+				elif key == "offscreen_gpu_us": idleDelta["last_"+key]=idle[key]
 				else: idleDelta[key]=idle[key]-idleBaseline.get(key,0)
 			idleDelta["measured_ticks"]=idle_ticks
 			idleDelta["unfocused_ticks"]=idle_unfocused_ticks
@@ -95,7 +95,7 @@ func _ready() -> void:
 			var delta:Dictionary={}
 			for key in stats:
 				if key.begins_with("max_"): delta["lifetime_"+key]=stats[key]
-				elif key in ["offscreen_gpu_us", "window_gpu_us"]: delta["last_"+key]=stats[key]
+				elif key == "offscreen_gpu_us": delta["last_"+key]=stats[key]
 				else: delta[key]=stats[key]-baseline.get(key,0)
 			delta["elapsed_ms"]=(Time.get_ticks_usec()-start_us)/1000.0
 			delta["measured_ticks"]=measured_ticks

@@ -15,9 +15,6 @@ bool JavaFXHost::create_native_window(int64_t p_id, int64_t p_owner, const Rect2
 			native_windows.count(p_id) || native_windows.size() >= 64 ||
 			(p_owner > 0 && !native_windows.count(p_owner)) || p_flags < 0 || p_flags > 7 ||
 			p_bounds.size.x <= 0 || p_bounds.size.y <= 0 || p_bounds.size.x > 8192 || p_bounds.size.y > 8192) return false;
-	// DisplayServer creates/frees swap chains on the main thread. Its window
-	// mutations must not overlap an active draw on Godot's separate renderer.
-	RenderingServer::get_singleton()->sync();
 	auto *window = memnew(JavaFXNativeWindow);
 	window->set_title(p_title);
 	window->set_flag(Window::FLAG_BORDERLESS, (p_flags & 1) != 0);
@@ -67,7 +64,6 @@ bool JavaFXHost::configure_native_window(int64_t p_id, const Rect2i &p_bounds, b
 			p_bounds.size.x > 8192 || p_bounds.size.y > 8192) return false;
 	auto *window = get_native_window(p_id);
 	if (!window) return false;
-	RenderingServer::get_singleton()->sync();
 	bool was_visible = window->is_visible();
 	if (was_visible && !p_visible && !refresh_native_owners(p_id)) return false;
 	window->set_size(p_bounds.size); window->set_position(p_bounds.position);
@@ -154,7 +150,6 @@ bool JavaFXHost::set_native_window_property(int64_t p_id, int p_property, int p_
 	auto *window = get_native_window(p_id);
 	if (!window) return false;
 	// Mode/style changes can replace a swap chain, just like show/hide.
-	RenderingServer::get_singleton()->sync();
 	switch (p_property) {
 		case 1: window->set_title(p_text); break;
 		case 4: if (window->is_visible()) request_window_focus(window); break;
@@ -222,7 +217,6 @@ void JavaFXHost::destroy_native_window(int64_t p_id) {
 			static_cast<DisplayServerWindows *>(DisplayServer::get_singleton())->window_set_drag_delegate(window->get_window_id(), nullptr, nullptr);
 		drag_targets.erase(drag);
 	}
-	RenderingServer::get_singleton()->sync();
 	native_windows.erase(entry);
 	if (window->get_parent()) window->get_parent()->remove_child(window);
 	memdelete(window);

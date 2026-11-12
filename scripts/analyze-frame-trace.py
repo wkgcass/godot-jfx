@@ -56,7 +56,7 @@ if phases is not None:
     gaps = [{"end_ms": b[0] / 1000, "gap_ms": (b[0] - a[0]) / 1000,
              "from": a[1], "to": b[1]} for a, b in zip(phases, phases[1:])]
     report["longest_phase_gaps"] = sorted(gaps, key=lambda row: row["gap_ms"], reverse=True)[:20]
-    report["phase_note"] = "Main-thread event gaps include intervening work and scheduling; post_draw_callback is deferred in separate mode, not GPU completion timing."
+    report["phase_note"] = "Main-thread event gaps include intervening work and scheduling; post_draw_callback is a CPU callback, not GPU completion timing."
 output = args.log.with_suffix(".analysis.json")
 output.write_text(json.dumps(report, indent=2), encoding="utf-8")
 print(json.dumps({"output": str(output), "unfocused_intervals": report["unfocused_intervals"], "java_rounds": rounds, "longest_host": report["longest_host"][:5], "longest_phase_gaps": report.get("longest_phase_gaps", [])[:5]}, indent=2))

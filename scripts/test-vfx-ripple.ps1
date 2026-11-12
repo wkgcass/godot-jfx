@@ -2,15 +2,13 @@
 param(
     [string]$Jdk = $env:JAVA_HOME,
     [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile',
-    [ValidateSet('safe','separate')][string]$RenderThread = 'safe',
-    [switch]$RD,
+    [ValidateSet('safe')][string]$RenderThread = 'safe',
     [switch]$NativeD3D
 )
 $ErrorActionPreference = 'Stop'
-if ($NativeD3D -and $RD) { throw '-RD cannot be combined with -NativeD3D' }
 $root = Split-Path $PSScriptRoot -Parent
 $saved = @{}
-foreach ($name in @('GODOT_JFX_JDK','GODOT_JFX_RD_DIRECT','GODOT_JFX_RIPPLE_OUTPUT')) {
+foreach ($name in @('GODOT_JFX_JDK','GODOT_JFX_RIPPLE_OUTPUT')) {
     $saved[$name] = [Environment]::GetEnvironmentVariable($name,'Process')
 }
 Push-Location $root
@@ -20,8 +18,7 @@ try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing -cp $classpath -encoding UTF-8 -d artifacts/reference tests/reference/VfxRippleProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Ripple probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
-    $env:GODOT_JFX_RD_DIRECT = if ($RD) { '1' } else { '0' }
-    $caseName = "$Renderer-$RenderThread-rd$($env:GODOT_JFX_RD_DIRECT)"
+    $caseName = "$Renderer-$RenderThread"
     if ($NativeD3D) { $caseName = 'native-d3d' }
     $env:GODOT_JFX_RIPPLE_OUTPUT = Join-Path $root "artifacts/reference/vfx-ripple-$caseName"
     $log = "artifacts/logs/vfx-ripple-$caseName.log"

@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile', [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [switch]$NoSample, [string]$LogPath)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$NoSample, [string]$LogPath)
 # Manual hover-freeze capture: starts the VFX demo with HOVER_TAP (Java event
 # faucet + FX_GAP/FX_TASK stall probes) and HOVER_SAMPLE (per-frame luma under
 # the cursor). The user reproduces the defect by hand and closes the window;

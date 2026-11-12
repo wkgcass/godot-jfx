@@ -13,19 +13,14 @@
 #include "scene/resources/mesh.h"
 #include "prism_mesh.h"
 #include "javafx_shader_rewrite.h"
-#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
-#include "javafx_rd_pass.h"
-#endif
 
 // GPU-only offscreen allocation used by the Prism render-target bridge.
 // References to sampled targets keep their borrowed viewport textures alive.
 class JavaFXRenderTarget : public RefCounted {
 	GDCLASS(JavaFXRenderTarget, RefCounted);
 	RID viewport, canvas, commands, shader, material;
-	// Normally borrowed from viewport; optional queued initialization uses an
-	// owned proxy so main-thread allocation need not query the render thread.
+	// Borrowed from the viewport.
 	RID viewport_texture;
-	bool owns_viewport_texture = false;
 	Size2i size;
 	bool pass_open = false;
 	bool initialized_contents = false;
@@ -60,15 +55,6 @@ class JavaFXRenderTarget : public RefCounted {
 	struct MaterialEntry { RID material; RID shader; Dictionary params; Vector<RID> rids; };
 	HashMap<uint64_t, MaterialEntry> material_cache;
 	List<uint64_t> material_cache_order;
-#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
-	// RD-direct production path (GODOT_JFX_RD_DIRECT=1): replaces the
-	// viewport render cycle for this target's passes.
-	Ref<godot_javafx::rd_direct::OffscreenPass> rd_pass;
-	// RD-direct mesh->raw decode memo: the QUADS_REF fallback decodes a
-	// cached immutable ArrayMesh surface back into batch bytes. Object IDs
-	// distinguish instances even when a freed object's address is recycled.
-	HashMap<ObjectID, std::pair<Vector<float>, Vector<uint8_t>>> rd_mesh_memo;
-#endif
 	// Main-thread targets share one bounded geometry memo. Draw slots own
 	// their meshes independently, so cache eviction cannot invalidate a draw.
 	std::shared_ptr<PrismMeshCache> mesh_cache;
@@ -77,10 +63,6 @@ class JavaFXRenderTarget : public RefCounted {
 	HashMap<String, RID> shader_cache;
 	uint64_t shader_creations = 0;
 	int draw_index = 0;
-	uint64_t offscreen_draw_us = 0;
-	void draw_offscreen_on_render_thread();
-	static void draw_queued_offscreen(RID p_viewport);
-	static void initialize_texture_proxy(RID p_viewport, RID p_proxy);
 	RID create_draw_item(RID p_material);
 	RID acquire_material(RID p_shader, const Dictionary &p_parameters, bool p_persistent_shader);
 	void hide_unused_slots();
@@ -95,9 +77,7 @@ public:
 	// RID parameters revalidate against it.
 	static HashSet<RID> live_sampler_rids;
 	static bool sampler_alive(const RID &p_rid) { return live_sampler_rids.has(p_rid); }
-	// p_force_viewport keeps probes on the engine viewport path even when
-	// the process runs RD-direct, so their reference stays independent.
-	bool initialize(const Size2i &p_size, bool p_force_viewport = false);
+	bool initialize(const Size2i &p_size);
 	void begin_pass(bool p_clear);
 	void add_rectangle(const Rect2 &p_rect, const Color &p_color);
 	void copy_target(const Ref<JavaFXRenderTarget> &p_source, const Rect2 &p_rect);
@@ -112,32 +92,12 @@ public:
 	// machinery without decoding or hashing its vertices again. The instance
 	// parameter map carries per-draw constants that ride item instance data
 	// instead of material uniforms; null means none.
-	void draw_prism_mesh(const Ref<ArrayMesh> &p_mesh, const String &p_shader, const Dictionary &p_parameters,
-		bool p_clip, const Rect2i &p_rect, RID p_texture = RID(), const Transform2D &p_transform = Transform2D(),
-		float p_modulate = 1.0f);
 	void draw_prism_mesh_with_instances(const Ref<ArrayMesh> &p_mesh, const String &p_shader, const Dictionary &p_parameters,
 		bool p_clip, const Rect2i &p_rect, RID p_texture, const Transform2D &p_transform,
 		float p_modulate, const HashMap<StringName, Variant> *p_instance_params);
 	void draw_prism_quads_with_instances(const PackedFloat32Array &p_vertices, const PackedByteArray &p_colors,
 		const String &p_shader, const Dictionary &p_parameters, bool p_clip, const Rect2i &p_rect, RID p_texture,
 		const Transform2D &p_transform, float p_modulate, const HashMap<StringName, Variant> *p_instance_params);
-#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
-	bool is_rd_direct() const { return rd_pass.is_valid(); }
-	// Immediate RGBA8 readback of the RD-direct target's device texture.
-	Ref<Image> rd_readback() const { return rd_pass.is_valid() ? rd_pass->readback() : Ref<Image>(); }
-#else
-	bool is_rd_direct() const { return false; }
-	Ref<Image> rd_readback() const { return Ref<Image>(); }
-#endif
-	// RD-direct raw-geometry draw: same batch contract as draw_prism_quads
-	// but riding the OffscreenPass path (instance params merge into the
-	// uniform buffer constants).
-#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
-	void draw_prism_raw(const Vector<float> &p_vertices, const Vector<uint8_t> &p_colors, const String &p_shader,
-			Dictionary p_parameters, bool p_clip, const Rect2i &p_rect, RID p_texture,
-			const Transform2D &p_transform, float p_modulate, const HashMap<StringName, Variant> *p_instance_params, const void *p_identity_key = nullptr);
-#endif
-
 	RID get_texture() const;
 	Size2i get_size() const { return size; }
 	bool has_initialized_contents() const { return initialized_contents; }
@@ -151,8 +111,6 @@ public:
 	int get_cached_material_count() const { return material_cache.size(); }
 	int get_draw_slot_count() const { return slots.size(); }
 	int64_t get_shader_creation_count() const { return shader_creations; }
-	int64_t get_rd_uniform_set_creation_count() const;
-	int64_t get_rd_pipeline_cache_size() const;
 	Dictionary get_instance_uniform_cache_stats() const;
 	// GPU timing (viewport_set_measure_render_time): the measured GPU time of
 	// this target's most recent render, in microseconds.

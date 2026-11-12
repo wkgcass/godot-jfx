@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[ValidateSet('safe','separate')][string]$RenderThread='safe',[switch]$Smoke,[switch]$NoGodotLogo)
+param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[ValidateSet('safe')][string]$RenderThread='safe',[switch]$Smoke,[switch]$NoGodotLogo)
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $saved=@{}
@@ -11,7 +11,7 @@ $settings=@{
 try {
     foreach($key in $settings.Keys){$saved[$key]=[Environment]::GetEnvironmentVariable($key,'Process');[Environment]::SetEnvironmentVariable($key,$settings[$key],'Process')}
     $log="artifacts/logs/vfx-demo-$Renderer-$RenderThread.log"
-    Write-Output "Starting the original VFX Demo with backend defaults (explicit environment overrides are preserved). Close its window to exit. Log: $log"
+    Write-Output "Starting the original VFX Demo with Viewport + safe rendering. Close its window to exit. Log: $log"
     # Windows PowerShell 5.1 wraps native stderr in ErrorRecord objects.
     # A JVM warning must not terminate the pipeline (and the hosted process).
     $savedErrorActionPreference=$ErrorActionPreference

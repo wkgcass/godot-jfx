@@ -1,5 +1,12 @@
 # JavaFX custom module — foundation and current integration
 
+> Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
+> safe. Custom RD-direct and separate-thread host support have been removed.
+> Dated RD/separate measurements below are historical evidence, not runnable
+> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> for current commands.
+
+
 This document explains the original M1 primitive and the module built on it.
 The current runtime also implements Prism rendering, fonts, effects, independent
 native Stages and GodotView; see prism-godot.md, glass-godot.md and godot-view.md.
@@ -36,13 +43,9 @@ checks this owner's handle lifetime only, not total driver/GPU allocations.
 through a viewport and caches that viewport's borrowed texture RID after
 initialization, so repeated sampling does not synchronize RenderingServer merely
 to retrieve the same RID. This borrowed handle is never freed separately.
-With `GODOT_JFX_ASYNC_TARGET_TEXTURE=1`, the viewport path instead owns a texture
-proxy initialized on the render thread; it releases that proxy on teardown.
-With `GODOT_JFX_RD_DIRECT=1` and a RenderingDevice available, the target can use
-an RD offscreen pass instead of a viewport. Forced-viewport callers, OpenGL,
-and failed RD initialization use the viewport path. The RD pass owns its output
-texture. In either path, get_texture rejects access from another thread or
-during an open pass.
+The host uses only Viewport targets in safe mode. `get_texture` rejects access
+from another thread or during an open pass. The former RD-direct target and
+asynchronous texture-proxy initialization have been removed.
 `scripts/test-texture-lookup.ps1` checks identity across rendered passes and pixel
 content, and prints isolated getter timings; it is not a frame-rate benchmark.
 
@@ -88,10 +91,8 @@ This validates vertex transport, not stock Prism shaders or JavaFX controls.
 Source textures additionally support transparent allocation and region
 updates. CPU Image shadows preserve unaffected source-image pixels. Updates
 reuse unreferenced RIDs and create retained revisions when earlier draws still
-refer to the old contents. Clearing Canvas commands releases their retained resources, but does not by
-itself complete queued RD draws. Before freeing retired textures the surface
-commits pending RD batches; reference tracking is reset only when no pending RD
-batch remains. This prevents a later upload from overwriting an older revision
+refer to the old contents. Completed Viewport passes release their retained draw
+resources before retirement. This prevents uploads from changing the revision
 that an already-recorded draw still needs. The texture fixture covers a 1024x1024 allocation,
 a patch at the final pixel, transparency of the old revision, neighboring
 unchanged pixels and final resource disposal on GL and Vulkan.
@@ -137,7 +138,8 @@ from texture resolution. Tree exit disables viewport updates and synchronizes
 pending rendering before the base Window destroys its native swapchain. It also
 clears retained content, while the child surface releases its resources.
 
-`scripts/test-native-windows.ps1` and its Vulkan separate-thread variant pass two
+Earlier runs of `scripts/test-native-windows.ps1` (including the retired separate
+configuration) validated two
 additional OS windows with distinct IDs, one outside the original host, independent
 GPU colors, replacement-target lifetime, independent resize, hide/show and deletion.
 Their viewport captures were inspected. This is a native primitive test, not JavaFX

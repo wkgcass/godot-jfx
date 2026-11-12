@@ -19,7 +19,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Shutdown fixture import failed: $importLog" }
         $binary = Join-Path $projectPath "godot.windows.$target.x86_64.console.exe"
     }
-    foreach ($threadMode in @('safe','separate')) {
+    foreach ($threadMode in @('safe')) {
         $log = Join-Path $root "artifacts/logs/render-thread-shutdown-$target-$threadMode.log"
         $pathArgs = if ($Runtime) { @() } else { @('--path', $projectPath, 'res://render_thread_shutdown.tscn') }
         Push-Location $projectPath

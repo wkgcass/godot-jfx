@@ -1,5 +1,145 @@
 # Acceptance status
 
+## Full post-baseline cleanup audit — 2026-11-13
+
+The follow-up inventory is `artifacts/dead-code-audit/audit.json`, with source
+paths and hashes for 477 root source/test/script entries, 20 Godot files,
+64 JFX files and the four VFX integration files. It records the baseline and
+current heads, dynamic entry points, removed code and reasons for retention.
+VFX integration is compared after the explicit revert of its unrelated Tauri
+port; restored upstream business code is not treated as new host code.
+
+The broader review includes inline header methods, field reads/writes, protocol
+consumers, shader generation, inherited dispatch and diagnostic entry points.
+It found and removed an unwritten `window_gpu_time_us` field and unused setter,
+the redundant inherited offscreen-timing getter, and the full-shadow input branch
+of the region-upload API (all callers supply packed patches). The host no longer
+reports a fabricated zero `window_gpu_us`; transition GPU samples still come
+directly from the actual window viewport. Both storage backends retain the
+packed-patch path and unsupported-layout fallback.
+
+The shared layer compositor is live in primary and native secondary window
+presentation, despite its old legacy-only comment. Its implementation and
+protocol diagnostics are retained. Public Godot extensions, JavaFX overrides,
+COM callbacks, JNI callbacks and generated shader entry points are not dead
+merely because they lack a direct call in the defining file.
+
+Editor and Runtime source builds pass after the storage-API cleanup. RGBA8 and
+RGBAF partial updates pass on mobile/OpenGL; Viewport-state and batch-boundary
+tests pass on mobile. Protocol validation also passes. Profiled table scrolling
+and all 68 transitions pass with a temporary 8192-element timestamp pool; the
+default 256-element pool failed with timestamp-capacity errors (preserved in
+`artifacts/dead-code-audit/table-default-timestamp-limit.log`). The temporary
+`override.cfg` was removed afterward; error checks were not relaxed.
+
+The transition fixture still reports actual window GPU samples (1691 samples,
+about 512 us average in this diagnostic run). Offscreen GPU samples remain zero
+on the default direct-pass path: its timestamp mapping is cleared by the regular
+viewport draw before results are consumed. This is a measurement limitation,
+not evidence of zero GPU cost or an unused field; the non-direct diagnostic
+path still uses the engine's normal viewport measurement lifecycle. These
+instrumented runs do not establish performance acceptance.
+
+## Removal follow-up audit — 2026-11-13
+
+Compared the host and submodule additions against root baseline
+`9d1f2a2be0744d05ff9aed94e6c116de6a391d09` (Godot `7be59b463a`,
+JFX `73d8b63bab`). The deleted RD spike left an unused
+`benchmark_offscreen_cycle` host method and ClassDB binding; both are now removed.
+Safe-only offscreen drawing no longer needs two callback wrappers or a stored
+timing result. Packed region uploads now call texture storage synchronously,
+without a Callable dispatch wrapper. Obsolete headers and separate-mode trace
+descriptions have been removed as well.
+
+Call-site review included JNI registration, ClassDB bindings, Java callers and
+test fixtures. A second audit additionally removed unused `clipboardWriteText`
+and `clipboardHasText` Java/JNI entry points, plus the obsolete render-target
+`draw_prism_mesh` wrapper/binding. Clipboard writes and format queries continue
+through the full-format APIs; actual mesh draws use the instance-aware method.
+All 34 remaining native declarations have registrations and callers, including
+Java method references. The 493-file tracked host/test/script/document scan found
+no orphan Java reference probes or Godot test scripts. No further unreferenced
+host methods or Godot Java adapter methods were identified in this review.
+Godot's remaining region-upload implementation, Viewport drawing,
+profiling hooks and window/resource-lifetime fixes have current consumers and
+are retained. Historical RD measurements below remain historical records.
+
+After the JNI cleanup, the source JFX SDK, Editor and Runtime rebuilds pass;
+`javap` confirms the removed JNI methods are absent from the SDK. Clipboard
+encoding tests pass without accessing the system clipboard, and Demo smoke,
+Viewport-state texture tests and Runtime window controls pass with the rebuilt
+Java/native pair. This does not re-establish end-to-end system clipboard
+acceptance or constitute a formal proof that all code is reachable.
+
+Source Editor and Runtime rebuilds pass. Render-target and partial-texture tests
+pass on mobile and OpenGL; Viewport-state and both batch-boundary checks pass
+on mobile. Runtime window controls and video playback, and unsupported-mode
+rejection pass. The safe/mobile frame trace and its Python analysis complete:
+59.999 pulses/s, zero unfocused intervals. These CPU timings are not physical
+display FPS. Evidence uses the corresponding `artifacts/logs/render-targets-*`,
+`queued-texture-update-*`, `vfx-window-controls-mobile-safe-runtime.log`,
+`media-video-mobile-runtime.log`, `render-mode-rejection.log`, and
+`vfx-frame-benchmark-safe-trace.log` / `.analysis.json` files.
+
+## Viewport + safe consolidation — checked 2026-11-13
+
+The custom JavaFX RD-direct backend, translator, capability JNI query, build
+option and dedicated probes have been removed. Separate-only host fences,
+queued texture proxies and Windows GL/render-worker ownership patches have
+also been removed. Godot's own RenderingDevice, renderers and shared texture
+region-upload implementation remain. Host startup and target initialization
+reject separate rendering. The command protocol and JavaFX thread ownership
+remain unchanged.
+
+Source Editor, Runtime, JFX SDK and Media builds pass. Current Editor tests pass
+for Demo startup/close, texture revisions (including partial uploads and batch
+boundaries), render-target lifecycle, shader-cache limits, Node shaders, ripple,
+blackhole, transformed GodotView, native windows and immediate-close handling.
+Viewport target/cache/shader/ripple checks include both mobile and OpenGL.
+Editor/Vulkan and Runtime/OpenGL Robot fixtures pass. Media plane validation,
+Editor/Runtime video playback and controls, Runtime window controls, Runtime
+immediate-close handling and 12-cycle Stage churn pass. Effects match the native
+D3D reference on Editor/mobile and Runtime/OpenGL. VFX all-page navigation, LCD overlap comparison and menu-render progress pass.
+The revised GPU/host profiling wrapper also completes after removing the
+backend-specific Vulkan wait hooks.
+Menu profiling reports 59.903 pulses/s with menu-open ripples and 59.996 pulses/s
+during repeated sliding, with zero unfocused intervals in those phases; this is
+CPU pulse timing, not physical display FPS.
+
+Clipboard end-to-end exchange was refused before writes because the existing
+clipboard contains an unverified `DataObject` format. Its contents were not
+cleared or replaced. Snapshot-guard and clipboard-ownership unit tests pass;
+they do not establish current end-to-end clipboard exchange acceptance.
+
+Both Editor and Runtime module archives contain none of the deleted RD source
+members, and `javap` confirms the SDK no longer exposes `isRDDirectCompiled`.
+All PowerShell scripts parse; source searches find no obsolete RD backend symbols
+or environment switches in the host/JFX implementation and tests. The sole
+separate launch in scripts is the explicit rejection fixture.
+
+Evidence: `artifacts/logs/godot-editor-javafx.log`, `godot-runtime-javafx.log`,
+`jfx.log`, `jfx-media-native.log`, `queued-texture-update-mobile-safe*.log`,
+`render-targets-*-safe.log`, `shader-cache-*-safe.log`, `node-shaders-*-safe.log`,
+`vfx-blackhole-mobile-safe.log`, `vfx-ripple-*-safe.log`,
+`godot-view-mobile-transform.log`, `robot-mobile-safe.log`,
+`robot-gl_compatibility-safe-runtime.log`, `media-planes-mobile.log`,
+`media-video-mobile*.log`, `effects-mobile.log`, `effects-gl_compatibility-runtime.log`,
+`vfx-intro-mobile-safe-all-pages.log`, and `vfx-menu-mobile-safe-default.log`.
+The clipboard refusal is the PowerShell guard result, not an old clipboard log.
+The removed-mode rejection fixture uses OpenGL: it verifies the host refuses
+separate before starting the JVM and releases its resources. A Vulkan/separate
+negative attempt reached the expected rejection but also exposed the upstream
+RenderingDevice shutdown-thread error after removal of the separate-only fix;
+that unsupported engine configuration is not claimed to have clean shutdown.
+
+
+> Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
+> safe. Custom RD-direct and separate-thread host support have been removed.
+> Dated RD/separate measurements below are historical evidence, not runnable
+> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> for current commands.
+
+
 ## Configurable tool paths — checked 2026-11-12
 
 MSYS2 now uses `MSYS2_ROOT`, falling back to `D:\msys64`.
@@ -532,13 +672,13 @@ accepting the floor vs pursuing this lever is with the user.
 
 With the architecture decision unanswered twice, a premise-checking spike
 was run instead of unilaterally starting the 4-6 week rewrite:
-`JavaFXHost.benchmark_offscreen_cycle` measures the bare offscreen
+The now-removed `JavaFXHost.benchmark_offscreen_cycle` measured the bare offscreen
 viewport render cycle at effect-pass resolution — 5.9 to 37.5 us per
 cycle for 0-64 draw items. The RD-direct plan's core assumption
 (~440 us/pass cycle cost) was the sync-inclusive wall time of the removed
 per-pass fence, not the cycle cost. The rewrite's recoverable ceiling is
 ~30 us/pass and cannot close the 17-20 fps transition gap;
-docs/rd-direct-backend-plan.md now states "premise falsified, do not
+the retired RD design notes (available in Git history) now states "premise falsified, do not
 start on the original grounds", protecting a multi-week investment from
 being spent on a falsified premise. The residual gap requires
 re-attribution (real GPU work of effect passes, presentation pipeline,
