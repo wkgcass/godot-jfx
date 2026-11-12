@@ -2,7 +2,10 @@
 setlocal
 set "helper_test_flags="
 if "%~1"=="--asan" set "helper_test_flags=/fsanitize=address /Zi /MD /Fdartifacts\native-tests\dnd_helper_lifetime_test.pdb"
-call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" >nul
+if not defined VSINSTALLDIR set "VSINSTALLDIR=%ProgramFiles%\Microsoft Visual Studio\2022\Community"
+set "VSINSTALLDIR=%VSINSTALLDIR:/=\%"
+if not "%VSINSTALLDIR:~-1%"=="\" set "VSINSTALLDIR=%VSINSTALLDIR%\"
+call "%VSINSTALLDIR%\VC\Auxiliary\Build\vcvars64.bat" >nul
 if errorlevel 1 exit /b 1
 pushd "%~dp0.."
 if not exist artifacts\native-tests mkdir artifacts\native-tests

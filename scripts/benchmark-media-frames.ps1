@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk='D:\jdk-25.0.3+9',[ValidateSet('d3d','safe','separate')][string]$Backend='safe',[ValidateSet(1,2)][int]$Rate=1,[ValidateRange(0,20)][int]$Sample=0,[switch]$ClockSkew,[switch]$Native60,[switch]$NoVSync,[switch]$FramePhases,[switch]$Runtime)
+param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d','safe','separate')][string]$Backend='safe',[ValidateSet(1,2)][int]$Rate=1,[ValidateRange(0,20)][int]$Sample=0,[switch]$ClockSkew,[switch]$Native60,[switch]$NoVSync,[switch]$FramePhases,[switch]$Runtime)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $savedJdk=$env:GODOT_JFX_JDK;$savedMedia=$env:GODOT_JFX_MEDIA_FILE;$savedOptions=$env:JAVA_TOOL_OPTIONS

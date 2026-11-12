@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk='D:\jdk-25.0.3+9',
+param([string]$Jdk=$env:JAVA_HOME,
     [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',
     [ValidateRange(1,20)][int]$Rounds=3,
     [ValidateRange(128,4096)][int]$HeapMiB=256)

@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk = 'D:\jdk-25.0.3+9', [switch]$Runtime)
+param([string]$Jdk = $env:JAVA_HOME, [switch]$Runtime)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK

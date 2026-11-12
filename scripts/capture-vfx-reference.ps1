@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk = 'D:\jdk-25.0.3+9', [ValidateRange(1,1000)][int]$PageLimit = 1000, [switch]$FreezeFusion)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateRange(1,1000)][int]$PageLimit = 1000, [switch]$FreezeFusion)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 Push-Location $root

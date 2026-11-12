@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Jdk = 'D:\jdk-25.0.3+9',
+    [string]$Jdk = $env:JAVA_HOME,
     [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile',
     [ValidateSet('safe','separate')][string]$RenderThread = 'safe',
     [switch]$RD,

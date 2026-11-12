@@ -4,7 +4,7 @@ param(
     [switch]$RequestRD,
     [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile',
     [ValidateSet('safe','separate')][string]$RenderThread = 'safe',
-    [string]$Jdk = 'D:\jdk-25.0.3+9'
+    [string]$Jdk = $env:JAVA_HOME
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent

@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk='D:\jdk-25.0.3+9')
+param([string]$Jdk=$env:JAVA_HOME)
 $ErrorActionPreference='Stop'
 $saved=$env:GODOT_JFX_LCD_SCREEN
 Push-Location (Split-Path $PSScriptRoot -Parent)

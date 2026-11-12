@@ -29,7 +29,7 @@ public final class ClipboardProbe {
     private static final String EXTERNAL_RTF = "{\\rtf1\\ansi External \\i rich\\i0}";
     private static final List<java.io.File> FILES = List.of(
             new java.io.File("C:\\godot-jfx测试\\报告 🙂.txt"),
-            new java.io.File("D:\\wsl-workspace\\opensource\\godot-jfx\\README.md"));
+            new java.io.File("D:\\godot-jfx-fixture\\README.md"));
     private static final List<java.io.File> EXTERNAL_FILES = List.of(
             new java.io.File("D:\\外部\\文件 甲.txt"),
             new java.io.File("C:\\外部\\乙🙂.png"));

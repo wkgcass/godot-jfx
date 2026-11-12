@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk = 'D:\jdk-25.0.3+9', [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [switch]$Profile, [ValidateRange(3,30)][int]$Sweeps = 3)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [switch]$Profile, [ValidateRange(3,30)][int]$Sweeps = 3)
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $savedJdk = $env:GODOT_JFX_JDK

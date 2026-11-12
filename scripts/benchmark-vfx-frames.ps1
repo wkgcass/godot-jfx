@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk='D:\jdk-25.0.3+9', [ValidateSet('d3d','safe','separate')][string]$Backend='safe', [switch]$Host120, [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile', [ValidateSet(0,60,120,240)][int]$MailboxFps=0, [switch]$Trace)
+param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('d3d','safe','separate')][string]$Backend='safe', [switch]$Host120, [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile', [ValidateSet(0,60,120,240)][int]$MailboxFps=0, [switch]$Trace)
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $savedJdk=$env:GODOT_JFX_JDK

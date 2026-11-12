@@ -54,6 +54,8 @@ JNI 查询与干净退出；环境变量由脚本恢复。同一 SDK 应通过�
 
 ## 运行前
 
+工具路径可通过 `JAVA_HOME`、`MSYS2_ROOT`、`VSINSTALLDIR` 配置，默认值和参数优先级见 [构建说明](docs/build-windows.md)。剪贴板文件列表中的路径是虚构测试数据；Java 观察器与 PowerShell 校验使用相同值，不依赖开发者的实际工作目录。
+
 所有命令在仓库根目录用 PowerShell 执行。脚本自行编译 Java/C++ 测试观察器，但通常**不会重新构建生产 SDK 或 Godot**。修改生产代码后先构建对应产物，协议变化必须同时更新宿主和 SDK。不要在 DLL/EXE 正被测试占用时重新链接。
 
 表中前置条件缩写：
@@ -61,7 +63,7 @@ JNI 查询与干净退出；环境变量由脚本恢复。同一 SDK 应通过�
 | 标记 | 需要准备什么 |
 | --- | --- |
 | G | 带 JavaFX 模块的源码 Godot Editor，测试项目 `tests/godot`，可用的 Windows 图形桌面与 GPU 驱动 |
-| J | JDK 25（默认 `D:\jdk-25.0.3+9`）和 `jfx/build/sdk`；必须是本仓库源码 SDK |
+| J | JDK 25（默认 `$env:JAVA_HOME`，可用 `-Jdk` 覆盖）和 `jfx/build/sdk`；必须是本仓库源码 SDK |
 | M | 执行 `build-jfx-media.ps1`，SDK 中具备 jfxmedia/glib-lite/gstreamer-lite/fxplugins 原生库 |
 | V | 执行 `build-vfx.ps1`，准备 `artifacts/vfx` 的主类、测试类、资源和依赖 |
 | Runtime | 额外构建 `godot-runtime -WithJavaFXModule`；脚本还借助 Editor 导入测试项目，再运行打包目录中的 Runtime |
@@ -113,7 +115,7 @@ GPU/GUI 测试串行执行；性能测试期间保持窗口前台，不进行其
 .\scripts\test-dnd-drag-image.cmd
 ```
 
-前置条件为 MSVC（与 test-protocol.cmd 相同）和默认 JDK 路径（提供 jni.h 头）。测试构造带 8×6 拖拽图（偏移 5,3）的源 DataObject，调用与真实拖出相同的 `apply_drag_image` 注册路径，断言 shell 拖拽图像助手接受该对象并写入 `DragImageBits`，且存储的尺寸/偏移与源一致、shell 附带格式可经 `SetData`/`GetData`/`EnumFormatEtc` 往返（`DND_DRAG_IMAGE_TEST_PASS`）。测试还注入 STL 分配失败，检查查询不构造文件/自定义格式负载、失败 SetData 保留调用方所有权、复制/替换释放、GetData/枚举/克隆的错误边界，以及 Next 参数失败不推进位置。还验证内置格式替换后读取新值且只枚举一次，以及旧 medium 的释放回调重入读取并追加 64 个格式后仍正确完成替换。读取侧额外要求 `DND_EXTRACTION_FAILURE_CLEANUP_PASS`：分配失败后 HGLOBAL 解锁、STGMEDIUM/枚举器释放，DragEnter/Drop 边界清空旧载荷并返回拒绝效果；会打印两条预期的 allocation failed 诊断。另以模拟 JNI 在包含两项自定义格式的载荷中逐一注入 23 个操作失败点，要求 `DND_JNI_FAILURE_CLEANUP_PASS`：异常后不继续转换、不回调半成品数据、局部引用与线程附加状态均清理。另要求 `DND_JNI_SHUTDOWN_GATE_PASS`：在附加线程前暂停时销毁入口仍被锁保护，已进入调用正常清理，关闭后不再调用 JNI。它不模拟真实 JVM 堆耗尽，也不穷举系统退出时序。它不启动 Godot/JVM、不需要交互输入；屏幕上的预览渲染与跨进程封送仍由 Robot 夹具验证。
+前置条件为 MSVC（与 test-protocol.cmd 相同）和 `JAVA_HOME` 指向的 JDK（提供 jni.h 头）。测试构造带 8×6 拖拽图（偏移 5,3）的源 DataObject，调用与真实拖出相同的 `apply_drag_image` 注册路径，断言 shell 拖拽图像助手接受该对象并写入 `DragImageBits`，且存储的尺寸/偏移与源一致、shell 附带格式可经 `SetData`/`GetData`/`EnumFormatEtc` 往返（`DND_DRAG_IMAGE_TEST_PASS`）。测试还注入 STL 分配失败，检查查询不构造文件/自定义格式负载、失败 SetData 保留调用方所有权、复制/替换释放、GetData/枚举/克隆的错误边界，以及 Next 参数失败不推进位置。还验证内置格式替换后读取新值且只枚举一次，以及旧 medium 的释放回调重入读取并追加 64 个格式后仍正确完成替换。读取侧额外要求 `DND_EXTRACTION_FAILURE_CLEANUP_PASS`：分配失败后 HGLOBAL 解锁、STGMEDIUM/枚举器释放，DragEnter/Drop 边界清空旧载荷并返回拒绝效果；会打印两条预期的 allocation failed 诊断。另以模拟 JNI 在包含两项自定义格式的载荷中逐一注入 23 个操作失败点，要求 `DND_JNI_FAILURE_CLEANUP_PASS`：异常后不继续转换、不回调半成品数据、局部引用与线程附加状态均清理。另要求 `DND_JNI_SHUTDOWN_GATE_PASS`：在附加线程前暂停时销毁入口仍被锁保护，已进入调用正常清理，关闭后不再调用 JNI。它不模拟真实 JVM 堆耗尽，也不穷举系统退出时序。它不启动 Godot/JVM、不需要交互输入；屏幕上的预览渲染与跨进程封送仍由 Robot 夹具验证。
 
 应用内两种模式不覆盖 Windows 桌面/其他进程拖入拖出；跨进程夹具通过 `DragImageBits` 证明 OLE 拖出段的拖放预览图已注册，但不像素级检查屏幕上的预览渲染，也不覆盖指针仍在宿主窗口内的本地段预览（当前不绘制）或真实鼠标硬件。这些仍属于拖放收尾范围，不能用单侧 PASS 代替。
 
@@ -491,10 +493,10 @@ Media 性能脚本还支持 `-Backend separate`、`-FramePhases`、`-ClockSkew`�
 
 ```powershell
 # JDK 25 FFM：当前进程句柄类型和 Media Foundation 创建/释放
-& 'D:\jdk-25.0.3+9\bin\javac.exe' -d artifacts/reference tests/reference/CurrentProcessHandles.java tests/reference/MediaFoundationLifecycleProbe.java
-& 'D:\jdk-25.0.3+9\bin\java.exe' --enable-native-access=ALL-UNNAMED -cp artifacts/reference CurrentProcessHandles
-& 'D:\jdk-25.0.3+9\bin\java.exe' --enable-native-access=ALL-UNNAMED -cp artifacts/reference MediaFoundationLifecycleProbe
-& 'D:\jdk-25.0.3+9\bin\java.exe' --enable-native-access=ALL-UNNAMED -cp artifacts/reference MediaFoundationLifecycleProbe artifacts/reference/media-oracle-sample.mp4
+& "$env:JAVA_HOME/bin/javac.exe" -d artifacts/reference tests/reference/CurrentProcessHandles.java tests/reference/MediaFoundationLifecycleProbe.java
+& "$env:JAVA_HOME/bin/java.exe" --enable-native-access=ALL-UNNAMED -cp artifacts/reference CurrentProcessHandles
+& "$env:JAVA_HOME/bin/java.exe" --enable-native-access=ALL-UNNAMED -cp artifacts/reference MediaFoundationLifecycleProbe
+& "$env:JAVA_HOME/bin/java.exe" --enable-native-access=ALL-UNNAMED -cp artifacts/reference MediaFoundationLifecycleProbe artifacts/reference/media-oracle-sample.mp4
 
 # 只有 Godot 的帧循环，不加载 JavaFX，用于区分宿主自身的节奏
 .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot --script res://host_frame_probe.gd --rendering-method mobile --render-thread safe
@@ -664,13 +666,13 @@ Y=-14、尺寸 740×576、手势连续和宿主资源归零，日志
 仅编译（不操作输入）：
 
 ```powershell
-& 'D:\jdk-25.0.3+9\bin\javac.exe' --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED -cp 'artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/dependencies/*' -encoding UTF-8 -d artifacts/reference tests/reference/NativeTableDrag.java
+& "$env:JAVA_HOME/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED -cp 'artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/dependencies/*' -encoding UTF-8 -d artifacts/reference tests/reference/NativeTableDrag.java
 ```
 
 获得同意后才可运行：
 
 ```powershell
-& 'D:\jdk-25.0.3+9\bin\java.exe' '-Dglass.platform=Win' '-Dprism.order=d3d' --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED -cp 'artifacts/reference;artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/resources/main;artifacts/vfx/resources/test;artifacts/vfx/dependencies/*' NativeTableDrag *> artifacts/logs/native-table-drag.log
+& "$env:JAVA_HOME/bin/java.exe" '-Dglass.platform=Win' '-Dprism.order=d3d' --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED -cp 'artifacts/reference;artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/resources/main;artifacts/vfx/resources/test;artifacts/vfx/dependencies/*' NativeTableDrag *> artifacts/logs/native-table-drag.log
 ```
 
 要求退出码 0、原生 WinApplication 标记、完整 96 个间隔、所选轴累计实际位移至少 200 像素、NATIVE_TABLE_DRAG_PASS，

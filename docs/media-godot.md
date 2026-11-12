@@ -381,8 +381,8 @@ reproducer on this machine, not every MF lifetime issue. Log:
 `artifacts/logs/media-foundation-lifecycle.log`. Reproduce with JDK 25:
 
 ```powershell
-& 'D:/jdk-25.0.3+9/bin/javac.exe' -d artifacts/reference tests/reference/CurrentProcessHandles.java tests/reference/MediaFoundationLifecycleProbe.java
-& 'D:/jdk-25.0.3+9/bin/java.exe' --enable-native-access=ALL-UNNAMED -cp artifacts/reference MediaFoundationLifecycleProbe
+& "$env:JAVA_HOME/bin/javac.exe" -d artifacts/reference tests/reference/CurrentProcessHandles.java tests/reference/MediaFoundationLifecycleProbe.java
+& "$env:JAVA_HOME/bin/java.exe" --enable-native-access=ALL-UNNAMED -cp artifacts/reference MediaFoundationLifecycleProbe
 ```
 
 The test follows the paired calls required by Microsoft's

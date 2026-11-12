@@ -1,5 +1,50 @@
 # Windows x64 source builds
 
+## JDK selection
+
+PowerShell build, run and test scripts default `-Jdk` to `$env:JAVA_HOME`;
+JNI-based `.cmd` tests also use `JAVA_HOME`. Set it to a complete JDK 25 before
+invoking scripts, or pass `-Jdk` explicitly to a PowerShell script.
+The repository's `.java-version` selects 25 only when a configured Java version
+manager handles that file; the scripts themselves do not read it. In the local
+jdkman setup, `java -version` also updates `JAVA_HOME`. Check both before building:
+
+```powershell
+java -version
+$env:JAVA_HOME
+& "$env:JAVA_HOME/bin/javac.exe" -version
+```
+
+Child batch/Gradle processes and the Godot host need this directory even when
+`java` is a shell function. Scripts that temporarily set `JAVA_HOME` restore it
+on exit. A new shell must have the desired environment initialized again.
+
+## Tool installation paths
+
+| Tool | Environment variable | Default when unset | PowerShell override |
+| --- | --- | --- | --- |
+| JDK 25 | `JAVA_HOME` | None; initialize your Java environment | `-Jdk` |
+| MSYS2 with UCRT64 GCC | `MSYS2_ROOT` | `D:\msys64` | `-Msys` |
+| Visual Studio for JFX and native test helpers | `VSINSTALLDIR` | `%ProgramFiles%\Microsoft Visual Studio\2022\Community` | `-VisualStudio` |
+
+Explicit parameters take precedence over environment variables. `-VisualStudio`
+is accepted by `build-windows.ps1`, `build-jfx-media.ps1`, and
+`test-drag-drop-external.ps1`. Native `.cmd` tests read `VSINSTALLDIR` directly. The selected directory is
+normalized before invoking Visual Studio tools, including the trailing
+separator required by their environment setup; callers may omit that separator.
+Godot's native build continues to use SCons MSVC 14.3 discovery; the
+`build-windows.ps1 -VisualStudio` parameter configures the JFX build.
+After changing Visual Studio installations, rebuild the default JFX SDK before
+Media so its generated `windows_tools.properties` matches the selected compiler.
+
+Set these variables in your shell/profile to match your installations, then run
+the normal build commands without repeating path arguments. For example, set
+`$env:MSYS2_ROOT` to your existing MSYS2 installation directory. These scripts do
+not persist environment changes or install tools into their default directories.
+Relative repository paths for tools, caches and generated files remain relative
+to this checkout. Clipboard/drag test file names are synthetic payloads and do
+not require corresponding files to exist.
+
 ## Optional RD-direct compilation
 
 `javafx_rd_direct=yes` is the default SCons configuration for the JavaFX module.
@@ -52,7 +97,7 @@ try {
 
 .\scripts\build-windows.ps1 -Target godot-editor
 .\scripts\build-windows.ps1 -Target godot-runtime
-.\scripts\build-windows.ps1 -Target jfx -Jdk 'D:\jdk-25.0.3+9'
+.\scripts\build-windows.ps1 -Target jfx
 ```
 
 Scripts are repeatable/incremental and propagate build failures. Logs and
@@ -86,8 +131,8 @@ or untracked paths and selected artifact hashes; regenerate it after changes.
 ## Reference scene
 
 ```powershell
-& 'D:\jdk-25.0.3+9\bin\javac.exe' --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing -encoding UTF-8 -d artifacts/reference tests/reference/ReferenceSmoke.java
-& 'D:\jdk-25.0.3+9\bin\java.exe' --enable-native-access=javafx.graphics --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing '-Dprism.verbose=true' '-Dreference.snapshot=artifacts/reference/stock-d3d.png' -cp artifacts/reference ReferenceSmoke
+& "$env:JAVA_HOME/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing -encoding UTF-8 -d artifacts/reference tests/reference/ReferenceSmoke.java
+& "$env:JAVA_HOME/bin/java.exe" --enable-native-access=javafx.graphics --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing '-Dprism.verbose=true' '-Dreference.snapshot=artifacts/reference/stock-d3d.png' -cp artifacts/reference ReferenceSmoke
 ```
 
 This creates an actual JavaFX window, captures the scene using JavaFX's
@@ -95,7 +140,8 @@ snapshot API and exits. It is a stock D3D reference, not proof of Godot
 integration or OS input correctness. The inspected image contains Chinese
 and English text, controls, a gradient, shadow, rotated clip and opacity.
 
-Native Media uses existing MSYS2 make/cygpath/sh and UCRT64 GCC at `D:\msys64`.
+Native Media uses existing MSYS2 make/cygpath/sh and UCRT64 GCC under
+`MSYS2_ROOT` (default `D:\msys64`).
 `build-jfx-media.ps1` calls `build-makedepend.ps1`, which downloads checksum-pinned
 X.Org makedepend 1.0.10 source, builds it under `.tools/makedepend`, and checks a
 header dependency fixture. Source: https://xorg.freedesktop.org/releases/individual/util/.

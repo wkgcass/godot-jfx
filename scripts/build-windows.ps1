@@ -2,8 +2,8 @@
 param(
     [ValidateSet('godot-editor', 'godot-runtime', 'jfx')]
     [string]$Target = 'godot-editor',
-    [string]$Jdk = 'D:\jdk-25.0.3+9',
-    [string]$VisualStudio = 'C:\Program Files\Microsoft Visual Studio\2022\Community',
+    [string]$Jdk = $env:JAVA_HOME,
+    [string]$VisualStudio = $(if ($env:VSINSTALLDIR) { $env:VSINSTALLDIR } else { Join-Path $env:ProgramFiles 'Microsoft Visual Studio/2022/Community' }),
     [ValidateRange(1, 64)][int]$Jobs = 8,
     [switch]$WithJavaFXModule,
     [ValidateSet('yes', 'no')][string]$JavaFXRDDirect = 'yes'
@@ -19,7 +19,7 @@ $suffix = if ($WithJavaFXModule) { '-javafx' } else { '' }
 if ($WithJavaFXModule) { $suffix += "-rd-$JavaFXRDDirect" }
 $log = Join-Path $logs "$Target$suffix.log"
 $saved = @{}
-foreach ($name in @('JAVA_HOME', 'GRADLE_USER_HOME', 'VSCOMNTOOLS')) {
+foreach ($name in @('JAVA_HOME', 'GRADLE_USER_HOME', 'VSCOMNTOOLS', 'VSINSTALLDIR')) {
     $saved[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 Push-Location $root
@@ -28,6 +28,7 @@ try {
         if (!(Test-Path "$Jdk/bin/javac.exe")) { throw "Missing JDK: $Jdk" }
         $env:JAVA_HOME = $Jdk
         $env:GRADLE_USER_HOME = Join-Path $root '.gradle-cache'
+        $env:VSINSTALLDIR = $VisualStudio.Replace('/', '\').TrimEnd('\') + '\'
         $env:VSCOMNTOOLS = Join-Path $VisualStudio 'VC/Auxiliary/Build'
         Set-Location (Join-Path $root 'jfx')
         & .\gradlew.bat sdk --console=plain --no-daemon "--max-workers=$Jobs" *> $log

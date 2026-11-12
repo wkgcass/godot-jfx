@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk='D:\jdk-25.0.3+9', [ValidateSet('safe','separate')][string]$RenderThread='safe')
+param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('safe','separate')][string]$RenderThread='safe')
 $ErrorActionPreference='Stop'
 $names=@('GODOT_JFX_JDK','GODOT_JFX_LCD_SCREEN','GODOT_JFX_RD_DIRECT')
 $saved=@{}; foreach($name in $names){$saved[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}

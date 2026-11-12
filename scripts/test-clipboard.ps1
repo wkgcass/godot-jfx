@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk = 'D:\jdk-25.0.3+9',
+param([string]$Jdk = $env:JAVA_HOME,
     [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',
     [switch]$Runtime)
 $ErrorActionPreference = 'Stop'
@@ -78,7 +78,7 @@ try {
         if($null -eq $hdrop -or $hdrop.Length -lt 22){throw 'Missing native CF_HDROP'}
         if([BitConverter]::ToUInt32($hdrop,0) -ne 20 -or [BitConverter]::ToInt32($hdrop,16) -ne 1){throw 'CF_HDROP header differs'}
         $hdPaths=[Text.Encoding]::Unicode.GetString($hdrop,20,$hdrop.Length-20).TrimEnd([char]0) -split "`0"
-        if($hdPaths.Count -ne 2 -or $hdPaths[0] -cne 'C:\godot-jfx测试\报告 🙂.txt' -or $hdPaths[1] -cne 'D:\wsl-workspace\opensource\godot-jfx\README.md'){throw 'CF_HDROP paths differ'}
+        if($hdPaths.Count -ne 2 -or $hdPaths[0] -cne 'C:\godot-jfx测试\报告 🙂.txt' -or $hdPaths[1] -cne 'D:\godot-jfx-fixture\README.md'){throw 'CF_HDROP paths differ'}
         $dib=[ClipboardSnapshot]::ReadFormat(8)
         if($null -eq $dib -or $dib.Length -ne 64){throw 'Missing native CF_DIB'}
         if([BitConverter]::ToUInt32($dib,0) -ne 40 -or [BitConverter]::ToInt32($dib,4) -ne 3 -or [BitConverter]::ToInt32($dib,8) -ne 2 -or [BitConverter]::ToUInt16($dib,12) -ne 1 -or [BitConverter]::ToUInt16($dib,14) -ne 32 -or [BitConverter]::ToUInt32($dib,16) -ne 0){throw 'CF_DIB header differs'}

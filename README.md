@@ -22,8 +22,9 @@ remaining work. The user's remaining white-edge issue is explicitly waived.
 
 ## Build and run
 
-Use PowerShell at this directory. The verified toolchain uses JDK 25 at
-`D:\jdk-25.0.3+9`, Visual Studio 2022/MSVC, Windows SDK and SCons 4.10.1.
+Use PowerShell at this directory. The scripts use JDK 25 from `JAVA_HOME`
+(or an explicit `-Jdk` override), Visual Studio 2022/MSVC, Windows SDK and
+SCons 4.10.1.
 For initial dependency setup and alternate JDK paths, follow
 [Windows source builds](docs/build-windows.md). Run native builds sequentially.
 

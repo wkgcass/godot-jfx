@@ -1,5 +1,52 @@
 # Acceptance status
 
+## Configurable tool paths — checked 2026-11-12
+
+MSYS2 now uses `MSYS2_ROOT`, falling back to `D:\msys64`.
+JFX and native test helpers use `VSINSTALLDIR`, falling back to the standard
+VS 2022 Community directory under Program Files. Explicit PowerShell parameters
+still take precedence. VS paths are normalized for the vendor setup scripts;
+modified process environment variables are restored. Java retains the
+`JAVA_HOME` defaults described below. The clipboard fixture's real checkout
+path was replaced with matching synthetic data in Java and PowerShell.
+
+JFX and native Media incremental builds pass with environment-selected paths,
+including a VS path containing spaces, forward slashes and no trailing separator;
+environment restoration checks pass. The protocol native test passes with both
+the default VS location and an environment override. The clipboard ownership
+native test passes; the changed Java clipboard observer compiles. No system
+clipboard exchange or physical drag test was run. VFX `-Smoke` passes on
+mobile/safe; this is bounded startup/close coverage, not full regression acceptance.
+PowerShell syntax and `git diff --check` pass; parameter-default checks cover
+unset and overridden MSYS2/VS variables without executing physical fixtures.
+
+Logs: `artifacts/logs/jfx.log`, `jfx-media-native.log`,
+`tool-path-protocol.log`, `tool-path-protocol-default.log`,
+`tool-path-clipboard-ownership.log`, and `vfx-demo-mobile-safe.log`.
+
+## JAVA_HOME script defaults — checked 2026-11-12
+
+Build/run/test PowerShell scripts now default `-Jdk` to `JAVA_HOME`; the two
+JNI-header native `.cmd` fixtures use the same environment variable. No script
+contains the former fixed JDK installation path. The existing local jdkman
+configuration selects Temurin 25.0.3+9 with `.java-version`; both `java -version`
+and `javac -version` confirm 25.0.3. This file alone does not configure an
+uninitialized shell; see build-windows.md for environment setup.
+
+Without an explicit `-Jdk`, sequential incremental source builds pass for
+Godot Editor/Runtime (JavaFX module, RD compiled in), JFX SDK, native Media and
+VFX. VFX `-Smoke` and local Media video playback/control/cleanup pass on the
+Editor with Vulkan/mobile and safe rendering. Both JNI native fixtures pass,
+and the test sequence preserves `JAVA_HOME`. This is not a clean rebuild,
+a full regression run, or physical audio/device acceptance; Runtime was built
+but not launched in this check.
+
+Evidence in `artifacts/logs`: `godot-editor-javafx-rd-yes.log`,
+`godot-runtime-javafx-rd-yes.log`, `jfx.log`, `jfx-media-native.log`,
+`vfx-build.log`, `vfx-demo-mobile-safe.log`, `media-video-mobile.log`,
+`java-home-clipboard-ownership.log`, and `java-home-dnd-drag-image.log`.
+PowerShell parsing and `git diff --check` also pass.
+
 ## RD-direct build option — checked 2026-11-12
 
 The JavaFX module now supports `javafx_rd_direct=yes/no` (default `yes`),

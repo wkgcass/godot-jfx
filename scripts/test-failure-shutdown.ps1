@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk = 'D:\jdk-25.0.3+9', [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [ValidateSet('FailureShutdownProbe','FailureApplicationProbe')][string]$Probe = 'FailureShutdownProbe', [switch]$Runtime)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [ValidateSet('FailureShutdownProbe','FailureApplicationProbe')][string]$Probe = 'FailureShutdownProbe', [switch]$Runtime)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK

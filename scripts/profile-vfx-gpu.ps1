@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk='D:\jdk-25.0.3+9',[ValidateSet('safe','separate')][string]$RenderThread='safe',[switch]$Host120)
+param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('safe','separate')][string]$RenderThread='safe',[switch]$Host120)
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $savedJdk=$env:GODOT_JFX_JDK

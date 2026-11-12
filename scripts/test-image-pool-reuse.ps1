@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk='D:\jdk-25.0.3+9')
+param([string]$Jdk=$env:JAVA_HOME)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $saved=$env:GODOT_JFX_IMAGE_POOL_LIFO

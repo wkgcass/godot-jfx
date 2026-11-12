@@ -17,7 +17,7 @@
 
 ## 构建环境
 
-以下命令从仓库根目录在 PowerShell 执行。当前脚本默认 JDK 为 `D:\jdk-25.0.3+9`，Visual Studio 2022 Community/MSVC 与 Windows SDK；不要用机器默认的旧 Java 代替。Python 可通过 `python` 调用；SCons 使用 `.tools/python/Scripts/python.exe`。Media 构建还使用现有 `D:\msys64` 中的 make/cygpath/sh 和 UCRT64 GCC。
+以下命令从仓库根目录在 PowerShell 执行。当前脚本默认从 `$env:JAVA_HOME` 获取 JDK 25（可用 `-Jdk` 覆盖），Visual Studio 2022 Community/MSVC 与 Windows SDK；不要用机器默认的旧 Java 代替。Python 可通过 `python` 调用；SCons 使用 `.tools/python/Scripts/python.exe`。Media 构建使用 `MSYS2_ROOT`（默认 `D:\msys64`）中的 make/cygpath/sh 和 UCRT64 GCC；JFX/辅助测试的 Visual Studio 路径通过 `VSINSTALLDIR` 配置，默认 `%ProgramFiles%\Microsoft Visual Studio\2022\Community`。
 
 首次环境准备、依赖下载和路径覆盖参数见 [build-windows.md](docs/build-windows.md)。不要把下面的增量构建命令当成完整工具安装步骤。构建脚本对环境变量的修改应限于当前进程并恢复。
 

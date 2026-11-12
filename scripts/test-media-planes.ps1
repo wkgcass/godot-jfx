@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk='D:\jdk-25.0.3+9', [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile')
+param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile')
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $savedJdk=$env:GODOT_JFX_JDK

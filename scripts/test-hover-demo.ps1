@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk = 'D:\jdk-25.0.3+9', [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [switch]$Robot, [switch]$CompileOnly)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [switch]$Robot, [switch]$CompileOnly)
 $ErrorActionPreference = 'Stop'
 if (!$CompileOnly -and !$Robot) { throw 'This test moves the real mouse. Obtain user consent, then pass -Robot; use -CompileOnly for compilation.' }
 $root = Split-Path $PSScriptRoot -Parent

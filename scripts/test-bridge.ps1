@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk = 'D:\jdk-25.0.3+9', [switch]$StopFromHost, [switch]$Encoded, [switch]$Textures, [switch]$PrismTextures, [switch]$ShaderStates, [switch]$PrismContext,
+param([string]$Jdk = $env:JAVA_HOME, [switch]$StopFromHost, [switch]$Encoded, [switch]$Textures, [switch]$PrismTextures, [switch]$ShaderStates, [switch]$PrismContext,
     [ValidateSet('gl_compatibility', 'mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe','separate')][string]$RenderThread='safe')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent

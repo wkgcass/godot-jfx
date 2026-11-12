@@ -1,8 +1,8 @@
 [CmdletBinding()]
-param([string]$Jdk='D:\jdk-25.0.3+9', [string]$Msys='D:\msys64', [ValidateRange(1,32)][int]$Jobs=8)
+param([string]$Jdk=$env:JAVA_HOME, [string]$Msys=$(if ($env:MSYS2_ROOT) { $env:MSYS2_ROOT } else { 'D:\msys64' }), [ValidateRange(1,32)][int]$Jobs=8, [string]$VisualStudio=$(if ($env:VSINSTALLDIR) { $env:VSINSTALLDIR } else { Join-Path $env:ProgramFiles 'Microsoft Visual Studio/2022/Community' }))
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-$names=@('JAVA_HOME','GRADLE_USER_HOME','VSCOMNTOOLS','PATH','MSYS2_ARG_CONV_EXCL')
+$names=@('JAVA_HOME','GRADLE_USER_HOME','VSCOMNTOOLS','VSINSTALLDIR','PATH','MSYS2_ARG_CONV_EXCL')
 $saved=@{};foreach($name in $names){$saved[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
 Push-Location $root
 try {
@@ -16,7 +16,8 @@ try {
     if(!$vsPath){throw 'Missing configured MSVC PATH'}
     $env:JAVA_HOME=$Jdk
     $env:GRADLE_USER_HOME=Join-Path $root '.gradle-cache'
-    $env:VSCOMNTOOLS='C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build'
+    $env:VSINSTALLDIR = $VisualStudio.Replace('/', '\').TrimEnd('\') + '\'
+    $env:VSCOMNTOOLS=Join-Path $VisualStudio 'VC/Auxiliary/Build'
     # MSVC link.exe must precede MSYS coreutils' unrelated link.exe.
     $env:PATH=(Join-Path $root '.tools/makedepend/bin')+';'+$vsPath+';'+(Join-Path $Msys 'usr/bin')
     # Upstream Makefiles already use cygpath for MSVC paths. A second MSYS

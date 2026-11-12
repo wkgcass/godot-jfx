@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Msys='D:\msys64')
+param([string]$Msys=$(if ($env:MSYS2_ROOT) { $env:MSYS2_ROOT } else { 'D:\msys64' }))
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $folder=Join-Path $root '.tools/makedepend'

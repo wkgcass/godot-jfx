@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk='D:\jdk-25.0.3+9', [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile', [ValidateSet('cap','restore','override')][string]$Mode='cap')
+param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile', [ValidateSet('cap','restore','override')][string]$Mode='cap')
 $ErrorActionPreference='Stop'
 $savedJdk=$env:GODOT_JFX_JDK
 $savedFallback=$env:GODOT_JFX_VSYNC_FALLBACK

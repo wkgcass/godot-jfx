@@ -1,10 +1,10 @@
 [CmdletBinding()]
-param([string]$Jdk = 'D:\jdk-25.0.3+9', [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [switch]$Runtime)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe','separate')][string]$RenderThread = 'safe', [switch]$Runtime, [string]$VisualStudio=$(if ($env:VSINSTALLDIR) { $env:VSINSTALLDIR } else { Join-Path $env:ProgramFiles 'Microsoft Visual Studio/2022/Community' }))
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
 $savedHelperEnvironment = @{}
-foreach ($name in @('GODOT_JFX_HELPER_X','GODOT_JFX_HELPER_Y','GODOT_JFX_HELPER_SRC_X','GODOT_JFX_HELPER_SRC_Y')) {
+foreach ($name in @('VSINSTALLDIR','GODOT_JFX_HELPER_X','GODOT_JFX_HELPER_Y','GODOT_JFX_HELPER_SRC_X','GODOT_JFX_HELPER_SRC_Y')) {
     $savedHelperEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 Push-Location $root
@@ -14,7 +14,8 @@ try {
     # External endpoint: a plain Win32 OLE drop target / drag source process.
     $helper = Join-Path $root 'artifacts/native-tests/dnd_helper.exe'
     $buildLog = Join-Path $root 'artifacts/logs/dnd-helper-build.log'
-    $vcvars = 'C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat'
+    $env:VSINSTALLDIR = $VisualStudio.Replace('/', '\').TrimEnd('\') + '\'
+    $vcvars = (Join-Path $VisualStudio 'VC/Auxiliary/Build/vcvars64.bat')
     & cmd.exe /c "call `"$vcvars`" >nul && cl /nologo /std:c++17 /EHsc /W4 /O2 tests\native\dnd_helper.cpp /Foartifacts\native-tests\dnd_helper.obj /Feartifacts\native-tests\dnd_helper.exe /link ole32.lib shell32.lib user32.lib gdi32.lib > `"$buildLog`" 2>&1"
     if ($LASTEXITCODE -ne 0) { throw "dnd_helper build failed: $buildLog" }
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls -encoding UTF-8 -d artifacts/reference tests/reference/ExternalDragProbe.java

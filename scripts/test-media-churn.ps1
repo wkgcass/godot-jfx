@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk='D:\jdk-25.0.3+9',[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[switch]$Runtime,[ValidateRange(24,240)][int]$Cycles=24,[switch]$NativeD3D,[ValidateSet(0,30,60)][int]$SettleSeconds=0,[switch]$HandleTypes,[switch]$AudioOnly,[switch]$Providers)
+param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[switch]$Runtime,[ValidateRange(24,240)][int]$Cycles=24,[switch]$NativeD3D,[ValidateSet(0,30,60)][int]$SettleSeconds=0,[switch]$HandleTypes,[switch]$AudioOnly,[switch]$Providers)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $savedJdk=$env:GODOT_JFX_JDK
