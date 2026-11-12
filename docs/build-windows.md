@@ -1,5 +1,32 @@
 # Windows x64 source builds
 
+## Optional RD-direct compilation
+
+`javafx_rd_direct=yes` is the default SCons configuration for the JavaFX module.
+To omit its RD-direct renderer, shader translator and diagnostic probes:
+
+```powershell
+.\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule -JavaFXRDDirect no
+.\scripts\build-windows.ps1 -Target godot-runtime -WithJavaFXModule -JavaFXRDDirect no
+```
+
+Use `-JavaFXRDDirect yes` to restore both paths. This option requires a Godot
+target and `-WithJavaFXModule`; it is not a JavaFX SDK build option. Both host
+configurations use the same source-built JFX SDK. Existing output filenames
+remain unchanged, so the last build replaces that target's executable.
+Build logs include `-javafx-rd-yes` or `-javafx-rd-no` in their filenames.
+
+This only removes the JavaFX direct renderer, not Godot's RenderingDevice.
+The Vulkan driver also omits the JavaFX-specific Vulkan wait profiling hooks
+when the module or RD-direct compilation is disabled. Viewport remains usable
+with Vulkan and OpenGL. This does not remove the current Windows-only host
+dependencies or establish macOS/Linux support.
+
+At runtime, `GODOT_JFX_RD_DIRECT=1` selects RD only in a build containing it.
+Unset this variable (or set it to `0`) for a Viewport-only build; an explicit
+request for missing RD support fails with a diagnostic. A build containing RD
+still defaults to Viewport and uses Viewport on OpenGL.
+
 Run from the repository root in PowerShell. No prebuilt Godot or JavaFX SDK
 is used. Current M0 OpenJFX command builds upstream's default SDK: native
 graphics/fonts/Glass, Java modules; upstream defaults do not compile native

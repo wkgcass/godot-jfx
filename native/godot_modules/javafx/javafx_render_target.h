@@ -13,7 +13,9 @@
 #include "scene/resources/mesh.h"
 #include "prism_mesh.h"
 #include "javafx_shader_rewrite.h"
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 #include "javafx_rd_pass.h"
+#endif
 
 // GPU-only offscreen allocation used by the Prism render-target bridge.
 // References to sampled targets keep their borrowed viewport textures alive.
@@ -58,6 +60,7 @@ class JavaFXRenderTarget : public RefCounted {
 	struct MaterialEntry { RID material; RID shader; Dictionary params; Vector<RID> rids; };
 	HashMap<uint64_t, MaterialEntry> material_cache;
 	List<uint64_t> material_cache_order;
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	// RD-direct production path (GODOT_JFX_RD_DIRECT=1): replaces the
 	// viewport render cycle for this target's passes.
 	Ref<godot_javafx::rd_direct::OffscreenPass> rd_pass;
@@ -65,6 +68,7 @@ class JavaFXRenderTarget : public RefCounted {
 	// cached immutable ArrayMesh surface back into batch bytes. Object IDs
 	// distinguish instances even when a freed object's address is recycled.
 	HashMap<ObjectID, std::pair<Vector<float>, Vector<uint8_t>>> rd_mesh_memo;
+#endif
 	// Main-thread targets share one bounded geometry memo. Draw slots own
 	// their meshes independently, so cache eviction cannot invalidate a draw.
 	std::shared_ptr<PrismMeshCache> mesh_cache;
@@ -117,15 +121,23 @@ public:
 	void draw_prism_quads_with_instances(const PackedFloat32Array &p_vertices, const PackedByteArray &p_colors,
 		const String &p_shader, const Dictionary &p_parameters, bool p_clip, const Rect2i &p_rect, RID p_texture,
 		const Transform2D &p_transform, float p_modulate, const HashMap<StringName, Variant> *p_instance_params);
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	bool is_rd_direct() const { return rd_pass.is_valid(); }
 	// Immediate RGBA8 readback of the RD-direct target's device texture.
 	Ref<Image> rd_readback() const { return rd_pass.is_valid() ? rd_pass->readback() : Ref<Image>(); }
+#else
+	bool is_rd_direct() const { return false; }
+	Ref<Image> rd_readback() const { return Ref<Image>(); }
+#endif
 	// RD-direct raw-geometry draw: same batch contract as draw_prism_quads
 	// but riding the OffscreenPass path (instance params merge into the
 	// uniform buffer constants).
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	void draw_prism_raw(const Vector<float> &p_vertices, const Vector<uint8_t> &p_colors, const String &p_shader,
 			Dictionary p_parameters, bool p_clip, const Rect2i &p_rect, RID p_texture,
 			const Transform2D &p_transform, float p_modulate, const HashMap<StringName, Variant> *p_instance_params, const void *p_identity_key = nullptr);
+#endif
+
 	RID get_texture() const;
 	Size2i get_size() const { return size; }
 	bool has_initialized_contents() const { return initialized_contents; }

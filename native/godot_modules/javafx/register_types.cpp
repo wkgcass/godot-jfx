@@ -1,7 +1,10 @@
 #include "register_types.h"
 
 #include "javafx_render_surface.h"
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 #include "javafx_rd_pass.h"
+#endif
+
 #include "javafx_shader_rewrite.h"
 #include "javafx_host.h"
 #include "javafx_render_target.h"
@@ -29,10 +32,12 @@ void uninitialize_javafx_module(ModuleInitializationLevel p_level) {
 	// Surfaces own their RIDs and release them when they leave the scene tree;
 	// the RD-direct shared sampler is module-lifetime and freed here, while
 	// the rendering server and its device are still alive.
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	godot_javafx::rd_direct::print_rd_profile();
 	godot_javafx::rd_direct::rd_profile_print_sinks();
 	godot_javafx::rd_direct::release_all_passes();
 	godot_javafx::rd_direct::release_shared_pipelines();
 	godot_javafx::rd_direct::release_shared_sampler();
+#endif
 	godot_javafx::clear_instance_uniform_cache();
 }

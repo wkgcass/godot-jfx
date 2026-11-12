@@ -1,5 +1,20 @@
 # JVM host and batch bridge (M2 foundation)
 
+## RD-direct build capability
+
+`GodotBridge.isRDDirectCompiled(): boolean` is registered through JNI with
+signature `()Z`. It reports whether the host was built with
+`javafx_rd_direct=yes`; it does not report the runtime selection or device
+availability. There is no change to frame opcodes or packet layouts. Both host
+variants use the same Java command encoder and SDK. Rebuild the SDK together
+with the host when adopting this JNI addition; older SDKs lack the method and
+cannot register the updated native method table.
+
+The host rejects an explicit `GODOT_JFX_RD_DIRECT=1` before starting the JVM
+when built with `javafx_rd_direct=no`. GDScript can query the same capability
+through `JavaFXHost.is_rd_direct_compiled()` or `get_render_stats()`'s
+`rd_direct_compiled` field. An RD-enabled build may still use Viewport targets.
+
 ## Compact media planes (operations 27/28)
 
 The source SDK and Editor/Runtime must be rebuilt together for these operations;

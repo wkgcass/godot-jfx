@@ -42,6 +42,12 @@ Use `-Renderer gl_compatibility` for OpenGL or `-RenderThread separate` for the
 separate rendering thread. `-Smoke` runs a bounded startup/close check.
 The normal launcher remains interactive until the Demo is closed.
 
+For a Viewport-only host build, add `-JavaFXRDDirect no` to the Editor or
+Runtime build command together with `-WithJavaFXModule`. This excludes the
+JavaFX RD-direct implementation at compile time without disabling Godot's
+RenderingDevice. The default is `yes`; both builds use the same JFX SDK.
+See [build options](docs/build-windows.md) and [RD build tests](TESTS.md).
+
 ## Implementation and delivery map
 
 | Area | Source / documentation |

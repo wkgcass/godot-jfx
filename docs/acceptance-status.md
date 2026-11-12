@@ -1,4 +1,36 @@
-# Acceptance status — checked 2026-11-11
+# Acceptance status
+
+## RD-direct build option — checked 2026-11-12
+
+The JavaFX module now supports `javafx_rd_direct=yes/no` (default `yes`),
+exposed by `build-windows.ps1 -JavaFXRDDirect`. Source-built Windows x64
+Editor configurations `no` and default `yes`, plus the updated JFX SDK, build
+successfully. Module library member/symbol inspection confirms the three
+RD implementation files are absent with `no` and present with `yes`.
+
+The build fixture passes on mobile/safe and mobile/separate, and on OpenGL:
+it checks build capability, backend selection, GPU pixel readback and forced
+Viewport targets. Both host builds pass the registered JNI capability query
+with the same graphics SDK (hash checked). A Viewport-only host explicitly
+rejects RD requests at target creation, JVM startup and all three RD probe
+entry points. Viewport render-target lifecycle coverage passes with RD omitted;
+RD regressions pass on safe/separate with RD included.
+The original VFX Demo also passes bounded startup/close checks with Viewport
+in the `no` build and explicit RD in the `yes` build.
+
+Evidence is under `artifacts/logs`: `godot-editor-javafx-rd-{no,yes}.log`,
+`jfx.log`, `rd-build-*.log`, `rd-build-{no,yes}-hashes.json`, and
+`rd-regressions-{safe,separate}.log`. The dedicated fixture is
+`scripts/test-rd-build.ps1`. The older `test-bridge.ps1` attempt stopped at
+Java compilation because other legacy probes still call removed encoder
+overloads; it is not counted as passing. The dedicated build fixture verifies
+the new JNI API independently without relaxing those older assertions.
+
+This change does not establish macOS/Linux support or new performance results.
+Runtime build commands accept the same option, but Runtime was not rebuilt or
+tested in this validation round. Earlier acceptance evidence remains below.
+
+## Previous review — checked 2026-11-11
 
 The shared-target-mesh repair is built and passes GL/Vulkan budget, peer/final
 owner release and queued-pixel checks. Three-round mobile soak passes navigation

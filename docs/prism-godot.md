@@ -6,6 +6,19 @@ they are not current limits or proof for later binaries. The optional RD backend
 is implemented (`GODOT_JFX_RD_DIRECT=1`); the default remains the viewport path.
 See frame-benchmark.md for later near-60 measurements and their scope.
 
+The SCons option `javafx_rd_direct=no` excludes `javafx_rd_pass.cpp`,
+`javafx_rd_direct.cpp` and `javafx_shader_translate.cpp`, including their
+call sites and RD-only resource members. The default is `yes`, which retains
+the runtime choice; it does not select RD rendering automatically. The option
+does not disable Godot's RenderingDevice or Vulkan/Metal renderers.
+Viewport-only builds reject `GODOT_JFX_RD_DIRECT=1` at JVM startup and normal
+target initialization. Explicit `force_viewport` reference targets still work.
+RD probes return an error dictionary and log the unsupported build; cleanup
+remains safe. `JavaFXHost.is_rd_direct_compiled()` and the JNI method
+`GodotBridge.isRDDirectCompiled()` report build capability, not the active
+backend. Rebuild the SDK with the host after adding this JNI method; thereafter
+the same SDK supports both host configurations.
+
 GodotTexture is an actual Prism BaseTexture backed by a generation-tagged
 native texture. GodotTexturePool uses BaseResourcePool accounting and
 DisposerManagedResource lifecycle handling. The pool is created on the Prism

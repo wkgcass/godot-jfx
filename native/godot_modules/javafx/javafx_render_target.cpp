@@ -6,7 +6,10 @@ HashSet<RID> JavaFXRenderTarget::live_sampler_rids;
 #include "core/object/class_db.h"
 #include "core/os/thread.h"
 #include "core/os/os.h"
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 #include "javafx_rd_pass.h"
+#endif
+
 #include "core/templates/hashfuncs.h"
 #include "servers/rendering/rendering_server.h"
 #include "servers/rendering/rendering_server_globals.h"
@@ -39,11 +42,19 @@ Dictionary JavaFXRenderTarget::get_render_thread_profile() {
 }
 
 int64_t JavaFXRenderTarget::get_rd_uniform_set_creation_count() const {
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	return rd_pass.is_valid() ? rd_pass->get_stats().uniform_sets_created : 0;
+#else
+	return 0;
+#endif
 }
 
 int64_t JavaFXRenderTarget::get_rd_pipeline_cache_size() const {
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	return godot_javafx::rd_direct::shared_pipeline_cache_size();
+#else
+	return 0;
+#endif
 }
 
 Dictionary JavaFXRenderTarget::get_instance_uniform_cache_stats() const {
@@ -85,12 +96,13 @@ void JavaFXRenderTarget::initialize_texture_proxy(RID p_viewport, RID p_proxy) {
 }
 
 bool JavaFXRenderTarget::initialize(const Size2i &p_size, bool p_force_viewport) {
-	ERR_FAIL_COND_V(!Thread::is_main_thread() || viewport.is_valid() || rd_pass.is_valid(), false);
+	ERR_FAIL_COND_V(!Thread::is_main_thread() || viewport.is_valid() || is_rd_direct(), false);
 	ERR_FAIL_COND_V(p_size.x < 1 || p_size.y < 1 || p_size.x > 8192 || p_size.y > 8192, false);
 	size = p_size;
 	// RD-direct backend (plan P3): replace this target's viewport render
 	// cycle with raw RenderingDevice passes. gl_compatibility has no
 	// RenderingDevice and keeps the viewport path regardless.
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	static const bool rd_direct = OS::get_singleton()->get_environment("GODOT_JFX_RD_DIRECT") == "1";
 	if (!p_force_viewport && rd_direct && RenderingServer::get_singleton()->get_rendering_device() != nullptr) {
 		rd_pass.instantiate();
@@ -101,6 +113,11 @@ bool JavaFXRenderTarget::initialize(const Size2i &p_size, bool p_force_viewport)
 		}
 		rd_pass.unref(); // fall through to the viewport path on failure
 	}
+#else
+	ERR_FAIL_COND_V_MSG(!p_force_viewport && OS::get_singleton()->get_environment("GODOT_JFX_RD_DIRECT") == "1", false,
+			"RD-direct was not compiled; rebuild with javafx_rd_direct=yes or unset GODOT_JFX_RD_DIRECT.");
+#endif
+
 	auto *rs = RenderingServer::get_singleton();
 	viewport = rs->viewport_create(); canvas = rs->canvas_create(); commands = rs->canvas_item_create();
 	shader = rs->shader_create(); material = rs->material_create();
@@ -131,6 +148,7 @@ bool JavaFXRenderTarget::initialize(const Size2i &p_size, bool p_force_viewport)
 
 void JavaFXRenderTarget::begin_pass(bool p_clear) {
 	ERR_FAIL_COND(!Thread::is_main_thread() || pass_open);
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	if (rd_pass.is_valid()) {
 		if (!sources.is_empty()) {
 			godot_javafx::rd_direct::OffscreenPass::commit_batches();
@@ -140,6 +158,8 @@ void JavaFXRenderTarget::begin_pass(bool p_clear) {
 		pass_open = true;
 		return;
 	}
+#endif
+
 	ERR_FAIL_COND(!viewport.is_valid());
 	auto *rs = RenderingServer::get_singleton();
 	rs->viewport_set_update_mode(viewport, RSE::VIEWPORT_UPDATE_DISABLED);
@@ -150,10 +170,13 @@ void JavaFXRenderTarget::begin_pass(bool p_clear) {
 
 void JavaFXRenderTarget::add_rectangle(const Rect2 &p_rect, const Color &p_color) {
 	ERR_FAIL_COND(!Thread::is_main_thread() || !pass_open);
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	if (rd_pass.is_valid()) {
 		rd_pass->add_rectangle(p_rect, Color(p_color.r * p_color.a, p_color.g * p_color.a, p_color.b * p_color.a, p_color.a));
 		return;
 	}
+#endif
+
 	RenderingServer::get_singleton()->canvas_item_add_rect(create_draw_item(material), p_rect,
 		Color(p_color.r * p_color.a, p_color.g * p_color.a, p_color.b * p_color.a, p_color.a));
 }
@@ -167,11 +190,14 @@ bool JavaFXRenderTarget::depends_on(const JavaFXRenderTarget *p_target) const {
 void JavaFXRenderTarget::copy_target(const Ref<JavaFXRenderTarget> &p_source, const Rect2 &p_rect) {
 	ERR_FAIL_COND(!Thread::is_main_thread() || !pass_open || p_source.is_null());
 	ERR_FAIL_COND_MSG(p_source->pass_open || !p_source->get_texture().is_valid() || p_source->depends_on(this), "Render target feedback/cyclic sampling requires a completed snapshot pass.");
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	if (rd_pass.is_valid()) {
 		rd_pass->copy_target(p_source->get_texture(), p_rect);
 		sources.push_back(p_source);
 		return;
 	}
+#endif
+
 	RenderingServer::get_singleton()->canvas_item_add_texture_rect(create_draw_item(material), p_rect, p_source->get_texture());
 	sources.push_back(p_source);
 }
@@ -179,10 +205,13 @@ void JavaFXRenderTarget::copy_target(const Ref<JavaFXRenderTarget> &p_source, co
 void JavaFXRenderTarget::end_pass() {
 	ERR_FAIL_COND(!Thread::is_main_thread() || !pass_open);
 	pass_open = false;
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	if (rd_pass.is_valid()) {
 		rd_pass->end_pass();
 		return;
 	}
+#endif
+
 	// Retired slots must not render in this pass's UPDATE_ONCE snapshot.
 	hide_unused_slots();
 	RenderingServer::get_singleton()->viewport_set_update_mode(viewport, RSE::VIEWPORT_UPDATE_ONCE);
@@ -191,6 +220,7 @@ void JavaFXRenderTarget::end_pass() {
 void JavaFXRenderTarget::finish_pass() {
 	ERR_FAIL_COND(!Thread::is_main_thread() || pass_open);
 	initialized_contents = true;
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	if (rd_pass.is_valid()) {
 		rd_pass->finish_pass();
 		// copy_target retains its source until recorded draws have reached the
@@ -201,6 +231,8 @@ void JavaFXRenderTarget::finish_pass() {
 		}
 		return;
 	}
+#endif
+
 	clear_draws();
 }
 
@@ -212,11 +244,14 @@ void JavaFXRenderTarget::draw_offscreen_on_render_thread() {
 
 uint64_t JavaFXRenderTarget::draw_offscreen_pass() {
 	ERR_FAIL_COND_V(!Thread::is_main_thread() || pass_open, 0);
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	if (rd_pass.is_valid()) {
 		const uint64_t start = OS::get_singleton()->get_ticks_usec();
 		rd_pass->flush();
 		return OS::get_singleton()->get_ticks_usec() - start;
 	}
+#endif
+
 	auto *rs = RenderingServer::get_singleton();
 	if (!rs->is_on_render_thread() && OS::get_singleton()->get_environment("GODOT_JFX_ASYNC_PASS_FENCE") != "0") {
 		// Capture the RID by value, never the RefCounted target's address. All
@@ -265,23 +300,29 @@ void JavaFXRenderTarget::draw_queued_offscreen(RID p_viewport) {
 
 void JavaFXRenderTarget::clear_pass() {
 	ERR_FAIL_COND(!Thread::is_main_thread() || !pass_open);
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	if (rd_pass.is_valid()) {
 		rd_pass->clear_pass();
 		return;
 	}
+#endif
+
 	clear_draws();
 	RenderingServer::get_singleton()->viewport_set_clear_mode(viewport, RSE::VIEWPORT_CLEAR_ONLY_NEXT_FRAME);
 }
 
 RID JavaFXRenderTarget::get_texture() const {
 	ERR_FAIL_COND_V(!Thread::is_main_thread() || pass_open, RID());
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	if (rd_pass.is_valid()) return rd_pass->get_texture();
+#endif
+
 	ERR_FAIL_COND_V(!viewport.is_valid(), RID());
 	return viewport_texture;
 }
 
 int JavaFXRenderTarget::get_owned_resource_count() const {
-	return int(viewport.is_valid() || rd_pass.is_valid()) + int(canvas.is_valid()) + int(commands.is_valid()) + int(shader.is_valid()) + int(material.is_valid()) + int(owns_viewport_texture && viewport_texture.is_valid()) + draw_resources.size() + shader_cache.size() + slots.size() + material_cache.size();
+	return int(viewport.is_valid() || is_rd_direct()) + int(canvas.is_valid()) + int(commands.is_valid()) + int(shader.is_valid()) + int(material.is_valid()) + int(owns_viewport_texture && viewport_texture.is_valid()) + draw_resources.size() + shader_cache.size() + slots.size() + material_cache.size();
 }
 
 RID JavaFXRenderTarget::create_draw_item(RID p_material) {
@@ -442,6 +483,7 @@ void JavaFXRenderTarget::draw_prism_quads_with_instances(const PackedFloat32Arra
 		const String &p_shader, const Dictionary &p_parameters, bool p_clip, const Rect2i &p_rect, RID p_texture,
 		const Transform2D &p_transform, float p_modulate, const HashMap<StringName, Variant> *p_instance_params) {
 	ERR_FAIL_COND(!Thread::is_main_thread() || !pass_open);
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	if (rd_pass.is_valid()) {
 		// This entry is also callable directly from Godot scripts, bypassing
 		// the Java frame decoder. Match the Viewport path's 2D batch contract.
@@ -461,6 +503,8 @@ void JavaFXRenderTarget::draw_prism_quads_with_instances(const PackedFloat32Arra
 		draw_prism_raw(p_vertices, p_colors, p_shader, p_parameters, p_clip, p_rect, p_texture, p_transform, p_modulate, p_instance_params);
 		return;
 	}
+#endif
+
 	// Identical batches across passes (e.g. a translating parent) reuse the
 	// cached mesh instead of rebuilding one per pass.
 	static const bool cache_meshes = OS::get_singleton()->get_environment("GODOT_JFX_MESH_CACHE") != "0";
@@ -482,6 +526,7 @@ void JavaFXRenderTarget::draw_prism_quads_with_instances(const PackedFloat32Arra
 	draw_prism_mesh_with_instances(mesh, p_shader, p_parameters, p_clip, p_rect, p_texture, p_transform, p_modulate, p_instance_params);
 }
 
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 void JavaFXRenderTarget::draw_prism_raw(const Vector<float> &p_vertices, const Vector<uint8_t> &p_colors, const String &p_shader,
 		Dictionary p_parameters, bool p_clip, const Rect2i &p_rect, RID p_texture, const Transform2D &p_transform,
 		float p_modulate, const HashMap<StringName, Variant> *p_instance_params, const void *p_identity_key) {
@@ -497,6 +542,7 @@ void JavaFXRenderTarget::draw_prism_raw(const Vector<float> &p_vertices, const V
 	rd_pass->draw_quads(p_vertices, p_colors, p_shader, p_parameters, p_clip, p_rect, p_texture, p_transform, p_modulate, p_identity_key);
 	if (prof) godot_javafx::rd_direct::rd_profile_sink(2, OS::get_singleton()->get_ticks_usec() - t1);
 }
+#endif
 
 void JavaFXRenderTarget::draw_prism_mesh(const Ref<ArrayMesh> &p_mesh, const String &p_shader, const Dictionary &p_parameters,
 		bool p_clip, const Rect2i &p_rect, RID p_texture, const Transform2D &p_transform, float p_modulate) {
@@ -507,6 +553,7 @@ void JavaFXRenderTarget::draw_prism_mesh_with_instances(const Ref<ArrayMesh> &p_
 		bool p_clip, const Rect2i &p_rect, RID p_texture, const Transform2D &p_transform, float p_modulate,
 		const HashMap<StringName, Variant> *p_instance_params) {
 		ERR_FAIL_COND(!Thread::is_main_thread() || !pass_open || p_mesh.is_null());
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	if (rd_pass.is_valid()) {
 		// RD-direct consumes raw batch bytes; recover them from the cached
 		// mesh (QUADS_REF references whose raw pair was never registered).
@@ -554,6 +601,8 @@ void JavaFXRenderTarget::draw_prism_mesh_with_instances(const Ref<ArrayMesh> &p_
 		draw_prism_raw(vertices, rgba, p_shader, p_parameters, p_clip, p_rect, p_texture, p_transform, p_modulate, p_instance_params, memo_key);
 		return;
 	}
+#endif
+
 	auto *rs = RenderingServer::get_singleton();
 	// Diagnostic switch (GODOT_JFX_SLOT_REUSE=0): per-pass free/recreate with
 	// command transforms — the pre-optimization behavior.
@@ -701,8 +750,11 @@ JavaFXRenderTarget::~JavaFXRenderTarget() {
 	auto *rs = RenderingServer::get_singleton();
 	// Remove the identity before releasing either backend; get_texture() must
 	// still resolve the RD bridge RID here, not an already-cleared pass.
-	if (rd_pass.is_valid() || viewport.is_valid()) live_sampler_rids.erase(get_texture());
+	if (is_rd_direct() || viewport.is_valid()) live_sampler_rids.erase(get_texture());
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	if (rd_pass.is_valid()) rd_pass.unref();
+#endif
+
 	clear_draws();
 	free_slots();
 	for (const KeyValue<uint64_t, MaterialEntry> &entry : material_cache) rs->free_rid(entry.value.material);

@@ -1,5 +1,32 @@
 # 测试指南
 
+## RD 编译开关验证
+
+先用 `build-windows.ps1 -Target godot-editor -WithJavaFXModule -JavaFXRDDirect no`
+构建，再串行执行：
+
+```powershell
+.\scripts\test-rd-build.ps1 -ExpectCompiled no
+.\scripts\test-rd-build.ps1 -ExpectCompiled no -Renderer gl_compatibility
+.\scripts\test-rd-build.ps1 -ExpectCompiled no -RequestRD
+.\scripts\test-render-targets.ps1 -Renderer mobile
+```
+
+改为 `-JavaFXRDDirect yes` 重建后，执行 `test-rd-build.ps1 -ExpectCompiled yes`，
+再分别加 `-RequestRD`、`-RequestRD -Renderer gl_compatibility`；用
+`test-rd-regressions.ps1` 验证 RD 绘制与资源生命周期。`test-rd-build.ps1`
+还支持 `-RenderThread separate`。这些测试不操作真实键鼠。
+
+构建探针检查编译能力、实际选择的后端、红色像素读回和强制 Viewport 目标。
+关闭构建却请求 RD 时，必须有五条预期拒绝诊断（目标、JVM 启动和三个探针入口），
+其他配置不允许 ERROR；不能只靠 PASS 字符串判定。构建日志及模块库成员还应确认
+关闭时不包含 `javafx_rd_pass`、`javafx_rd_direct`、`javafx_shader_translate` 对象。
+
+测试需要重建后的源码 SDK 和 JDK 25（可用 `-Jdk` 覆盖）。脚本自动编译
+`RDBuildProbe.java`，在非拒绝场景启动 JVM 并要求 `RD_BUILD_JNI_PASS`，验证真实
+JNI 查询与干净退出；环境变量由脚本恢复。同一 SDK 应通过两种构建。
+能力查询报告“是否编入”，不代表当前选中了 RD。
+
 本文记录现有脚本的用途、启动方式和验收范围，不表示列出的测试在本次修改后都已重跑。当前通过记录见 [验收清单](docs/acceptance-status.md)，构建环境见 [AGENTS.md](AGENTS.md)。
 
 ## 运行前

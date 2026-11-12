@@ -4,7 +4,9 @@
 #include "javafx_native_window.h"
 #include "windows_dnd.h"
 #include "prism_mesh.h"
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 #include "javafx_rd_direct.h"
+#endif
 
 #include <memory>
 #include <thread>
@@ -66,7 +68,10 @@ class JavaFXHost : public JavaFXWindowSurface {
 	HashMap<uint64_t, Ref<ArrayMesh>> geometry_meshes;
 	// RD-direct mode consumes raw batch bytes instead of meshes; the same
 	// handle maps to the decoded vertex/color pair.
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	HashMap<uint64_t, std::pair<PackedFloat32Array, PackedByteArray>> geometry_raw;
+#endif
+
 	// One-shot VSync pacing health check. Some Windows display states pace FIFO
 	// presents far below the refresh rate (observed: a stable ~33 Hz plateau on
 	// a 60 Hz panel, while native D3D windows stay at 60). Windowed presents are
@@ -109,7 +114,10 @@ class JavaFXHost : public JavaFXWindowSurface {
 	void run_dnd_source(std::unique_ptr<godot_javafx::windows_dnd::SourceData> p_data);
 	void apply_native_window_commands();
 	Rect2i target_clip_rect;
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	godot_javafx::rd_direct::CycleState rd_cycle_state;
+#endif
+
 	void frame_presented();
 	void finish_pending_pass(bool p_target_drawn);
 	void complete_offscreen_pass();
@@ -134,6 +142,13 @@ protected:
 	void input(const Ref<InputEvent> &p_event) override;
 
 public:
+	static bool is_rd_direct_compiled() {
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
+		return true;
+#else
+		return false;
+#endif
+	}
 	bool create_native_window(int64_t p_id, int64_t p_owner, const Rect2i &p_bounds, const String &p_title, int p_flags);
 	bool configure_native_window(int64_t p_id, const Rect2i &p_bounds, bool p_visible);
 	bool set_native_window_property(int64_t p_id, int p_property, int p_a, int p_b, const String &p_text);

@@ -1,11 +1,16 @@
 #include "javafx_host.h"
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 #include "javafx_rd_pass.h"
+#endif
+
 #include <atomic>
 
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 namespace {
 // Geometry-case sub-site attribution (GODOT_JFX_RD_PROFILE=1), printed at exit.
 std::atomic<uint64_t> g_prof_mesh_us{0}, g_prof_dispatch_us{0};
 }
+#endif
 #include "javafx_shader_rewrite.h"
 #include "servers/rendering/rendering_server_globals.h"
 #include "servers/rendering/renderer_viewport.h"
@@ -40,6 +45,10 @@ std::atomic<uint64_t> g_prof_mesh_us{0}, g_prof_dispatch_us{0};
 #include <array>
 
 namespace godot_javafx {
+
+static jboolean JNICALL is_rd_direct_compiled(JNIEnv *, jclass) {
+	return JavaFXHost::is_rd_direct_compiled() ? JNI_TRUE : JNI_FALSE;
+}
 
 enum class RuntimeStatus { STARTING, RUNNING, FINISHED, FAILED };
 
@@ -738,6 +747,7 @@ static void run_jvm(std::shared_ptr<Runtime> runtime, std::wstring library,
 	jni_runtime = runtime.get();
 	jclass bridge = env->FindClass("com/sun/javafx/tk/godot/GodotBridge");
 	JNINativeMethod methods[] = {
+		{ const_cast<char *>("isRDDirectCompiled"), const_cast<char *>("()Z"), reinterpret_cast<void *>(&is_rd_direct_compiled) },
         { const_cast<char *>("dialogSubmit"), const_cast<char *>("(JILjava/lang/String;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;I)V"), reinterpret_cast<void *>(&dialog_submit) },
         { const_cast<char *>("dialogPoll"), const_cast<char *>("()[Ljava/lang/String;"), reinterpret_cast<void *>(&dialog_poll) },
         { const_cast<char *>("dialogCancel"), const_cast<char *>("()V"), reinterpret_cast<void *>(&dialog_cancel) },
@@ -826,6 +836,7 @@ static void run_jvm(std::shared_ptr<Runtime> runtime, std::wstring library,
 } // namespace godot_javafx
 
 void JavaFXHost::_bind_methods() {
+	ClassDB::bind_static_method("JavaFXHost", D_METHOD("is_rd_direct_compiled"), &JavaFXHost::is_rd_direct_compiled);
 	ClassDB::bind_method(D_METHOD("create_native_window", "id", "owner", "bounds", "title", "flags"), &JavaFXHost::create_native_window);
 	ClassDB::bind_method(D_METHOD("configure_native_window", "id", "bounds", "visible"), &JavaFXHost::configure_native_window);
 	ClassDB::bind_method(D_METHOD("get_native_window_info", "id"), &JavaFXHost::get_native_window_info);
@@ -919,28 +930,53 @@ Dictionary JavaFXHost::benchmark_offscreen_cycle(int p_items, int p_count) {
 }
 
 Dictionary JavaFXHost::benchmark_rd_cycle(int p_items, int p_count, RID p_parent_item) {
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	ERR_FAIL_COND_V(!Thread::is_main_thread(), Dictionary());
 	return godot_javafx::rd_direct::cycle_probe(p_items, p_count, p_parent_item, rd_cycle_state);
+#else
+	Dictionary result;
+	result["error"] = "RD-direct was not compiled (javafx_rd_direct=no)";
+	ERR_PRINT(result["error"]);
+	return result;
+#endif
 }
 
 Dictionary JavaFXHost::rd_translate_probe(const String &p_shader, RID p_texture, RID p_parent_item) {
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	ERR_FAIL_COND_V(!Thread::is_main_thread(), Dictionary());
 	return godot_javafx::rd_direct::translate_probe(p_shader, p_texture, p_parent_item, rd_cycle_state);
+#else
+	Dictionary result;
+	result["error"] = "RD-direct was not compiled (javafx_rd_direct=no)";
+	ERR_PRINT(result["error"]);
+	return result;
+#endif
 }
 
 Dictionary JavaFXHost::rd_translate_probe_finish() {
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	ERR_FAIL_COND_V(!Thread::is_main_thread(), Dictionary());
 	return godot_javafx::rd_direct::translate_probe_finish(rd_cycle_state);
+#else
+	Dictionary result;
+	result["error"] = "RD-direct was not compiled (javafx_rd_direct=no)";
+	ERR_PRINT(result["error"]);
+	return result;
+#endif
 }
 
 void JavaFXHost::release_rd_cycle() {
 	ERR_FAIL_COND(!Thread::is_main_thread());
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	godot_javafx::rd_direct::release_cycle(rd_cycle_state);
+#endif
 }
 
 Dictionary JavaFXHost::get_render_stats() const {
 	ERR_FAIL_COND_V(!Thread::is_main_thread(), Dictionary());
 	Dictionary stats;
+	stats["rd_direct_compiled"] = is_rd_direct_compiled();
+	stats["rd_batch_commits"] = int64_t(0);
 	stats["host_ticks"] = process_ticks;
 	stats["offscreen_passes"] = offscreen_passes;
 	stats["immediate_passes"] = immediate_passes;
@@ -950,7 +986,9 @@ Dictionary JavaFXHost::get_render_stats() const {
 	stats["direct_offscreen_us"] = direct_offscreen_us;
 	stats["direct_offscreen_render_us"] = direct_offscreen_render_us;
 	stats["direct_presentation_passes"] = direct_presentation_passes;
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	stats["rd_batch_commits"] = godot_javafx::rd_direct::OffscreenPass::batch_commit_count();
+#endif
 	stats["presentations"] = completed_presentations;
 	stats["applied_sequence"] = applied_sequence;
 	stats["backpressure"] = get_backpressure_count();
@@ -991,6 +1029,8 @@ Dictionary JavaFXHost::get_render_stats() const {
 
 bool JavaFXHost::start_jvm(const String &p_jdk, const String &p_sdk, const String &p_classpath, const String &p_main_class) {
 	ERR_FAIL_COND_V(!Thread::is_main_thread() || !is_inside_tree() || runtime, false);
+	ERR_FAIL_COND_V_MSG(!is_rd_direct_compiled() && OS::get_singleton()->get_environment("GODOT_JFX_RD_DIRECT") == "1", false,
+			"RD-direct was not compiled; rebuild with javafx_rd_direct=yes or unset GODOT_JFX_RD_DIRECT.");
 	String library = p_jdk.path_join("bin/server/jvm.dll");
 	ERR_FAIL_COND_V_MSG(!FileAccess::exists(library), false, "Installed JDK jvm.dll not found.");
 	ERR_FAIL_COND_V_MSG(!FileAccess::exists(p_sdk.path_join("lib/javafx.graphics.jar")), false, "Source-built JavaFX SDK not found.");
@@ -1359,7 +1399,9 @@ void JavaFXHost::_notification(int p_what) {
 							// end raced the compose and showed stale content
 							// (hover repaints lagging/dropping). Intermediate
 							// effect passes stay batched.
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 							godot_javafx::rd_direct::OffscreenPass::commit_batches();
+#endif
 							const uint64_t elapsed = OS::get_singleton()->get_ticks_usec() - start;
 							draw_sync_us += elapsed; ++draw_sync_calls; ++direct_presentation_passes;
 							max_draw_sync_us = MAX(max_draw_sync_us, elapsed);
@@ -1439,24 +1481,31 @@ void JavaFXHost::_notification(int p_what) {
 					case godot_javafx::Opcode::QUADS:
 					case godot_javafx::Opcode::TEXTURED_QUADS:
 					case godot_javafx::Opcode::QUADS_REF: {
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 						const bool rd_prof_case = godot_javafx::rd_direct::rd_profile_enabled();
 						uint64_t mesh_mark = rd_prof_case ? OS::get_singleton()->get_ticks_usec() : 0;
+#endif
 						// Java sends (mxx, mxy, mxt, myx, myy, myt): x' = mxx*x + mxy*y + mxt.
 						const float *t = command.transform;
 						const Transform2D transform(t[0], t[3], t[1], t[4], t[2], t[5]);
 						const bool textured = command.opcode == godot_javafx::Opcode::TEXTURED_QUADS ||
 								(command.opcode == godot_javafx::Opcode::QUADS_REF && command.texture_handle != 0);
 						Ref<ArrayMesh> known;
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 						PackedFloat32Array referenced_vertices;
 						PackedByteArray referenced_colors;
+#endif
 						if (command.opcode == godot_javafx::Opcode::QUADS_REF) {
 							const Ref<ArrayMesh> *found = geometry_meshes.getptr(command.geometry_handle);
 							if (!found) { runtime->fail("Referenced geometry handle is not resident"); return; }
 							known = *found;
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 							if (const auto *raw = geometry_raw.getptr(command.geometry_handle)) {
 								referenced_vertices = raw->first;
 								referenced_colors = raw->second;
 							}
+#endif
+
 						} else if (command.geometry_handle) {
 							// Tagged QUADS registers fresh content exactly once; build
 							// the mesh here so the handle and the draw share it.
@@ -1468,27 +1517,34 @@ void JavaFXHost::_notification(int p_what) {
 							build_prism_mesh(known, vertices, colors);
 							if (known.is_null()) { runtime->fail("Cannot build registered geometry mesh"); return; }
 							geometry_meshes.insert(command.geometry_handle, known);
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 							geometry_raw.insert(command.geometry_handle, { vertices, colors });
 							// RD-direct consumes the raw bytes directly; without this
 							// the draw falls into draw_prism_mesh, which decodes the
 							// just-built mesh back into arrays every pass.
 							referenced_vertices = vertices;
 							referenced_colors = colors;
+#endif
 						}
 						if (command.opcode == godot_javafx::Opcode::QUADS_REF) ++quads_referenced;
 						else ++quads_uploaded;
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 						if (rd_prof_case) {
 							const uint64_t now = OS::get_singleton()->get_ticks_usec();
 							g_prof_mesh_us.fetch_add(now - mesh_mark, std::memory_order_relaxed);
 							mesh_mark = now;
 						}
+#endif
 						if (active_target.is_valid()) {
 							const uint64_t shaders_before = profile_commands ? active_target->get_shader_creation_count() : 0;
 							RID texture = textured ? retain_sampler_texture(command.texture_handle) : RID();
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 							if (active_target->is_rd_direct() && referenced_vertices.size() > 0)
 								active_target->draw_prism_raw(referenced_vertices, referenced_colors, target_shader, target_parameters, target_clip, target_clip_rect,
 									texture, transform, command.draw_alpha, &target_instance_params, known.ptr());
-							else if (known.is_valid())
+							else
+#endif
+							if (known.is_valid())
 								active_target->draw_prism_mesh_with_instances(known, target_shader, target_parameters, target_clip, target_clip_rect, texture, transform, command.draw_alpha, &target_instance_params);
 							else {
 								PackedFloat32Array vertices;
@@ -1499,7 +1555,9 @@ void JavaFXHost::_notification(int p_what) {
 								active_target->draw_prism_quads_with_instances(vertices, colors, target_shader, target_parameters, target_clip, target_clip_rect,
 									texture, transform, command.draw_alpha, &target_instance_params);
 							}
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 							if (rd_prof_case) g_prof_dispatch_us.fetch_add(OS::get_singleton()->get_ticks_usec() - mesh_mark, std::memory_order_relaxed);
+#endif
 							if (profile_commands) profile_shader_creations += active_target->get_shader_creation_count() - shaders_before;
 						}
 						else if (known.is_valid()) {
@@ -1519,14 +1577,18 @@ void JavaFXHost::_notification(int p_what) {
 					case godot_javafx::Opcode::GEOMETRY_FREE: {
 						const Ref<ArrayMesh> *mesh = geometry_meshes.getptr(command.geometry_handle);
 						if (mesh == nullptr) { runtime->fail("Geometry disposal references unknown handle"); return; }
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 						if (const void *identity = mesh->ptr()) {
 							// The freed mesh's address can be reused by the next
 							// allocation; identity caches keyed by the pointer
 							// must not serve the old geometry to future draws.
 							godot_javafx::rd_direct::purge_identity_caches(identity);
 						}
+#endif
 						geometry_meshes.erase(command.geometry_handle);
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 						geometry_raw.erase(command.geometry_handle);
+#endif
 						break;
 					}
 					case godot_javafx::Opcode::TEXTURE_CREATE:
@@ -1597,7 +1659,9 @@ void JavaFXHost::_notification(int p_what) {
 			// One submission per host tick for every RD-direct pass the tick
 			// recorded (batched submission); no-op when nothing is pending.
 			const uint64_t start = OS::get_singleton()->get_ticks_usec();
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 			godot_javafx::rd_direct::OffscreenPass::commit_batches();
+#endif
 			const uint64_t elapsed = OS::get_singleton()->get_ticks_usec() - start;
 			draw_sync_us += elapsed; ++draw_sync_calls; max_draw_sync_us = MAX(max_draw_sync_us, elapsed);
 			if (hover_tap_probe && elapsed > 100000) {
@@ -1652,9 +1716,12 @@ void JavaFXHost::_notification(int p_what) {
 		}
 		process_us += OS::get_singleton()->get_ticks_usec() - process_start;
 	} else if (p_what == NOTIFICATION_EXIT_TREE) {
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 		if (godot_javafx::rd_direct::rd_profile_enabled() && g_prof_dispatch_us.load() > 0) {
 			print_line(vformat("HOST_GEOM_PROFILE mesh_us=%d dispatch_us=%d", int64_t(g_prof_mesh_us.load()), int64_t(g_prof_dispatch_us.load())));
 		}
+#endif
+
         if (runtime) runtime->dialogs.stop();
 		set_window_input_enabled(0, true);
 		while (!native_windows.empty()) destroy_native_window(native_windows.begin()->first);
@@ -1720,7 +1787,9 @@ void JavaFXHost::finish_pending_pass(bool p_target_drawn) {
 		if (!p_target_drawn && !rs->is_on_render_thread()) {
 			// The engine draw composes bridge textures; flush any RD-direct
 			// batch that was recorded this tick ahead of it (FIFO order).
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 			godot_javafx::rd_direct::OffscreenPass::commit_batches();
+#endif
 			// In separate-thread mode frame_post_draw is deferred to main. An
 			// older frame's notification can arrive after this pass was queued.
 			// Order an explicit draw after its commands and drain the render
@@ -2088,7 +2157,9 @@ void JavaFXHost::stop_jvm() {
 	}
 	held_buttons.clear();
 	geometry_meshes.clear();
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	geometry_raw.clear();
+#endif
 	if (runtime) runtime->stop_readbacks();
 	// Close window admission before destroying peers, so a queued create cannot
 	// resurrect a window while the Host remains in the scene tree. The Godot main
@@ -2335,7 +2406,9 @@ JavaFXHost::~JavaFXHost() {
 	stop_jvm();
 	// The RD-direct spike owns ledger and device resources beyond the JVM's
 	// lifetime; release them here so a forgotten release call cannot leak.
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	godot_javafx::rd_direct::release_cycle(rd_cycle_state);
+#endif
 	if (worker.joinable()) {
 		// Never wait for Java application threads on the Godot main thread.
 		// The worker retains Runtime until VM destruction, even after the node

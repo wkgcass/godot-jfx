@@ -1,5 +1,8 @@
 #include "javafx_render_surface.h"
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 #include "javafx_rd_pass.h"
+#endif
+
 #include "prism_mesh.h"
 
 #include "core/io/image.h"
@@ -137,7 +140,10 @@ void JavaFXRenderSurface::clear_draw_resources() {
 	// Clearing Canvas commands does not complete queued RD draws. Preserve
 	// their texture revisions until a commit has drained the pending batches;
 	// otherwise a later upload may overwrite a texture still awaiting sampling.
-	if (!godot_javafx::rd_direct::OffscreenPass::has_pending_batches()) {
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
+	if (!godot_javafx::rd_direct::OffscreenPass::has_pending_batches())
+#endif
+	{
 		for (auto &entry : textures) entry.second.referenced = false;
 	}
 }
@@ -397,7 +403,10 @@ void JavaFXRenderSurface::free_retired_textures() {
 	// Canvas clearing does not submit RD's deferred effect passes. Those
 	// passes may still sample these exact texture revisions, so drain them
 	// before the RS free invalidates their device views and uniform sets.
+#ifdef GODOT_JAVAFX_RD_DIRECT_ENABLED
 	if (!retired_textures.is_empty()) godot_javafx::rd_direct::OffscreenPass::commit_batches();
+#endif
+
 	static const bool trace = OS::get_singleton()->get_environment("GODOT_JFX_RD_DEBUG") == "1";
 	for (RID rid : retired_textures) {
 		if (trace) print_line("RD_SURFACE_RETIRE_TEXTURE engine=" + itos(rid.get_id()));
