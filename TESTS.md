@@ -820,3 +820,11 @@ PATH/INCLUDE/LIB，播放不继承编译器搜索路径。原来不存在的变�
 `scripts/test-startup.ps1` 独立验证隐藏启动、首次窗口 logo、无 logo 模式、
 延迟首帧和后续窗口；不操作真实键鼠。参数及验收限制见
 [启动窗口验证](docs/startup-window.md#validation)。
+
+## Node shader high-DPI regression
+
+`test-node-shaders.ps1 -Jdk D:\jdk-25.0.3+9` also requires the identity shader to
+preserve fine black/white stripes at 2x snapshot scale, reporting
+`NODE_SHADER_HIDPI_IDENTITY_PASS`. This detects whole-subtree downsampling even
+when the shader itself leaves every pixel unchanged. Use `-Renderer mobile` or
+`-Renderer gl_compatibility`; `GODOT_JFX_RD_DIRECT=1` selects the RD path on mobile.

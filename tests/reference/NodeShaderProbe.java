@@ -23,6 +23,25 @@ public final class NodeShaderProbe {
         effect.setFloat("tint",r,g,b); effect.setInt("enabled",1);
         return effect;
     }
+    private static void checkIdentityResolution() {
+        Group pattern = new Group(rectangle(0, 0, 32, 16, Color.BLACK));
+        for (int x = 0; x < 64; x += 2) {
+            pattern.getChildren().add(rectangle(x * 0.5, 0, 0.5, 16, Color.WHITE));
+        }
+        var parameters = new javafx.scene.SnapshotParameters();
+        parameters.setTransform(new Scale(2, 2));
+        var direct = pattern.snapshot(parameters, null);
+        pattern.setEffect(new GodotShaderEffect("shader_type canvas_item; void fragment() { COLOR = texture(TEXTURE, UV); }"));
+        var filtered = pattern.snapshot(parameters, null);
+        for (int x = 2; x < 62; ++x) {
+            int expected = direct.getPixelReader().getArgb(x, 16) & 255;
+            int actual = filtered.getPixelReader().getArgb(x, 16) & 255;
+            if (Math.abs(expected - actual) > 2) {
+                throw new AssertionError("Identity shader lost high-DPI contrast at " + x + ": " + expected + " -> " + actual);
+            }
+        }
+        System.out.println("NODE_SHADER_HIDPI_IDENTITY_PASS");
+    }
     public static void main(String[] args) throws Exception {
         var ready = new CountDownLatch(1);
         var action = new CountDownLatch(1);
@@ -48,6 +67,7 @@ public final class NodeShaderProbe {
                 button.setOnAction(event -> { red.setFloat("tint",0,0,1); stage.setTitle("Shader action"); action.countDown(); });
                 stage.setScene(new Scene(new Group(subtree,clipped,sibling,button,uv),400,240,Color.WHITE));
                 stage.show();
+                checkIdentityResolution();
                 boolean rejected = false;
                 try { red.setFloat("enabled",1); } catch (IllegalArgumentException expected) { rejected = true; }
                 if (!rejected) throw new AssertionError("Shader accepted wrong uniform type");

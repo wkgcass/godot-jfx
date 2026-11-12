@@ -131,3 +131,18 @@ and captures use `node-shader-dirty-<renderer>-<thread>-rd<0/1>` names under
 The source JFX SDK build, this regression and the existing node-shader suite pass
 on Windows Editor mobile/safe with RD off/on and OpenGL/safe. These bounded checks
 do not establish Runtime, cross-platform or performance acceptance.
+
+## High-DPI input resolution
+
+Node effects rasterize their input at the scale of the current render transform
+(at least one pixel per logical unit), then apply the remaining transform to the
+result. This preserves node-local UV axes without rendering the entire subtree
+at 1x and enlarging it on a high-DPI window. `TEXTURE_PIXEL_SIZE` describes the
+actual input pixel resolution. The full input remains available even when the
+output is clipped.
+
+The node shader fixture compares a 2x black-and-white fine-stripe pattern with
+and without an identity shader (`NODE_SHADER_HIDPI_IDENTITY_PASS`). On Windows,
+2x GPU snapshots of the VFX plain-text and image-background pages also match
+pixel-for-pixel when the lens center is moved outside its influence range.
+This verifies the pass-through appearance, not pixel identity in distorted areas.
