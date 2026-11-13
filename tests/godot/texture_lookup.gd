@@ -8,8 +8,12 @@ func _ready() -> void:
 	if not texture.is_valid():
 		push_error("Texture lookup returned invalid RID");get_tree().quit(1);return
 	var times:=PackedInt64Array()
+	var vertices:=PackedFloat32Array([0,0,0,0,0,0,0, 0,32,0,0,1,0,0, 32,0,0,1,0,0,0, 32,32,0,1,1,0,0])
+	var colors:=PackedByteArray([255,0,0,255,255,0,0,255,255,0,0,255,255,0,0,255])
 	for cycle in range(6):
-		target.begin_pass(true);target.add_rectangle(Rect2(0,0,32,32),Color.RED);target.end_pass()
+		target.begin_pass(true)
+		target.draw_prism_quads(vertices,colors,"shader_type canvas_item; render_mode unshaded, blend_premul_alpha;",{},false,Rect2i())
+		target.end_pass()
 		await RenderingServer.frame_post_draw
 		target.finish_pass()
 		var start:=Time.get_ticks_usec()

@@ -11,7 +11,8 @@
 
 Rebuild the source host and JFX SDK together: the obsolete
 `GodotBridge.isRDDirectCompiled()` JNI method and its GDScript capability query
-were removed. Frame opcodes and packet layouts are unchanged. Targets use
+were removed. Retained frame opcodes keep their existing numbers and packet
+layouts. Targets use
 Viewport rendering only. JVM startup rejects separate rendering before creating
 the JVM; renderer selection (mobile or gl_compatibility) remains independent.
 
@@ -193,7 +194,6 @@ Each command starts with u32 opcode and u32 payload byte length.
 | Opcode | Payload | Behavior |
 |---|---|---|
 | 1 | empty | clear the surface command list |
-| 2 | 8 f32: x, y, width, height, r, g, b, a | append a rectangle |
 | 3 | 2 u32: width, height | resize the surface |
 | 4 | u64 geometry handle (0 = uncached), u32 vertex count, 32 bytes per vertex, then 6 f32 draw transform and 1 f32 draw modulation | append Prism quad mesh |
 | 5 | u64 handle, u32 width/height, RGBA8 premultiplied pixels | create texture |
@@ -206,7 +206,6 @@ Each command starts with u32 opcode and u32 payload byte length.
 | 10 | u64 handle, u32 x/y/width/height, RGBA8 premultiplied pixels | update texture region |
 
 Limits: 4 MiB per batch, 65,536 commands, surface dimensions 1..8192.
-Rectangle values must be finite, dimensions nonnegative, colors in 0..1.
 Unknown opcodes/versions, truncated input, trailing data and stale sequence
 numbers are errors. This table lists the base commands and geometry extensions; later sections
 describe shader state, targets, scene textures and window publication. Together

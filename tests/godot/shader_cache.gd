@@ -72,7 +72,10 @@ func check_sampler_collision() -> bool:
 		if not source.initialize(Vector2i(1,1)): return false
 		source.begin_pass(true)
 		var level := float(index + 1) / 97.0
-		source.add_rectangle(Rect2(0,0,1,1), Color(level,level,level,1))
+		var gray:=int(round(level*255))
+		source.draw_prism_quads(PackedFloat32Array([0,0,0,0,0,0,0, 0,1,0,0,1,0,0, 1,0,0,1,0,0,0, 1,1,0,1,1,0,0]),
+			PackedByteArray([gray,gray,gray,255,gray,gray,gray,255,gray,gray,gray,255,gray,gray,gray,255]),
+			"shader_type canvas_item; render_mode unshaded, blend_premul_alpha;",{},false,Rect2i())
 		source.end_pass(); source.draw_offscreen_pass(); source.finish_pass()
 		sources.append(source)
 	var seen: Dictionary = {}

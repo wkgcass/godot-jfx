@@ -76,8 +76,8 @@ RGBA8 vertex colors and UV1 in CUSTOM0's x/y components. Both GL and Vulkan
 fixtures independently sample UV0, UV1 and vertex color in a shader, and
 check half-transparent premultiplied red composited over the host background.
 Default draw and presentation shaders both use blend_premul_alpha. The M1
-straight RGBA image upload is converted once on upload; legacy rectangle and
-texture modulation colors are converted before submission. Quad colors are
+straight RGBA image upload is converted once on upload; texture modulation
+colors are converted before submission. Quad colors are
 already premultiplied and remain unchanged. Custom shaders must choose the
 appropriate blend mode themselves.
 

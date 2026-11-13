@@ -43,7 +43,7 @@ class JavaFXRenderTarget : public RefCounted {
 		}
 	};
 	Vector<DrawSlot> slots;
-	int next_draw_slot = 0; // Mesh slots only; draw_index also counts rectangles/copies.
+	int next_draw_slot = 0; // Mesh slots only; draw_index also counts copies.
 	// Immutable (shader, parameters) pairs repeat every pass; their materials
 	// are shared instead of being recreated per batch. RID-bearing parameter
 	// sets are cached too; their entries record the referenced RIDs so a hit
@@ -79,7 +79,6 @@ public:
 	static bool sampler_alive(const RID &p_rid) { return live_sampler_rids.has(p_rid); }
 	bool initialize(const Size2i &p_size);
 	void begin_pass(bool p_clear);
-	void add_rectangle(const Rect2 &p_rect, const Color &p_color);
 	void copy_target(const Ref<JavaFXRenderTarget> &p_source, const Rect2 &p_rect);
 	void end_pass();
 	uint64_t draw_offscreen_pass();

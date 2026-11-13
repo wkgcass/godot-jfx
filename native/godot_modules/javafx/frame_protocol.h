@@ -18,7 +18,7 @@ constexpr uint32_t FRAME_MAGIC = 0x31465847; // GXF1, little endian.
 constexpr size_t MAX_FRAME_BYTES = 4 * 1024 * 1024;
 constexpr size_t MAX_QUEUED_FRAMES = 3;
 
-enum class Opcode : uint32_t { CLEAR = 1, RECTANGLE = 2, RESIZE = 3, QUADS = 4,
+enum class Opcode : uint32_t { CLEAR = 1, RESIZE = 3, QUADS = 4,
 	TEXTURE_CREATE = 5, TEXTURE_UPDATE = 6, TEXTURE_DISPOSE = 7, TEXTURED_QUADS = 8,
 	TEXTURE_ALLOCATE = 9, TEXTURE_PATCH = 10, SHADER_STATE = 11, CLIP = 12,
 	BEGIN_PRESENT = 13, PRESENT = 14, TARGET_ALLOCATE = 15, TARGET_SELECT = 16, END_PASS = 17,
@@ -212,18 +212,6 @@ inline bool decode_frame(const std::vector<uint8_t> &bytes, Frame &out, std::str
 			} break;
 			case Opcode::CLEAR:
 				if (size != 0) return fail("Invalid clear payload");
-				break;
-			case Opcode::RECTANGLE:
-				if (size != 32) return fail("Invalid rectangle payload");
-				for (size_t j = 0; j < 8; ++j) {
-					uint32_t bits = read_u32(p + offset + j * 4);
-					std::memcpy(&command.values[j], &bits, sizeof(float));
-					if (!std::isfinite(command.values[j])) return fail("Non-finite rectangle value");
-				}
-				if (command.values[2] < 0 || command.values[3] < 0) return fail("Negative rectangle size");
-				for (size_t j = 4; j < 8; ++j) {
-					if (command.values[j] < 0 || command.values[j] > 1) return fail("Color outside 0..1");
-				}
 				break;
 			case Opcode::RESIZE:
 				if (size != 8) return fail("Invalid resize payload");
@@ -421,9 +409,9 @@ public:
 			// Explicit offscreen targets may be rendered between window frames
 			// (for example Node.snapshot). Root drawing still requires an open
 			// presentation once retained presentation mode has been entered.
-			} else if ((!target_pass_open || (presentation_mode && !present_open && !active_target)) && (command.opcode == Opcode::CLEAR || command.opcode == Opcode::QUADS || command.opcode == Opcode::TEXTURED_QUADS || command.opcode == Opcode::QUADS_REF || command.opcode == Opcode::RECTANGLE || command.opcode == Opcode::CLIP || command.opcode == Opcode::SHADER_STATE)) return false;
-			if (command.opcode == Opcode::QUADS || command.opcode == Opcode::TEXTURED_QUADS || command.opcode == Opcode::QUADS_REF || command.opcode == Opcode::RECTANGLE || command.opcode == Opcode::CLEAR) pass_has_draws = true;
-			if (active_target && (command.opcode == Opcode::QUADS || command.opcode == Opcode::TEXTURED_QUADS || command.opcode == Opcode::QUADS_REF || command.opcode == Opcode::RECTANGLE || command.opcode == Opcode::CLEAR)) {
+			} else if ((!target_pass_open || (presentation_mode && !present_open && !active_target)) && (command.opcode == Opcode::CLEAR || command.opcode == Opcode::QUADS || command.opcode == Opcode::TEXTURED_QUADS || command.opcode == Opcode::QUADS_REF || command.opcode == Opcode::CLIP || command.opcode == Opcode::SHADER_STATE)) return false;
+			if (command.opcode == Opcode::QUADS || command.opcode == Opcode::TEXTURED_QUADS || command.opcode == Opcode::QUADS_REF || command.opcode == Opcode::CLEAR) pass_has_draws = true;
+			if (active_target && (command.opcode == Opcode::QUADS || command.opcode == Opcode::TEXTURED_QUADS || command.opcode == Opcode::QUADS_REF || command.opcode == Opcode::CLEAR)) {
 				auto target = slots.find(uint32_t(active_target));
 				if (target == slots.end() || !target->second.live || target->second.generation != uint32_t(active_target >> 32)) return false;
 				target->second.referenced = true;

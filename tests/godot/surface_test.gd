@@ -18,7 +18,9 @@ func _ready() -> void:
 	add_child(surface)
 	check(surface.get_owned_resource_count() == 8, "Initial RID ownership mismatch")
 	surface.set_surface_size(Vector2i(400, 240))
-	surface.add_rectangle(Rect2(16, 16, 96, 64), Color(0.25, 0.5, 1.0, 1.0))
+	var solid_vertices := PackedFloat32Array([16,16,0,0,0,0,0, 16,80,0,0,1,0,0, 112,16,0,1,0,0,0, 112,80,0,1,1,0,0])
+	var solid_colors := PackedByteArray([64,128,255,255,64,128,255,255,64,128,255,255,64,128,255,255])
+	surface.add_prism_quads(solid_vertices, solid_colors)
 	var pixels := PackedByteArray([0, 255, 0, 255, 0, 255, 0, 255,
 		0, 255, 0, 255, 0, 255, 0, 255])
 	surface.upload_rgba(Vector2i(2, 2), pixels)
@@ -34,7 +36,7 @@ func _ready() -> void:
 	if not image.is_empty():
 		var blue := image.get_pixel(64, 64)
 		var green := image.get_pixel(224, 64)
-		check(abs(blue.b - 0.8) < 0.06 and blue.r < 0.3, "Rectangle or shader output differs: " + str(blue))
+		check(abs(blue.b - 0.8) < 0.06 and blue.r < 0.3, "Solid quad or shader output differs: " + str(blue))
 		check(abs(green.g - 0.8) < 0.06 and green.r < 0.05, "Uploaded texture or shader output differs: " + str(green))
 		var output := ProjectSettings.globalize_path("res://../../artifacts/reference/godot-m1.png")
 		check(image.save_png(output) == OK, "Could not write M1 capture")
@@ -84,7 +86,9 @@ func _ready() -> void:
 		var temporary = ClassDB.instantiate("JavaFXRenderSurface")
 		add_child(temporary)
 		temporary.set_surface_size(Vector2i(64 + iteration, 64))
-		temporary.add_rectangle(Rect2(0, 0, 32, 32), Color.RED)
+		temporary.add_prism_quads(
+			PackedFloat32Array([0,0,0,0,0,0,0, 0,32,0,0,1,0,0, 32,0,0,1,0,0,0, 32,32,0,1,1,0,0]),
+			PackedByteArray([255,0,0,255,255,0,0,255,255,0,0,255,255,0,0,255]))
 		temporary.add_prism_quads(vertices, colors)
 		remove_child(temporary)
 		check(temporary.get_owned_resource_count() == 0 and temporary.get_cached_mesh_count() == 0, "Resource or geometry-cache leak at iteration " + str(iteration))

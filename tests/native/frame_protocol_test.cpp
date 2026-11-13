@@ -20,13 +20,8 @@ static void replace(std::vector<uint8_t> &bytes, size_t offset, uint32_t value) 
 
 static std::vector<uint8_t> valid_frame() {
 	std::vector<uint8_t> bytes;
-	for (uint32_t word : { FRAME_MAGIC, 1u, 88u, 3u, 1u, 0u,
-			3u, 8u, 320u, 200u, 1u, 0u, 2u, 32u }) put(bytes, word);
-	for (float value : { 12.f, 24.f, 64.f, 80.f, 0.25f, 0.5f, 1.f, 1.f }) {
-		uint32_t bits;
-		std::memcpy(&bits, &value, sizeof(float));
-		put(bytes, bits);
-	}
+	for (uint32_t word : { FRAME_MAGIC, 1u, 48u, 2u, 1u, 0u,
+			3u, 8u, 320u, 200u, 1u, 0u }) put(bytes, word);
 	return bytes;
 }
 
@@ -574,14 +569,14 @@ int main() {
 		Frame decoded;
 		std::string error;
 		require(decode_frame(bytes, decoded, error), "Valid frame rejected");
-		require(decoded.sequence == 1 && decoded.commands.size() == 3, "Frame lost data");
-		require(decoded.commands[0].width == 320 && decoded.commands[2].values[6] == 1.f, "Payload changed");
+		require(decoded.sequence == 1 && decoded.commands.size() == 2, "Frame lost data");
+		require(decoded.commands[0].width == 320 && decoded.commands[1].opcode == Opcode::CLEAR, "Payload changed");
 		// Rejection must leave output untouched, including failures at the end.
-		for (size_t offset : { size_t(0), size_t(4), size_t(8), size_t(12), size_t(24), size_t(28), size_t(32), size_t(48), size_t(52), size_t(80) }) {
+		for (size_t offset : { size_t(0), size_t(4), size_t(8), size_t(12), size_t(24), size_t(28), size_t(32), size_t(40), size_t(44) }) {
 			auto malformed = bytes;
 			replace(malformed, offset, 0xffffffff);
 			require(!decode_frame(malformed, decoded, error), "Malformed frame accepted");
-			require(decoded.commands.size() == 3 && !error.empty(), "Rejection corrupted output");
+			require(decoded.commands.size() == 2 && !error.empty(), "Rejection corrupted output");
 		}
 		for (size_t length = 0; length < bytes.size(); ++length) {
 			auto truncated = bytes;

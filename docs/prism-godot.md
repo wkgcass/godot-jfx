@@ -261,7 +261,7 @@ through BaseShaderGraphics.initLCDSampleRT. This initial failure is now resolved
 through GPU target routing and a sampleable backbuffer; LCD text was not disabled.
 
 JavaFXRenderTarget starts with five owned RenderingServer RIDs: viewport,
-canvas, commands, shader and material. It records GPU rectangle passes
+canvas, commands, shader and material. It records GPU quad passes
 and target-to-target texture copies, preserving sampled targets with strong
 references. Cyclic/self sampling is rejected; the first pass clears to avoid
 uninitialized pixels. The default viewport texture remains borrowed, never freed
@@ -289,7 +289,7 @@ Native offscreen passes now accept Prism quads, independent shader/material
 parameters and clipping. Host/offscreen paths share prism_mesh.h for all Prism
 attributes. The viewport path records draws into owned or reused CanvasItems.
 Ordering is preserved
-between rectangles, copies and mesh batches.
+between copies and mesh batches.
 
 Unchanged geometry is not re-encoded either: the Java render-command encoder
 content-hashes each quad batch and redraws repeats through a QUADS_REF handle

@@ -32,7 +32,10 @@ func _ready() -> void:
 		for entry in [[red,Color.RED],[blue,Color.BLUE]]:
 			if not entry[0].initialize(Vector2i(32,32)): fail("Target allocation failed"); return
 			entry[0].begin_pass(true)
-			entry[0].add_rectangle(Rect2(0,0,32,32),entry[1])
+			var color: Color=entry[1]
+			var colors:=PackedByteArray([int(color.r*255),int(color.g*255),int(color.b*255),255])
+			var vertices:=PackedFloat32Array([0,0,0,0,0,0,0, 0,32,0,0,1,0,0, 32,0,0,1,0,0,0, 32,32,0,1,1,0,0])
+			entry[0].draw_prism_quads(vertices,PackedByteArray(colors+colors+colors+colors),"shader_type canvas_item; render_mode unshaded, blend_premul_alpha;",{},false,Rect2i())
 			entry[0].end_pass()
 		for frame in range(3): await RenderingServer.frame_post_draw
 		red.finish_pass(); blue.finish_pass()

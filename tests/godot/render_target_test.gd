@@ -8,7 +8,10 @@ func _ready() -> void:
 		if not transient.initialize(Vector2i(8,8)):
 			fail("Cannot allocate transient Viewport target"); return
 		transient.begin_pass(true)
-		transient.add_rectangle(Rect2(0,0,8,8), Color.RED)
+		transient.draw_prism_quads(
+			PackedFloat32Array([0,0,0,0,0,0,0, 0,8,0,0,1,0,0, 8,0,0,1,0,0,0, 8,8,0,1,1,0,0]),
+			PackedByteArray([255,0,0,255,255,0,0,255,255,0,0,255,255,0,0,255]),
+			"shader_type canvas_item; render_mode unshaded, blend_premul_alpha;", {}, false, Rect2i())
 		transient.end_pass()
 		transient.draw_offscreen_pass()
 		var transient_id: int = transient.get_instance_id()
@@ -33,12 +36,15 @@ func _ready() -> void:
 		source.end_pass()
 		target.begin_pass(true)
 		target.copy_target(source, Rect2(0,0,64,64))
-		target.add_rectangle(Rect2(64,0,64,64), Color.BLUE)
+		target.draw_prism_quads(
+			PackedFloat32Array([64,0,0,0,0,0,0, 64,64,0,0,1,0,0, 128,0,0,1,0,0,0, 128,64,0,1,1,0,0]),
+			PackedByteArray([0,0,255,255,0,0,255,255,0,0,255,255,0,0,255,255]),
+			"shader_type canvas_item; render_mode unshaded, blend_premul_alpha;", {}, false, Rect2i())
 		target.end_pass()
-		# Pass geometry lives in the bounded content cache now: one entry for
-		# the quad batch, kept out of the per-pass hygiene count.
-		if source.get_owned_resource_count() != 8 or target.get_owned_resource_count() != 7 or source.get_cached_mesh_count() != 1:
-			fail("Unexpected render target allocation count")
+		# Shared pass geometry lives in the bounded content cache: the source
+		# batch and solid target quad stay out of the per-pass hygiene count.
+		if source.get_owned_resource_count() != 8 or target.get_owned_resource_count() != 9 or source.get_cached_mesh_count() != 2:
+			fail("Unexpected render target allocation count: source=" + str(source.get_owned_resource_count()) + " target=" + str(target.get_owned_resource_count()) + " source_meshes=" + str(source.get_cached_mesh_count()))
 			return
 		var source_id: int = source.get_instance_id()
 		var target_id: int = target.get_instance_id()

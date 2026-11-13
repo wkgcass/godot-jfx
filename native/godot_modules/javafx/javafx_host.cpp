@@ -1324,10 +1324,6 @@ void JavaFXHost::_notification(int p_what) {
 						else { set_draw_shader_code(String(command.shader_source.c_str())); set_draw_shader_parameters(parameters); }
 					} break;
 					case godot_javafx::Opcode::RESIZE: set_surface_size(Size2i(command.width, command.height)); break;
-					case godot_javafx::Opcode::RECTANGLE:
-						if (active_target.is_valid()) active_target->add_rectangle(Rect2(v[0], v[1], v[2], v[3]), Color(v[4], v[5], v[6], v[7]));
-						else add_rectangle(Rect2(v[0], v[1], v[2], v[3]), Color(v[4], v[5], v[6], v[7]));
-						break;
 					case godot_javafx::Opcode::QUADS:
 					case godot_javafx::Opcode::TEXTURED_QUADS:
 					case godot_javafx::Opcode::QUADS_REF: {

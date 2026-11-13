@@ -49,18 +49,21 @@ func _ready() -> void:
 	for cycle in range(100):
 		surface.clear_commands()
 		# Geometry reuse lives in the bounded mesh cache (get_cached_mesh_count),
-		# outside this per-clear hygiene count; the single batch above must not grow.
-		if surface.get_owned_resource_count() != 8 or surface.get_cached_mesh_count() != 1:
-			push_error("Draw state resources grew after clear")
+		# outside this per-clear hygiene count; the initial batch must not grow,
+		# and the solid-quad batch added on cycle 0 must remain at one entry.
+		if surface.get_owned_resource_count() != 8 or surface.get_cached_mesh_count() != (1 if cycle == 0 else 2):
+			push_error("Draw state resources grew after clear: owned=" + str(surface.get_owned_resource_count()) + " meshes=" + str(surface.get_cached_mesh_count()))
 			get_tree().quit(1)
 			return
 		surface.set_draw_shader_code("shader_type canvas_item; render_mode unshaded, blend_premul_alpha; uniform vec4 tint = vec4(1.0); void fragment() { COLOR = tint; }")
 		surface.set_draw_shader_parameters({"tint": Vector4(1, 0, 0, 1)})
-		surface.add_rectangle(Rect2(10, 10, 100, 80), Color.WHITE)
+		var rectangle_vertices := PackedFloat32Array([0,0,0,0,0,0,0, 0,80,0,0,1,0,0, 100,0,0,1,0,0,0, 100,80,0,1,1,0,0])
+		var white := PackedByteArray([255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255])
+		surface.add_prism_quads(rectangle_vertices, white, Transform2D(0, Vector2(10,10)))
 		surface.set_draw_shader_parameters({"tint": Vector4(0, 1, 0, 1)})
-		surface.add_rectangle(Rect2(60, 10, 100, 80), Color.WHITE)
+		surface.add_prism_quads(rectangle_vertices, white, Transform2D(0, Vector2(60,10)))
 		surface.set_draw_shader_code("shader_type canvas_item; render_mode unshaded, blend_premul_alpha; void fragment() { COLOR = vec4(0.0, 0.0, 1.0, 1.0); }")
-		surface.add_rectangle(Rect2(110, 10, 100, 80), Color.WHITE)
+		surface.add_prism_quads(rectangle_vertices, white, Transform2D(0, Vector2(110,10)))
 		if surface.get_owned_resource_count() != 14:
 			push_error("Unexpected draw state resource ownership")
 			get_tree().quit(1)

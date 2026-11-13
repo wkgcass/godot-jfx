@@ -81,7 +81,6 @@ public:
 	void begin_present();
 	void commit_present();
 	void finish_present();
-	void add_rectangle(const Rect2 &p_rect, const Color &p_color);
 	void add_prism_quads(const PackedFloat32Array &p_vertices, const PackedByteArray &p_colors, const Transform2D &p_transform, float p_modulate = 1.0f);
 	// Geometry-deduplicated draws: redraw a host-resident mesh (registered by
 	// the frame protocol's geometry handles) without re-decoding vertices.

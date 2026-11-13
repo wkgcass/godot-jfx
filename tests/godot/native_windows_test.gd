@@ -6,7 +6,13 @@ func fail(message: String) -> bool:
 func paint(color: Color, size: Vector2i):
 	var target=ClassDB.instantiate("JavaFXRenderTarget")
 	if not target.initialize(size): fail("Native target allocation failed"); return null
-	target.begin_pass(true); target.add_rectangle(Rect2(Vector2.ZERO,size),color); target.end_pass()
+	var vertices:=PackedFloat32Array([0,0,0,0,0,0,0, 0,size.y,0,0,1,0,0, size.x,0,0,1,0,0,0, size.x,size.y,0,1,1,0,0])
+	var rgba:=PackedByteArray([int(color.r*255),int(color.g*255),int(color.b*255),int(color.a*255)])
+	var colors:=PackedByteArray()
+	for vertex in range(4): colors.append_array(rgba)
+	target.begin_pass(true)
+	target.draw_prism_quads(vertices,colors,"shader_type canvas_item; render_mode unshaded, blend_premul_alpha;",{},false,Rect2i())
+	target.end_pass()
 	for frame in range(3): await RenderingServer.frame_post_draw
 	target.finish_pass()
 	return target

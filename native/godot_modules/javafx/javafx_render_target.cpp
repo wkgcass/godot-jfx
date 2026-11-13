@@ -48,7 +48,6 @@ void JavaFXRenderTarget::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("initialize", "size"), &JavaFXRenderTarget::initialize);
 	ClassDB::bind_method(D_METHOD("draw_offscreen_pass"), &JavaFXRenderTarget::draw_offscreen_pass);
 	ClassDB::bind_method(D_METHOD("begin_pass", "clear"), &JavaFXRenderTarget::begin_pass);
-	ClassDB::bind_method(D_METHOD("add_rectangle", "rect", "color"), &JavaFXRenderTarget::add_rectangle);
 	ClassDB::bind_method(D_METHOD("copy_target", "source", "rect"), &JavaFXRenderTarget::copy_target);
 	ClassDB::bind_method(D_METHOD("end_pass"), &JavaFXRenderTarget::end_pass);
 	ClassDB::bind_method(D_METHOD("finish_pass"), &JavaFXRenderTarget::finish_pass);
@@ -96,13 +95,6 @@ void JavaFXRenderTarget::begin_pass(bool p_clear) {
 	clear_draws();
 	rs->viewport_set_clear_mode(viewport, (p_clear || !initialized_contents) ? RSE::VIEWPORT_CLEAR_ONLY_NEXT_FRAME : RSE::VIEWPORT_CLEAR_NEVER);
 	pass_open = true;
-}
-
-void JavaFXRenderTarget::add_rectangle(const Rect2 &p_rect, const Color &p_color) {
-	ERR_FAIL_COND(!Thread::is_main_thread() || !pass_open);
-
-	RenderingServer::get_singleton()->canvas_item_add_rect(create_draw_item(material), p_rect,
-		Color(p_color.r * p_color.a, p_color.g * p_color.a, p_color.b * p_color.a, p_color.a));
 }
 
 bool JavaFXRenderTarget::depends_on(const JavaFXRenderTarget *p_target) const {

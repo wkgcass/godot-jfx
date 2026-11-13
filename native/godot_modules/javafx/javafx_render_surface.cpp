@@ -14,7 +14,6 @@ void JavaFXRenderSurface::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_surface_size", "size"), &JavaFXRenderSurface::set_surface_size);
 	ClassDB::bind_method(D_METHOD("get_surface_size"), &JavaFXRenderSurface::get_surface_size);
 	ClassDB::bind_method(D_METHOD("clear_commands"), &JavaFXRenderSurface::clear_commands);
-	ClassDB::bind_method(D_METHOD("add_rectangle", "rect", "color"), &JavaFXRenderSurface::add_rectangle);
 	ClassDB::bind_method(D_METHOD("add_prism_quads", "vertices", "colors", "transform", "modulate"), &JavaFXRenderSurface::add_prism_quads, DEFVAL(Transform2D()), DEFVAL(1.0f));
 	ClassDB::bind_method(D_METHOD("set_draw_shader_code", "code"), &JavaFXRenderSurface::set_draw_shader_code);
 	ClassDB::bind_method(D_METHOD("set_draw_shader_parameters", "parameters"), &JavaFXRenderSurface::set_draw_shader_parameters);
@@ -287,12 +286,6 @@ void JavaFXRenderSurface::set_draw_clip(bool p_enabled, const Rect2i &p_rect) {
 	clip_enabled = p_enabled;
 	clip_rect = p_rect;
 	prepare_draw_state();
-}
-
-void JavaFXRenderSurface::add_rectangle(const Rect2 &p_rect, const Color &p_color) {
-	ERR_FAIL_COND(!Thread::is_main_thread() || !commands.is_valid());
-	RenderingServer::get_singleton()->canvas_item_add_rect(commands, p_rect, Color(p_color.r * p_color.a, p_color.g * p_color.a, p_color.b * p_color.a, p_color.a));
-	draw_recorded = true;
 }
 
 void JavaFXRenderSurface::upload_rgba(const Size2i &p_size, const PackedByteArray &p_pixels) {
