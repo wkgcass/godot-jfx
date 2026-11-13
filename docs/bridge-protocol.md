@@ -452,7 +452,11 @@ budget (checked after each batch; a single draw can exceed it). PRESENT still
 uses the normal window presentation path.
 END_PASS completes within the bounded main-thread batch loop, without waiting
 for another display frame. Final presentations
-and native-window compositions retain their normal completion path.
+retain their normal completion path: primary/embedded compositions complete at
+frame post-draw, while a native Stage presentation completes when the finished
+target is handed to its window. The window retains the target and composes it
+on its own viewport schedule, so a continuously animating native window no
+longer holds the shared frame queue behind that window's post-draw fence.
 Queue admission stays bounded to three batches;
 capacity wakeups allow the Java render thread to refill between passes.
 
@@ -470,8 +474,9 @@ fence and normal sampler/retired-resource cleanup without submitting an entire
 GPU frame for every target transition.
 `GODOT_JFX_DIRECT_PRESENT=1` additionally draws the final target directly and
 queues window composition before returning to the host's normal draw. It retains
-the CPU fence and only counts completion after window composition. Independent
-native Stage routing is unchanged. Use `scripts/benchmark-vfx-frames.ps1` for
+the CPU fence and only counts embedded/primary completion after window
+composition; an independent native Stage presentation counts completion at
+content handoff, because the window fences its own composition. Use `scripts/benchmark-vfx-frames.ps1` for
 the same original VFX animation on D3D and Vulkan; pulse rates and completed
 Godot presentations are distinct metrics, and the benchmark performs no readback.
 Direct offscreen draws now execute synchronously on the Godot main thread.

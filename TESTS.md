@@ -768,6 +768,13 @@ for completion. Timing is diagnostic, not a fixed FPS acceptance threshold.
 The fixture uses synthetic events and does not operate physical input devices.
 See [menu profiling](docs/frame-benchmark.md#menu-redraw-and-ripple-profiling).
 
+`./scripts/profile-vfx-loading.ps1` profiles the LoadingStage demo window and
+its completion alert while the ripple effect animates the main window. Require
+both `VFX_LOADING_PERF_PASS` and `GODOT_VFX_LOADING_PERF_PASS`; `LOADING_PERF`
+reports per-phase pulse rate. The fixture uses synthetic events and does not
+operate physical input devices. See
+[loading profiling](docs/frame-benchmark.md#loading-window-and-ripple-profiling).
+
 `test-queued-texture-update.ps1` now also requires `PARTIAL_TEXTURE_UPDATE_PASS`:
 a partial upload before any draw must preserve untouched pixels, and a second
 partial upload must preserve the revision retained by the first queued draw.

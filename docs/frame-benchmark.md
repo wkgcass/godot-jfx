@@ -18,6 +18,7 @@ builds or GPU-heavy work. Historical RD/separate measurements are in
 | `./scripts/test-vfx-table-scroll.ps1 -Profile` | Synthetic table scrolling with host profiling; no physical mouse input |
 | `./scripts/profile-vfx-menu.ps1` | Menu opening, ripples and repeated sliding with synthetic application events |
 | `./scripts/profile-vfx-menu.ps1 -FullUploads` | Same menu workload with region uploads disabled for comparison |
+| `./scripts/profile-vfx-loading.ps1` | Ripple animation plus a LoadingStage/alert window; pulse rate per phase |
 | `./scripts/profile-vfx-gpu.ps1` | Built-in Godot GPU profile plus host command timing; diagnostic project uses 8192 timestamp slots |
 
 `-Renderer gl_compatibility` is accepted by the frame, transition, table and menu
@@ -76,6 +77,19 @@ versus region uploads. Historical filenames include `rd0`:
 `vfx-menu-mobile-safe-rd0-{full,default}.log`. The post-removal default run observed
 59.903 and 59.996 respectively (`vfx-menu-mobile-safe-default.log`). These focused
 samples support this workload, not universal speedups or physical scanout claims.
+
+## Loading window and ripple profiling
+
+`./scripts/profile-vfx-loading.ps1` keeps the ripple effect animating on the
+Demo page, then opens the LoadingStage demo window, waits for its completion
+alert and dismisses it. `LOADING_PERF` reports the pulse rate of each four-second
+phase (baseline, ripple, loading, alert, dismissed, ripple-off) and the host
+logs `LOADING_STATS` counters; require `VFX_LOADING_PERF_PASS` and
+`GODOT_VFX_LOADING_PERF_PASS`. On the fixed presentation path every phase stays
+at display cadence; previously each animating native window held the shared
+frame queue until its own post-draw composition, capping all windows near
+20 pulses/s. The fixture fires synthetic events only. Timing is diagnostic,
+not a fixed FPS acceptance threshold. Log: `artifacts/logs/vfx-loading-perf-mobile-safe.log`.
 
 ## Optional diagnostics
 

@@ -1572,10 +1572,24 @@ void JavaFXHost::finish_pending_pass() {
 					if (auto *window = get_native_window(pending_window_id)) {
 						window->set_content_opacity(pending_window_opacity);
 						window->present_content(active_target, pending_window_rect.size);
-						pending_native_composition = pending_window_id;
 					}
 					pending_window_id = 0; pending_window_native = false;
-					compose_target = false; active_target.unref(); return;
+					compose_target = false; active_target.unref();
+					target_parameters.clear(); target_instance_params.clear();
+					// The target's texture is already final (its presentation pass
+					// was drawn synchronously) and the window retains the target
+					// until its own composition replaces it. Complete the handoff
+					// immediately: holding the host-wide present fence until the
+					// window's post-draw throttled every queued frame to that
+					// window's compose cadence.
+					if (completing_presentation) {
+						++completed_presentations;
+						if (startup_active && completing_window_id == startup_window_id) startup_frame_ready = true;
+					}
+					completing_presentation = false;
+					present_pending = false;
+					offscreen_pass_pending = false;
+					return;
 				}
 				configure_window(pending_window_id, pending_window_rect, pending_window_z, true, pending_window_opacity);
 				set_window_content(pending_window_id, active_target);
