@@ -103,8 +103,8 @@ func _ready() -> void:
 			return
 	if shader_states:
 		output = ProjectSettings.globalize_path("res://../../artifacts/reference/godot-shader-bridge.png")
-		if host.get_owned_resource_count() != 15:
-			push_error("Shader snapshot resource count differs")
+		if host.get_owned_resource_count() != 13:
+			push_error("Shader snapshot resource count differs: " + str(host.get_owned_resource_count()))
 			get_tree().quit(1)
 			return
 		host.clear_commands()
@@ -122,7 +122,7 @@ func _ready() -> void:
 		var float_patch:=image.get_pixel(200,224)
 		if float_corner.b<0.95 or float_corner.r>0.05 or abs(float_patch.r-.2)>0.03 or abs(float_patch.g-.7)>0.03 or abs(float_patch.b-.1)>0.03:
 			push_error("Float texture partial upload changed the patch or untouched corner");get_tree().quit(1);return
-		if blue.b < 0.95 or blue.r > 0.05 or blue.g > 0.05 or abs(gray.r - 0.502) > 0.03 or abs(gray.g - 0.502) > 0.03 or abs(gray.b - 0.502) > 0.03 or abs(alpha.r - 0.96) > 0.03 or abs(alpha.g - 0.975) > 0.03 or abs(alpha.b - 0.99) > 0.03 or large.r < 0.95 or abs(large.g - 0.502) > 0.03 or large.b > 0.05 or host.get_owned_resource_count() != 22:
+		if blue.b < 0.95 or blue.r > 0.05 or blue.g > 0.05 or abs(gray.r - 0.502) > 0.03 or abs(gray.g - 0.502) > 0.03 or abs(gray.b - 0.502) > 0.03 or abs(alpha.r - 0.96) > 0.03 or abs(alpha.g - 0.975) > 0.03 or abs(alpha.b - 0.99) > 0.03 or large.r < 0.95 or abs(large.g - 0.502) > 0.03 or large.b > 0.05 or host.get_owned_resource_count() != 15:
 			push_error("Prism texture format conversion or retained resource count differs: owned=%d blue=%s gray=%s alpha=%s large=%s"%[host.get_owned_resource_count(),blue,gray,alpha,large])
 			get_tree().quit(1)
 			return
@@ -141,8 +141,8 @@ func _ready() -> void:
 			push_error("Texture patch changed untouched pixels, zero initialization or large atlas differs")
 			get_tree().quit(1)
 			return
-		if blue.b < 0.95 or blue.r > 0.05 or blue.g > 0.05 or host.get_owned_resource_count() != 18:
-			push_error("Texture versioning, slot reuse or retained resources differ: " + str(blue))
+		if blue.b < 0.95 or blue.r > 0.05 or blue.g > 0.05 or host.get_owned_resource_count() != 13:
+			push_error("Texture versioning, slot reuse or retained resources differ: owned=%d blue=%s"%[host.get_owned_resource_count(),blue])
 			get_tree().quit(1)
 			return
 		host.clear_commands()

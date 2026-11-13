@@ -19,20 +19,21 @@ public final class BridgeProbe {
         reject(() -> GodotBridge.submit(ByteBuffer.allocateDirect(24), 24));
         reject(() -> GodotBridge.awaitTick(0, 0));
 
-        ByteBuffer frame = ByteBuffer.allocateDirect(228).order(ByteOrder.LITTLE_ENDIAN);
-        frame.putInt(0x31465847).putInt(1).putInt(228).putInt(4).putLong(1);
+        ByteBuffer frame = ByteBuffer.allocateDirect(264).order(ByteOrder.LITTLE_ENDIAN);
+        frame.putInt(0x31465847).putInt(1).putInt(264).putInt(4).putLong(1);
         frame.putInt(3).putInt(8).putInt(400).putInt(240);
         frame.putInt(1).putInt(0);
         frame.putInt(2).putInt(32);
         for (float value : new float[] {16, 16, 160, 96, 0.8f, 0.2f, 0.6f, 1}) frame.putFloat(value);
-        frame.putInt(4).putInt(132).putInt(4);
+        frame.putInt(4).putInt(168).putLong(0).putInt(4);
         for (int i = 0; i < 4; ++i) {
             frame.putFloat(200 + (i / 2) * 80).putFloat(16 + (i % 2) * 96).putFloat(0);
             frame.putFloat(i / 2).putFloat(i % 2).putFloat(0.25f).putFloat(0.75f);
             frame.putInt(0xff00ff00); // RGBA bytes: green, opaque.
         }
-        if (!GodotBridge.submit(frame, 228)) throw new AssertionError("Empty host queue rejected frame");
-        reject(() -> GodotBridge.submit(frame, 228)); // duplicate sequence
+        for (float value : new float[] {1, 0, 0, 0, 1, 0, 1}) frame.putFloat(value); // Identity transform, opaque.
+        if (!GodotBridge.submit(frame, 264)) throw new AssertionError("Empty host queue rejected frame");
+        reject(() -> GodotBridge.submit(frame, 264)); // duplicate sequence
         // Native side must have copied the commands, not retained this memory.
         frame.clear();
         while (frame.hasRemaining()) frame.put((byte) 0);

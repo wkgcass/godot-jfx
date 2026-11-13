@@ -13,7 +13,7 @@ public final class ShaderCommandsProbe {
             vertices[i * 7] = x + (i / 2) * 80;
             vertices[i * 7 + 1] = 16 + (i % 2) * 96;
         }
-        commands.drawQuads(vertices, colors, 4);
+        commands.drawQuads(vertices, colors, 4, 1, 0, 0, 0, 1, 0);
     }
     public static void main(String[] args) {
         GodotRenderCommands commands = new GodotRenderCommands();

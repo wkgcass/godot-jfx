@@ -78,7 +78,7 @@ public final class PrismContextProbe {
         commands.clip(false,0,0,0,0);
         byte[] white = new byte[16]; java.util.Arrays.fill(white,(byte)255);
         commands.drawTexturedQuads(((GodotTexture)offscreen).getNativeHandle(),
-                new float[]{300,200,0,0,0,0,0, 300,230,0,0,1,0,0, 360,200,0,1,0,0,0, 360,230,0,1,1,0,0},white,4);
+                new float[]{300,200,0,0,0,0,0, 300,230,0,0,1,0,0, 360,200,0,1,0,0,0, 360,230,0,1,1,0,0},white,4, 1, 0, 0, 0, 1, 0);
         offscreen.dispose();
         if (!alias.isSurfaceLost()) throw new AssertionError("RT alias survived resource disposal");
         graphics.sync();

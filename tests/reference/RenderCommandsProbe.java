@@ -37,10 +37,10 @@ public final class RenderCommandsProbe {
         for (int frame = 1; frame <= 32; ++frame) {
             commands.resize(400, 240);
             commands.clear();
-            commands.drawQuads(vertices, colors, 1024);
+            commands.drawQuads(vertices, colors, 1024, 1, 0, 0, 0, 1, 0);
             float old = vertices[0]; vertices[0] = Float.NaN;
             boolean badRejected = false;
-            try { commands.drawQuads(vertices, colors, 1024); }
+            try { commands.drawQuads(vertices, colors, 1024, 1, 0, 0, 0, 1, 0); }
             catch (IllegalArgumentException expected) { badRejected = true; }
             vertices[0] = old;
             require(badRejected, "Invalid attributes were accepted");
@@ -49,7 +49,7 @@ public final class RenderCommandsProbe {
         // Overwrite both caller arrays and reusable encoder storage without
         // submitting; the accepted native frame must keep its original data.
         Arrays.fill(colors, (byte) 0);
-        commands.clear(); commands.drawQuads(vertices, colors, 1024);
+        commands.clear(); commands.drawQuads(vertices, colors, 1024, 1, 0, 0, 0, 1, 0);
         long tick = 0;
         for (int i = 0; i < 5; ++i) {
             tick = GodotBridge.awaitTick(tick, 1000);

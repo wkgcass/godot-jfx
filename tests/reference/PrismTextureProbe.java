@@ -16,7 +16,7 @@ public final class PrismTextureProbe {
             vertices[i * 7] = x + (i / 2) * width; vertices[i * 7 + 1] = y + (i % 2) * 64;
             vertices[i * 7 + 3] = i / 2; vertices[i * 7 + 4] = i % 2;
         }
-        commands.drawTexturedQuads(texture.getNativeHandle(), vertices, colors, 4);
+        commands.drawTexturedQuads(texture.getNativeHandle(), vertices, colors, 4, 1, 0, 0, 0, 1, 0);
     }
     public static void main(String[] args) throws Exception {
         GodotRenderCommands commands = new GodotRenderCommands();

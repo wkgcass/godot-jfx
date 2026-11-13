@@ -29,7 +29,7 @@ public final class TextureCommandsProbe {
             vertices[i * 7 + 1] = 16 + (i % 2) * 96;
             vertices[i * 7 + 3] = i / 2; vertices[i * 7 + 4] = i % 2;
         }
-        commands.drawTexturedQuads(texture, vertices, colors, 4);
+        commands.drawTexturedQuads(texture, vertices, colors, 4, 1, 0, 0, 0, 1, 0);
     }
     public static void main(String[] args) {
         ByteBuffer bad = ByteBuffer.allocateDirect(80).order(ByteOrder.LITTLE_ENDIAN);
@@ -79,6 +79,6 @@ public final class TextureCommandsProbe {
             vertices[i * 7] = x + (i / 2) * 60; vertices[i * 7 + 1] = 144 + (i % 2) * 64;
             vertices[i * 7 + 3] = vertices[i * 7 + 4] = 1023.5f / 1024;
         }
-        commands.drawTexturedQuads(texture, vertices, colors, 4);
+        commands.drawTexturedQuads(texture, vertices, colors, 4, 1, 0, 0, 0, 1, 0);
     }
 }
