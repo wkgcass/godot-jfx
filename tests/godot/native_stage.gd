@@ -23,9 +23,9 @@ func _ready() -> void:
 		var child=host.get_native_window(2 if step<3 else 3)
 		if get_window().size!=Vector2i(Vector2(320,180)*scale) or not pixel_matches(get_window(),Color.RED): continue
 		if step in [0,1,3,4,5,6,7,8,9,10,11]:
-			if child==null or child.is_present_pending(): continue
+			if child==null or child.is_present_pending() or not child.visible: continue
 			if child.title!="独立 Stage" or child.borderless or child.is_embedded():
-				push_error("Standard decorated Stage is not an independent native window"); get_tree().quit(1); return
+				push_error("Standard decorated Stage is not an independent native window: step=%d title=%s borderless=%s embedded=%s visible=%s"%[step,child.title,child.borderless,child.is_embedded(),child.visible]); get_tree().quit(1); return
 			if not child.visible or child.get_window_id()==get_window().get_window_id() or DisplayServer.get_window_list().size()!=2: continue
 			if not pixel_matches(child,Color.BLUE if step==0 else Color.GREEN): continue
 			if step in [4,6,9]:
