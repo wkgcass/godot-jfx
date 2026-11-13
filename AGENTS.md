@@ -42,6 +42,8 @@
 .\scripts\run-vfx-demo.ps1 -Smoke
 # 诊断后端（不代表每个测试都接受这些参数）
 .\scripts\run-vfx-demo.ps1 -Renderer gl_compatibility
+# 关闭 swapchain vsync 改用 CPU pacing（MaxFps 缺省 60，可填实际刷新率）
+.\scripts\run-vfx-demo.ps1 -DisableVsync -MaxFps 60
 
 .\scripts\test-protocol.cmd
 .\scripts\test-media-planes.ps1 -Renderer mobile

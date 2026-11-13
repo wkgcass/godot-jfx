@@ -7,6 +7,13 @@ acceptance. See [acceptance-status.md](acceptance-status.md) for the latest cove
 Menu animation/ripple performance can be measured without physical input using
 `./scripts/profile-vfx-menu.ps1`; see [menu profiling](frame-benchmark.md#menu-redraw-and-ripple-profiling).
 
+`run-vfx-demo.ps1` passes two engine pacing switches through: `-DisableVsync`
+switches every window's swapchain from FIFO to immediate presentation
+(windowed output stays DWM-composited, so there is no tearing) and implies
+`-MaxFps 60` to keep the loop CPU-paced; `-MaxFps <n>` overrides that value,
+and can also be used alone with VSync still enabled. The host's one-shot
+`check_vsync_pacing` fallback leaves both manual settings untouched.
+
 ## Ripple Effect in the Intro menu
 
 The initially unchecked `Ripple Effect` checkbox follows `Blackhole Effect`.
