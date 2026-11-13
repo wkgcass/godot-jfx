@@ -491,19 +491,18 @@ Quantum uses the Glass zero-period host timer in this mode, avoiding a second
 period semantics. The Demo launcher inherits these backend defaults and respects
 explicit environment overrides instead of forcing the switches on.
 
-`GODOT_JFX_PROFILE_VULKAN=1` adds cumulative, per-render-thread wall timings for
-Vulkan image acquisition, fence waits, queue submission and presentation every
-60 native presents. `scripts/profile-vfx-gpu.ps1` combines these with GPU
-timestamps in an isolated 8192-query fixture; instrumented results are diagnostic,
-not acceptance FPS. These API wait intervals are not shader GPU execution times.
+`scripts/profile-vfx-gpu.ps1` combines the host command counters with the
+engine `--gpu-profile` report in an isolated 8192-query fixture; instrumented
+results are diagnostic, not acceptance FPS. Engine pass timings are engine-side
+GPU work, not per-command or shader-attributed costs.
 
 get_render_stats() exposes main-thread counters for host ticks, offscreen passes,
 immediately fenced passes, completed presentations, applied sequence and queue
 backpressure. It also reports accumulated process_us, encode_us, metadata_us,
 host_commands_us and draw_sync_us, with draw_sync_calls and max_draw_sync_us.
-Times are main-thread wall-clock intervals; draw_sync_us includes waiting for the
-rendering thread, and several intervals overlap. They must not be summed as
-disjoint CPU/GPU costs. These are diagnostics, not GPU timings or a fixed-frame benchmark.
+Times are main-thread wall-clock intervals; draw_sync_us covers the synchronous
+draw and offscreen render calls, and several intervals overlap. They must not be
+summed as disjoint CPU/GPU costs. These are diagnostics, not GPU timings or a fixed-frame benchmark.
 
 `GODOT_JFX_PROFILE_COMMANDS=1` additionally times texture commands, render-target
 allocation, quad/mesh encoding and shader-state translation. These wall counters

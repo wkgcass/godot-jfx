@@ -6,7 +6,7 @@
 boolean, initially false. Godot Prism sets it true only after successful host
 validation and render-thread registration, and clears it when disposal begins.
 It reports the initialized Godot Prism backend, independently of the requested
-`prism.order` the Viewport rendering implementation. Applications should read it
+`prism.order`. Applications should read it
 after JavaFX startup and treat the field as runtime-owned, not modify it.
 
 The class is in the exported `javafx.application` package, so reflection needs no

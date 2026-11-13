@@ -22,7 +22,7 @@ false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PAS
 ## VFX 黑洞特效
 
 先执行 `build-vfx.ps1` 更新 Demo 类（包括内嵌着色器），再运行
-`test-vfx-blackhole.ps1`（默认 mobile/safe/Viewport）；`-RD` 验证 RD，
+`test-vfx-blackhole.ps1`（默认 mobile/safe/Viewport）；
 `-Renderer gl_compatibility` 验证 OpenGL；仅支持 safe 线程模式。
 需要源码 Editor、SDK 和 VFX 产物，不需要真实键鼠授权。
 
@@ -32,7 +32,7 @@ false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PAS
 透明边缘保持；退出后检查窗口与
 宿主资源释放。必须同时有 `VFX_BLACKHOLE_PROBE_PASS`、`GODOT_VFX_BLACKHOLE_PASS`
 且无异常或着色器错误。`-NativeD3D` 只验证原生对照中不添加该选项，不代表 Godot
-特效通过。日志和逐步截图使用 `vfx-blackhole-<backend>-<thread>-rd<0/1>` 前缀。
+特效通过。日志和逐步截图使用 `vfx-blackhole-<renderer>-safe` 前缀。
 
 ## 运行前
 
@@ -308,7 +308,7 @@ touch keyboard 警告。2026-11-10 当前产物运行返回关闭请求 HRESULT
 | `.\scripts\test-node-shaders.ps1 -Renderer mobile` | 指定 Node/子树的 Godot Shader。前置：G+J。 | uniform、裁剪、透明度、子树隔离及 GPU 像素断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
 | `.\scripts\test-scene-views.ps1 -Renderer mobile` | Godot SubViewport 场景原生基础。前置：G。 | 场景渲染、混合和生命周期断言。 | `-Renderer` |
 | `.\scripts\test-scene-textures.ps1 -Renderer mobile` | 场景纹理命令、resize 和加载失败。前置：G+J；MissingScene 是预期故障模式。 | 正常像素/身份保持；等待只统计实际推进的 host tick，每段 10 秒总期限；故障模式要求明确失败传播标记。 | `-Jdk`、`-Renderer`、`-Resize`、`-MissingScene` |
-| `.\scripts\test-hover-flicker.ps1 -Renderer mobile` | RD 直连呈现侧悬停回归。前置：G+J+V（探针使用 FusionButton）。默认合成模式：GDScript 按探针标题注入 motion 事件（HOLD 停按钮中心、GAP 移出窗口），不动真实鼠标、不需要置顶；加 `-Robot` 走 Glass Robot 物理档（真实 OS 光标停留在按钮，需桌面空闲、窗口置顶，运行期间勿操作鼠标）。 | 逐帧采样画面，普通按钮悬停色缺失帧 >5% 失败；FusionButton 要求六轮 HOLD/GAP 各有越过 23 帧过渡期的样本，稳定期亮/暗错误比例 >5% 失败。按当前屏幕缩放映射坐标；120 秒宿主期限、Java 侧每次 FX 调用 10 秒超时；FX 异常向主线程传播，退出时停止动画、尝试恢复 Robot 原光标位置并关闭窗口，清理成功后才输出 Java PASS；宿主节点移除后资源必须为零，要求 HOVER_RESOURCE_CLEANUP_PASS。JVM 失败和日志 ERROR/SHADER ERROR 均失败，要求 HOVER_FUSION_PIXEL_PASS。批量提交期呈现竞态（悬停闪回/拖动顿挫同类）回归门。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Robot` |
+| `.\scripts\test-hover-flicker.ps1 -Renderer mobile` | Viewport 呈现侧悬停回归。前置：G+J+V（探针使用 FusionButton）。默认合成模式：GDScript 按探针标题注入 motion 事件（HOLD 停按钮中心、GAP 移出窗口），不动真实鼠标、不需要置顶；加 `-Robot` 走 Glass Robot 物理档（真实 OS 光标停留在按钮，需桌面空闲、窗口置顶，运行期间勿操作鼠标）。 | 逐帧采样画面，普通按钮悬停色缺失帧 >5% 失败；FusionButton 要求六轮 HOLD/GAP 各有越过 23 帧过渡期的样本，稳定期亮/暗错误比例 >5% 失败。按当前屏幕缩放映射坐标；120 秒宿主期限、Java 侧每次 FX 调用 10 秒超时；FX 异常向主线程传播，退出时停止动画、尝试恢复 Robot 原光标位置并关闭窗口，清理成功后才输出 Java PASS；宿主节点移除后资源必须为零，要求 HOVER_RESOURCE_CLEANUP_PASS。JVM 失败和日志 ERROR/SHADER ERROR 均失败，要求 HOVER_FUSION_PIXEL_PASS。批量提交期呈现竞态（悬停闪回/拖动顿挫同类）回归门。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Robot` |
 | `.\scripts\repro-hover-manual.ps1` | 带 HOVER_TAP/HOVER_SAMPLE 启动 VFX，用户操作并关窗后汇总；前置 G+J+V。`-LogPath` 只分析已有日志，无窗口/构建依赖。 | 诊断入口，无功能 PASS；恒定亮度可能是静态内容，时间相近也不能单独证明因果。原生非零退出或错误日志明确失败。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-NoSample`、`-LogPath` |
 | `.\scripts\test-godot-view.ps1 -Renderer mobile` | JavaFX GodotView 布局、场景与输入。前置：G+J；Transform 模式另跑 D3D 参考。 | 场景像素、透明度/裁剪、输入坐标和资源释放断言。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
 | `.\scripts\test-fxml.ps1 -Renderer mobile` | FXML 加载与标准控件集成。前置：G+J；FXML 资源由脚本安排。 | 控制器、include、资源、输入、多窗口及画面断言。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
@@ -420,9 +420,12 @@ touch keyboard 警告。2026-11-10 当前产物运行返回关闭请求 HRESULT
 
 ## 性能、截图与分析工具
 
-切页及表格性能报告中的 `lifetime_max_*` 为宿主生命周期最大值，`last_offscreen_gpu_us`
-和 `last_window_gpu_us` 为结束时最近一次 GPU 测量值（需开启对应诊断），均不是
-区间差值或平均值。普通累计计数仍按首尾相减；FPS 仍使用次数除以对应总时长。
+切页及表格报告中的 `lifetime_max_*` 为宿主生命周期最大值；`last_offscreen_gpu_us`
+为最近一次离屏 GPU 测量值，均不能当作区间差值或平均值。默认直接离屏路径的
+GPU 时间戳回收有限制，零值不表示没有 GPU 开销。窗口 GPU 样本由切页夹具直接
+读取视口，输出到 `VFX_TRANSITION_GPU`；已删除从未更新的宿主窗口计时字段。
+普通累计计数仍按首尾相减，FPS 使用次数除以对应总时长。GPU 诊断可能超过默认
+256 个时间戳槽位，配置与限制见 [性能指南](docs/frame-benchmark.md)。
 
 这些不是统一的“全通过”测试；分别记录观测或执行专门门槛。
 
@@ -546,8 +549,8 @@ JNI，调用 submit 必须抛出 UnsatisfiedLinkError；此后该编码器禁止
 此模式与 -BatchBoundary 互斥，启用 Viewport 实例参数，通过实际
 Java/宿主协议连续复用同一离屏目标：显式红色、参数省略后的默认绿色、切换
 着色器后的默认蓝色、删除该参数后的固定白色。各轮 256 像素必须完全一致；要求 VIEWPORT_STATE_PASS、
-另用八个 shader 验证 float/int 的 1–4 分量（含负数与小数），要求 SHADER_CONSTANT_TYPES_PASS cases=8。宿主 RD 提交为零、退出资源归零。它替代本次调用的默认纹理版本场景，不将
-Viewport 验证冒充 RD 验证。不操作键鼠；环境变量结束后恢复。
+另用八个 shader 验证 float/int 的 1–4 分量（含负数与小数），要求 SHADER_CONSTANT_TYPES_PASS cases=8，退出资源归零。它替代本次调用的默认纹理版本场景；
+不操作键鼠，环境变量结束后恢复。
 日志 queued-texture-update-mobile-<safe>-viewport-state.log。
 
 ### 实际 GPU 跨批次状态

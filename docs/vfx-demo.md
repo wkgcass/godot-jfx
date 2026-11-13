@@ -1,9 +1,8 @@
 # VFX source build and Intro smoke
 
-Dated RD/separate results below describe prior builds. Current commands support
-only Viewport + safe; they do not establish acceptance of this changed build.
-
-The host now uses only Viewport + safe; mobile and OpenGL remain available.
+The host uses Viewport + safe on mobile or OpenGL. Dated RD/separate results
+below describe prior builds, not current backend choices or current-build
+acceptance. See [acceptance-status.md](acceptance-status.md) for the latest coverage.
 
 Menu animation/ripple performance can be measured without physical input using
 `./scripts/profile-vfx-menu.ps1`; see [menu profiling](frame-benchmark.md#menu-redraw-and-ripple-profiling).
@@ -267,14 +266,9 @@ the differences are visual triage, not an automatic correctness threshold.
 
 The current GL and Vulkan 35-page runs pass and both paired sheets were inspected.
 This covers navigation and visible content, not each button or modal dialog.
-Godot `--render-thread safe` initially failed pixel comparison because a
-deferred post-draw notification could prematurely release a pending pass. The
-host now orders a draw and synchronizes the render queue before releasing it.
-Historical Effects and GodotView probes passed with the former separate mode.
-A minimal Godot shutdown fix also returns the RenderingDevice to main after
-joining the render worker; editor/runtime empty-scene shutdown tests pass in both
-modes. VFX's 35-page captures above use the default `safe` mode; they do not
-establish full Demo acceptance in separate mode.
+Older separate-mode completion and render-worker shutdown fixes are historical;
+those adaptations have been removed. Current navigation evidence uses Viewport
+with safe threading.
 OS screenshot capture was attempted with the computer-use skill but initialization
 failed with `Module not found: @oai/sky`; these artifacts remain GPU captures.
 

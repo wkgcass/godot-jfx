@@ -333,15 +333,9 @@ The OpenGL VFX Intro 35-page navigation regression passes with a fresh completed
 manifest and a regenerated, visually inspected D3D comparison sheet. Random table
 data and timing remain expected differences; this does not accept popup actions.
 
-## Verification
+## Historical verification
 
-```powershell
-.\scripts\test-window-layers.ps1
-.\scripts\test-window-layers.ps1 -Renderer mobile
-.\scripts\test-window-layers.ps1 -Renderer mobile -RenderThread separate
-```
-
-All three pass 100 creation/composition/removal cycles. Checks cover alpha,
+The historical OpenGL/safe, mobile/safe and mobile/separate runs each passed 100 creation/composition/removal cycles. Checks cover alpha,
 z ordering, hide/show, moving/resizing beyond host bounds, removal while a draw
 retains the source, destruction of target ObjectIDs after completion, zero surface
 resources after tree removal and exactly one native display-server window. GPU
@@ -355,3 +349,7 @@ Complete nested popup auto-hide/grabs and edge placement, broader modal owner/bl
 decorated-window interactions and focus-loss cancellation. Extend stress coverage
 of queued paints, pointer/touch capture during hide/close, and owner closure.
 Then exercise VFX dialogs and standard JavaFX dropdowns end-to-end.
+
+Current compositor diagnostics use `./scripts/test-window-layers.ps1` with
+`-Renderer mobile` or `-Renderer gl_compatibility`, both in safe mode. They do
+not restore the old embedded-Stage model. See [TESTS.md](../TESTS.md).
