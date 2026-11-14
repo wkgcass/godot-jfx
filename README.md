@@ -108,3 +108,20 @@ These are rendered viewport captures, not OS desktop screenshots.
 
 Subsystem documents provide reproducible test commands and explain their limits.
 Compilation or a single passing fixture does not establish overall completion.
+
+## License
+
+The original code in this repository (the Godot host module under
+`native/godot_modules/`, scripts, test scenes and documentation) is released
+under the [MIT License](LICENSE).
+
+The Git submodules keep their own licenses:
+
+- `godot/` — MIT License (Godot Engine); the JavaFX host integration in this
+  fork remains MIT-compatible.
+- `jfx/` — GNU General Public License v2 with the Classpath Exception
+  (OpenJFX); modifications to `javafx.graphics` / `javafx.media` inherit it.
+- `vfx/` — MIT License.
+
+Building or distributing the combined runtime must satisfy all of the above,
+in particular the OpenJFX GPLv2 + Classpath Exception terms.
