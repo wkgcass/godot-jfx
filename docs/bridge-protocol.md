@@ -423,7 +423,13 @@ the host stops consuming at that boundary until post-draw cleanup completes.
 
 The native Viewport keeps prior pixels and remains disabled while a frame is
 being assembled. PRESENT requests UPDATE_ONCE. frame_post_draw releases the
-completed frame's geometry, materials and retired texture versions. Full CLEAR
+completed frame's geometry, materials and retired texture versions. Because
+RenderingServer.draw is skipped entirely while no window can draw (macOS
+orders out the root window when the last visible FX Stage hides or closes),
+the post-draw fence is also completed from the host process tick whenever no
+window can draw; otherwise queue admission would stall until the producer's
+backpressure timeout. The window-layer composition fence follows the same
+rule and is simply not re-armed for compositions no frame can present. Full CLEAR
 requests clear-on-next-frame; clipped clear remains GPU replacement geometry.
 Window background is outside the persistent framebuffer, behind presentation,
 so it does not overwrite preserved pixels on dirty updates. Legacy standalone

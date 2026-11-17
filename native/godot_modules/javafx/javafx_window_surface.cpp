@@ -3,6 +3,7 @@
 #include "core/object/class_db.h"
 #include "core/object/callable_mp.h"
 #include "core/os/thread.h"
+#include "servers/display/display_server.h"
 #include "servers/rendering/rendering_server.h"
 #include <algorithm>
 #include <vector>
@@ -57,7 +58,15 @@ void JavaFXWindowSurface::remove_window(int64_t p_id) {
 }
 
 bool JavaFXWindowSurface::compose_windows() {
-	ERR_FAIL_COND_V(!Thread::is_main_thread() || !is_inside_tree() || pending, false);
+	ERR_FAIL_COND_V(!Thread::is_main_thread() || !is_inside_tree(), false);
+	// frame_post_draw never fires while no window can draw (e.g. macOS orders
+	// out the root window when the last visible FX Stage hides or closes), so
+	// a fence outliving the last drawable frame would deadlock every later
+	// composition. Retire the stale fence and compose without re-arming it;
+	// the recorded content still renders should a drawable frame return.
+	const bool drawable = DisplayServer::get_singleton()->can_any_window_draw();
+	if (pending && !drawable) { finish_present(); pending = false; }
+	ERR_FAIL_COND_V(pending, false);
 	std::vector<std::pair<int64_t, const Layer *>> order;
 	for (const auto &entry : layers) {
 		const Layer &layer = entry.second;
@@ -74,7 +83,7 @@ bool JavaFXWindowSurface::compose_windows() {
 		const Layer &layer = *entry.second;
 		add_render_target(layer.content, layer.rect, layer.opacity);
 	}
-	commit_present(); pending = true;
+	commit_present(); pending = drawable;
 	return true;
 }
 

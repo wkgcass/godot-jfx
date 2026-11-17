@@ -1298,6 +1298,12 @@ void JavaFXHost::_notification(int p_what) {
             runtime->dialogs.start(request,handle,request->owner<0 || (owner && owner->is_visible()));
         }
 		host_commands_us += OS::get_singleton()->get_ticks_usec() - process_start;
+		// The present fence clears on frame_post_draw, but RenderingServer.draw
+		// is skipped entirely while no window can draw (e.g. macOS orders out the
+		// root window when the last visible FX Stage hides or closes). Complete
+		// the fence here or queue admission would stall until the producer's
+		// backpressure timeout kills the render context.
+		if (present_pending && !DisplayServer::get_singleton()->can_any_window_draw()) finish_pending_pass();
 		godot_javafx::Frame frame;
 		const uint64_t passes_before = direct_offscreen_calls + direct_presentation_passes;
 		// LCD text/effects can require many dependent offscreen passes. Draw
