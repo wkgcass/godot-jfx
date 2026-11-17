@@ -3,6 +3,7 @@
 #include "prism_mesh.h"
 
 #include "core/io/image.h"
+#include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
 #include "core/os/thread.h"
 #include "core/os/os.h"
@@ -36,23 +37,28 @@ void JavaFXRenderSurface::_notification(int p_what) {
 	}
 }
 
-void JavaFXRenderSurface::allocate() {
-	ERR_FAIL_COND_MSG(!Thread::is_main_thread(), "JavaFX surface allocation requires Godot main thread.");
-	ERR_FAIL_COND(viewport.is_valid());
+void JavaFXRenderSurface::create_surface_viewport(const Size2i &p_size) {
 	auto *rs = RenderingServer::get_singleton();
 	viewport = rs->viewport_create();
 	canvas = rs->canvas_create();
 	commands = rs->canvas_item_create();
-	presentation = rs->canvas_item_create();
-	rs->viewport_set_size(viewport, surface_size.x, surface_size.y);
+	rs->viewport_set_size(viewport, p_size.x, p_size.y);
 	rs->viewport_set_disable_3d(viewport, true);
 	rs->viewport_set_transparent_background(viewport, true);
-	rs->viewport_set_clear_mode(viewport, RSE::VIEWPORT_CLEAR_ALWAYS);
-	rs->viewport_set_update_mode(viewport, RSE::VIEWPORT_UPDATE_ALWAYS);
 	rs->viewport_attach_canvas(viewport, canvas);
 	rs->canvas_item_set_parent(commands, canvas);
-	rs->canvas_item_set_parent(presentation, get_canvas_item());
 	rs->viewport_set_active(viewport, true);
+}
+
+void JavaFXRenderSurface::allocate() {
+	ERR_FAIL_COND_MSG(!Thread::is_main_thread(), "JavaFX surface allocation requires Godot main thread.");
+	ERR_FAIL_COND(viewport.is_valid());
+	auto *rs = RenderingServer::get_singleton();
+	create_surface_viewport(surface_size);
+	presentation = rs->canvas_item_create();
+	rs->viewport_set_clear_mode(viewport, RSE::VIEWPORT_CLEAR_ALWAYS);
+	rs->viewport_set_update_mode(viewport, RSE::VIEWPORT_UPDATE_ALWAYS);
+	rs->canvas_item_set_parent(presentation, get_canvas_item());
 	// Prism colors and offscreen results use premultiplied alpha. Apply it
 	// both when drawing into the viewport and when presenting its texture.
 	set_draw_shader_code("shader_type canvas_item; render_mode unshaded, blend_premul_alpha;");
@@ -60,11 +66,28 @@ void JavaFXRenderSurface::allocate() {
 	update_presentation();
 }
 
+void JavaFXRenderSurface::finish_retired_viewport() {
+	retired_swap_queued = false;
+	if (!retired_viewport.is_valid()) return;
+	auto *rs = RenderingServer::get_singleton();
+	RID *retired[] = { &retired_commands, &retired_canvas, &retired_viewport };
+	for (RID *rid : retired) {
+		if (rid->is_valid()) {
+			rs->free_rid(*rid);
+			*rid = RID();
+		}
+	}
+	update_presentation();
+}
+
 void JavaFXRenderSurface::update_presentation() {
 	auto *rs = RenderingServer::get_singleton();
 	rs->canvas_item_clear(presentation);
-	// The texture belongs to the viewport. Never free this borrowed RID.
-	rs->canvas_item_add_texture_rect(presentation, Rect2(Vector2(), surface_size), rs->viewport_get_texture(viewport));
+	// The texture belongs to the viewport. Never free this borrowed RID. While
+	// a resize swap is in flight the retired viewport keeps presenting until
+	// the replacement has rendered (see viewport_resize_pending).
+	RID presented = rs->viewport_get_texture(retired_viewport.is_valid() ? retired_viewport : viewport);
+	rs->canvas_item_add_texture_rect(presentation, Rect2(Vector2(), surface_size), presented);
 }
 
 void JavaFXRenderSurface::release() {
@@ -72,7 +95,7 @@ void JavaFXRenderSurface::release() {
 	auto *rs = RenderingServer::get_singleton();
 	// Release dependents before resources; zero each handle for idempotence.
 	free_retained_draws();
-	RID *owned[] = { &presentation, &commands, &background, &draw_material, &draw_shader, &material, &shader, &texture, &canvas, &viewport };
+	RID *owned[] = { &presentation, &commands, &background, &draw_material, &draw_shader, &material, &shader, &texture, &canvas, &viewport, &retired_commands, &retired_canvas, &retired_viewport };
 	for (RID *rid : owned) {
 		if (rid->is_valid()) {
 			rs->free_rid(*rid);
@@ -94,6 +117,8 @@ void JavaFXRenderSurface::release() {
 	draw_code = String();
 	compiled_draw_code = String();
 	persistent_frames = false;
+	viewport_resize_pending = false;
+	retired_swap_queued = false;
 	clip_enabled = false;
 	draw_parameters.clear();
 }
@@ -103,7 +128,11 @@ void JavaFXRenderSurface::set_surface_size(const Size2i &p_size) {
 	ERR_FAIL_COND_MSG(p_size.x <= 0 || p_size.y <= 0 || p_size.x > 8192 || p_size.y > 8192, "Invalid JavaFX surface dimensions (1..8192).");
 	surface_size = p_size;
 	if (viewport.is_valid()) {
-		RenderingServer::get_singleton()->viewport_set_size(viewport, p_size.x, p_size.y);
+		if (persistent_frames) {
+			viewport_resize_pending = true;
+		} else {
+			RenderingServer::get_singleton()->viewport_set_size(viewport, p_size.x, p_size.y);
+		}
 		update_presentation();
 		if (background.is_valid()) set_background(background_color);
 	}
@@ -138,6 +167,16 @@ void JavaFXRenderSurface::clear_draw_resources() {
 
 void JavaFXRenderSurface::begin_present() {
 	ERR_FAIL_COND(!Thread::is_main_thread() || !viewport.is_valid());
+	if (viewport_resize_pending) {
+		// Apply the deferred resize as a viewport swap: retire the current
+		// viewport and present its texture until the replacement at the new
+		// size has rendered its first frame (freed in finish_retired_viewport).
+		viewport_resize_pending = false;
+		finish_retired_viewport();
+		retired_viewport = viewport; retired_canvas = canvas; retired_commands = commands;
+		viewport = RID(); canvas = RID(); commands = RID();
+		create_surface_viewport(surface_size);
+	}
 	clear_draw_resources();
 	persistent_frames = true;
 	auto *rs = RenderingServer::get_singleton();
@@ -148,6 +187,12 @@ void JavaFXRenderSurface::begin_present() {
 void JavaFXRenderSurface::commit_present() {
 	ERR_FAIL_COND(!Thread::is_main_thread() || !viewport.is_valid());
 	RenderingServer::get_singleton()->viewport_set_update_mode(viewport, RSE::VIEWPORT_UPDATE_ONCE);
+	if (retired_viewport.is_valid() && !retired_swap_queued) {
+		// The replacement viewport renders in this frame's draw; switch the
+		// presentation to it once that draw has completed.
+		retired_swap_queued = true;
+		RenderingServer::get_singleton()->connect("frame_post_draw", callable_mp(this, &JavaFXRenderSurface::finish_retired_viewport), Object::CONNECT_ONE_SHOT);
+	}
 }
 
 void JavaFXRenderSurface::finish_present() {

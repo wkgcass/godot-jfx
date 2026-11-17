@@ -33,6 +33,18 @@ class JavaFXRenderSurface : public Node2D {
 	bool clip_enabled = false;
 	Rect2i clip_rect;
 	bool persistent_frames = false;
+	// A resize while presented content exists is applied at the next
+	// begin_present instead of immediately, and as a viewport swap rather than
+	// viewport_set_size: reallocating the texture discards its contents
+	// (eagerly on Metal/RD) and the root window renders before this viewport
+	// each frame, so the presentation would sample an empty texture for one
+	// frame. The retired viewport keeps presenting (stretched to the new rect)
+	// until the replacement has rendered its first frame.
+	bool viewport_resize_pending = false;
+	RID retired_viewport;
+	RID retired_canvas;
+	RID retired_commands;
+	bool retired_swap_queued = false;
 	Vector<Ref<ArrayMesh>> meshes;
 	// Canvas commands carry RIDs, not Ref<ArrayMesh>. Cache eviction and
 	// GEOMETRY_FREE must not invalidate meshes still used by this draw list.
@@ -54,6 +66,8 @@ class JavaFXRenderSurface : public Node2D {
 
 	void allocate();
 	void release();
+	void create_surface_viewport(const Size2i &p_size);
+	void finish_retired_viewport();
 	void update_presentation();
 	void draw_prism_quads(const PackedFloat32Array &p_vertices, const PackedByteArray &p_colors, const Transform2D &p_transform, RID p_texture, float p_modulate = 1.0f);
 	void free_retired_textures();

@@ -1,12 +1,26 @@
 #include "javafx_host.h"
 #include "core/os/os.h"
 #include "main/splash.gen.h"
+#if defined(WINDOWS_ENABLED)
 #include "platform/windows/display_server_windows.h"
+#elif defined(MACOS_ENABLED)
+#include "javafx_host_macos.h"
+#endif
 #include "scene/main/canvas_layer.h"
 #include "scene/gui/color_rect.h"
 #include "scene/gui/texture_rect.h"
 #include "scene/resources/image_texture.h"
 #include "servers/rendering/rendering_server.h"
+
+// Un-hide a window kept hidden while the JavaFX runtime starts up (see the
+// GODOT_JFX_STARTUP handling in each DisplayServer backend).
+static void release_startup_window(DisplayServerEnums::WindowID p_window) {
+#if defined(WINDOWS_ENABLED)
+	static_cast<DisplayServerWindows *>(DisplayServer::get_singleton())->release_javafx_startup_window(p_window);
+#elif defined(MACOS_ENABLED)
+	godot_javafx::macos_release_startup_window(p_window);
+#endif
+}
 
 Window *JavaFXHost::startup_window() const {
 	return startup_window_id ? get_native_window(startup_window_id) : get_window();
@@ -22,7 +36,7 @@ bool JavaFXHost::startup_show(int64_t p_id, bool p_visible) {
 	if (startup_consumed) {
 		Window *window = p_id ? get_native_window(p_id) : get_window();
 		if (window && window->get_window_id() != DisplayServerEnums::INVALID_WINDOW_ID)
-			static_cast<DisplayServerWindows *>(DisplayServer::get_singleton())->release_javafx_startup_window(window->get_window_id());
+			release_startup_window(window->get_window_id());
 		return false;
 	}
 	Window *window = p_id ? get_native_window(p_id) : get_window();
@@ -76,11 +90,10 @@ void JavaFXHost::startup_post_draw() {
 	if (!startup_active) return;
 	Window *window = startup_window();
 	if (!window || window->get_window_id() == DisplayServerEnums::INVALID_WINDOW_ID) return;
-	auto *display = static_cast<DisplayServerWindows *>(DisplayServer::get_singleton());
 	const uint64_t now = OS::get_singleton()->get_ticks_usec();
 	if (!startup_window_shown) {
 		if (!startup_logo_enabled && !startup_frame_ready) return;
-		display->release_javafx_startup_window(window->get_window_id());
+		release_startup_window(window->get_window_id());
 		startup_window_shown = true;
 		if (!startup_logo_enabled) startup_cancel();
 		return;

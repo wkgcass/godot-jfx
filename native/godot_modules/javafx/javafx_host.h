@@ -2,7 +2,11 @@
 
 #include "javafx_window_surface.h"
 #include "javafx_native_window.h"
+#if defined(WINDOWS_ENABLED)
 #include "windows_dnd.h"
+#elif defined(MACOS_ENABLED)
+#include "macos_dnd.h"
+#endif
 #include "prism_mesh.h"
 
 #include <memory>
@@ -10,6 +14,12 @@
 #include <set>
 
 namespace godot_javafx { struct Runtime; }
+
+#if defined(WINDOWS_ENABLED)
+namespace godot_javafx { namespace platform_dnd = windows_dnd; }
+#elif defined(MACOS_ENABLED)
+namespace godot_javafx { namespace platform_dnd = macos_dnd; }
+#endif
 
 class CanvasLayer;
 class ColorRect;
@@ -102,11 +112,19 @@ class JavaFXHost : public JavaFXWindowSurface {
 	};
 	std::map<int64_t, NativeWindowEntry> native_windows;
 	int64_t native_window_sequence = 0;
+#if defined(MACOS_ENABLED)
+	// Windows detached from their owner NSWindow for a fullscreen transition;
+	// re-attached by poll_fullscreen_reattach() once the exit animation ends.
+	std::set<int64_t> fullscreen_reattach;
+	void poll_fullscreen_reattach();
+	// Nearest visible owner (or the root window) for emulated focus transfer.
+	Window *visible_focus_fallback(int64_t p_owner) const;
+#endif
 	// OLE drag-in handlers per hosted Window, installed as DisplayServerWindows
-	// drag delegates; the delegate userdata points at the TargetHandler.
-	std::map<Window *, std::unique_ptr<godot_javafx::windows_dnd::TargetHandler>> drag_targets;
+	// drag delegates on Windows; the delegate userdata points at the TargetHandler.
+	std::map<Window *, std::unique_ptr<godot_javafx::platform_dnd::TargetHandler>> drag_targets;
 	void refresh_drag_delegates();
-	void run_dnd_source(std::unique_ptr<godot_javafx::windows_dnd::SourceData> p_data);
+	void run_dnd_source(std::unique_ptr<godot_javafx::platform_dnd::SourceData> p_data);
 	void apply_native_window_commands();
 	Rect2i target_clip_rect;
 
@@ -141,6 +159,11 @@ class JavaFXHost : public JavaFXWindowSurface {
 	// always main thread): window commands produced in response to this frame's
 	// input take effect on the same display frame instead of the next one.
 	void pre_draw_host_commands();
+	// Third application point after the draw (frame_post_draw). A resize applied
+	// here would recreate the window render target right after it was drawn,
+	// leaving it empty until the next frame; defer resize batches to the next
+	// pre-draw/process application so the clear and the redraw share one frame.
+	void post_draw_host_commands();
 	void apply_readback();
 	void refresh_host_info();
 	void request_window_focus(Window *p_window);

@@ -1,4 +1,7 @@
 #include "javafx_host.h"
+
+#ifdef WINDOWS_ENABLED
+
 #include "windows_dnd.h"
 #include "core/os/thread.h"
 #include "core/object/callable_mp.h"
@@ -222,3 +225,5 @@ void JavaFXHost::destroy_native_window(int64_t p_id) {
 	memdelete(window);
 	held_buttons.erase(p_id);
 }
+
+#endif // WINDOWS_ENABLED

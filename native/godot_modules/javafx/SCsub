@@ -18,5 +18,8 @@ else:
 jdk = os.environ.get("JAVA_HOME", "")
 if not os.path.isfile(os.path.join(jdk, "include", "jni.h")):
     raise RuntimeError("JavaFX module requires JAVA_HOME pointing to an installed JDK")
-env_javafx.Append(CPPPATH=[os.path.join(jdk, "include"), os.path.join(jdk, "include", "win32")])
+jni_platform_dir = "darwin" if env["platform"] == "macos" else "win32"
+env_javafx.Append(CPPPATH=[os.path.join(jdk, "include"), os.path.join(jdk, "include", jni_platform_dir)])
 env_javafx.add_source_files(env.modules_sources, "*.cpp")
+if env["platform"] == "macos":
+    env_javafx.add_source_files(env.modules_sources, "*.mm")

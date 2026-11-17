@@ -24,6 +24,10 @@ constexpr size_t MAX_URL_CHARS = 4096;
 constexpr size_t MAX_PATHS = 4096;
 constexpr size_t MAX_PATH_CHARS = 32768;
 
+// Custom format names ride as UTF-16 on every platform; the macOS backend
+// uses std::u16string for the same field.
+using wide_string = std::wstring;
+
 // Fixed-order '\n' separated lists keep JNI argument encoding trivial. MIME
 // names and Windows paths never contain a newline.
 inline UINT html_format() { return RegisterClipboardFormatW(L"HTML Format"); }

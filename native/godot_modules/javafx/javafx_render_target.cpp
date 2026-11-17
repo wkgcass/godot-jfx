@@ -511,9 +511,13 @@ void JavaFXRenderTarget::draw_prism_mesh_with_instances(const Ref<ArrayMesh> &p_
 JavaFXRenderTarget::~JavaFXRenderTarget() {
 	ERR_FAIL_COND(!Thread::is_main_thread());
 	auto *rs = RenderingServer::get_singleton();
-	// Remove the identity before releasing either backend; get_texture() must
-	// still resolve the RD bridge RID here, not an already-cleared pass.
-	if (viewport.is_valid()) live_sampler_rids.erase(get_texture());
+	// Remove the identity before releasing either backend; viewport_texture
+	// must still resolve the RD bridge RID here, not an already-cleared pass.
+	// Use the member directly: the get_texture() guard rejects an open pass,
+	// but teardown must release the sampler identity even when the encoder
+	// abandoned the last pass mid-sequence (e.g. a draw call threw after its
+	// target selection reached the queue).
+	if (viewport_texture.is_valid()) live_sampler_rids.erase(viewport_texture);
 
 	clear_draws();
 	free_slots();

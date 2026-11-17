@@ -6,7 +6,11 @@
 #include "core/os/thread.h"
 #include "scene/resources/packed_scene.h"
 #include "scene/resources/world_2d.h"
+#if defined(WINDOWS_ENABLED)
 #include "platform/windows/key_mapping_windows.h"
+#elif defined(MACOS_ENABLED)
+#include "vk_key_map.h"
+#endif
 
 void JavaFXSceneView::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("initialize", "parent", "scene", "size"), &JavaFXSceneView::initialize);
@@ -105,7 +109,13 @@ void JavaFXSceneView::dispatch_input(uint32_t p_kind, uint32_t p_flags, uint32_t
 		button->set_button_mask(BitField<MouseButtonMask>(mouse_buttons)); event = button;
 	} else if (p_kind == 2) {
 		Ref<InputEventKey> key; key.instantiate();
-		key->set_keycode(KeyMappingWindows::get_keysym(p_code)); key->set_unicode(p_unicode); key->set_pressed(pressed);
+		// Java sends JavaFX KeyCode values, which mirror Win32 virtual-key codes.
+#if defined(WINDOWS_ENABLED)
+		key->set_keycode(KeyMappingWindows::get_keysym(p_code));
+#elif defined(MACOS_ENABLED)
+		key->set_keycode(godot_javafx::vk_to_godot_key(p_code));
+#endif
+		key->set_unicode(p_unicode); key->set_pressed(pressed);
 		key->set_echo(pressed && pressed_inputs.count(identity)); event = key;
 	} else if (p_kind == 3) {
 		Ref<InputEventScreenTouch> touch; touch.instantiate();

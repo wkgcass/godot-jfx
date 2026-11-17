@@ -16,22 +16,51 @@
 #include "core/os/main_loop.h"
 #include "core/string/print_string.h"
 #include "servers/display/display_server.h"
-#include "platform/windows/display_server_windows.h"
 #include "scene/main/window.h"
 #include "scene/main/scene_tree.h"
+
+#if defined(WINDOWS_ENABLED)
+#include "platform/windows/display_server_windows.h"
 #include <windows.h>
 #include <imm.h>
-
-#include <jni.h>
 #include "windows_clipboard.h"
 #include "windows_robot.h"
 #include "windows_dialogs.h"
 #include "windows_dnd.h"
 #include "windows_tabtip.h"
+#include "windows_custom_format.h"
+#elif defined(MACOS_ENABLED)
+#include "macos_clipboard.h"
+#include "macos_robot.h"
+#include "macos_dialogs.h"
+#include "macos_dnd.h"
+#include "macos_tabtip.h"
+#include "macos_custom_format.h"
+#include "javafx_host_macos.h"
+#include <dlfcn.h>
+#endif
+
+#include <jni.h>
 #include <atomic>
 #include <array>
 
 namespace godot_javafx {
+
+#if defined(WINDOWS_ENABLED)
+namespace platform_clipboard = windows_clipboard;
+namespace platform_dialogs = windows_dialogs;
+namespace platform_dnd = windows_dnd;
+namespace platform_robot = windows_robot;
+namespace platform_tabtip = windows_tabtip;
+using OsNativeWindow = HWND;
+#elif defined(MACOS_ENABLED)
+namespace platform_clipboard = macos_clipboard;
+namespace platform_dialogs = macos_dialogs;
+namespace platform_dnd = macos_dnd;
+namespace platform_robot = macos_robot;
+namespace platform_tabtip = macos_tabtip;
+using OsNativeWindow = void *; // NSWindow *; unused by the pasteboard backend.
+#endif
 
 enum class RuntimeStatus { STARTING, RUNNING, FINISHED, FAILED };
 
@@ -53,12 +82,12 @@ struct ReadbackRequest {
 };
 
 struct Runtime {
-    windows_dialogs::Service dialogs;
-    HWND clipboard_owner = nullptr; // Set before the JVM thread starts; immutable.
+    platform_dialogs::Service dialogs;
+    OsNativeWindow clipboard_owner = nullptr; // Set before the JVM thread starts; immutable.
     // The worker closes admission and waits for in-flight OLE calls before VM destruction.
-    windows_dnd::UpcallState drag_upcall;
+    platform_dnd::UpcallState drag_upcall;
     std::mutex dnd_mutex;
-    std::unique_ptr<windows_dnd::SourceData> dnd_pending;
+    std::unique_ptr<platform_dnd::SourceData> dnd_pending;
 	FrameQueue queue;
 	NativeWindowTransport native_window_transport;
 	std::atomic<uint64_t> completed_render_sequence{0};
@@ -421,34 +450,34 @@ static jdoubleArray JNICALL poll_input(JNIEnv *env, jclass) { return drain_input
 static jdoubleArray JNICALL poll_window_input(JNIEnv *env, jclass) { return drain_input(env, 12); }
 
 static void JNICALL dialog_submit(JNIEnv *env,jclass,jlong owner,jint mode,jstring folder,jstring filename,jstring title,jobjectArray filters,jint selected) {
-    windows_dialogs::submit(env,jni_runtime->dialogs,owner,mode,folder,filename,title,filters,selected);
+    platform_dialogs::submit(env,jni_runtime->dialogs,owner,mode,folder,filename,title,filters,selected);
 }
-static jobjectArray JNICALL dialog_poll(JNIEnv *env,jclass) { return windows_dialogs::poll(env,jni_runtime->dialogs); }
+static jobjectArray JNICALL dialog_poll(JNIEnv *env,jclass) { return platform_dialogs::poll(env,jni_runtime->dialogs); }
 static void JNICALL dialog_cancel(JNIEnv *,jclass) { jni_runtime->dialogs.cancel(); }
 
 static jstring JNICALL clipboard_read_text(JNIEnv *env, jclass) {
-    return windows_clipboard::read(env, jni_runtime->clipboard_owner);
+    return platform_clipboard::read(env, jni_runtime->clipboard_owner);
 }
 static void JNICALL clipboard_write_formats(JNIEnv *env, jclass, jstring text, jbyteArray html, jbyteArray rtf) {
-    windows_clipboard::write(env, jni_runtime->clipboard_owner, text, html, rtf);
+    platform_clipboard::write(env, jni_runtime->clipboard_owner, text, html, rtf);
 }
 static void JNICALL clipboard_write_url_formats(JNIEnv *env, jclass, jstring text, jbyteArray html, jbyteArray rtf, jstring url) {
-    windows_clipboard::write(env, jni_runtime->clipboard_owner, text, html, rtf, url);
+    platform_clipboard::write(env, jni_runtime->clipboard_owner, text, html, rtf, url);
 }
 static jstring JNICALL clipboard_read_url(JNIEnv *env, jclass) {
     try {
-        return windows_clipboard::read_url(env, jni_runtime->clipboard_owner);
+        return platform_clipboard::read_url(env, jni_runtime->clipboard_owner);
     } catch (const std::bad_alloc &) {
         throw_java(env, "java/lang/OutOfMemoryError", "Clipboard allocation failed"); return nullptr;
     }
 }
 static jbyteArray JNICALL clipboard_read_rich(JNIEnv *env, jclass, jint kind) {
-    return windows_clipboard::read_rich(env, jni_runtime->clipboard_owner, kind);
+    return platform_clipboard::read_rich(env, jni_runtime->clipboard_owner, kind);
 }
 static void JNICALL clipboard_write_full(JNIEnv *env, jclass, jstring text, jbyteArray html, jbyteArray rtf, jstring url,
         jobjectArray files, jintArray image, jint image_w, jint image_h, jobjectArray custom_names, jobjectArray custom_data) {
     try {
-        windows_clipboard::write_full(env, jni_runtime->clipboard_owner, text, html, rtf, url, files, image, image_w, image_h,
+        platform_clipboard::write_full(env, jni_runtime->clipboard_owner, text, html, rtf, url, files, image, image_w, image_h,
                 custom_names, custom_data);
     } catch (const std::bad_alloc &) {
         throw_java(env, "java/lang/OutOfMemoryError", "Clipboard allocation failed");
@@ -456,29 +485,30 @@ static void JNICALL clipboard_write_full(JNIEnv *env, jclass, jstring text, jbyt
 }
 static jbyteArray JNICALL clipboard_read_custom(JNIEnv *env, jclass, jstring name) {
     try {
-        return windows_clipboard::read_custom(env, jni_runtime->clipboard_owner, name);
+        return platform_clipboard::read_custom(env, jni_runtime->clipboard_owner, name);
     } catch (const std::bad_alloc &) {
         throw_java(env, "java/lang/OutOfMemoryError", "Clipboard allocation failed"); return nullptr;
     }
 }
 static jobjectArray JNICALL clipboard_custom_formats(JNIEnv *env, jclass) {
     try {
-        return windows_clipboard::custom_formats(env, jni_runtime->clipboard_owner);
+        return platform_clipboard::custom_formats(env, jni_runtime->clipboard_owner);
     } catch (const std::bad_alloc &) {
         throw_java(env, "java/lang/OutOfMemoryError", "Clipboard allocation failed"); return nullptr;
     }
 }
 static jobjectArray JNICALL clipboard_read_files(JNIEnv *env, jclass) {
     try {
-        return windows_clipboard::read_files(env, jni_runtime->clipboard_owner);
+        return platform_clipboard::read_files(env, jni_runtime->clipboard_owner);
     } catch (const std::bad_alloc &) {
         throw_java(env, "java/lang/OutOfMemoryError", "Clipboard allocation failed"); return nullptr;
     }
 }
 static jintArray JNICALL clipboard_read_image(JNIEnv *env, jclass) {
-    return windows_clipboard::read_image(env, jni_runtime->clipboard_owner);
+    return platform_clipboard::read_image(env, jni_runtime->clipboard_owner);
 }
 static jint JNICALL clipboard_formats(JNIEnv *, jclass) {
+#if defined(WINDOWS_ENABLED)
     jint result=IsClipboardFormatAvailable(CF_UNICODETEXT) ? 1 : 0;
     UINT url=RegisterClipboardFormatW(L"UniformResourceLocatorW");
     if (url && IsClipboardFormatAvailable(url)) result |= 8;
@@ -487,12 +517,15 @@ static jint JNICALL clipboard_formats(JNIEnv *, jclass) {
         if (ansi_url && IsClipboardFormatAvailable(ansi_url)) result |= 8;
     }
     for (int kind=0;kind<2;++kind) {
-        UINT format=windows_clipboard::rich_format(kind);
+        UINT format=platform_clipboard::rich_format(kind);
         if (format && IsClipboardFormatAvailable(format)) result |= 2 << kind;
     }
     if (IsClipboardFormatAvailable(CF_HDROP)) result |= 16;
     if (IsClipboardFormatAvailable(CF_DIB)) result |= 32;
     return result;
+#elif defined(MACOS_ENABLED)
+    return platform_clipboard::formats();
+#endif
 }
 static void JNICALL drag_start_external(JNIEnv *env, jclass, jstring text, jbyteArray html, jbyteArray rtf,
         jstring url, jobjectArray files, jobjectArray custom_names, jobjectArray custom_data,
@@ -503,10 +536,10 @@ static void JNICALL drag_start_external(JNIEnv *env, jclass, jstring text, jbyte
         throw_java(env, "java/lang/IllegalArgumentException", "Invalid external drag request");
         return;
     }
-    std::unique_ptr<windows_dnd::SourceData> data;
-    try { data = std::make_unique<windows_dnd::SourceData>(); }
+    std::unique_ptr<platform_dnd::SourceData> data;
+    try { data = std::make_unique<platform_dnd::SourceData>(); }
     catch (const std::bad_alloc &) { throw_java(env, "java/lang/OutOfMemoryError", "External drag allocation failed"); return; }
-    data->effects = DWORD(effects);
+    data->effects = uint32_t(effects);
     data->buttons = buttons;
     data->source_id = source_id;
     const std::array<jstring, 2> strings = { text, url };
@@ -514,7 +547,7 @@ static void JNICALL drag_start_external(JNIEnv *env, jclass, jstring text, jbyte
         jstring value = strings[index];
         if (!value) continue;
         jsize length = env->GetStringLength(value);
-        if (length < 0 || size_t(length) > (index == 0 ? windows_dnd::MAX_TEXT_BYTES / sizeof(jchar) : windows_dnd::MAX_URL_CHARS)) {
+        if (length < 0 || size_t(length) > (index == 0 ? platform_dnd::MAX_TEXT_BYTES / sizeof(jchar) : platform_dnd::MAX_URL_CHARS)) {
             throw_java(env, "java/lang/IllegalArgumentException", "External drag text exceeds its limit");
             return;
         }
@@ -530,7 +563,7 @@ static void JNICALL drag_start_external(JNIEnv *env, jclass, jstring text, jbyte
     for (size_t i = 0; i < rich.size(); ++i) {
         if (!rich[i]) continue;
         jsize length = env->GetArrayLength(rich[i]);
-        if (length < 1 || size_t(length) > windows_dnd::MAX_TEXT_BYTES) {
+        if (length < 1 || size_t(length) > platform_dnd::MAX_TEXT_BYTES) {
             throw_java(env, "java/lang/IllegalArgumentException", "External drag rich data must be NUL-terminated and at most 16 MiB");
             return;
         }
@@ -544,7 +577,7 @@ static void JNICALL drag_start_external(JNIEnv *env, jclass, jstring text, jbyte
     }
     if (files) {
         jsize count = env->GetArrayLength(files);
-        if (count < 0 || size_t(count) > windows_dnd::MAX_PATHS) {
+        if (count < 0 || size_t(count) > platform_dnd::MAX_PATHS) {
             throw_java(env, "java/lang/IllegalArgumentException", "External drag file list exceeds its limit");
             return;
         }
@@ -557,7 +590,7 @@ static void JNICALL drag_start_external(JNIEnv *env, jclass, jstring text, jbyte
                 return;
             }
             jsize length = env->GetStringLength(path);
-            if (size_t(length) > windows_dnd::MAX_PATH_CHARS) {
+            if (size_t(length) > platform_dnd::MAX_PATH_CHARS) {
                 env->DeleteLocalRef(path);
                 throw_java(env, "java/lang/IllegalArgumentException", "External drag path exceeds its limit");
                 return;
@@ -590,7 +623,7 @@ static void JNICALL drag_start_external(JNIEnv *env, jclass, jstring text, jbyte
                 return;
             }
             const jsize name_length = env->GetStringLength(name);
-            std::wstring wide(size_t(name_length), 0);
+            platform_dnd::wide_string wide(size_t(name_length), 0);
             if (name_length) env->GetStringRegion(name, 0, name_length, reinterpret_cast<jchar *>(wide.data()));
             env->DeleteLocalRef(name);
             if (env->ExceptionCheck()) { env->DeleteLocalRef(payload); return; }
@@ -685,20 +718,53 @@ static void JNICALL drag_start_external(JNIEnv *env, jclass, jstring text, jbyte
     throw_java(env, "java/lang/OutOfMemoryError", "External drag allocation failed");
 }
 
-static void run_jvm(std::shared_ptr<Runtime> runtime, std::wstring library,
+// JVM library loading, one implementation per host platform. HotSpot stays
+// mapped until process exit in both cases (see the end of run_jvm).
+#if defined(WINDOWS_ENABLED)
+using JvmLibrary = HMODULE;
+static String jvm_library_path(const String &p_jdk) { return p_jdk.path_join("bin/server/jvm.dll"); }
+static const char *jvm_library_name() { return "jvm.dll"; }
+// Source-built JavaFX SDK native directory: bin on Windows, lib elsewhere.
+static String sdk_library_path(const String &p_sdk) { return p_sdk.path_join("bin"); }
+static JvmLibrary jvm_load(const String &p_path, std::string &r_error) {
+	HMODULE module = LoadLibraryExW(reinterpret_cast<LPCWSTR>(p_path.utf16().get_data()), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
+	if (!module) r_error = "Cannot load installed jvm.dll, Windows error " + std::to_string(GetLastError());
+	return module;
+}
+static void *jvm_create_symbol(JvmLibrary p_library) { return reinterpret_cast<void *>(GetProcAddress(p_library, "JNI_CreateJavaVM")); }
+static void jvm_unload(JvmLibrary p_library) { FreeLibrary(p_library); }
+#elif defined(MACOS_ENABLED)
+using JvmLibrary = void *;
+static String jvm_library_path(const String &p_jdk) { return p_jdk.path_join("lib/server/libjvm.dylib"); }
+static const char *jvm_library_name() { return "libjvm.dylib"; }
+static String sdk_library_path(const String &p_sdk) { return p_sdk.path_join("lib"); }
+static JvmLibrary jvm_load(const String &p_path, std::string &r_error) {
+	void *handle = dlopen(p_path.utf8().get_data(), RTLD_NOW | RTLD_LOCAL);
+	if (!handle) {
+		const char *error = dlerror();
+		r_error = "Cannot load installed libjvm.dylib: " + std::string(error ? error : "unknown dlopen error");
+	}
+	return handle;
+}
+static void *jvm_create_symbol(JvmLibrary p_library) { return dlsym(p_library, "JNI_CreateJavaVM"); }
+static void jvm_unload(JvmLibrary p_library) { dlclose(p_library); }
+#endif
+
+static void run_jvm(std::shared_ptr<Runtime> runtime, String library,
 		std::vector<std::string> arguments, std::string main_class) {
 	// No Godot Node, RenderingServer, String or logging API is used on this
 	// worker or in JNI callbacks. Only the main-thread node consumes commands.
-	HMODULE module = LoadLibraryExW(library.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
+	std::string load_error;
+	JvmLibrary module = jvm_load(library, load_error);
 	if (!module) {
-		runtime->fail("Cannot load installed jvm.dll, Windows error " + std::to_string(GetLastError()));
+		runtime->fail(load_error);
 		return;
 	}
 	using CreateVM = jint(JNICALL *)(JavaVM **, void **, void *);
-	auto create_vm = reinterpret_cast<CreateVM>(GetProcAddress(module, "JNI_CreateJavaVM"));
+	auto create_vm = reinterpret_cast<CreateVM>(jvm_create_symbol(module));
 	if (!create_vm) {
-		runtime->fail("JNI_CreateJavaVM was not exported by jvm.dll");
-		FreeLibrary(module);
+		runtime->fail(std::string("JNI_CreateJavaVM was not exported by ") + jvm_library_name());
+		jvm_unload(module);
 		return;
 	}
 	std::vector<JavaVMOption> options(arguments.size());
@@ -717,7 +783,7 @@ static void run_jvm(std::shared_ptr<Runtime> runtime, std::wstring library,
 	if (result != JNI_OK) {
 		runtime->fail("JNI_CreateJavaVM failed with " + std::to_string(result));
 		// Do not unload HotSpot after a failed initialization: it may have
-		// installed process callbacks. Windows reclaims the module on exit.
+		// installed process callbacks. The OS reclaims the library on exit.
 		return;
 	}
 	jni_runtime = runtime.get();
@@ -726,9 +792,9 @@ static void run_jvm(std::shared_ptr<Runtime> runtime, std::wstring library,
         { const_cast<char *>("dialogSubmit"), const_cast<char *>("(JILjava/lang/String;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;I)V"), reinterpret_cast<void *>(&dialog_submit) },
         { const_cast<char *>("dialogPoll"), const_cast<char *>("()[Ljava/lang/String;"), reinterpret_cast<void *>(&dialog_poll) },
         { const_cast<char *>("dialogCancel"), const_cast<char *>("()V"), reinterpret_cast<void *>(&dialog_cancel) },
-        { const_cast<char *>("robotMove"), const_cast<char *>("(II)V"), reinterpret_cast<void *>(&windows_robot::move) },
-        { const_cast<char *>("robotPosition"), const_cast<char *>("()[I"), reinterpret_cast<void *>(&windows_robot::position) },
-        { const_cast<char *>("robotCapture"), const_cast<char *>("(IIII)[I"), reinterpret_cast<void *>(&windows_robot::capture) },
+        { const_cast<char *>("robotMove"), const_cast<char *>("(II)V"), reinterpret_cast<void *>(&platform_robot::move) },
+        { const_cast<char *>("robotPosition"), const_cast<char *>("()[I"), reinterpret_cast<void *>(&platform_robot::position) },
+        { const_cast<char *>("robotCapture"), const_cast<char *>("(IIII)[I"), reinterpret_cast<void *>(&platform_robot::capture) },
         { const_cast<char *>("clipboardWriteFormats"), const_cast<char *>("(Ljava/lang/String;[B[B)V"), reinterpret_cast<void *>(&clipboard_write_formats) },
         { const_cast<char *>("clipboardWriteUrlFormats"), const_cast<char *>("(Ljava/lang/String;[B[BLjava/lang/String;)V"), reinterpret_cast<void *>(&clipboard_write_url_formats) },
         { const_cast<char *>("clipboardReadUrl"), const_cast<char *>("()Ljava/lang/String;"), reinterpret_cast<void *>(&clipboard_read_url) },
@@ -803,7 +869,7 @@ static void run_jvm(std::shared_ptr<Runtime> runtime, std::wstring library,
 	jni_runtime = nullptr;
 	auto previous_status = runtime->status.load();
 	while (previous_status != RuntimeStatus::FAILED && !runtime->status.compare_exchange_weak(previous_status, RuntimeStatus::FINISHED)) {}
-	// Keep the JVM DLL mapped until process exit, including its TLS callbacks.
+	// Keep the JVM library mapped until process exit, including its TLS callbacks.
 }
 
 } // namespace godot_javafx
@@ -894,14 +960,14 @@ bool JavaFXHost::start_jvm(const String &p_jdk, const String &p_sdk, const Strin
 	ERR_FAIL_COND_V(!Thread::is_main_thread() || !is_inside_tree() || runtime, false);
 	ERR_FAIL_COND_V_MSG(!RenderingServer::get_singleton()->is_on_render_thread(), false,
 			"JavaFX hosting requires --render-thread safe; separate is unsupported.");
-	String library = p_jdk.path_join("bin/server/jvm.dll");
-	ERR_FAIL_COND_V_MSG(!FileAccess::exists(library), false, "Installed JDK jvm.dll not found.");
+	String library = godot_javafx::jvm_library_path(p_jdk);
+	ERR_FAIL_COND_V_MSG(!FileAccess::exists(library), false, "Installed JDK " + String(godot_javafx::jvm_library_name()) + " not found.");
 	ERR_FAIL_COND_V_MSG(!FileAccess::exists(p_sdk.path_join("lib/javafx.graphics.jar")), false, "Source-built JavaFX SDK not found.");
 	ERR_FAIL_COND_V_MSG(godot_javafx::jvm_started.exchange(true), false, "Only one JVM lifecycle is supported per Godot process.");
 	runtime = std::make_shared<godot_javafx::Runtime>();
 	profile_commands = OS::get_singleton()->get_environment("GODOT_JFX_PROFILE_COMMANDS") == "1";
 	gpu_timing_enabled = OS::get_singleton()->get_environment("GODOT_JFX_GPU_TIMING") == "1";
-    runtime->clipboard_owner = reinterpret_cast<HWND>(DisplayServer::get_singleton()->window_get_native_handle(DisplayServerEnums::WINDOW_HANDLE));
+    runtime->clipboard_owner = reinterpret_cast<godot_javafx::OsNativeWindow>(DisplayServer::get_singleton()->window_get_native_handle(DisplayServerEnums::WINDOW_HANDLE));
 	previous_auto_accept_quit = get_tree()->is_auto_accept_quit();
 	get_tree()->set_auto_accept_quit(false);
 	refresh_host_info();
@@ -922,7 +988,7 @@ bool JavaFXHost::start_jvm(const String &p_jdk, const String &p_sdk, const Strin
 	option("--add-exports=javafx.graphics/com.sun.javafx.geom=ALL-UNNAMED");
 	option("--enable-native-access=javafx.graphics,javafx.media");
 	option("-Djava.class.path=" + p_classpath);
-	option("-Djava.library.path=" + p_sdk.path_join("bin"));
+	option("-Djava.library.path=" + godot_javafx::sdk_library_path(p_sdk));
 	// Fail explicitly until the Godot backends are available. Never fall back
 	// to Win Glass or a different Prism pipeline and create another OS window.
 	option("-Dglass.platform=Godot");
@@ -933,7 +999,7 @@ bool JavaFXHost::start_jvm(const String &p_jdk, const String &p_sdk, const Strin
 	startup_enabled = startup == "logo" || startup == "hidden";
 	startup_logo_enabled = startup == "logo";
 	worker = std::thread(godot_javafx::run_jvm, runtime,
-			std::wstring(reinterpret_cast<const wchar_t *>(library.utf16().get_data())),
+			library,
 			std::move(options), std::string(p_main_class.utf8().get_data()));
 	set_process(true);
 	set_process_input(true);
@@ -1005,9 +1071,13 @@ void JavaFXHost::window_input(const Ref<InputEvent> &p_event, int64_t p_id) {
 			event[index <= 5 ? 8 : 7] = button->get_factor() * ((index == 4 || index == 6) ? 1 : -1);
             // Separate doubles exactly represent every UINT32 setting, including
             // 0xffffffff (page scrolling). Do not compress or clamp either axis.
+            // macOS has no system-wide wheel scroll-lines setting; keep the
+            // native Windows defaults there.
             unsigned int lines = 3, chars = 3;
+#if defined(WINDOWS_ENABLED)
             SystemParametersInfoW(SPI_GETWHEELSCROLLLINES, 0, &lines, 0);
             SystemParametersInfoW(SPI_GETWHEELSCROLLCHARS, 0, &chars, 0);
+#endif
             event[10] = double(lines);
             event[11] = double(chars);
 		} else {
@@ -1031,6 +1101,7 @@ void JavaFXHost::window_input(const Ref<InputEvent> &p_event, int64_t p_id) {
 		}
 	} else {
 		event[0] = 1;
+#if defined(WINDOWS_ENABLED)
 		// A plain motion event with an empty button mask ends Quantum's
 		// press-drag-release gesture outright (Scene$MouseHandler). Native
 		// Windows moves always carry the held buttons in wParam; re-apply the
@@ -1039,6 +1110,12 @@ void JavaFXHost::window_input(const Ref<InputEvent> &p_event, int64_t p_id) {
 		auto held_entry = held_buttons.find(p_id);
 		uint32_t held = held_entry == held_buttons.end() ? 0 : held_entry->second;
 		if (held) event[6] = modifiers | int(held);
+#endif
+		// macOS native motions always carry the pressed buttons reported by
+		// NSEvent, so no mask can be lost in transit. Replaying held state here
+		// would instead turn the mask-less hover motions that synthetic tests
+		// send between press and release into spurious drags; let an explicit
+		// mask-less motion end the gesture, matching native semantics.
 	}
 	std::lock_guard<std::mutex> lock(runtime->host_mutex);
 	if (runtime->input_events.size() >= 4096) {
@@ -1092,10 +1169,14 @@ void JavaFXHost::window_ime_command(int64_t p_id, int p_operation, int p_a, int 
 	else if (p_operation == 17) window->set_ime_position(position);
 	else if (p_operation == 18) {
 		auto *display = DisplayServer::get_singleton();
+#if defined(WINDOWS_ENABLED)
 		HWND handle = reinterpret_cast<HWND>(display->window_get_native_handle(DisplayServerEnums::WINDOW_HANDLE,window->get_window_id()));
 		HIMC context = ImmGetContext(handle);
 		if (context) { ImmNotifyIME(context,NI_COMPOSITIONSTR,CPS_COMPLETE,0); ImmReleaseContext(handle,context); }
-		// Complete and drain this HWND's committed Unicode before acknowledging.
+#elif defined(MACOS_ENABLED)
+		godot_javafx::macos_commit_ime_composition(window->get_window_id());
+#endif
+		// Complete and drain this window's committed Unicode before acknowledging.
 		display->process_events();
 	}
 }
@@ -1128,7 +1209,7 @@ void JavaFXHost::_notification(int p_what) {
 		RenderingServer::get_singleton()->connect("frame_post_draw", callable_mp(this, &JavaFXHost::frame_presented));
 		RenderingServer::get_singleton()->connect("frame_pre_draw", callable_mp(this, &JavaFXHost::pre_draw_host_commands));
 		// Apply late window commands after drawing as well as before it.
-		RenderingServer::get_singleton()->connect("frame_post_draw", callable_mp(this, &JavaFXHost::pre_draw_host_commands));
+		RenderingServer::get_singleton()->connect("frame_post_draw", callable_mp(this, &JavaFXHost::post_draw_host_commands));
 	}
 	if (runtime && (p_what == NOTIFICATION_WM_MOUSE_ENTER || p_what == NOTIFICATION_WM_MOUSE_EXIT || p_what == NOTIFICATION_WM_CLOSE_REQUEST)) {
 		int kind = p_what == NOTIFICATION_WM_MOUSE_ENTER ? 7 : p_what == NOTIFICATION_WM_MOUSE_EXIT ? 8 : 9;
@@ -1152,9 +1233,15 @@ void JavaFXHost::_notification(int p_what) {
 		check_vsync_pacing(process_start);
 		apply_native_window_commands();
 		apply_host_commands();
+#if defined(MACOS_ENABLED)
+		poll_fullscreen_reattach();
+		// Cocoa panels dismiss on the main thread; dialogCancel() arrives on
+		// the FX thread and is observed here.
+		runtime->dialogs.pump();
+#endif
 		refresh_drag_delegates();
 		{
-			std::unique_ptr<godot_javafx::windows_dnd::SourceData> dnd_request;
+			std::unique_ptr<godot_javafx::platform_dnd::SourceData> dnd_request;
 			{
 				std::lock_guard<std::mutex> lock(runtime->dnd_mutex);
 				dnd_request = std::move(runtime->dnd_pending);
@@ -1163,7 +1250,7 @@ void JavaFXHost::_notification(int p_what) {
 		}
         if (auto request=runtime->dialogs.pending()) {
             Window *owner=request->owner<0 ? nullptr : request->owner==0 ? get_window() : get_native_window(request->owner);
-            HWND handle=owner ? reinterpret_cast<HWND>(DisplayServer::get_singleton()->window_get_native_handle(
+            godot_javafx::OsNativeWindow handle=owner ? reinterpret_cast<godot_javafx::OsNativeWindow>(DisplayServer::get_singleton()->window_get_native_handle(
                     DisplayServerEnums::WINDOW_HANDLE,owner->get_window_id())) : nullptr;
             runtime->dialogs.start(request,handle,request->owner<0 || (owner && owner->is_visible()));
         }
@@ -1508,7 +1595,7 @@ void JavaFXHost::_notification(int p_what) {
 		ime_enabled = false;
 		RenderingServer::get_singleton()->disconnect("frame_post_draw", callable_mp(this, &JavaFXHost::frame_presented));
 		RenderingServer::get_singleton()->disconnect("frame_pre_draw", callable_mp(this, &JavaFXHost::pre_draw_host_commands));
-		RenderingServer::get_singleton()->disconnect("frame_post_draw", callable_mp(this, &JavaFXHost::pre_draw_host_commands));
+		RenderingServer::get_singleton()->disconnect("frame_post_draw", callable_mp(this, &JavaFXHost::post_draw_host_commands));
 		present_pending = false;
 		offscreen_pass_pending = false;
 		completing_presentation = false;
@@ -1637,7 +1724,15 @@ void JavaFXHost::refresh_host_info() {
 			Point2i origin = display->screen_get_position(index);
 			Size2i extent = display->screen_get_size(index);
 			Rect2i work = display->screen_get_usable_rect(index);
+#if defined(MACOS_ENABLED)
+			// macOS reports a physical-panel DPI (with a 72 fallback) rather than
+			// a UI-scale-anchored value. The Java side derives scale as dpi/96 to
+			// match DisplayServerWindows::screen_get_scale, so feed it the macOS
+			// UI scale instead of the physical DPI.
+			const int screen_dpi = int(display->screen_get_scale(index) * 96.0f + 0.5f);
+#else
 			const int screen_dpi = display->screen_get_dpi(index);
+#endif
 			screens.insert(screens.end(), { index + 1, origin.x, origin.y, extent.x, extent.y,
 				work.position.x, work.position.y, work.size.x, work.size.y, screen_dpi });
 			if (index == current_screen) {
@@ -1650,7 +1745,12 @@ void JavaFXHost::refresh_host_info() {
 	// changes remain visible every frame. Fall back if topology changed mid-query.
 	if (!found_current_screen) {
 		screen = display->screen_get_size(); screen_pos = display->screen_get_position();
-		usable = display->screen_get_usable_rect(); dpi = display->screen_get_dpi();
+		usable = display->screen_get_usable_rect();
+#if defined(MACOS_ENABLED)
+		dpi = int(display->screen_get_scale() * 96.0f + 0.5f);
+#else
+		dpi = display->screen_get_dpi();
+#endif
 	}
 	// Never hold the JNI snapshot mutex while calling the OS or scene API.
 	const std::array<jint, 16> info = { size.x, size.y, dpi, pos.x, pos.y,
@@ -1665,6 +1765,23 @@ void JavaFXHost::refresh_host_info() {
 void JavaFXHost::pre_draw_host_commands() {
 	// Apply window commands on the main thread before presentation.
 	if (!runtime || !Thread::is_main_thread()) return;
+	apply_host_commands();
+}
+
+void JavaFXHost::post_draw_host_commands() {
+	// Apply window commands on the main thread after presentation, except
+	// primary-window resizes: Window::set_size recreates the root render
+	// target, and doing that right after the draw leaves it empty for any
+	// frame_post_draw observer (the next draw is one frame away). Let the
+	// process/pre-draw application take the resize instead, so the clear and
+	// the redraw land in the same frame.
+	if (!runtime || !Thread::is_main_thread()) return;
+	{
+		std::lock_guard<std::mutex> lock(runtime->host_mutex);
+		for (const auto &command : runtime->host_commands) {
+			if (command.operation == 2) return;
+		}
+	}
 	apply_host_commands();
 }
 
@@ -1735,9 +1852,13 @@ void JavaFXHost::apply_host_commands() {
 				set_visible(a != 0);
 				if (startup_show(0, a != 0)) break;
 				// Godot forbids hiding its root Window through Window::set_visible.
-				// Hide/show the existing HWND; never create a second native window.
+				// Hide/show the existing native window; never create a second one.
+#if defined(WINDOWS_ENABLED)
 				HWND handle = reinterpret_cast<HWND>(display->window_get_native_handle(DisplayServerEnums::WINDOW_HANDLE));
 				ShowWindow(handle, a ? SW_SHOW : SW_HIDE);
+#elif defined(MACOS_ENABLED)
+				godot_javafx::macos_set_window_visible(reinterpret_cast<void *>(display->window_get_native_handle(DisplayServerEnums::WINDOW_HANDLE)), a != 0);
+#endif
 			} break;
 			case 6: host_window->set_mode(static_cast<Window::Mode>(a)); break;
 			case 7: host_window->set_flag(Window::FLAG_RESIZE_DISABLED, !a); break;
@@ -1786,8 +1907,20 @@ void JavaFXHost::apply_host_commands() {
 				display->mouse_set_mode(cursor_visible ? DisplayServerEnums::MOUSE_MODE_VISIBLE : DisplayServerEnums::MOUSE_MODE_HIDDEN);
 				PackedByteArray rgba; rgba.resize(command.cursor_pixels.size());
 				for(size_t p=0;p<command.cursor_pixels.size();p+=4) {
+#if defined(MACOS_ENABLED)
+					// Glass pixels arrive premultiplied; DisplayServerMacOS applies
+					// its own premultiply pass when building the NSCursor bitmap,
+					// so hand it straight-alpha values to avoid double darkening.
+					const uint8_t alpha = command.cursor_pixels[p+3];
+					const uint32_t r = alpha ? std::min(255u, uint32_t(command.cursor_pixels[p+2]) * 255 / alpha) : 0;
+					const uint32_t g = alpha ? std::min(255u, uint32_t(command.cursor_pixels[p+1]) * 255 / alpha) : 0;
+					const uint32_t b = alpha ? std::min(255u, uint32_t(command.cursor_pixels[p]) * 255 / alpha) : 0;
+					rgba.set(p,uint8_t(r)); rgba.set(p+1,uint8_t(g));
+					rgba.set(p+2,uint8_t(b)); rgba.set(p+3,alpha);
+#else
 					rgba.set(p,command.cursor_pixels[p+2]); rgba.set(p+1,command.cursor_pixels[p+1]);
 					rgba.set(p+2,command.cursor_pixels[p]); rgba.set(p+3,command.cursor_pixels[p+3]);
+#endif
 				}
 				Ref<Image> image=Image::create_from_data(command.cursor_width,command.cursor_height,false,Image::FORMAT_RGBA8,rgba);
 				display->cursor_set_shape(DisplayServerEnums::CURSOR_ARROW);
@@ -1819,16 +1952,36 @@ void JavaFXHost::apply_host_commands() {
 			case 25: display->window_set_icon(godot_javafx::window_icon_image(command.icon_width, command.icon_height, command.icon_pixels), host_window->get_window_id()); break;
 			case 16: case 17: case 18: window_ime_command(0,command.operation,a,b); break;
 			case 26: {
-				const HRESULT result = godot_javafx::windows_tabtip::request();
+#if defined(WINDOWS_ENABLED)
+				const HRESULT result = godot_javafx::platform_tabtip::request();
 				if (FAILED(result)) WARN_PRINT_ONCE(vformat("JavaFX touch keyboard request failed (HRESULT %d); OS keyboard availability is not guaranteed.", int64_t(result)));
+#elif defined(MACOS_ENABLED)
+				if (!godot_javafx::platform_tabtip::request()) { WARN_PRINT_ONCE("JavaFX touch keyboard requests are not supported on macOS; OS keyboard availability is not guaranteed."); }
+#endif
 			} break;
 			case 27: {
-				const HRESULT result = godot_javafx::windows_tabtip::release();
+#if defined(WINDOWS_ENABLED)
+				const HRESULT result = godot_javafx::platform_tabtip::release();
 				if (FAILED(result)) WARN_PRINT_ONCE(vformat("JavaFX touch keyboard close request failed (HRESULT %d).", int64_t(result)));
+#elif defined(MACOS_ENABLED)
+				if (!godot_javafx::platform_tabtip::release()) { WARN_PRINT_ONCE("JavaFX touch keyboard close requests are not supported on macOS."); }
+#endif
 			} break;
 		}
 		runtime->applied_host_sequence = command.sequence;
 	}
+#if defined(MACOS_ENABLED)
+	// AppKit routes in-content edge/corner presses of a resizable window to
+	// its native resize chrome before the content view sees them, which eats
+	// exactly the presses FX resize grips sit on (Windows borders live
+	// outside the client area and never conflict). FX windows own their
+	// in-client input; resizing stays available through host set_size
+	// commands, so the native resizable mask stays off on macOS regardless
+	// of the FX resizable flag.
+	if (host_window && !host_window->get_flag(Window::FLAG_RESIZE_DISABLED)) {
+		host_window->set_flag(Window::FLAG_RESIZE_DISABLED, true);
+	}
+#endif
 }
 
 Dictionary JavaFXHost::get_window_icon_info(int64_t p_id) const {
@@ -1839,6 +1992,7 @@ Dictionary JavaFXHost::get_window_icon_info(int64_t p_id) const {
 		if (found == native_windows.end()) return Dictionary();
 		window = found->second.window;
 	}
+#if defined(WINDOWS_ENABLED)
 	HWND handle = reinterpret_cast<HWND>(DisplayServer::get_singleton()->window_get_native_handle(DisplayServerEnums::WINDOW_HANDLE, window->get_window_id()));
 	HICON native_icon = reinterpret_cast<HICON>(SendMessageW(handle, WM_GETICON, ICON_BIG, 0));
 	Dictionary result; result["installed"] = native_icon != nullptr;
@@ -1864,11 +2018,19 @@ Dictionary JavaFXHost::get_window_icon_info(int64_t p_id) const {
 		if (icon.hbmMask) DeleteObject(icon.hbmMask);
 	}
 	return result;
+#elif defined(MACOS_ENABLED)
+	// NSWindow carries no per-window icon; nothing to read back.
+	(void)window;
+	Dictionary result;
+	result["installed"] = false;
+	return result;
+#endif
 }
 
 void JavaFXHost::refresh_custom_cursor_info() {
 	custom_cursor_info.clear();
 	if (!custom_cursor_active || DisplayServer::get_singleton()->mouse_get_mode() != DisplayServerEnums::MOUSE_MODE_VISIBLE) return;
+#if defined(WINDOWS_ENABLED)
 	if (!GetCursor()) { custom_cursor_info["native_null"] = true; return; }
 	// Inspect the installed Windows cursor immediately, rather than
 	// merely echoing the submitted dimensions and hotspot.
@@ -1893,6 +2055,20 @@ void JavaFXHost::refresh_custom_cursor_info() {
 		if(icon.hbmColor) DeleteObject(icon.hbmColor);
 		if(icon.hbmMask) DeleteObject(icon.hbmMask);
 	}
+#elif defined(MACOS_ENABLED)
+	// Inspect the installed Cocoa cursor, mirroring the Windows readback
+	// instead of echoing the submitted dimensions and hotspot.
+	int32_t width = 0, height = 0, hotspot_x = 0, hotspot_y = 0;
+	uint32_t center_argb = 0;
+	bool native_null = false;
+	if (!godot_javafx::macos_cursor_info(width, height, hotspot_x, hotspot_y, center_argb, native_null)) return;
+	if (native_null) { custom_cursor_info["native_null"] = true; return; }
+	custom_cursor_info["width"] = width;
+	custom_cursor_info["height"] = height;
+	custom_cursor_info["hotspot_x"] = hotspot_x;
+	custom_cursor_info["hotspot_y"] = hotspot_y;
+	custom_cursor_info["center_argb"] = int64_t(center_argb);
+#endif
 }
 
 void JavaFXHost::stop_jvm() {
@@ -1903,14 +2079,21 @@ void JavaFXHost::stop_jvm() {
         std::lock_guard<std::mutex> lock(runtime->dnd_mutex);
         runtime->dnd_pending.reset();
     }
-    // Detach OLE drag delegates before the windows they reference go away; the
-    // delegate userdata points at the TargetHandler owned by this host.
+    // Detach native drag delegates before the windows they reference go away;
+    // the delegate userdata points at the TargetHandler owned by this host.
     {
+#if defined(WINDOWS_ENABLED)
         auto *display = static_cast<DisplayServerWindows *>(DisplayServer::get_singleton());
         for (const auto &entry : drag_targets) {
             if (entry.first && entry.first->get_window_id() != DisplayServerEnums::INVALID_WINDOW_ID)
                 display->window_set_drag_delegate(entry.first->get_window_id(), nullptr, nullptr);
         }
+#elif defined(MACOS_ENABLED)
+        for (const auto &entry : drag_targets) {
+            if (entry.first && entry.first->get_window_id() != DisplayServerEnums::INVALID_WINDOW_ID)
+                godot_javafx::macos_window_set_drag_delegate(entry.first->get_window_id(), nullptr, nullptr);
+        }
+#endif
         drag_targets.clear();
     }
 	if(custom_cursor_active) {
@@ -2019,6 +2202,7 @@ void JavaFXHost::apply_native_window_commands() {
 	runtime->native_window_transport.publish(std::move(snapshots),native_window_sequence);
 }
 
+#if defined(WINDOWS_ENABLED)
 // DisplayServerWindows drag delegate: OLE callbacks arrive on the Godot main
 // thread, which owns every TargetHandler, so no locking is needed here.
 static bool javafx_drag_delegate(void *p_userdata, int p_kind, void *p_data_object, DWORD p_key_state, POINTL p_point, DWORD *r_effect) {
@@ -2026,8 +2210,18 @@ static bool javafx_drag_delegate(void *p_userdata, int p_kind, void *p_data_obje
 	if (!handler) return false;
 	return handler->handle(p_kind, static_cast<IDataObject *>(p_data_object), p_key_state, p_point, r_effect);
 }
+#elif defined(MACOS_ENABLED)
+// DisplayServerMacOS drag delegate: Cocoa dragging callbacks arrive on the
+// Godot main thread, which owns every TargetHandler, so no locking is needed.
+static bool javafx_drag_delegate(void *p_userdata, int p_kind, void *p_sender, int p_x, int p_y, uint32_t *r_effect) {
+	auto *handler = static_cast<godot_javafx::macos_dnd::TargetHandler *>(p_userdata);
+	if (!handler) return false;
+	return handler->handle(p_kind, p_sender, p_x, p_y, r_effect);
+}
+#endif
 
 void JavaFXHost::refresh_drag_delegates() {
+#if defined(WINDOWS_ENABLED)
 	if (!runtime || !is_inside_tree()) return;
 	std::map<Window *, int64_t> current;
 	current[get_window()] = 0;
@@ -2063,6 +2257,43 @@ void JavaFXHost::refresh_drag_delegates() {
 		}
 		drag_targets[window] = std::move(handler);
 	}
+#elif defined(MACOS_ENABLED)
+	if (!runtime || !is_inside_tree()) return;
+	std::map<Window *, int64_t> current;
+	current[get_window()] = 0;
+	for (const auto &entry : native_windows) current[entry.second.window] = entry.first;
+	// Handlers for destroyed windows are dropped in destroy_native_window; this
+	// sweep only covers windows removed outside that path. The WindowData (and
+	// its delegate pointer) is destroyed together with the Window.
+	for (auto it = drag_targets.begin(); it != drag_targets.end();) {
+		if (current.count(it->first)) { ++it; continue; }
+		it = drag_targets.erase(it);
+	}
+	// A closed gate means the JVM is leaving; Cocoa upcalls must stop.
+	godot_javafx::macos_dnd::Upcall upcall{ &runtime->drag_upcall };
+	if (!upcall) {
+		for (const auto &entry : drag_targets) {
+			if (entry.first && entry.first->get_window_id() != DisplayServerEnums::INVALID_WINDOW_ID)
+				godot_javafx::macos_window_set_drag_delegate(entry.first->get_window_id(), nullptr, nullptr);
+		}
+		drag_targets.clear();
+		return;
+	}
+	for (const auto &entry : current) {
+		Window *window = entry.first;
+		if (!window || window->get_window_id() == DisplayServerEnums::INVALID_WINDOW_ID) continue;
+		if (drag_targets.count(window)) continue;
+		auto handler = std::make_unique<godot_javafx::macos_dnd::TargetHandler>();
+		handler->id = entry.second;
+		handler->upcall = upcall;
+		if (!godot_javafx::macos_window_set_drag_delegate(window->get_window_id(),
+				reinterpret_cast<void *>(&javafx_drag_delegate), handler.get())) {
+			runtime->fail("Cannot register the Cocoa drag target for a JavaFX window");
+			return;
+		}
+		drag_targets[window] = std::move(handler);
+	}
+#endif
 }
 
 // Test hook: feeds the module's own OLE source DataObject through the inbound
@@ -2073,6 +2304,7 @@ bool JavaFXHost::simulate_external_drop(const Vector2i &p_point, const String &p
 		const PackedStringArray &p_files, const String &p_custom_name, const PackedByteArray &p_custom_data) {
 	ERR_FAIL_COND_V(!Thread::is_main_thread(), false);
 	if (!runtime) return false;
+#if defined(WINDOWS_ENABLED)
 	refresh_drag_delegates();
 	auto it = drag_targets.find(get_window());
 	if (it == drag_targets.end()) return false;
@@ -2106,10 +2338,34 @@ bool JavaFXHost::simulate_external_drop(const Vector2i &p_point, const String &p
 	}
 	object->Release();
 	return dropped;
+#elif defined(MACOS_ENABLED)
+	refresh_drag_delegates();
+	auto it = drag_targets.find(get_window());
+	if (it == drag_targets.end()) return false;
+	auto to_u16 = [](const String &p_value) {
+		Char16String wide = p_value.utf16();
+		return std::u16string(reinterpret_cast<const char16_t *>(wide.get_data()), size_t(wide.length()));
+	};
+	godot_javafx::macos_dnd::SourceData data;
+	data.text = to_u16(p_text);
+	data.url = to_u16(p_url);
+	for (int i = 0; i < p_files.size(); ++i) data.files.push_back(to_u16(p_files[i]));
+	if (!p_custom_name.is_empty()) {
+		std::u16string name = to_u16(p_custom_name);
+		ERR_FAIL_COND_V_MSG(!godot_javafx::custom_format::valid_name(name), false, "Invalid custom drag format name");
+		std::string bytes;
+		if (!p_custom_data.is_empty()) bytes.assign(reinterpret_cast<const char *>(p_custom_data.ptr()), size_t(p_custom_data.size()));
+		if (bytes.empty() || bytes.back() != 0) bytes.push_back(0);
+		ERR_FAIL_COND_V_MSG(bytes.size() > godot_javafx::custom_format::MAX_DATA_BYTES, false, "Custom drag payload exceeds 16 MiB");
+		data.custom.emplace_back(std::move(name), std::move(bytes));
+	}
+	return godot_javafx::macos_dnd::simulate_drop(*it->second, p_point.x, p_point.y, data);
+#endif
 }
 
-void JavaFXHost::run_dnd_source(std::unique_ptr<godot_javafx::windows_dnd::SourceData> p_data) {
+void JavaFXHost::run_dnd_source(std::unique_ptr<godot_javafx::platform_dnd::SourceData> p_data) {
 	ERR_FAIL_COND(!Thread::is_main_thread());
+#if defined(WINDOWS_ENABLED)
 	Window *source = p_data->source_id ? get_native_window(p_data->source_id) : get_window();
 	HWND handle = nullptr;
 	if (source && source->get_window_id() != DisplayServerEnums::INVALID_WINDOW_ID)
@@ -2146,6 +2402,51 @@ void JavaFXHost::run_dnd_source(std::unique_ptr<godot_javafx::windows_dnd::Sourc
 		runtime->input_events.push_back({ 20.0, double(effect), 0, 0, 0, 0, 0, 0, 0, 0 });
 		runtime->queue.pulse_input();
 	}
+#elif defined(MACOS_ENABLED)
+	Window *source = p_data->source_id ? get_native_window(p_data->source_id) : get_window();
+	void *handle = nullptr;
+	if (source && source->get_window_id() != DisplayServerEnums::INVALID_WINDOW_ID)
+		handle = reinterpret_cast<void *>(DisplayServer::get_singleton()->window_get_native_handle(
+				DisplayServerEnums::WINDOW_HANDLE, source->get_window_id()));
+	if (handle && !p_data->custom.empty()) {
+		// Inbound drags only reach the delegate for registered pasteboard types;
+		// advertise this source's custom formats on every drag target window.
+		std::vector<std::u16string> types;
+		for (const auto &entry : p_data->custom) types.push_back(entry.first);
+		for (const auto &entry : drag_targets) {
+			if (entry.first && entry.first->get_window_id() != DisplayServerEnums::INVALID_WINDOW_ID)
+				godot_javafx::macos_window_register_drag_types(entry.first->get_window_id(), types);
+		}
+	}
+	// The dragging session is asynchronous; box the runtime so the completion
+	// callback can deliver the effect record after this call returns, and fails
+	// safe once the runtime stopped.
+	auto box = std::make_unique<std::shared_ptr<godot_javafx::Runtime>>(runtime);
+	bool started = handle && godot_javafx::macos_dnd::begin_source(*p_data, source->get_window_id(), handle,
+			[](void *ctx, uint32_t effect) {
+				std::unique_ptr<std::shared_ptr<godot_javafx::Runtime>> box(static_cast<std::shared_ptr<godot_javafx::Runtime> *>(ctx));
+				const std::shared_ptr<godot_javafx::Runtime> &runtime = *box;
+				if (runtime->status.load() != godot_javafx::RuntimeStatus::RUNNING) return;
+				std::lock_guard<std::mutex> lock(runtime->host_mutex);
+				if (runtime->input_events.size() >= 4096) runtime->fail("Glass input queue overflow on drag completion");
+				else {
+					runtime->input_events.push_back({ 20.0, double(effect), 0, 0, 0, 0, 0, 0, 0, 0 });
+					runtime->queue.pulse_input();
+				}
+			}, box.get());
+	if (started) box.release();
+	else {
+		ERR_PRINT("JavaFX macOS drag session could not start");
+		if (runtime->status.load() == godot_javafx::RuntimeStatus::RUNNING) {
+			std::lock_guard<std::mutex> lock(runtime->host_mutex);
+			if (runtime->input_events.size() >= 4096) runtime->fail("Glass input queue overflow on drag completion");
+			else {
+				runtime->input_events.push_back({ 20.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0 });
+				runtime->queue.pulse_input();
+			}
+		}
+	}
+#endif
 }
 
 String JavaFXHost::get_runtime_status() const {
