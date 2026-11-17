@@ -9,7 +9,16 @@ func _ready() -> void:
 	while host.get_runtime_status()!="finished":
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
 			push_error("Native order failed: "+host.get_runtime_error());get_tree().quit(1);return
-		await RenderingServer.frame_post_draw
+		# frame_post_draw stops when no host window can draw: on macOS closing or
+		# hiding the last visible FX Stage orders out the root NSWindow, and Godot
+		# then skips RenderingServer.draw entirely (Windows keeps drawing hidden
+		# windows). Race the draw signal against a timer so status/deadline
+		# polling never deadlocks; ordering assertions below are unchanged.
+		var drawn:=[false]
+		RenderingServer.frame_post_draw.connect(func() -> void: drawn[0]=true,CONNECT_ONE_SHOT)
+		get_tree().create_timer(0.02).timeout.connect(func() -> void: drawn[0]=true,CONNECT_ONE_SHOT)
+		while not drawn[0]:
+			await get_tree().process_frame
 		var title:=get_window().title
 		if not title.begins_with("NativeOrder "):continue
 		var phase:=title.get_slice(" ",1).to_int()
@@ -33,7 +42,11 @@ func _ready() -> void:
 		seen[phase]=true
 	for frame in range(120):
 		if host.get_window_count()==0 and host.get_native_window_count()==0 and not host.is_composition_pending():break
-		await RenderingServer.frame_post_draw
+		var drained:=[false]
+		RenderingServer.frame_post_draw.connect(func() -> void: drained[0]=true,CONNECT_ONE_SHOT)
+		get_tree().create_timer(0.02).timeout.connect(func() -> void: drained[0]=true,CONNECT_ONE_SHOT)
+		while not drained[0]:
+			await get_tree().process_frame
 	if seen.size()!=17 or host.get_window_count()!=0 or host.get_native_window_count()!=0 or host.is_composition_pending() or DisplayServer.get_window_list().size()!=1:
 		push_error("Native order coverage/drain differs");get_tree().quit(1);return
 	remove_child(host)

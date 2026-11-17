@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** Exercises Glass window routing without selecting a substitute Prism backend. */
 public final class GlassWindowProbe {
+    private static final boolean MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
     private static void require(boolean value, String message) {
         if (!value) throw new AssertionError(message);
     }
@@ -67,8 +68,21 @@ public final class GlassWindowProbe {
                             double dx, double dy, int modifiers, int lines, int chars, int dl, int dc, double mx, double my) {
                         if (x != 73 || y != 91) return;
                         require(Application.isEventThread(), "Scroll on wrong thread");
+                        // macOS delivers wheel ticks through the native gesture
+                        // contract (kind 17); a plain scroll event must not exist.
+                        require(!MAC, "macOS must deliver wheel input as a scroll gesture");
                         require(inputIndex.getAndIncrement() == 4, "Scroll order differs");
                         require(dx == 0 && dy == 0.5 && modifiers == 5, "Fractional scroll differs");
+                    }
+                    @Override public void handleScrollGestureEvent(View v, long time, int type, int modifiers,
+                            boolean isDirect, boolean isInertia, int touchCount, int x, int y, int sx, int sy,
+                            double dx, double dy, double totaldx, double totaldy, double multiplierX, double multiplierY) {
+                        if (!MAC || x != 73 || y != 91) return;
+                        require(Application.isEventThread(), "Scroll on wrong thread");
+                        require(inputIndex.getAndIncrement() == 4, "Scroll order differs");
+                        require(type == 2, "Scroll gesture type differs"); // GestureEvent.GESTURE_PERFORMED
+                        require(dx == 0 && dy == 0.5 && modifiers == 5, "Fractional scroll differs");
+                        require(multiplierX == 10.0 && multiplierY == 10.0, "Scroll multiplier differs");
                     }
                     @Override public boolean handleKeyEvent(View v, long time, int action, int code, char[] text, int modifiers) {
                         if (inputIndex.get() != 5) return false;

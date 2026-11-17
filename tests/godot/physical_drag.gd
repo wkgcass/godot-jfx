@@ -11,6 +11,11 @@ var input_scale := Vector2.ONE
 # current window position, so the pointer races ahead of the trailing window
 # exactly like a fast physical drag. GODOT_JFX_PHYSICAL_DRAG_ROBOT=1 keeps the
 # probe on the real OS cursor instead and this driver stays idle.
+# Buffered input dispatches at the next frame start, and the host re-derives
+# screen coordinates from the window position at dispatch time; a window move
+# landing in between would corrupt the absolute targets (observed on macOS
+# where unthrottled frames apply the trailing move within the gap). Flush each
+# injection immediately so dispatch sees the position this conversion used.
 
 func press_left(window_id: int, pos: Vector2) -> void:
 	var press := InputEventMouseButton.new()
@@ -20,6 +25,7 @@ func press_left(window_id: int, pos: Vector2) -> void:
 	press.pressed = true
 	press.button_mask = MOUSE_BUTTON_MASK_LEFT
 	Input.parse_input_event(press)
+	Input.flush_buffered_events()
 
 func release_left(window_id: int, pos: Vector2) -> void:
 	var release := InputEventMouseButton.new()
@@ -28,6 +34,7 @@ func release_left(window_id: int, pos: Vector2) -> void:
 	release.button_index = MOUSE_BUTTON_LEFT
 	release.pressed = false
 	Input.parse_input_event(release)
+	Input.flush_buffered_events()
 
 func drag_steps(window_id: int, screen0: Vector2, step: Vector2, count: int) -> Vector2:
 	var local := screen0
@@ -38,6 +45,7 @@ func drag_steps(window_id: int, screen0: Vector2, step: Vector2, count: int) -> 
 		motion.position = target - Vector2(get_window().position)
 		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
 		Input.parse_input_event(motion)
+		Input.flush_buffered_events()
 		local = motion.position
 		await get_tree().process_frame
 		await get_tree().process_frame
