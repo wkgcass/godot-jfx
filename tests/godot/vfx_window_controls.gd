@@ -6,7 +6,7 @@ func _ready() -> void:
 	var entries:=PackedStringArray([base+"/classes/java/main",base+"/classes/java/test",base+"/resources/main",base+"/resources/test",ProjectSettings.globalize_path("res://../../artifacts/reference")])
 	for file in DirAccess.get_files_at(base+"/dependencies"):
 		if file.ends_with(".jar"): entries.append(base+"/dependencies/"+file)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),";".join(entries),"VfxWindowControlsProbe"):
+	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),"VfxWindowControlsProbe"):
 		push_error("VFX controls JVM start failed"); get_tree().quit(1); return
 	var step:=0
 	var diagnostic:=Time.get_ticks_msec()+3000
@@ -22,12 +22,22 @@ func _ready() -> void:
 		if not title.begins_with("VfxControls %d "%step): continue
 		var window=host.get_native_window(title.get_slice(" ",4).to_int())
 		if window==null: continue
+		# VFX emulates maximize with manual bounds on macOS: the native window
+		# stays windowed and is resized to the screen minus the menu bar (24pt).
+		var macos:=OS.has_feature("macos")
 		var expected_mode:=Window.MODE_MAXIMIZED if step==1 else Window.MODE_MINIMIZED if step==3 else Window.MODE_WINDOWED
+		if macos and step==1: expected_mode=Window.MODE_WINDOWED
 		if window.mode!=expected_mode: continue
 		if step==1:
-			var work:=DisplayServer.screen_get_usable_rect(window.current_screen)
-			if window.position!=work.position or window.size!=work.size:
-				push_error("Maximized VFX Stage does not match monitor work area"); get_tree().quit(1); return
+			if macos:
+				var screen_position:=DisplayServer.screen_get_position(window.current_screen)
+				var screen_size:=DisplayServer.screen_get_size(window.current_screen)
+				if window.position!=screen_position+Vector2i(0,24) or window.size!=screen_size-Vector2i(0,24):
+					push_error("Maximized VFX Stage does not match screen bounds minus menu bar"); get_tree().quit(1); return
+			else:
+				var work:=DisplayServer.screen_get_usable_rect(window.current_screen)
+				if window.position!=work.position or window.size!=work.size:
+					push_error("Maximized VFX Stage does not match monitor work area"); get_tree().quit(1); return
 		if step!=3 and (window.is_present_pending() or window.get_content_size()!=window.size): continue
 		if window.is_embedded() or DisplayServer.get_window_list().size()!=2 or get_window().mode!=Window.MODE_WINDOWED:
 			push_error("VFX controls changed wrong native window"); get_tree().quit(1); return

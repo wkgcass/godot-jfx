@@ -2,7 +2,12 @@ extends Node2D
 
 func key(code:int, unicode:int, ctrl:bool=false) -> void:
 	for pressed in [true,false]:
-		var event:=InputEventKey.new(); event.window_id=get_window().get_window_id(); event.keycode=code; event.unicode=unicode; event.ctrl_pressed=ctrl; event.pressed=pressed; Input.parse_input_event(event)
+		# Select-all is the platform shortcut: Ctrl on Windows, Cmd(Meta) on macOS.
+		var event:=InputEventKey.new(); event.window_id=get_window().get_window_id(); event.keycode=code; event.unicode=unicode; event.pressed=pressed
+		if ctrl:
+			if OS.has_feature("macos"): event.meta_pressed=true
+			else: event.ctrl_pressed=true
+		Input.parse_input_event(event)
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost"); add_child(host)
@@ -10,7 +15,7 @@ func _ready() -> void:
 	var entries:=PackedStringArray([base+"/classes/java/main",base+"/classes/java/test",base+"/resources/main",base+"/resources/test",ProjectSettings.globalize_path("res://../../artifacts/reference")])
 	for file in DirAccess.get_files_at(base+"/dependencies"):
 		if file.ends_with(".jar"): entries.append(base+"/dependencies/"+file)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),";".join(entries),"VfxTableProbe"):
+	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),"VfxTableProbe"):
 		push_error("VFX table JVM failed"); get_tree().quit(1); return
 	var step:=0
 	var deadline:=Time.get_ticks_msec()+180000

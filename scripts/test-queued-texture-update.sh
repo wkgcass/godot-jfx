@@ -1,0 +1,76 @@
+#!/bin/sh
+# macOS equivalent of test-queued-texture-update.ps1.
+# Usage: test-queued-texture-update.sh [--renderer mobile|gl_compatibility] [--render-thread safe]
+#        [--batch-boundary] [--viewport-state]
+set -u
+cd "$(dirname "$0")/.."
+
+JDK="${JAVA_HOME:-/Users/wkgcass/OpenSource/godot-jfx/.tools/jdk-25/Contents/Home}"
+RENDERER="mobile"
+RENDER_THREAD="safe"
+BATCH=0
+VIEWPORT=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --renderer) RENDERER="$2"; shift ;;
+        --render-thread) RENDER_THREAD="$2"; shift ;;
+        --batch-boundary) BATCH=1 ;;
+        --viewport-state) VIEWPORT=1 ;;
+        *) echo "unknown arg: $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
+if [ "$BATCH" -eq 1 ] && [ "$VIEWPORT" -eq 1 ]; then
+    echo "Choose one fixture mode" >&2
+    exit 2
+fi
+
+GODOT="./godot/bin/godot.macos.editor.arm64"
+[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+[ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
+mkdir -p artifacts/reference artifacts/logs
+
+export GODOT_JFX_DIRECT_OFFSCREEN="1"
+export GODOT_JFX_TEST_VIEWPORT_STATE="$VIEWPORT"
+[ "$VIEWPORT" -eq 1 ] && export GODOT_JFX_INSTANCE_UNIFORMS="1"
+export GODOT_JFX_TEST_BATCH_BOUNDARY="$BATCH"
+
+"$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
+    --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
+    --add-exports javafx.graphics/com.sun.prism.godot=ALL-UNNAMED \
+    --add-exports javafx.graphics/com.sun.prism.ps=ALL-UNNAMED \
+    -encoding UTF-8 -d artifacts/reference tests/reference/QueuedTextureUpdateProbe.java || { echo "Queued texture update probe compilation failed" >&2; exit 1; }
+if [ "$BATCH" -eq 1 ]; then
+    export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} --add-opens=javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED"
+fi
+
+export GODOT_JFX_JDK="$JDK"
+SUFFIX=""
+[ "$BATCH" -eq 1 ] && SUFFIX="-boundary"
+[ "$VIEWPORT" -eq 1 ] && SUFFIX="$SUFFIX-viewport-state"
+LOG="artifacts/logs/queued-texture-update-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+CODE=0
+"$GODOT" --path tests/godot res://queued_texture_update.tscn \
+    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 10000 >"$LOG" 2>&1 || CODE=$?
+if ! grep -q 'PARTIAL_TEXTURE_UPDATE_PASS' "$LOG"; then
+    echo "Partial texture update check incomplete: $LOG" >&2
+    exit 1
+fi
+if [ "$VIEWPORT" -eq 1 ] && ! grep -q 'VIEWPORT_STATE_PASS' "$LOG"; then
+    echo "Viewport state check incomplete: $LOG" >&2
+    exit 1
+fi
+if [ "$BATCH" -eq 1 ] && { ! grep -q 'BATCH_BOUNDARY_PIXELS_PASS' "$LOG" || ! grep -q 'BATCH_BYTE_BOUNDARY_PIXELS_PASS' "$LOG"; }; then
+    echo "Batch boundary pixel check incomplete: $LOG" >&2
+    exit 1
+fi
+if [ "$CODE" -ne 0 ] \
+    || ! grep -q 'GODOT_QUEUED_TEXTURE_UPDATE_PASS' "$LOG" \
+    || ! grep -q 'QUEUED_TEXTURE_UPDATE_PASS' "$LOG" \
+    || grep -qE '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)' "$LOG"; then
+    echo "Queued texture update test failed: $LOG" >&2
+    exit 1
+fi
+echo "Queued texture update passed: $LOG"

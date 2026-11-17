@@ -1,0 +1,43 @@
+#!/bin/sh
+# macOS equivalent of test-lcd-overlap.ps1. Renderer is fixed to mobile, as in
+# the PowerShell original.
+# Usage: test-lcd-overlap.sh [--render-thread safe]
+set -u
+cd "$(dirname "$0")/.."
+
+JDK="${JAVA_HOME:-/Users/wkgcass/OpenSource/godot-jfx/.tools/jdk-25/Contents/Home}"
+RENDER_THREAD="safe"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --render-thread) RENDER_THREAD="$2"; shift ;;
+        *) echo "unknown arg: $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
+
+GODOT="./godot/bin/godot.macos.editor.arm64"
+[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+[ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
+mkdir -p artifacts/reference artifacts/logs
+
+"$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
+    -encoding UTF-8 -d artifacts/reference tests/reference/LcdOverlapProbe.java || { echo "LCD probe compilation failed" >&2; exit 1; }
+
+export GODOT_JFX_JDK="$JDK"
+for mode in 0 1; do
+    export GODOT_JFX_LCD_SCREEN="$mode"
+    LOG="artifacts/logs/lcd-overlap-$RENDER_THREAD-$mode.log"
+    CODE=0
+    "$GODOT" --path tests/godot res://lcd_overlap.tscn \
+        --rendering-method mobile --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
+    if [ "$CODE" -ne 0 ] \
+        || ! grep -q 'LCD_OVERLAP_JAVA_PASS' "$LOG" \
+        || ! grep -q 'LCD_OVERLAP_CAPTURE_PASS' "$LOG" \
+        || { [ "$mode" -eq 1 ] && ! grep -q 'LCD_OVERLAP_DIFF_PASS' "$LOG"; } \
+        || grep -qE '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)' "$LOG"; then
+        echo "LCD overlap failed: $LOG" >&2
+        exit 1
+    fi
+done
+echo "LCD overlap passed: $RENDER_THREAD (Godot LCDBuffer vs screen sampling)"

@@ -41,12 +41,19 @@ func _ready() -> void:
 				push_error("JavaFX visual bounds differ from native usable screen area"); get_tree().quit(1); return
 			click(Vector2(310,195)); phase=1
 		elif phase==1 and title.begins_with("Edge Two ") and native_count==1:
-			click(point(title),MOUSE_BUTTON_LEFT,host.get_native_window(title.get_slice(" ",4).to_int())); phase=2
+			# The native configure queue is independent of the title host
+			# command: the title can appear before the popup window is
+			# realized. An unrealized window has no window_id, so a click
+			# would fall back to the root window and auto-hide the popup.
+			if host.get_native_window_info(title.get_slice(" ",4).to_int()).get("visible",false):
+				click(point(title),MOUSE_BUTTON_LEFT,host.get_native_window(title.get_slice(" ",4).to_int())); phase=2
 		elif phase==2 and title=="Edge selected" and native_count==0:
 			click(Vector2(310,155),MOUSE_BUTTON_RIGHT); phase=3
 		elif phase==3 and title.begins_with("Edge More ") and native_count==1:
-			motion(point(title),host.get_native_window(title.get_slice(" ",4).to_int())); phase=4
+			if host.get_native_window_info(title.get_slice(" ",4).to_int()).get("visible",false):
+				motion(point(title),host.get_native_window(title.get_slice(" ",4).to_int())); phase=4
 		elif phase==4 and title.begins_with("Edge Run ") and native_count==2:
+			if not host.get_native_window_info(title.get_slice(" ",4).to_int()).get("visible",false): continue
 			for frame in range(3): await RenderingServer.frame_post_draw
 			if not await preload("res://native_popup_capture.gd").capture(host.get_native_window(title.get_slice(" ",4).to_int()),"res://../../artifacts/reference/popup-edge.png"):
 				push_error("Edge menu has no rendered content"); get_tree().quit(1); return

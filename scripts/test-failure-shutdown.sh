@@ -1,0 +1,93 @@
+#!/bin/sh
+# macOS equivalent of test-failure-shutdown.ps1.
+# Usage: test-failure-shutdown.sh [--renderer gl_compatibility|mobile] [--render-thread safe]
+#        [--probe FailureShutdownProbe|FailureApplicationProbe] [--runtime]
+set -u
+cd "$(dirname "$0")/.."
+
+JDK="${JAVA_HOME:-/Users/wkgcass/OpenSource/godot-jfx/.tools/jdk-25/Contents/Home}"
+RENDERER="gl_compatibility"
+RENDER_THREAD="safe"
+PROBE="FailureShutdownProbe"
+RUNTIME=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --renderer) RENDERER="$2"; shift ;;
+        --render-thread) RENDER_THREAD="$2"; shift ;;
+        --probe) PROBE="$2"; shift ;;
+        --runtime) RUNTIME=1 ;;
+        *) echo "unknown arg: $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
+case "$PROBE" in FailureShutdownProbe|FailureApplicationProbe) ;; *) echo "invalid probe: $PROBE" >&2; exit 2 ;; esac
+
+GODOT="./godot/bin/godot.macos.editor.arm64"
+TEMPLATE="./godot/bin/godot.macos.template_release.arm64"
+[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+[ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
+mkdir -p artifacts/reference artifacts/logs
+
+"$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
+    --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
+    -encoding UTF-8 -d artifacts/reference "tests/reference/$PROBE.java" \
+    || { echo "Failure probe compilation failed" >&2; exit 1; }
+
+run_watchdog() {
+    wlog="$1"; limit="$2"; shift 2
+    "$@" >"$wlog" 2>&1 &
+    pid=$!
+    elapsed=0
+    while kill -0 "$pid" 2>/dev/null; do
+        if [ "$elapsed" -ge "$limit" ]; then
+            kill "$pid" 2>/dev/null || true
+            sleep 2
+            kill -9 "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+            return 124
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    wcode=0
+    wait "$pid" || wcode=$?
+    return "$wcode"
+}
+
+export GODOT_JFX_JDK="$JDK"
+export GODOT_JFX_FAILURE_PROBE="$PROBE"
+SUFFIX=""
+[ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
+LOG="$PWD/artifacts/logs/failure-shutdown-$PROBE-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+CODE=0
+if [ "$RUNTIME" -eq 1 ]; then
+    [ -x "$TEMPLATE" ] || { echo "Godot template not found: $TEMPLATE" >&2; exit 1; }
+    FIXTURE="$PWD/artifacts/runtime-failure-shutdown"
+    mkdir -p "$FIXTURE"
+    cp "$TEMPLATE" tests/godot/failure_shutdown.tscn tests/godot/failure_shutdown.gd "$FIXTURE/"
+    sed 's|res://main.tscn|res://failure_shutdown.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
+    "$GODOT" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    if [ "$CODE" -ne 0 ]; then echo "Failure runtime fixture import failed: $LOG.import" >&2; exit 1; fi
+    (cd "$FIXTURE" && run_watchdog "$LOG" 240 "./godot.macos.template_release.arm64" \
+        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 4000) || CODE=$?
+else
+    run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://failure_shutdown.tscn \
+        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 4000 || CODE=$?
+fi
+# Injected-failure diagnostics are expected verbatim; any other error line fails.
+UNEXPECTED=$(grep -E '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\.[a-z].*(Exception|Error))|RejectedExecutionException|RenderJob\.run: internal exception|Suppressed:|Caused by:' "$LOG" \
+    | grep -vxF 'ERROR: Java application failed; see JVM exception in the host log' \
+    | grep -vxF 'Exception in thread "main" java.lang.IllegalStateException: INJECTED_STAGE_FAILURE' || true)
+if [ "$CODE" -ne 0 ] \
+    || ! grep -q 'GODOT_FAILURE_SHUTDOWN_PASS' "$LOG" \
+    || ! grep -q 'FAILURE_INNER_LOOP_RETURNED' "$LOG" \
+    || ! grep -q 'FAILURE_NESTED_LOOP_RETURNED' "$LOG" \
+    || ! grep -q 'INJECTED_STAGE_FAILURE' "$LOG" \
+    || [ -n "$UNEXPECTED" ]; then
+    echo "Failure shutdown test failed: $LOG" >&2
+    [ -n "$UNEXPECTED" ] && echo "Unexpected diagnostics: $UNEXPECTED" >&2
+    exit 1
+fi
+echo "Failure shutdown passed: $LOG"

@@ -10,7 +10,7 @@ func _ready() -> void:
 	var entries := PackedStringArray([base+"/classes/java/main",base+"/classes/java/test",base+"/resources/main",base+"/resources/test",ProjectSettings.globalize_path("res://../../artifacts/reference")])
 	for file in DirAccess.get_files_at(base+"/dependencies"):
 		if file.ends_with(".jar"): entries.append(base+"/dependencies/"+file)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),";".join(entries),"HoverDemoProbe"):
+	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),"HoverDemoProbe"):
 		push_error("Hover demo JVM failed"); get_tree().quit(1); return
 	var deadline := Time.get_ticks_msec() + 200000
 	var hold := 0
@@ -22,6 +22,11 @@ func _ready() -> void:
 	var last_bounds := [0, 0, 0, 0]
 	var frames_per_cycle := {}
 	var gap_frames_per_cycle := {}
+	# The VFX hover-exit animation is wall-clock driven, so the GAP settle
+	# window must be wall-clock too: a frame-count skip misjudges whenever the
+	# host frame rate dips (the animation then spans more frames).
+	var gap_first_msec := {}
+	var gap_settled_per_cycle := {}
 	while host.get_runtime_status() != "finished":
 		await get_tree().process_frame
 		if host.get_runtime_status() == "failed" or Time.get_ticks_msec() > deadline:
@@ -79,9 +84,13 @@ func _ready() -> void:
 			var index: int = gap_frames_per_cycle.get(cycle, 0)
 			gap_frames_per_cycle[cycle] = index + 1
 			gap += 1
+			var now := Time.get_ticks_msec()
+			if not gap_first_msec.has(cycle): gap_first_msec[cycle] = now
+			var settled: bool = now - int(gap_first_msec[cycle]) >= 500
+			if settled: gap_settled_per_cycle[cycle] = gap_settled_per_cycle.get(cycle, 0) + 1
 			if index == 30: print("HOVER_DEMO_CALIBRATION gap_luma=", luma)
-			if index > 30 and luma < bright_threshold: gap_dark += 1
-			if index > 30 and luma >= bright_threshold and saved < 24:
+			if settled and luma < bright_threshold: gap_dark += 1
+			if settled and luma >= bright_threshold and saved < 24:
 				saved += 1
 				image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/demo-stuck-") + str(cycle) + "-" + str(index) + ".png")
 	print("HOVER_DEMO_PIXEL hold=", hold, " bright=", hold_bright, " gap=", gap, " dark=", gap_dark)
@@ -91,7 +100,7 @@ func _ready() -> void:
 	var eligible_gap := 0
 	for cycle in range(8):
 		var h: int = frames_per_cycle.get(cycle,0)-31
-		var g: int = gap_frames_per_cycle.get(cycle,0)-31
+		var g: int = gap_settled_per_cycle.get(cycle,0)
 		if h <= 0 or g <= 0:
 			push_error("Hover demo lacks settled samples in cycle " + str(cycle)); get_tree().quit(1); return
 		eligible_hold += h

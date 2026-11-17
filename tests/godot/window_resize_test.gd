@@ -17,7 +17,16 @@ func _ready() -> void:
 			push_error("Resize failed/timed out: " + host.get_runtime_error())
 			get_tree().quit(1)
 			return
-		await RenderingServer.frame_post_draw
+		# frame_post_draw stops when no host window can draw: on macOS closing the
+		# FX Stage orders out the root NSWindow, and Godot then skips
+		# RenderingServer.draw entirely (Windows keeps drawing hidden windows).
+		# Race the draw signal against a timer so status/deadline polling never
+		# deadlocks; assertions below are unchanged.
+		var drawn := [false]
+		RenderingServer.frame_post_draw.connect(func() -> void: drawn[0] = true, CONNECT_ONE_SHOT)
+		get_tree().create_timer(0.25).timeout.connect(func() -> void: drawn[0] = true, CONNECT_ONE_SHOT)
+		while not drawn[0]:
+			await get_tree().process_frame
 		peak = maxi(peak, host.get_owned_resource_count())
 		if get_window().title == "Resize active":
 			var color := get_viewport().get_texture().get_image().get_pixel(20,20)

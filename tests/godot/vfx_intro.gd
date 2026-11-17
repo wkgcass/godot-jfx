@@ -27,7 +27,7 @@ func _ready() -> void:
 		if file.ends_with(".jar"):
 			entries.append(base+"/dependencies/"+file)
 	var entry := "VfxNavigationProbe" if OS.get_environment("GODOT_JFX_VFX_PAGES").to_int() > 2 else "io.vproxy.vfx.intro.IntroMain"
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),";".join(entries),entry):
+	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),entry):
 		push_error("VFX JVM startup failed")
 		get_tree().quit(1)
 		return

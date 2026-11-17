@@ -18,6 +18,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * drags text+URL+files out to the target helper; phase 1
  * receives a helper drag-in; phase 2 cancels an outbound drag with Escape. */
 public final class ExternalDragProbe {
+    // Windows acceptance used C:/drag-test.txt; keep an absolute path per OS
+    // so put/get round-trip equality stays platform-consistent. Cocoa drops
+    // file items for missing paths in cross-process drags, so the macOS
+    // wrapper touches both files (Windows OLE tolerated any C:/ string).
+    static final boolean WINDOWS = System.getProperty("os.name","").toLowerCase().contains("win");
+    static final File DRAG_FILE = new File(WINDOWS ? "C:/drag-test.txt" : "/tmp/drag-test.txt");
+    static final File HELPER_FILE = new File(WINDOWS ? "C:/helper-source.txt" : "/tmp/helper-source.txt");
     static final DataFormat CUSTOM = new DataFormat("application/x-godot-custom-token");
     static final String CUSTOM_OUT = "出站自定义负载 🙂";
     static final String CUSTOM_IN = "外部自定义负载 🙂";
@@ -68,7 +75,7 @@ public final class ExternalDragProbe {
                     Dragboard b = source.startDragAndDrop(TransferMode.COPY);
                     ClipboardContent data = new ClipboardContent();
                     data.putString("外部 OLE 拖放 text"); data.putUrl("https://example.org/ole");
-                    data.putFiles(List.of(new File("C:/drag-test.txt")));
+                    data.putFiles(List.of(DRAG_FILE));
                     data.put(CUSTOM, CUSTOM_OUT);
                     b.setContent(data);
                     // Drag view carried through the shell drag-image helper. The
@@ -101,7 +108,7 @@ public final class ExternalDragProbe {
                     Dragboard b = e.getDragboard();
                     check("外部拖入 text".equals(b.getString()), "Inbound text differs: " + b.getString());
                     check("https://example.org/inbound".equals(b.getUrl()), "Inbound URL differs: " + b.getUrl());
-                    check(b.getFiles() != null && b.getFiles().equals(List.of(new File("C:/helper-source.txt"))), "Inbound files differ: " + b.getFiles());
+                    check(b.getFiles() != null && b.getFiles().equals(List.of(HELPER_FILE)), "Inbound files differ: " + b.getFiles());
                     Object custom = b.getContent(CUSTOM);
                     check(custom instanceof byte[] && CUSTOM_IN.equals(new String((byte[]) custom, java.nio.charset.StandardCharsets.UTF_8)),
                             "Inbound custom payload differs: " + (custom instanceof byte[] ? new String((byte[]) custom, java.nio.charset.StandardCharsets.UTF_8) : custom));
@@ -247,6 +254,12 @@ public final class ExternalDragProbe {
                 () -> robot.mousePress(MouseButton.PRIMARY),
                 () -> robot.mouseMove(sceneX(120), sceneY(80)), // trigger drag detection
                 () -> robot.mouseMove(targetX, targetY),          // leave hosted windows: OLE handoff
+                // macOS starts the AppKit dragging session from the first real
+                // mouseDragged after the handoff; a warping Robot produces no
+                // further drag events without these follow-up moves (Windows
+                // OLE owns the pointer already and ignores them).
+                () -> robot.mouseMove(targetX + 4, targetY),
+                () -> robot.mouseMove(targetX, targetY),
                 () -> { /* hold: OLE takes over, helper receives DragEnter */ },
                 () -> robot.mouseRelease(MouseButton.PRIMARY)     // drop on the helper
         ));
@@ -271,6 +284,8 @@ public final class ExternalDragProbe {
                 () -> robot.mousePress(MouseButton.PRIMARY),
                 () -> robot.mouseMove(sceneX(120), sceneY(80)),
                 () -> robot.mouseMove(targetX, targetY),           // OLE handoff again
+                () -> robot.mouseMove(targetX + 4, targetY),       // see startOutboundDriver
+                () -> robot.mouseMove(targetX, targetY),
                 () -> { /* hold */ },
                 () -> robot.keyPress(KeyCode.ESCAPE),              // OLE cancel
                 () -> robot.keyRelease(KeyCode.ESCAPE),

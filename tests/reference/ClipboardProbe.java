@@ -27,10 +27,22 @@ public final class ClipboardProbe {
     private static final String RTF = "{\\rtf1\\ansi Godot \\b rich\\b0}";
     private static final String EXTERNAL_HTML = "<i>External 中文 🙂</i>";
     private static final String EXTERNAL_RTF = "{\\rtf1\\ansi External \\i rich\\i0}";
-    private static final List<java.io.File> FILES = List.of(
+    // QuantumClipboard publishes File.getAbsolutePath(); fixture paths must
+    // already be absolute or the roundtrip comparison can never hold. The
+    // Windows drive-letter forms are absolute there; macOS gets POSIX forms.
+    // macOS additionally requires the paths to exist: the pasteboard server
+    // hides file lists of nonexistent paths from other processes, and the
+    // external peer validates across the process boundary. The test script
+    // materializes these files.
+    private static final boolean MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
+    private static final List<java.io.File> FILES = MAC ? List.of(
+            new java.io.File("/tmp/godot-jfx-clipboard-fixture/godot-jfx测试/报告 🙂.txt"),
+            new java.io.File("/tmp/godot-jfx-clipboard-fixture/README.md")) : List.of(
             new java.io.File("C:\\godot-jfx测试\\报告 🙂.txt"),
             new java.io.File("D:\\godot-jfx-fixture\\README.md"));
-    private static final List<java.io.File> EXTERNAL_FILES = List.of(
+    private static final List<java.io.File> EXTERNAL_FILES = MAC ? List.of(
+            new java.io.File("/tmp/godot-jfx-clipboard-fixture/外部/文件 甲.txt"),
+            new java.io.File("/tmp/godot-jfx-clipboard-fixture/外部/乙🙂.png")) : List.of(
             new java.io.File("D:\\外部\\文件 甲.txt"),
             new java.io.File("C:\\外部\\乙🙂.png"));
     private static final String ANSI_URL = "https://ansi.invalid/中文路径";

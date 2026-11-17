@@ -29,7 +29,7 @@ public final class WindowCommandsProbe {
             colors[i * 4] = (byte) red; colors[i * 4 + 1] = (byte) green;
             colors[i * 4 + 2] = (byte) blue; colors[i * 4 + 3] = (byte) 255;
         }
-        c.drawQuads(vertices, colors, 4);
+        c.drawQuads(vertices, colors, 4, 1, 0, 0, 0, 1, 0);
         c.presentWindow(window, x, 10, 100, 80, z, opacity);
     }
     public static void main(String[] args) {

@@ -23,6 +23,9 @@ public final class VfxWindowControlsProbe extends Application {
         return null;
     }
     private static void require(boolean value, String message) { if (!value) throw new AssertionError(message); }
+    // VFX emulates maximize with manual bounds on macOS (VStage.setMaximized);
+    // the underlying Stage property only tracks the native path.
+    private static final boolean MAC = System.getProperty("os.name","").startsWith("Mac");
     @Override public void start(Stage root) {
         root.setScene(new Scene(new StackPane(new Label("Independent VFX window controls")),320,180));
         root.show();
@@ -35,8 +38,8 @@ public final class VfxWindowControlsProbe extends Application {
                 try {
                     require(now < deadline, "Window controls timeout phase="+phase);
                     require(!root.isMaximized() && !root.isIconified(), "Child control changed primary mode");
-                    if (phase==0 && child.isMaximized()) phase=1;
-                    else if (phase==1 && !child.isMaximized()) phase=2;
+                    if (phase==0 && (MAC ? vfx.isMaximized() : child.isMaximized())) phase=1;
+                    else if (phase==1 && !(MAC ? vfx.isMaximized() : child.isMaximized())) phase=2;
                     else if (phase==2 && child.isIconified()) phase=3;
                     else if (phase==3 && !child.isIconified()) phase=4;
                     else if (phase==4 && !child.isShowing()) {

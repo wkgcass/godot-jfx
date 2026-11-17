@@ -11,6 +11,9 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class DragDropProbe {
+    // Windows acceptance used C:/drag-test.txt; keep an absolute, non-existent
+    // path per OS so put/get round-trip equality stays platform-consistent.
+    static final File DRAG_FILE = new File(System.getProperty("os.name","").toLowerCase().contains("win") ? "C:/drag-test.txt" : "/tmp/drag-test.txt");
     static final CountDownLatch done = new CountDownLatch(1);
     static final AtomicReference<Throwable> failure = new AtomicReference<>();
     static final DataFormat CUSTOM = new DataFormat("application/x-godot-dnd-test");
@@ -68,7 +71,7 @@ public final class DragDropProbe {
                     Dragboard b = e.getDragboard();
                     check(b.getString().equals("拖放 text") && b.getHtml().equals("<b>drag</b>")
                         && b.getRtf().equals("{\\rtf1 drag}") && b.getUrl().equals("https://example.org/drag")
-                        && b.getFiles().equals(List.of(new File("C:/drag-test.txt")))
+                        && b.getFiles().equals(List.of(DRAG_FILE))
                         && b.getContent(CUSTOM).equals("custom payload"), "Drag data differs");
                     check(e.getTransferMode() == modes[test], "Transfer mode differs");
                     ++drops; e.setDropCompleted(true); e.consume();
@@ -81,7 +84,7 @@ public final class DragDropProbe {
                 Dragboard b = source.startDragAndDrop(test < 3 ? new TransferMode[]{modes[test]} : new TransferMode[]{TransferMode.COPY});
                 ClipboardContent data = new ClipboardContent();
                 data.putString("拖放 text"); data.putHtml("<b>drag</b>"); data.putRtf("{\\rtf1 drag}");
-                data.putUrl("https://example.org/drag"); data.putFiles(List.of(new File("C:/drag-test.txt"))); data.put(CUSTOM,"custom payload");
+                data.putUrl("https://example.org/drag"); data.putFiles(List.of(DRAG_FILE)); data.put(CUSTOM,"custom payload");
                 b.setContent(data); root.setTitle("Drag active " + test); e.consume();
             });
             source.setOnDragDone(e -> {

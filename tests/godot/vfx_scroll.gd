@@ -12,7 +12,7 @@ func _ready() -> void:
 	var entries:=PackedStringArray([base+"/classes/java/main",base+"/classes/java/test",base+"/resources/main",base+"/resources/test",ProjectSettings.globalize_path("res://../../artifacts/reference")])
 	for file in DirAccess.get_files_at(base+"/dependencies"):
 		if file.ends_with(".jar"): entries.append(base+"/dependencies/"+file)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),";".join(entries),"VfxScrollProbe"):
+	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),"VfxScrollProbe"):
 		push_error("VFX scroll JVM failed");get_tree().quit(1);return
 	var step:=0
 	var baseline:Image

@@ -2,7 +2,12 @@ extends Node2D
 
 func key(code:int,unicode:int,ctrl:bool=false) -> void:
 	for pressed in [true,false]:
-		var event:=InputEventKey.new();event.keycode=code;event.unicode=unicode;event.ctrl_pressed=ctrl;event.pressed=pressed;Input.parse_input_event(event)
+		# Select-all is the platform shortcut: Ctrl on Windows, Cmd(Meta) on macOS.
+		var event:=InputEventKey.new();event.keycode=code;event.unicode=unicode;event.pressed=pressed
+		if ctrl:
+			if OS.has_feature("macos"): event.meta_pressed=true
+			else: event.ctrl_pressed=true
+		Input.parse_input_event(event)
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost");add_child(host)

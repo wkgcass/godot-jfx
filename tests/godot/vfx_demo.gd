@@ -6,7 +6,7 @@ func _ready() -> void:
 	var entries:=PackedStringArray([base+"/classes/java/main",base+"/classes/java/test",base+"/resources/main",base+"/resources/test"])
 	for file in DirAccess.get_files_at(base+"/dependencies"):
 		if file.ends_with(".jar"):entries.append(base+"/dependencies/"+file)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),";".join(entries),"io.vproxy.vfx.intro.IntroMain"):
+	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),"io.vproxy.vfx.intro.IntroMain"):
 		push_error("VFX JVM startup failed");get_tree().quit(1);return
 	var smoke:=OS.get_environment("GODOT_JFX_DEMO_SMOKE")=="1"
 	# Per-frame luma sampling under the OS cursor (HOVER_SAMPLE=1): correlated

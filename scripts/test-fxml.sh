@@ -1,0 +1,89 @@
+#!/bin/sh
+# macOS equivalent of test-fxml.ps1.
+# Usage: test-fxml.sh [--renderer mobile|gl_compatibility] [--render-thread safe] [--runtime]
+set -u
+cd "$(dirname "$0")/.."
+
+JDK="${JAVA_HOME:-/Users/wkgcass/OpenSource/godot-jfx/.tools/jdk-25/Contents/Home}"
+RENDERER="mobile"
+RENDER_THREAD="safe"
+RUNTIME=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --renderer) RENDERER="$2"; shift ;;
+        --render-thread) RENDER_THREAD="$2"; shift ;;
+        --runtime) RUNTIME=1 ;;
+        *) echo "unknown arg: $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
+
+GODOT="./godot/bin/godot.macos.editor.arm64"
+TEMPLATE="./godot/bin/godot.macos.template_release.arm64"
+[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+[ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
+mkdir -p artifacts/reference/fxml artifacts/logs
+
+"$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.fxml \
+    --add-exports javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED \
+    --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED \
+    -encoding UTF-8 -d artifacts/reference tests/reference/FXMLProbe.java || { echo "FXML probe compilation failed" >&2; exit 1; }
+cp tests/reference/fxml/* artifacts/reference/fxml/
+
+# run_watchdog <log> <seconds> <command...>: the FXML scene quits by itself,
+# so bound the wait instead of relying on --quit-after.
+run_watchdog() {
+    wlog="$1"; limit="$2"; shift 2
+    "$@" >"$wlog" 2>&1 &
+    pid=$!
+    elapsed=0
+    while kill -0 "$pid" 2>/dev/null; do
+        if [ "$elapsed" -ge "$limit" ]; then
+            kill "$pid" 2>/dev/null || true
+            sleep 2
+            kill -9 "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+            return 124
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    wcode=0
+    wait "$pid" || wcode=$?
+    return "$wcode"
+}
+
+export GODOT_JFX_JDK="$JDK"
+SUFFIX=""
+[ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
+LOG="$PWD/artifacts/logs/fxml-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+if [ "$RUNTIME" -eq 1 ]; then
+    [ -x "$TEMPLATE" ] || { echo "Godot template not found: $TEMPLATE" >&2; exit 1; }
+    FIXTURE="$PWD/artifacts/runtime-fxml"
+    mkdir -p "$FIXTURE"
+    cp "$TEMPLATE" tests/godot/fxml.gd tests/godot/fxml.tscn "$FIXTURE/"
+    sed 's|res://main.tscn|res://fxml.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
+    CODE=0
+    "$GODOT" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    if [ "$CODE" -ne 0 ]; then echo "FXML runtime import failed: $LOG.import" >&2; exit 1; fi
+    CODE=0
+    (cd "$FIXTURE" && run_watchdog "$LOG" 240 "./godot.macos.template_release.arm64" \
+        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD") || CODE=$?
+else
+    CODE=0
+    run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://fxml.tscn \
+        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?
+fi
+if [ "$CODE" -ne 0 ] \
+    || ! grep -q 'GODOT_FXML_PASS' "$LOG" \
+    || ! grep -q 'FXML_PROBE_PASS' "$LOG" \
+    || grep -qE '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|GodotHostStoppedException|uncaught:' "$LOG"; then
+    echo "FXML failed: $LOG" >&2
+    exit 1
+fi
+for step in 0 1 2 3; do
+    cp "artifacts/reference/fxml-$step.png" "artifacts/reference/fxml-$RENDERER-$RENDER_THREAD$SUFFIX-$step.png"
+done
+echo "FXML passed: $LOG"
