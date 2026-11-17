@@ -126,14 +126,26 @@ void JavaFXRenderSurface::release() {
 void JavaFXRenderSurface::set_surface_size(const Size2i &p_size) {
 	ERR_FAIL_COND(!Thread::is_main_thread());
 	ERR_FAIL_COND_MSG(p_size.x <= 0 || p_size.y <= 0 || p_size.x > 8192 || p_size.y > 8192, "Invalid JavaFX surface dimensions (1..8192).");
+	if (p_size == surface_size) return;
 	surface_size = p_size;
 	if (viewport.is_valid()) {
-		if (persistent_frames) {
-			viewport_resize_pending = true;
-		} else {
+		if (!persistent_frames) {
 			RenderingServer::get_singleton()->viewport_set_size(viewport, p_size.x, p_size.y);
+			update_presentation();
+		} else if (draw_recorded || !retained_draws.is_empty()) {
+			// Uncommitted content already targets the current viewport: let it
+			// complete at the old size and swap at the next begin_present.
+			viewport_resize_pending = true;
+			update_presentation();
+		} else {
+			// Nothing drawn into the current viewport yet: run the pending
+			// swap now (the same path a later begin_present would take) so the
+			// in-flight frame renders at the new size. The retired viewport
+			// keeps presenting until commit_present finishes the swap.
+			viewport_resize_pending = true;
+			begin_present();
+			update_presentation();
 		}
-		update_presentation();
 		if (background.is_valid()) set_background(background_color);
 	}
 }
@@ -176,6 +188,11 @@ void JavaFXRenderSurface::begin_present() {
 		retired_viewport = viewport; retired_canvas = canvas; retired_commands = commands;
 		viewport = RID(); canvas = RID(); commands = RID();
 		create_surface_viewport(surface_size);
+		// The fresh canvas item does not inherit the retired one's material;
+		// rebind it so draws keep their shader and blend state. Sharing is
+		// safe: the retired viewport only presents its texture, it never
+		// re-renders its canvas.
+		if (draw_material.is_valid()) RenderingServer::get_singleton()->canvas_item_set_material(commands, draw_material);
 	}
 	clear_draw_resources();
 	persistent_frames = true;

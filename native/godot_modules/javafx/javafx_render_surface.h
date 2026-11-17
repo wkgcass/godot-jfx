@@ -33,13 +33,16 @@ class JavaFXRenderSurface : public Node2D {
 	bool clip_enabled = false;
 	Rect2i clip_rect;
 	bool persistent_frames = false;
-	// A resize while presented content exists is applied at the next
-	// begin_present instead of immediately, and as a viewport swap rather than
-	// viewport_set_size: reallocating the texture discards its contents
-	// (eagerly on Metal/RD) and the root window renders before this viewport
-	// each frame, so the presentation would sample an empty texture for one
-	// frame. The retired viewport keeps presenting (stretched to the new rect)
-	// until the replacement has rendered its first frame.
+	// A resize while presented content exists is applied as a viewport swap
+	// rather than viewport_set_size: reallocating the texture discards its
+	// contents (eagerly on Metal/RD) and the root window renders before this
+	// viewport each frame, so the presentation would sample an empty texture
+	// for one frame. When no uncommitted draw content exists the swap runs
+	// immediately (set_surface_size delegates to begin_present); with content
+	// already recorded it is deferred to the next begin_present so the
+	// in-flight frame completes at the old size. Either way the retired
+	// viewport keeps presenting (stretched to the new rect) until the
+	// replacement has rendered its first frame.
 	bool viewport_resize_pending = false;
 	RID retired_viewport;
 	RID retired_canvas;

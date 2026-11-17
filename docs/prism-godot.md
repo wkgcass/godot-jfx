@@ -225,12 +225,14 @@ PRESENT. Current independent native windows use NATIVE_WINDOW_PRESENT; see
 logical-windows.md and bridge-protocol.md.
 GodotContext owns the published GPU target across Presentable replacement during
 resize; new publication releases the previous target, while disposal/Glass close
-remove the layer before texture disposal. On the host surface a resize with
-presented content is deferred to the next begin_present and applied as a
+remove the layer before texture disposal. On the host surface a resize that
+arrives after uncommitted draw content was already recorded is deferred to the
+next begin_present; otherwise it is applied immediately. Either way it is a
 viewport swap: the retired viewport keeps presenting (stretched) until the
 replacement has rendered its first frame, because Metal/RD reallocate the
 viewport texture eagerly and the root window renders before the FX viewport
-each frame, so in-place viewport_set_size showed one empty frame. OpenGL and
+each frame, so in-place viewport_set_size showed one empty frame. Same-size
+resizes are ignored. OpenGL and
 Vulkan separate-thread tests
 cover 40 size changes, six sizes, per-frame content retention and cleanup. Additional
 native Glass windows and render-scale fixtures are implemented; physical
