@@ -9,10 +9,14 @@ import javafx.stage.Stage;
 // Wheel-scroll contract probe. Native Win Glass reports the system wheel
 // settings per event and uses 40px multipliers (ViewContainer.cpp), so one
 // notch yields ScrollEvent deltaY = scrollY * round(40 * lines / 3) with
-// lines = SPI_GETWHEELSCROLLLINES (or 40px page units when lines = -1). The
-// Godot side injects three one-notch WHEEL_DOWN events; this probe verifies
-// each ScrollEvent matches the native formula.
+// lines = SPI_GETWHEELSCROLLLINES (or 40px page units when lines = -1).
+// Native Mac Glass routes wheel ticks through the scroll-gesture path with
+// NSEvent line deltas and a fixed 10px multiplier (MacGestureSupport), so one
+// notch yields deltaY = scrollY * 10. The Godot side injects three one-notch
+// WHEEL_DOWN events; this probe verifies each ScrollEvent matches the native
+// formula of the current platform.
 public final class ScrollWheelProbe extends Application {
+    private static final boolean MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
     private static Throwable failure;
     private static boolean complete;
     private final java.util.List<Double> deltas = new java.util.ArrayList<>();
@@ -25,7 +29,9 @@ public final class ScrollWheelProbe extends Application {
             scroll.setPrefSize(300, 300);
             scroll.addEventFilter(ScrollEvent.SCROLL, e -> {
                 double expected;
-                if (e.getTextDeltaYUnits() == ScrollEvent.VerticalTextScrollUnits.PAGES) {
+                if (MAC) {
+                    expected = -10.0; // MacGestureSupport: line delta x 10px multiplier
+                } else if (e.getTextDeltaYUnits() == ScrollEvent.VerticalTextScrollUnits.PAGES) {
                     expected = -40.0; // page-scroll setting: multiplier stays 40
                 } else {
                     double lines = -e.getTextDeltaY(); // WHEEL_DOWN: scrollY = -1, so textDeltaY = -lines

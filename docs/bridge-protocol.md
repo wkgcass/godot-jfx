@@ -132,6 +132,12 @@ old SDK/host instead of silently parsing different record lengths.
 Window callbacks supply local pointer coordinates and screen coordinates from
 that window's origin. Kinds 15/16 indicate native focus gain/loss; kind 9 is a
 close request, allowing JavaFX close handlers to consume it before destruction.
+Kind 17 is the macOS scroll record, replacing wheel kind 4 there: it carries
+macOS-native scroll-gesture deltas at indices 7/8 (wheel line deltas, or pan
+point deltas after the host's 0.1 precise-scrolling conversion) and is delivered
+as a performed scroll gesture with the native 10px multiplier, matching
+MacGestureSupport. Godot reports no gesture phase or momentum flags, so kind 17
+produces SCROLL events only, without SCROLL_STARTED/FINISHED or inertia marking.
 Kind 20 reports completion of an OLE drag/drop gesture and carries the
 performed drop effect instead of a button in the second field.
 The 4096-record bound and overflow failure apply across all windows. Legacy

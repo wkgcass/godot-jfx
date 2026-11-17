@@ -1042,6 +1042,37 @@ void JavaFXHost::window_input(const Ref<InputEvent> &p_event, int64_t p_id) {
 		runtime->queue.pulse_input();
 		return;
 	}
+#if defined(MACOS_ENABLED)
+	Ref<InputEventPanGesture> pan = p_event;
+	if (pan.is_valid()) {
+		// Native mac Glass reports trackpad two-finger scrolling through the
+		// scroll-gesture path: precise point deltas scaled by 0.1 with a 10px
+		// Java-side multiplier (GlassViewDelegate, MacGestureSupport). Godot
+		// delivers the same points, negated, via InputEventPanGesture. Godot
+		// carries no gesture phase or momentum flags, so only the performed
+		// (SCROLL) stage can be reported, without inertia marking.
+		std::array<double, 12> event{};
+		event[0] = 17;
+		Vector2 pos = pan->get_position();
+		Point2i origin = source->get_position();
+		event[2] = pos.x; event[3] = pos.y;
+		event[4] = origin.x + pos.x; event[5] = origin.y + pos.y;
+		event[6] = (pan->is_shift_pressed() ? 1 : 0) | (pan->is_ctrl_pressed() ? 4 : 0) |
+			(pan->is_alt_pressed() ? 8 : 0) | (pan->is_meta_pressed() ? 16 : 0);
+		Vector2 delta = pan->get_delta();
+		event[7] = -delta.x * 0.1;
+		event[8] = -delta.y * 0.1;
+		event[9] = double(p_id);
+		std::lock_guard<std::mutex> lock(runtime->host_mutex);
+		if (runtime->input_events.size() >= 4096) {
+			runtime->fail("Glass input queue overflow; input cannot be silently dropped");
+			return;
+		}
+		runtime->input_events.push_back(event);
+		runtime->queue.pulse_input();
+		return;
+	}
+#endif
 	Ref<InputEventMouse> mouse = p_event;
 	if (mouse.is_null()) return;
 	// Glass-Godot promotes touches to mouse events. Do not send a second
@@ -1067,12 +1098,23 @@ void JavaFXHost::window_input(const Ref<InputEvent> &p_event, int64_t p_id) {
 		int index = int(button->get_button_index());
 		if (index >= 4 && index <= 7) {
 			if (!button->is_pressed()) return;
+#if defined(MACOS_ENABLED)
+			// Native mac Glass feeds NSEvent wheel line deltas through the same
+			// scroll-gesture path with a 10px multiplier (MacGestureSupport), so
+			// one tick scrolls 10px per line unit. The Windows lines/40px
+			// contract (kind 4) would scroll 4x the native distance on macOS.
+			// The macOS platform layer normalizes precise (point) wheel deltas
+			// to line units before creating the event, so the factor is always
+			// in lines here regardless of the wheel's reporting mode.
+			event[0] = 17;
+			event[index <= 5 ? 8 : 7] = button->get_factor() * ((index == 4 || index == 6) ? 1 : -1);
+#else
 			event[0] = 4;
 			event[index <= 5 ? 8 : 7] = button->get_factor() * ((index == 4 || index == 6) ? 1 : -1);
             // Separate doubles exactly represent every UINT32 setting, including
             // 0xffffffff (page scrolling). Do not compress or clamp either axis.
-            // macOS has no system-wide wheel scroll-lines setting; keep the
-            // native Windows defaults there.
+            // macOS wheel input takes the kind-15 gesture path above and never
+            // reaches this Windows settings lookup.
             unsigned int lines = 3, chars = 3;
 #if defined(WINDOWS_ENABLED)
             SystemParametersInfoW(SPI_GETWHEELSCROLLLINES, 0, &lines, 0);
@@ -1080,6 +1122,7 @@ void JavaFXHost::window_input(const Ref<InputEvent> &p_event, int64_t p_id) {
 #endif
             event[10] = double(lines);
             event[11] = double(chars);
+#endif
 		} else {
 			event[0] = button->is_pressed() ? 2 : 3;
 			event[1] = index;

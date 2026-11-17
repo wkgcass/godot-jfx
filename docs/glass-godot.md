@@ -209,6 +209,31 @@ and repeated press/typed delivery. The extended window probe injects events
 through Input.parse_input_event and checks the real Java View callbacks;
 this is not a physical keyboard/mouse or IME acceptance test.
 
+On macOS, wheel and trackpad scrolling follow the native Mac Glass contract
+instead of the Windows one. The host reports both as kind-17 scroll records
+carrying MacGestureSupport-style deltas: NSEvent line deltas for wheel ticks,
+and pan point deltas after the 0.1 precise-scrolling conversion for trackpad
+InputEventPanGesture (which previously never reached Java at all). The Java
+side delivers them as performed scroll gestures with the native 10px
+multiplier, so one wheel tick scrolls 10px per line unit like other macOS
+applications; the Windows lines/40px contract made it 4x that. The macOS
+platform layer normalizes precise point deltas from smooth-scrolling wheel
+mice to line units (ten points per line) before creating wheel events, so
+classic and smooth wheels report the same factor semantics. Upstream Godot
+dispatches every gesture event twice (a gesture-specific dispatch plus the
+generic one in Input._parse_input_event_impl); the fork drops the duplicate
+so each InputEventPanGesture reaches Java as exactly one ScrollEvent, a
+contract the scroll-pan probe pins by comparing injected and received event
+counts. Godot supplies
+no gesture phase or momentum flags, so macOS produces SCROLL events without
+SCROLL_STARTED/FINISHED and without inertia marking. Remote-desktop tools
+(ToDesk/UU 远程) inject scroll as phase-less precise-delta events with their
+own synthesized inertia; such streams contain micro oscillations and burst
+deltas produced by the injector, which the bridge delivers verbatim (as does
+native Mac Glass). Jitter observed only under remote control is therefore
+an input-source artifact, not a bridge defect; AppKit apps merely mask it
+with their own smooth-scroll animation and rubber-banding.
+
 Touch press/drag/release now enters the bounded queue and Glass TouchInputSupport.
 The first active touch also produces synthesized mouse events for ordinary
 controls. Godot-emulated mouse events are filtered to avoid duplicate promotion.
@@ -776,7 +801,9 @@ three-notch result and accepted it with a loose minimum. The probe now retains
 the per-event native-formula checks and compares the final displacement with
 the sum of all three deltas, clamped to the available content extent, within
 0.01 pixels. Vulkan/separate and OpenGL/safe both produce 120 pixels for the
-current settings. No Windows wheel preference is changed by this fixture;
+current settings. On macOS the probe checks the native Mac Glass formula
+instead: three notches yield 30 pixels at the fixed 10px multiplier.
+No Windows wheel preference is changed by this fixture;
 zero-line and other preference branches were not exercised on this machine
 in this run. This is Godot synthetic input, not physical mouse-wheel acceptance.
 
