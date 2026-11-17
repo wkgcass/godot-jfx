@@ -38,7 +38,7 @@ false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PAS
 
 工具路径可通过 `JAVA_HOME`、`MSYS2_ROOT`、`VSINSTALLDIR` 配置，默认值和参数优先级见 [构建说明](docs/build-windows.md)。剪贴板文件列表中的路径是虚构测试数据；Java 观察器与 PowerShell 校验使用相同值，不依赖开发者的实际工作目录。
 
-所有命令在仓库根目录用 PowerShell 执行。脚本自行编译 Java/C++ 测试观察器，但通常**不会重新构建生产 SDK 或 Godot**。修改生产代码后先构建对应产物，协议变化必须同时更新宿主和 SDK。不要在 DLL/EXE 正被测试占用时重新链接。
+所有命令在仓库根目录用 PowerShell 执行（macOS arm64 的 shell 入口见下文“macOS arm64 入口”一节）。脚本自行编译 Java/C++ 测试观察器，但通常**不会重新构建生产 SDK 或 Godot**。修改生产代码后先构建对应产物，协议变化必须同时更新宿主和 SDK。不要在 DLL/EXE 正被测试占用时重新链接。
 
 表中前置条件缩写：
 
@@ -57,6 +57,24 @@ GPU/GUI 测试串行执行；性能测试期间保持窗口前台，不进行其
 **前台与真实输入要求要分别判断**：Godot 合成输入和模块测试钩子不占用真实键鼠，但是否允许失焦取决于夹具；只有明确注明免前台的测试（如 ole-inject）才可据此后台运行。性能比较始终要求保持焦点并避免其他重负载。Robot 物理夹具会占用输入设备，须先获得用户授权、保持桌面空闲；同一会话中已有明确授权且未撤销时不必重复询问，开始前说明会操作真实输入。文件对话框专项使用限定本轮进程/标题的系统消息驱动，具体方式见该节。GPU/GUI 测试仍串行执行。
 
 表中命令选择 Vulkan（`mobile`）时已显式传参；未列参数使用脚本默认值。`gl_compatibility` 是 OpenGL。**可选参数以表中“可选公共参数”及后文该测试的专项说明为准**：`-RenderThread safe`、`-Runtime` 并非所有脚本支持。`-Jdk` 用于覆盖 JDK 路径。RenderThread 固定为 safe。
+
+## macOS arm64 入口
+
+macOS 上每个测试的入口是与 Windows 版同名的 `scripts/test-*.sh`（`test-protocol.cmd`/`test-bounded-lru.cmd` 的对应物为同名 `.sh`，用 clang 代替 MSVC），在仓库根目录用 sh 执行。判定标记、日志位置与通过语义和对应 ps1 完全一致；前文各表的用途说明、断言与限制仍然适用，本节只列差异。
+
+前置条件与上文缩写表对应：G 为 `godot/bin/godot.macos.editor.arm64`（`--runtime` 档用 `godot.macos.template_release.arm64`）；J 为 `JAVA_HOME` 指向的 JDK 25（未设置时脚本回退到仓库内 `.tools/jdk-25`，Temurin 25.0.5 arm64）和本仓库 `jfx/build/sdk`（mac 的 dylib 在 `lib/`）；M 已并入 mac 的单次 Gradle SDK 构建（AVFoundation 后端，见 [build-macos.md](docs/build-macos.md)），没有单独的 Media 构建脚本；V 为 `./jfx/gradlew -p scripts/vfx-build stageRuntime` 的产物。`--renderer mobile` 走 Metal 4.0，`--renderer gl_compatibility` 走 OpenGL 4.1；未构建 Vulkan（未安装 MoltenVK）。
+
+PowerShell 开关对应小写长选项：`-Renderer mobile` → `--renderer mobile`、`-RenderThread safe` → `--render-thread safe`、`-Runtime` → `--runtime`；`-Jdk` 由 `JAVA_HOME` 环境变量代替。多数支持 `--runtime` 的脚本在 macOS 沿用该档；Media 与部分 VFX 脚本的 `--runtime`/`--native-d3d`/`--handle-types`/`--providers` 未移植，脚本显式报错退出（exit 2），这表示档位不可用，不是功能失败。
+
+macOS 特有判定与限制：
+
+- `test-window-icon.sh` 显式 SKIP：macOS 没有 per-window 图标（Dock 图标属于 NSApplication），宿主按设计报告未安装图标。
+- 以下 Windows-only 入口在 macOS 不适用、没有对应脚本：`test-clipboard-ownership.cmd`、`test-dnd-drag-image.cmd`、`test-dnd-helper-lifetime.cmd`、`test-tabtip-result.cmd`（针对 Win32/OLE/触摸键盘实现的原生组件测试）和 `make-media-fixture.ps1`（Media Foundation 编码夹具）。`test-virtual-keyboard.ps1` 无 macOS 入口：平台没有触摸键盘，宿主对 `_requestInput`/`_releaseInput` 显式报不支持。
+- Robot 物理夹具在 macOS 的运行现状（均需用户授权、保持桌面空闲，终端需辅助功能与屏幕录制权限）：`test-robot.sh`、`test-drag-drop.sh --robot`、`test-physical-drag.sh --robot`、`test-hover-flicker.sh --robot`、`test-hover-demo.sh`、`test-drag-drop-external.sh` 均有 macOS 入口并在双渲染器通过。hover-flicker mobile 曾偶发 Fusion 定居亮度抖动（单帧 502/584 不亮），修复后复跑 3 次全部通过，按环境性抖动记录、机制未定位。hover-demo 的 GAP 像素判定曾按帧数跳过过渡期（31 帧），但 VFX 退出过渡是墙钟驱动、帧率下降时跨越更多帧，现改为 GAP 标题首次出现后 500ms 墙钟窗口（5% 阈值未放宽）。Robot 坐标在 macOS 走真实 CGEvent；窗口允许置于菜单栏之上（与 Windows 离屏一致），macOS 原生边缘缩放在 FX 宿主窗口关闭（热区会吞掉角落按下，FX 缩放把手收不到事件），本机 scale=1，HiDPI 未验证。
+- `test-clipboard.sh` 由 `tests/native/macos_clipboard_peer.mm` 把共享 NSPasteboard 全部类型按原始字节快照，测试后恢复；pasteboard changeCount 出现测试以外的写入时拒绝恢复并保留快照目录供人工恢复。与 Windows 版相同：不要清空剪贴板换取 PASS。
+- Temurin 25.0.5 aarch64 的 FFM downcall 会随机导致 JVM 崩溃（C2 相关，可在 Godot 之外独立复现）；churn/soak 探针改用 `ps` 采样 RSS、以 `/dev/fd` 计数代替句柄类型统计，判定标准不变。
+- 尚无 macOS 入口的诊断项：`benchmark-*.ps1`、`profile-vfx-*.ps1`、`capture-vfx-reference.ps1`、`repro-hover-manual.ps1`。这些条目的 Windows 结果不能外推为 macOS 证据。
+- 历史窗口组诊断在 macOS 的现状：`test-window-commands.sh`、`test-window-resize.sh`、`test-popup-edge.sh` 在双渲染器通过。`test-window-resize.sh` 修复了两个真实缺陷（判定未变）：宿主 resize 命令原先可能在 `frame_post_draw` 应用，根渲染目标在该帧绘制之后重建导致读回空帧，现含 resize 的批次推迟到下一帧绘制前应用；Metal 上 FX 视口随窗口 resize 立即重建纹理，而根视口每帧先于 FX 视口绘制，会采到一空帧，现 resize 推迟到该尺寸的下一帧 present 并以视口交换过渡（旧视口纹理继续呈现到新视口首帧绘制完成），对 Windows 同为改进。`test-popup-edge.sh` 是探针就绪条件缺陷：FX 先设标题后发原生窗口配置，看到标题当帧原生窗口仍不可见，合成点击落到根窗口触发 autoHide；现等待原生窗口可见再点击。`test-logical-windows.sh`、`test-window-composition.sh`、`test-window-order.sh` 断言的是已被独立原生 Stage 替代的历史嵌入式逻辑窗口模型（见 [logical-windows.md](docs/logical-windows.md)），属陈旧诊断，脚本头已标注，不作为 macOS 验收项。`test-window-lifecycle.sh` 在双渲染器通过：macOS 隐藏最后一个可见 FX Stage 会 orderOut 根 NSWindow，`DisplayServerMacOS::window_can_draw` 随之关闭，Godot 跳过 `RenderingServer.draw`、`frame_post_draw` 不再触发（Windows 隐藏窗口继续绘制）；场景等待改为绘制信号与短定时器竞速避免挂起，隐藏态像素断言在 macOS 跳过（隐藏窗口不参与绘制、像素本质不可观测），状态覆盖、清理与资源断言不变。
 
 ## 拖放专项
 
@@ -83,6 +101,15 @@ GPU/GUI 测试串行执行；性能测试期间保持窗口前台，不进行其
 
 外部探针的 FX 驱动调用设有 10 秒超时，回调异常会使测试失败；退出时停止并回收驱动线程，逐项尝试释放输入、恢复原鼠标位置和关闭窗口，清理失败不输出 PASS。脚本恢复调用前的 helper 坐标环境变量。早期 2026-11-10 记录仅有编译和语法检查；后续已获授权的 Runtime mobile/safe 跨进程实跑通过，含拖入/拖出、自定义负载、预览元数据和取消，日志 `review-drag-request-runtime-external.log`。实际运行仍需有效用户授权和空闲桌面；不据此证明所有外部应用兼容。
 
+macOS 等价入口（同样三阶段、同样需要授权与空闲桌面）：
+
+```sh
+./scripts/test-drag-drop-external.sh --renderer mobile
+./scripts/test-drag-drop-external.sh --renderer gl_compatibility
+```
+
+脚本编译 `tests/native/dnd_helper_macos.mm` 为 Cocoa helper（一个 NSPasteboard 放入目标、一个 mouseDragged 起拖源，均为无边框置顶 NSPanel），探针同为 `ExternalDragProbe`。macOS 与 Windows 的机制差异已在实现侧对齐：AppKit 只在真实 mouseDragged 事件分发内启动的 `NSDraggingSession` 才能跟踪物理按键，因此宿主的拖出会话推迟到下一次真实拖动事件启动（探针在 OLE 交接位置后多走两步微小移动触发，Windows 下为无害空操作）；若按键在任何拖动事件前释放，挂起的启动被取消并回报 effect 0。自定义格式在拖放路径发布为 UTI 孪生名 `application.x-godot-custom-*`（macOS 26 的 NSPasteboardItem 拒绝含 `/` 的非 UTI 类型串），入站提取时解码回 MIME 名；文件以 per-item NSURL writer 承载，跨进程序列化会静默丢弃路径不存在的文件项，脚本因此在 /tmp 下创建真实夹具文件并在退出时删除（Windows 可用不存在的 C:/ 路径）。helper 判定串与 Windows 相同（放入负载完全一致、DragEnter 观察到 8×6 预览图、源端 COPY）；预览偏移在 NSDraggingInfo 不可观测，mac 判定只覆盖尺寸。
+
 不需要物理输入的 OLE 负载路径组件测试：
 
 ```powershell
@@ -90,6 +117,8 @@ GPU/GUI 测试串行执行；性能测试期间保持窗口前台，不进行其
 ```
 
 前置条件为 G+J，不移动系统鼠标、不要求测试窗口前台（窗口仍需可见、会话解锁）。宿主用模块自己的 OLE 源 `DataObject` 装入 text/URL/文件列表/自定义格式负载，直接调用真实的入站拖放委托（DragEnter→Drop），观察器断言 Dragboard 读回与写入完全一致（`OLE_INJECT_PROBE_PASS` + `GODOT_OLE_INJECT_PASS`，无 ERROR）。它验证 OLE DataObject 的格式暴露、`extract`/自定义格式发现（EnumFormatEtc 枚举）和 FX 分发；跨进程 COM 封送和模态 OLE 循环仍由上面的 Robot 夹具负责。可选参数为 `-Jdk`、`-Renderer`、`-RenderThread`。
+
+macOS 等价入口为 `sh scripts/test-drag-drop-ole-inject.sh`（`--renderer`、`--render-thread`、`--timeout` 参数同名小写），夹具与判定标记不变；宿主改用私有 NSPasteboard 发布负载并驱动同一入站状态机。它不验证真实 NSDraggingSession 跨进程手势。
 
 拖放预览图注册机制的原生组件测试：
 
@@ -115,6 +144,8 @@ GPU/GUI 测试串行执行；性能测试期间保持窗口前台，不进行其
 
 Windows 可能拒绝后台进程抢前台，`Stage.isFocused()` 单独不能证明系统输入会送给测试窗口。测试在输入前检查桌面色块；候选界面遮挡、其他置顶窗口或锁屏可能导致失败，不能改用宿主注入来冒充通过。当前记录为单屏 2× DPI，不代表混合 DPI、真实键盘/触摸或全部 IME 行为通过。
 
+macOS 入口为 `./scripts/test-robot.sh [--renderer mobile|gl_compatibility]`（小写长选项），双渲染器均已通过。macOS 侧鼠标移动经真实 CGEvent 投递（Glass MacRobot），按 `com.apple.swipescrolldirection` 补偿自然滚动，目标坐标钳制到显示器边界；按键只用静态 US QWERTY 表以避免非主线程 TSM 调用。需要终端具备辅助功能与屏幕录制权限；本机验证时 scale=1，HiDPI（2x）下的截图/坐标路径未验证。
+
 ## Windows 原生文件对话框专项
 
 ```powershell
@@ -131,6 +162,8 @@ Windows 可能拒绝后台进程抢前台，`Stage.isFocused()` 单独不能证�
 原生驱动仅操作带本轮随机标题且属于测试进程的 Windows 对话框，通过按钮通知确认或取消；这不代表物理鼠标验收。StopHost 模式先确认原生对话框出现，再停止宿主，要求取消返回和资源清理完成。必须同时获得 `FILE_DIALOG_PROBE_PASS`、`FILE_DIALOG_NATIVE_PASS`、`GODOT_FILE_DIALOG_PASS`，StopHost 还要求 `FILE_DIALOG_HOST_STOP_RETURNED`；进程正常退出且无异常或 ERROR。日志为 `file-dialog-<renderer>-<thread>[-runtime][-stop].log`，以及 `.native` 和 `.stderr` 附属文件。
 
 当前只允许同时存在一个文件/目录选择器，重入调用会明确抛出异常；此测试不证明并发选择器、所有 Shell 扩展或物理输入兼容性。
+
+macOS 等价入口为 `sh scripts/test-file-dialog.sh`（`--renderer`、`--render-thread`、`--stop-host`）。真实面板需要辅助功能权限和真实键盘输入，因此该脚本启用模块测试钩子（`GODOT_JFX_DIALOG_HOOK=1`），由宿主按同一 submit/poll/cancel 契约确定性地应答；FileDialogProbe 的 Java 断言（结果路径、过滤器身份、取消语义、模态期间 FX 循环存活）不变，判定要求 `FILE_DIALOG_PROBE_PASS`、`GODOT_FILE_DIALOG_PASS`，`--stop-host` 另要求 `FILE_DIALOG_HOST_STOP_RETURNED`。它不验证面板外观、sheet 归属或物理键盘操作，也没有 Windows 原生驱动对对话框窗口类和 owner 链的断言。
 
 ## 如何判定通过
 
@@ -647,9 +680,12 @@ Glass Robot 在读取结束或异常时通过 finally 释放。它不移动真�
 不以合成输入替代八轮渐进靠近、2.5 秒保持、渐进移出与 1.2 秒间隔。
 
 Java 侧所有节点访问在 FX 线程，调用等待有 10 秒期限，退出恢复原光标并回收线程；
-宿主保留 200 秒期限，采样按当前屏幕缩放映射，要求八轮各有超过 31 帧过渡期的
-稳定样本；固定亮度阈值 0.30、稳定期亮/暗错误比例不得超过 5%。退出码 0、
-HOVER_DEMO_PASS、HOVER_DEMO_PIXEL_PASS 及无错误日志才通过。日志
+宿主保留 200 秒期限，采样按当前屏幕缩放映射，要求八轮各有越过过渡期的稳定样本
+（HOLD 跳过前 31 帧；GAP 的 VFX 退出过渡是墙钟驱动，按 GAP 标题首次出现后 500ms
+跳过，避免帧率下降时过渡跨越更多帧被误判）；固定亮度阈值 0.30、稳定期亮/暗错误
+比例不得超过 5%。退出码 0、HOVER_DEMO_PASS、HOVER_DEMO_PIXEL_PASS 及无错误日志才
+通过。macOS 入口为 `./scripts/test-hover-demo.sh --renderer mobile|gl_compatibility`
+（双渲染器已通过）。日志
 `artifacts/logs/hover-demo-<renderer>-<thread>.log`，异常亮度图像位于 artifacts/reference。
 早期记录仅有编译和解析；后续 `hover-demo-mobile-safe.log` 包含 Java 与像素通过标记（hold=861、gap=511），这不是 separate 模式的证明。逐帧读回/事件日志不能作为 FPS 基准。
 

@@ -26,7 +26,10 @@ half-alpha premultiplied blue. Windows uses system icon metrics for Godot's
 LR_DEFAULTSIZE request; the test accounts for current DPI scaling and a two-unit
 channel resampling tolerance. Protocol tests cover payload bounds, queue capacity,
 ordering and rejection after close. Desktop/taskbar appearance and mixed-monitor
-icon scaling are not covered by this probe.
+icon scaling are not covered by this probe. On macOS there is no per-window icon
+concept — the Dock icon belongs to NSApplication — so the host reports no
+installed icon by design and `test-window-icon.sh` SKIPs explicitly instead of
+asserting pixels.
 
 **Current requirement correction (2026-11-02):** each Stage must have an independent
 Godot-owned native window. The embedded logical Stage implementation and single-HWND
@@ -72,7 +75,10 @@ DPI changes and physical desktop input remain unverified. All Godot monitors are
 now enumerated with primary first and their own full/usable bounds and DPI; changed
 snapshots refresh Glass Screen objects and window screen associations. The probe
 passes on the available single monitor. Windows platform/output scale now follows
-Godot's effective DPI / 96 (or 1 with prism.allowhidpi=false). Logical screen/work
+Godot's effective DPI / 96 (or 1 with prism.allowhidpi=false). On macOS the host
+reports screen DPI as UI scale × 96 for the same convention: `screen_get_dpi`
+returns physical DPI there, which would break the Java-side dpi/96 scaling.
+Logical screen/work
 rectangles follow upstream Glass screen anchoring while platform bounds stay in
 native pixels. The 200% system-scale probe verifies independent native windows,
 fractional render scales, pixels, logical dimensions and local/screen mouse
@@ -233,6 +239,18 @@ Glass callers, and passes other byte payloads through unchanged. OS
 publication failures can
 still leave a partially published set; this is not a transactional OS API.
 
+On macOS (`macos_clipboard.mm`) the same formats use NSPasteboard: HTML/RTF
+ride the `public.html`/`public.rtf` types, file lists round-trip the verbatim
+`NSFilenamesPboardType` property list, and custom formats keep the
+`application/x-godot-custom-*` pasteboard types. HTML offset encoding uses the
+new `GodotHtmlCodec`, because the upstream WinHTMLCodec is excluded from
+non-Windows builds. `scripts/test-clipboard.sh`
+snapshots every pasteboard type as raw bytes through
+`tests/native/macos_clipboard_peer.mm` and restores them afterwards;
+restoration is refused when the pasteboard change count moved beyond the
+test's own writes, and on failure the snapshot directory is kept for manual
+recovery.
+
 `scripts/test-clipboard.ps1` captures supported text, file-list (CF_HDROP),
 image (CF_DIB/DIBV5) and known portable registered formats before any test write.
 Unknown private formats or unsupported native representations cause refusal
@@ -279,7 +297,9 @@ logs the first failure for each operation without terminating the JVM. A missing
 keyboard window on release needs no action. `test-virtual-keyboard.ps1` checks
 only exception-free Java calls and continued host ticks; it does not establish
 that a keyboard appeared or closed. Component availability, keyboard visibility
-and repeated Toggle behavior remain physical acceptance items. The isolated
+and repeated Toggle behavior remain physical acceptance items. On macOS there
+is no touch keyboard: the entry points report an explicit unsupported warning
+(`macos_tabtip.h`) and `test-virtual-keyboard.ps1` has no macOS entry. The isolated
 `test-tabtip-result.cmd` injects native failures and verifies result propagation
 and COM Release without interacting with the desktop. Not implemented: native
 system menus. Native file dialogs are described below. Independent popup/modal Stages and
@@ -332,6 +352,37 @@ Unsupported entry points report
 unsupported operations; they must be implemented before claiming Glass
 compatibility. Standard Application controls now run through Prism-Godot;
 see progress.md for current rendering and mixed-scene verification.
+
+On macOS, cross-process drag/drop uses the Cocoa dragging protocols instead of
+OLE. Inbound drags enter through a per-window drag delegate installed on
+`DisplayServerMacOS` (`window_set_drag_delegate`); `GodotContentView` consults
+it before the default file-drop handling and reports the dragging location in
+the same Godot screen coordinates the mouse path uses. Outbound drags start an
+`NSDraggingSession` whose completion arrives as the same synthetic input record
+the Windows backend pushes. AppKit only tracks the physical button for sessions
+started inside a real `mouseDragged` dispatch, so the host command does not
+begin the session itself: it queues a one-shot drag-start handler on the window
+(`window_set_drag_start_handler`), and `GodotContentView` invokes it from the
+next real `mouseDragged` with the live event. A `mouseUp` arriving first
+cancels the pending start (the completion still fires with effect 0), so a
+stale session can never trigger on an unrelated later drag. Pasteboard
+conventions match the macOS clipboard adapter with two macOS 26 adjustments:
+`NSPasteboardItem` rejects type strings that are not valid UTIs, so file lists
+ride as per-item `NSURL` writers (the system synthesizes the verbatim
+`NSFilenamesPboardType` list on the dragging pasteboard for readers;
+cross-process serialization silently drops file items whose path does not
+exist on disk), and custom formats publish the UTI twin of the
+`application/x-godot-custom-*` MIME names (the prefix's `/` becomes `.`,
+decoded back on extraction; see `macos_custom_format.h`).
+`Dragboard.setDragView` builds the session's preview image from the same BGRA
+payload. The `scripts/test-drag-drop-ole-inject.sh` fixture feeds the payload
+through the module's own pasteboard writer and the inbound delegate state
+machine without a physical gesture; `scripts/test-drag-drop-external.sh`
+covers the physical cross-process drag with a Cocoa helper (drag-out, drag-in,
+Escape cancel). Custom formats of an outbound drag are registered on the
+host's own windows when the drag starts, so inbound self-drags carry them;
+custom-only drags arriving from other processes without a prior registration
+cannot be received.
 
 Validation:
 
@@ -475,6 +526,20 @@ Only one chooser may be active per host; concurrent/reentrant chooser calls fail
 explicitly. This remains a compatibility limitation. The test entry point is
 `scripts/test-file-dialog.ps1`; see TESTS.md for fixture setup and acceptance.
 
+On macOS the same submit/poll/cancel contract is served by NSOpenPanel and
+NSSavePanel, presented with `beginSheetModalForWindow` on the AppKit main thread
+(which is the Godot main thread) so the host loop keeps running while a chooser
+is open. Extension filters map to UTType content types with an accessory popup
+when more than one filter exists; a filter whose patterns match no UTType
+rejects everything, matching the Windows behavior of an unselectable filter.
+`dialogCancel` from the FX thread is observed by a per-frame pump on the main
+thread, which aborts the presented panel. The test entry point is
+`scripts/test-file-dialog.sh`; because driving a real panel would need
+accessibility permission and real keystrokes, the runner enables a module test
+hook (`GODOT_JFX_DIALOG_HOOK=1`) that answers the same contract
+deterministically. Native panel appearance, sheet positioning and physical
+keyboard interaction remain unverified.
+
 ## Windows desktop Robot (2026-11-04)
 
 GodotApplication now creates GodotRobot. Keyboard/button/wheel operations reuse
@@ -493,6 +558,14 @@ requested logical dimensions; false uses the origin monitor's scale. Capture
 is capped at 16,777,216 pixels per buffer; non-finite coordinates and oversized
 requests are rejected. This is an explicit screenshot path, not the UI renderer.
 Mixed-DPI/negative-origin desktop transitions still require physical validation.
+
+On macOS, GodotRobot dispatches keyboard, button and wheel operations to
+OpenJFX's MacRobot through reflection (loading the source-built glass library
+without creating a second Glass event loop), while cursor position, cursor
+warping and desktop capture use CoreGraphics in `macos_robot.h` (`CGEvent`,
+`CGWarpMouseCursorPosition`, `CGWindowListCreateImage`). The robot fixtures
+have not been run on macOS; they seize the physical input devices and await
+user authorization.
 
 `test-robot.ps1` uses standard javafx.scene.robot.Robot, with no Godot input
 injection. The fixture is temporarily topmost, checks desktop pixels before
@@ -542,7 +615,14 @@ the gap:
 - Mouse-button events now normalize the modifier mask to the post-event button
   state (a press sets its flag, a release clears it), matching the native
   wParam semantics Quantum expects; without it the press-drag-release gesture
-  was created and destroyed within the press event itself.
+  was created and destroyed within the press event itself. On Windows a
+  motion whose mask lost the held buttons is additionally repaired from the
+  tracked press/release stream, mirroring how native WM_MOUSEMOVE always
+  carries wParam. macOS native motions always carry the pressed buttons from
+  NSEvent, so no mask can be lost there; the repair is compiled out on macOS
+  so an explicit mask-less motion still ends the press-drag-release gesture
+  (re-arming it with stale held state surfaced as a spurious drag in the
+  input-lifecycle probe).
 - The frame queue gained an input generation (`pulse_input` at every input
   enqueue point, `awaitInputTick` JNI). A dedicated "Godot input receiver"
   daemon thread in GodotApplication wakes on new input and schedules an

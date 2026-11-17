@@ -1,4 +1,4 @@
-# Godot-hosted JavaFX for Windows x64
+# Godot-hosted JavaFX for Windows x64 and macOS arm64
 
 This source workspace implements Prism-Godot and Glass-Godot in OpenJFX, backed
 by a Godot custom module. Godot owns the event loop, native windows and GPU work;
@@ -6,6 +6,11 @@ JavaFX retains its Application Thread, render jobs, scene graph, controls, CSS
 and FXML. The primary Stage uses the Godot root window; additional Stages use
 independent Godot-owned native windows. GodotView embeds a Godot 2D scene inside
 JavaFX, and GodotShaderEffect applies CanvasItem shaders to individual nodes.
+Windows x64 is the reference platform; a macOS arm64 port is validated with the
+same hosting model (Metal/OpenGL renderers), with its own build steps in
+[macOS source builds](docs/build-macos.md) and platform-specific limits in the
+macOS sections of [acceptance status](docs/acceptance-status.md) and
+[TESTS.md](TESTS.md).
 
 The VFX Demo builds against the local JavaFX SDK. Its Intro menu now includes an
 optional Blackhole Effect on the Demo content VSceneGroup and a Ripple Effect
@@ -23,7 +28,8 @@ remaining work. The user's remaining white-edge issue is explicitly waived.
 
 ## Build and run
 
-Use PowerShell at this directory. The scripts use JDK 25 from `JAVA_HOME`
+Use PowerShell at this directory (macOS uses the shell equivalents in
+[macOS source builds](docs/build-macos.md)). The scripts use JDK 25 from `JAVA_HOME`
 (or an explicit `-Jdk` override), Visual Studio 2022/MSVC, Windows SDK and
 SCons 4.10.1.
 For initial dependency setup and alternate JDK paths, follow

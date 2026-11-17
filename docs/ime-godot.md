@@ -71,3 +71,10 @@ interactive coverage before claiming complete Windows input-method compatibility
 The IME and input-cancellation Java probes propagate startup callback failures and
 request Platform.exit in a finally block around completion waits, including interruption.
 The injected-event tests remain distinct from physical input-method acceptance.
+
+On macOS the same host commands 16/17/18 apply; commit is routed to
+`DisplayServerMacOS::window_commit_ime_composition`, which commits the marked
+text through NSTextInputContext (`discardMarkedText` followed by `insertText`).
+The injected probes run as `scripts/test-ime.sh` and
+`scripts/test-native-ime.sh`; physical IME candidate UI on macOS remains
+unverified.

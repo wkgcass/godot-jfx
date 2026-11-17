@@ -1,6 +1,6 @@
 # 仓库工作指南
 
-本文件适用于根目录及其子目录。目标是 Windows x64 上的 Godot 承载 JavaFX 运行时；Media 在范围内，WebKit 和 3D 不在当前范围。每个次级 Stage 是独立原生窗口，GodotView 才是嵌入界面的场景控件。
+本文件适用于根目录及其子目录。目标是 Windows x64 与 macOS arm64 上的 Godot 承载 JavaFX 运行时；Media 在范围内，WebKit 和 3D 不在当前范围。每个次级 Stage 是独立原生窗口，GodotView 才是嵌入界面的场景控件。
 
 ## 先读哪里
 
@@ -29,9 +29,20 @@
 .\scripts\build-vfx.ps1
 ```
 
+macOS arm64 在仓库根目录用 shell 执行（工具链准备详见 [build-macos.md](docs/build-macos.md)；JDK 25 在 `.tools/jdk-25`，SCons 在 `.tools/pyenv`，需要 Xcode 与 `xcodebuild -downloadComponent MetalToolchain` 安装的 Metal 工具链）：
+
+```sh
+.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=editor vulkan=no accesskit=no angle=no custom_modules=$PWD/native/godot_modules -j8
+.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=template_release vulkan=no accesskit=no angle=no custom_modules=$PWD/native/godot_modules -j8
+(cd jfx && JAVA_HOME=$PWD/../.tools/jdk-25/Contents/Home GRADLE_USER_HOME=$PWD/../.gradle-cache ./gradlew sdk -PCOMPILE_MEDIA=true -PCOMPILE_WEBKIT=false --no-daemon)
+./jfx/gradlew -p scripts/vfx-build stageRuntime
+```
+
+mac 上 Media 由这一次 Gradle SDK 构建启用（AVFoundation 后端），没有单独的 Media 构建脚本；渲染器 `mobile` 走 Metal 4.0、`gl_compatibility` 走 OpenGL 4.1，未构建 Vulkan（未安装 MoltenVK）。
+
 顺序执行原生构建；构建前关闭正在使用相应 EXE/DLL 的测试或 Demo，避免链接/复制冲突。`-WithJavaFXModule` 不可遗漏，否则得到的 Godot 没有 JavaFX 宿主。默认 JFX 构建不能代替 Media 构建；Media 步骤显式启用 Media 并关闭 WebKit。不使用预编译 Godot/JavaFX SDK 替代本仓库源码产物；JVM 使用已安装版本，不需要自行构建。
 
-产物：`godot/bin/godot.windows.editor.x86_64.exe`、`godot/bin/godot.windows.template_release.x86_64.exe`、`jfx/build/sdk/`、`artifacts/vfx/`。JNI 桥接在 Godot 模块内，没有独立桥接 DLL，也不依赖 godot-cpp。
+产物：`godot/bin/godot.windows.editor.x86_64.exe`、`godot/bin/godot.windows.template_release.x86_64.exe`（macOS 对应 `godot.macos.editor.arm64`、`godot.macos.template_release.arm64`）、`jfx/build/sdk/`（mac 的 dylib 在 `lib/` 而非 `bin/`）、`artifacts/vfx/`。JNI 桥接在 Godot 模块内，没有独立桥接 DLL，也不依赖 godot-cpp。
 
 ## 运行与常用验证
 
@@ -50,6 +61,17 @@
 .\scripts\test-media-video.ps1
 .\scripts\test-godot-view.ps1 -Renderer mobile -Transform
 .\scripts\test-vfx-intro.ps1 -Renderer mobile -AllPages
+```
+
+macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
+
+```sh
+./scripts/run-vfx-demo.sh                     # --smoke / --renderer mobile|gl_compatibility / --disable-vsync / --max-fps 60
+./scripts/test-protocol.sh
+./scripts/test-media-planes.sh --renderer mobile
+./scripts/test-media-video.sh
+./scripts/test-godot-view.sh --renderer mobile --transform
+./scripts/test-vfx-intro.sh --renderer mobile --all-pages
 ```
 
 按改动范围选测试，详见 TESTS.md。GUI 和性能测试串行运行，保持测试窗口前台，不与构建或其他 GPU 重负载并行。默认 VFX/Media 基准为 Godot；显式 `-Backend d3d` 或 `-NativeD3D` 是原生 JavaFX 对照，不能当作 Godot 验收。
@@ -73,6 +95,7 @@
 | [architecture.md](docs/architecture.md) | 面向新读者的组件分工、画面和输入流程、线程及资源生命周期 |
 | [acceptance-status.md](docs/acceptance-status.md) | 初始需求逐项证据、当前缺口、验收限制和交付位置 |
 | [build-windows.md](docs/build-windows.md) | Windows 工具链准备、源码构建、输出路径、Media 依赖 |
+| [build-macos.md](docs/build-macos.md) | macOS arm64 工具链准备、源码构建、输出路径、已知平台限制 |
 | [native-module.md](docs/native-module.md) | Godot 自定义模块、宿主节点和原生渲染集成 |
 | [bridge-protocol.md](docs/bridge-protocol.md) | Java/C++ 通信格式、命令、资源校验、队列与完成通知 |
 | [glass-godot.md](docs/glass-godot.md) | 窗口、屏幕、调度、输入、剪贴板、光标及系统接口 |

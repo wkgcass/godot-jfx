@@ -489,3 +489,38 @@ include `static_memory_available` to distinguish this case. All three workloads
 remain bounded churn tests, not whole-process or hours-long leak certification.
 The runtime still uploads decoded planes; it does not claim decoder-to-GPU
 zero-copy integration. Synthetic alpha-video planes do not prove an alpha codec.
+
+## macOS arm64 notes (2026-11-16)
+
+The macOS port runs the same Godot-hosted probes through
+`scripts/test-media-planes.sh`, `scripts/test-media-audio.sh`,
+`scripts/test-media-video.sh` and `scripts/test-media-churn.sh`. Differences
+from the Windows runners, all observable in the scripts:
+
+- Audio fixtures: the WAV silence fixture keeps the Python generator. The MP3
+  tone is encoded with ffmpeg/libmp3lame and the AIFF tone with `afconvert -f
+  AIFF -d BEI16` (AIFF stores big-endian PCM), replacing the Media Foundation
+  based `tests/native/make_audio_fixture.cpp`; both are verified with ffprobe
+  (44100 Hz) before playback. Durations and tolerances are unchanged.
+- The AVFoundation backend (OSXPlatform) handles MP3/AIFF/MP4 on macOS. Its
+  `setCurrentTime:` used `CMTimeMakeWithSeconds(time, 1)`, quantizing seeks to
+  whole seconds; the probe's 1200 ms +/-100 ms seek check failed. The timescale
+  is now 600, the usual AVFoundation choice.
+- AVF decodes H.264 to packed YCbCr 4:2:2 (`BYTE_APPLE_422`), which the Godot
+  texture path does not accept. `GodotResourceFactory.createTexture(MediaFrame)`
+  and `GodotTexture.update(MediaFrame)` now convert such frames to
+  `INT_ARGB_PRE` through the existing `CVVideoFrame::ConvertToFormat` path,
+  the same fallback J2D/SW use. The YUV multi-plane R8 path still serves
+  `MULTI_YCbCr_420` without conversion.
+- `CurrentProcessMemory` (media churn process samples) cannot use FFM
+  downcalls to `proc_pid_rusage`/`proc_pidinfo` on the pinned JDK: Temurin
+  25.0.5+8 on aarch64 crashes with C2/metaspace corruption (`compiledIC
+  "stub not found"`, `ChunkPool` SIGSEGV) shortly after such downcalls, also
+  reproducible standalone outside Godot. The macOS branch therefore samples
+  `ps` RSS (reported as both working set and private bytes) and counts
+  `/dev/fd` entries for handles. Pass criteria are unchanged; the samples are
+  trend-analysis data, not acceptance gates.
+- `--runtime`, `--handle-types`/`--providers` (PSS/ETW census) and the D3D
+  comparison mode remain Windows-only; the macOS scripts reject them
+  explicitly. `make-media-fixture.ps1` (1080p60 benchmark fixture) is
+  Windows-only and unused by the macOS batch.

@@ -1,5 +1,7 @@
 # Windows x64 source builds
 
+For the macOS arm64 port see [build-macos.md](build-macos.md).
+
 ## JDK selection
 
 PowerShell build, run and test scripts default `-Jdk` to `$env:JAVA_HOME`;
@@ -52,7 +54,8 @@ There is no `-JavaFXRDDirect`/`javafx_rd_direct` build option or backend capabil
 JNI query. Build logs are `godot-editor-javafx.log` and `godot-runtime-javafx.log`.
 Rebuild both the host and local JFX SDK after this removal. Godot's RenderingDevice
 and Vulkan/OpenGL renderer implementations remain enabled; the host still targets
-Windows x64, not newly validated macOS/Linux configurations.
+Windows x64 as the reference platform, with macOS arm64 now ported separately
+(see [build-macos.md](build-macos.md)); Linux remains unvalidated.
 
 Run from the repository root in PowerShell. No prebuilt Godot or JavaFX SDK
 is used. Current M0 OpenJFX command builds upstream's default SDK: native

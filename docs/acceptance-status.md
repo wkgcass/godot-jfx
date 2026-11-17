@@ -1,15 +1,17 @@
 # Acceptance status
 
-Last checked: 2026-11-13. This page describes the supported configuration and
+Last checked: 2026-11-16. This page describes the supported configuration and
 validation limits. Earlier implementation rounds and removed-mode measurements
 are historical evidence in [progress](progress.md) and Git history; current
 commands are in [TESTS.md](../TESTS.md).
 
 ## Supported configuration
 
-The validated platform is Windows x64; macOS/Linux hosting is not accepted.
+The validated platforms are Windows x64 and macOS arm64; Linux hosting is not
+accepted.
 JavaFX hosting uses **Viewport + safe**, with Godot `mobile` (Vulkan on the
-validated Windows configuration) or `gl_compatibility` (OpenGL). The custom
+validated Windows configuration, Metal 4.0 on macOS) or `gl_compatibility`
+(OpenGL). The custom
 RD-direct backend, translator, build/runtime switches and dedicated probes are
 removed, as are separate-thread host adaptations. Godot's own RenderingDevice
 and renderers remain. Unsupported separate hosting is rejected before JVM startup.
@@ -47,6 +49,44 @@ were amended; its HEAD values identify that audit snapshot, not current tips.
 The audit covered inline methods, field reads/writes, 34 remaining JNI entries,
 30 protocol commands, shader generation and test entry points. No unresolved
 dead-code candidates remained; the inventory is not a substitute for tests.
+
+## macOS arm64 validation (2026-11-16)
+
+The macOS port reuses the same Viewport + safe hosting; `mobile` renders
+through Metal 4.0 and `gl_compatibility` through OpenGL 4.1. Vulkan is not
+built (MoltenVK is not installed). Toolchain and build commands are in
+[build-macos.md](build-macos.md); test entries are the same-named
+`scripts/test-*.sh` runners with the macOS differences listed in
+[TESTS.md](../TESTS.md).
+
+- Every ported `scripts/test-*.sh` entry passes with the same pass markers
+  and judgment semantics as the Windows runners, except the robot-class
+  physical-input fixtures, which have not been run on macOS (they seize the
+  real input devices and await user authorization): `test-robot`,
+  `test-hover-demo` and `test-drag-drop-external` have no macOS entry, and
+  the macOS runners for drag-drop, physical-drag and hover-flicker reject
+  their `--robot` modes.
+- Explicit platform outcomes: `test-window-icon.sh` SKIPs by design (macOS
+  has no per-window icon; the Dock icon belongs to NSApplication); the
+  virtual keyboard entry points report unsupported explicitly (no Windows
+  touch keyboard exists). Windows-only native component tests
+  (`test-clipboard-ownership.cmd`, `test-dnd-drag-image.cmd`,
+  `test-dnd-helper-lifetime.cmd`, `test-tabtip-result.cmd`,
+  `make-media-fixture.ps1`) are not applicable to macOS.
+- The macOS file-dialog fixture answers the same submit/poll/cancel contract
+  through a module test hook (`GODOT_JFX_DIALOG_HOOK=1`); panel appearance,
+  sheet attachment and physical keyboard interaction are unverified.
+  Physical cross-process dragging is likewise unverified; the ole-inject
+  fixture feeds payloads through a private NSPasteboard.
+- Media runs the AVFoundation backend; the macOS runners reject the unported
+  `--runtime`/`--native-d3d`/process-census modes explicitly (exit 2), which
+  marks the mode as unavailable rather than failed.
+- Known toolchain limit: Temurin 25.0.5 aarch64 crashes the JVM
+  (C2-related) shortly after FFM downcalls, reproducible outside Godot, so
+  churn/soak probes sample process RSS via `ps` instead; pass criteria are
+  unchanged.
+- Windows evidence on this page describes Windows builds and vice versa;
+  neither side's results extend to the other platform.
 
 ## Current validation limits
 
