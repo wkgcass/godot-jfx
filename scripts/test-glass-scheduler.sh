@@ -3,7 +3,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-/Users/wkgcass/OpenSource/godot-jfx/.tools/jdk-25/Contents/Home}"
+JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
 GODOT="./godot/bin/godot.macos.editor.arm64"
 [ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }

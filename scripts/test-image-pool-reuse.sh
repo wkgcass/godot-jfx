@@ -1,11 +1,11 @@
 #!/bin/sh
 set -e
-JDK="${JAVA_HOME:-/Users/wkgcass/OpenSource/godot-jfx/.tools/jdk-25/Contents/Home}"
+cd "$(dirname "$0")/.."
+JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
 if [ ! -x "$JDK/bin/javac" ]; then
     echo "javac not found under $JDK" >&2
     exit 1
 fi
-cd "$(dirname "$0")/.."
 mkdir -p artifacts/reference artifacts/logs
 options='--module-path jfx/build/sdk/lib --add-modules javafx.graphics'
 for package in com.sun.javafx.geom com.sun.javafx.geom.transform com.sun.scenario.effect com.sun.scenario.effect.impl; do

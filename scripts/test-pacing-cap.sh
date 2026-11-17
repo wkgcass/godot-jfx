@@ -4,7 +4,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-/Users/wkgcass/OpenSource/godot-jfx/.tools/jdk-25/Contents/Home}"
+JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
 RENDERER="mobile"
 MODE="cap"
 while [ $# -gt 0 ]; do
