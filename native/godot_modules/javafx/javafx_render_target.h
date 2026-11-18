@@ -83,6 +83,7 @@ public:
 	void end_pass();
 	uint64_t draw_offscreen_pass();
 	void finish_pass();
+	void retire_sampler(RID p_texture);
 	void clear_pass();
 	void draw_prism_quads(const PackedFloat32Array &p_vertices, const PackedByteArray &p_colors,
 		const String &p_shader, const Dictionary &p_parameters, bool p_clip, const Rect2i &p_rect, RID p_texture = RID(),

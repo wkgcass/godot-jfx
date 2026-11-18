@@ -442,9 +442,16 @@ int JavaFXRenderSurface::get_owned_resource_count() const {
 			int(draw_shader.is_valid()) + int(draw_material.is_valid()) + meshes.size() + int(textures.size()) + retired_textures.size() + retained_draws.size() * 3 + target_resources;
 }
 
+void JavaFXRenderSurface::retire_sampler(RID p_rid) {
+	if (!JavaFXRenderTarget::live_sampler_rids.erase(p_rid)) return;
+	for (const auto &entry : textures) {
+		if (entry.second.target.is_valid()) entry.second.target->retire_sampler(p_rid);
+	}
+}
+
 void JavaFXRenderSurface::free_retired_textures() {
 	for (RID rid : retired_textures) {
-		JavaFXRenderTarget::live_sampler_rids.erase(rid);
+		retire_sampler(rid);
 		RenderingServer::get_singleton()->free_rid(rid);
 	}
 	retired_textures.clear();
@@ -610,7 +617,7 @@ void JavaFXRenderSurface::dispose_texture(uint64_t p_handle) {
 	ERR_FAIL_COND(!Thread::is_main_thread());
 	auto found = textures.find(p_handle);
 	ERR_FAIL_COND(found == textures.end());
-	JavaFXRenderTarget::live_sampler_rids.erase(found->second.rid);
+	retire_sampler(found->second.rid);
 	// Commands already submitted to this canvas retain their texture revision
 	// until clear; disposal only invalidates subsequent logical handle uses.
 	if (found->second.scene.is_valid()) {

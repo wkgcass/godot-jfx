@@ -2042,6 +2042,7 @@ Dictionary JavaFXHost::get_window_icon_info(int64_t p_id) const {
 		window = found->second.window;
 	}
 #if defined(WINDOWS_ENABLED)
+	if (!window || window->get_window_id() == DisplayServerEnums::INVALID_WINDOW_ID) return Dictionary();
 	HWND handle = reinterpret_cast<HWND>(DisplayServer::get_singleton()->window_get_native_handle(DisplayServerEnums::WINDOW_HANDLE, window->get_window_id()));
 	HICON native_icon = reinterpret_cast<HICON>(SendMessageW(handle, WM_GETICON, ICON_BIG, 0));
 	Dictionary result; result["installed"] = native_icon != nullptr;

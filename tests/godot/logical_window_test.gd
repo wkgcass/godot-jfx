@@ -1,11 +1,14 @@
 extends Node2D
 
-func click(point: Vector2) -> void:
+func click(window: Window, point: Vector2) -> void:
+	point *= DisplayServer.screen_get_scale(window.current_screen)
 	var motion := InputEventMouseMotion.new()
+	motion.window_id = window.get_window_id()
 	motion.position = point
 	Input.parse_input_event(motion)
 	for pressed in [true,false]:
 		var button := InputEventMouseButton.new()
+		button.window_id = window.get_window_id()
 		button.position = point
 		button.button_index = MOUSE_BUTTON_LEFT
 		button.pressed = pressed
@@ -24,6 +27,7 @@ func _ready() -> void:
 	var deadline := Time.get_ticks_msec()+40000
 	var state := 0
 	var seen := {}
+	var last_observed := ""
 	while host.get_runtime_status() != "finished":
 		if host.get_runtime_status() == "failed" or Time.get_ticks_msec()>deadline:
 			push_error("Logical windows failed/timed out: "+host.get_runtime_error())
@@ -31,34 +35,43 @@ func _ready() -> void:
 			return
 		await RenderingServer.frame_post_draw
 		var title := get_window().title
-		if state == 0 and title == "Logical ready" and host.get_window_count() == 2:
-			var image := get_viewport().get_texture().get_image()
-			if not matches(image.get_pixel(120,115),Color.BLUE): continue
-			if host.get_surface_size() != Vector2i(240,160) or not matches(image.get_pixel(230,140),Color.RED):
-				push_error("Logical Stage changed primary surface")
-				get_tree().quit(1)
-				return
-			image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/logical-windows-initial.png"))
-			click(Vector2(120,70)); state=1
-		elif state == 1 and title == "Child action 1":
+		var scale := DisplayServer.screen_get_scale(get_window().current_screen)
+		var child: Window = null
+		for node in host.get_children():
+			if node is Window and node.visible:
+				child = node
+		if state == 0 and title == "Logical ready" and child != null:
+			var root_image := get_viewport().get_texture().get_image()
+			var child_image := child.get_texture().get_image()
+			if not matches(child_image.get_pixelv(Vector2i(Vector2(20,65)*scale)),Color.BLUE): continue
+			if child.is_embedded() or host.get_surface_size() != Vector2i(Vector2(240,160)*scale) or not matches(root_image.get_pixelv(Vector2i(Vector2(230,140)*scale)),Color.RED):
+				push_error("Secondary Stage changed primary surface");get_tree().quit(1);return
+			child_image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/logical-windows-initial.png"))
+			click(child,Vector2(20,20)); state=1
+		elif state == 1 and title == "Child action 1" and child != null:
 			for pressed in [true,false]:
 				var key := InputEventKey.new()
-				key.keycode=KEY_SPACE; key.unicode=32; key.pressed=pressed
+				key.window_id=child.get_window_id(); key.keycode=KEY_SPACE; key.pressed=pressed
 				Input.parse_input_event(key)
 			state=2
 		elif state == 2 and title == "Child action 2":
-			click(Vector2(20,25)); state=3
-		if title in ["Logical moved","Logical hidden","Logical restored"]:
-			var image := get_viewport().get_texture().get_image()
-			var expected := Color.RED if title == "Logical hidden" else Color(.5,0,.5)
-			if not matches(image.get_pixel(40,125),expected) or not matches(image.get_pixel(180,115),Color.RED):
-				image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/logical-diagnostic.png"))
-				push_error("Logical geometry/visibility pixel mismatch: %s new=%s old=%s layers=%d" % [title,image.get_pixel(40,125),image.get_pixel(180,115),host.get_window_count()])
-				get_tree().quit(1)
-				return
+			click(get_window(),Vector2(20,25)); state=3
+		if title in ["Logical moved","Logical hidden","Logical restored"] and not seen.has(title):
+			var root_image := get_viewport().get_texture().get_image()
+			if not matches(root_image.get_pixelv(Vector2i(Vector2(180,115)*scale)),Color.RED): continue
+			if title == "Logical hidden":
+				if child != null or DisplayServer.get_window_list().size()!=1: continue
+			else:
+				if child == null or child.is_embedded() or DisplayServer.get_window_list().size()!=2: continue
+				if child.position-get_window().position != Vector2i(Vector2(30,60)*scale): continue
+				var pixel := child.get_texture().get_image().get_pixelv(Vector2i(Vector2(10,65)*scale))
+				if last_observed!=title:
+					print("NATIVE_STAGE_OBSERVED ",title," ",pixel)
+					last_observed=title
+				if absf(pixel.b-.5)>.04 or absf(pixel.a-.5)>.04 or pixel.r>.04 or pixel.g>.04: continue
 			seen[title]=true
 	if state != 3 or seen.size()!=3 or host.get_window_count()!=0 or DisplayServer.get_window_list().size()!=1:
-		push_error("Logical lifecycle/interaction coverage differs")
+		push_error("Logical lifecycle/interaction coverage differs: states="+str(seen.keys()))
 		get_tree().quit(1)
 		return
 	remove_child(host)

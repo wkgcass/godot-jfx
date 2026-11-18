@@ -33,7 +33,7 @@ public final class LogicalWindowProbe {
             first.setOnAction(event -> { ++mainActions; main.setTitle("Main action "+mainActions); actions.countDown(); });
             Pane mainRoot=new Pane(first); mainRoot.setStyle("-fx-background-color: transparent;");
             main.setScene(new Scene(mainRoot,240,160,Color.RED)); main.show();
-            child=new Stage(StageStyle.UNDECORATED); child.initOwner(main);
+            child=new Stage(StageStyle.TRANSPARENT); child.initOwner(main);
             Button second=new Button("Child"); second.resizeRelocate(10,10,80,30); second.setPrefSize(80,30);
             second.setOnAction(event -> { ++childActions; main.setTitle("Child action "+childActions); actions.countDown(); });
             Pane childRoot=new Pane(second); childRoot.setStyle("-fx-background-color: transparent;");

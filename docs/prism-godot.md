@@ -602,3 +602,10 @@ meshes used by queued draws, so eviction does not invalidate their RIDs. Surface
 caches remain separate. This bounds cache ownership, not all live geometry or
 GPU/driver bytes. Cross-target budget, peer destruction and original pixels pass
 in the mobile pressure fixture; full-soak memory comparison is still pending.
+
+Surface resize uses the immediate/deferred viewport swap described above.
+A repeated size leaves the current viewport intact. When a sampler
+revision is retired, its materials are removed from live targets' caches.
+Materials recorded by a pending pass survive until its draw resources are
+released. The Stage churn fixture checks closed-window ownership against the
+same warm baseline on every cycle.

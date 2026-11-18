@@ -1,8 +1,6 @@
 #!/bin/sh
 # macOS equivalent of test-logical-windows.ps1.
-# 陈旧诊断，保留供参考：断言已被独立原生 Stage 替代的历史嵌入式逻辑窗口模型
-# （子 Stage 合成进主视口、根窗口合成输入路由到子窗口），在当前架构的双平台
-# 全新构建上都会失败，不作为 macOS 验收项。见 docs/logical-windows.md。
+# The shared fixture exercises independent native Stage windows; macOS validation is pending.
 # Usage: test-logical-windows.sh [--renderer gl_compatibility|mobile] [--render-thread safe]
 set -eu
 cd "$(dirname "$0")/.."

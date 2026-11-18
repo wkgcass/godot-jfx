@@ -1,5 +1,23 @@
 # 测试指南
 
+## 跨平台待验证项的维护规则
+
+本节规则长期保留。开发或修复涉及其他平台、且当前环境无法完成验证时，执行工作的开发者或代理必须在本文件的“跨平台待验证清单”中记录目标平台、受影响行为、验证入口与参数、通过条件和已知限制。
+
+在目标平台用包含对应改动的源码产物完成验证后，执行验证的开发者或代理应在同一次工作中自动删除已满足全部通过条件的待办条目，无需另行请求确认；同时同步其他文档和脚本注释中对应的待验证状态。部分通过时仅删除已验证的范围，保留剩余平台、后端或场景。验证证据记录到对应验收文档，包含源码版本及本地差异、平台、后端、命令、日志和必要的图像。上游旧版本的通过记录、其他平台通过、跳过或仅编译成功均不足以删除条目。清单清空时保留本规则和清单标题，注明当前无待验证项。
+
+## 跨平台待验证清单
+
+以下项目针对合并 `ca8ff42` 后的本地共享改动。Windows 已完成相关测试三轮共 63 次运行，结果见 `artifacts/logs/restored-stability-20261118/results.csv`。macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物；带 `--renderer` 的下列用例分别运行 `mobile`（Metal）和 `gl_compatibility`（OpenGL），使用 safe 模式，GUI 测试串行执行。每个入口均须正常退出、退出码为 0，并满足脚本原有 PASS 与错误检查。
+
+| 目标平台与待验证内容 | 验证入口与参数 | 通过条件及已知限制 |
+| --- | --- | --- |
+| macOS arm64，采样纹理退役后的材质缓存回收 | `./scripts/test-stage-churn.sh --renderer <后端> --cycles 36`；`./scripts/test-media-churn.sh --renderer <后端>`；`./scripts/test-media-video.sh --renderer <后端>`；`./scripts/test-godot-view.sh --renderer <后端>` | Stage 循环连续三轮通过，关闭后的资源回到原有预热基线，最终资源清理通过；Media 与 GodotView 的原有像素、生命周期断言通过。检查纹理替换和关闭过程中是否出现无效资源错误或画面异常。短期资源计数通过仅覆盖本组场景。 |
+| macOS arm64，三个迁移至独立 Stage 的窗口夹具 | `./scripts/test-logical-windows.sh --renderer <后端>`；`./scripts/test-window-order.sh --renderer <后端>`；`./scripts/test-window-composition.sh --renderer <后端>` | 原有阶段覆盖、事件、系统层序、窗口像素与清理断言均通过，关闭最后一个窗口后正常完成。当前三份 GDScript 仍直接等待 `frame_post_draw`，macOS 无可绘制窗口时可能停住，需参照 `tests/godot/native_order.gd` 的绘制信号与定时器竞速处理；脚本退出上限触发不能算通过。 |
+| macOS arm64，Retina 与混合缩放多屏下的共享窗口夹具 | 在 Retina 单屏和不同缩放双屏环境运行上述三个窗口入口，将主窗口置于屏幕交界附近，覆盖子窗口落在另一屏的情况；记录各窗口所在屏幕、缩放和位置 | 核对窗口尺寸、相对位置、输入坐标与 GPU 像素。当前部分断言用主窗口屏幕缩放计算子窗口采样点，可能误判；如需修正，应依据各窗口实际坐标与渲染尺寸。缺少对应显示器环境时保留该范围的待办。 |
+| macOS arm64，Glass 物理尺寸及窗口生命周期夹具调整 | `./scripts/test-glass-window.sh` 和 `./scripts/test-glass-window.sh --runtime`；`./scripts/test-host-stop.sh --renderer <后端>`；`./scripts/test-input-lifecycle.sh --renderer <后端>` | Glass 尺寸、位置和上游 macOS 滚轮手势断言通过；宿主停止须等待独立窗口就绪并完成清理；输入取消不得额外产生拖拽。记录显示缩放。 |
+| macOS arm64，合成拖拽释放坐标调整 | `./scripts/test-physical-drag.sh --renderer <后端>` | 默认合成输入档的拖动、缩放最终位置和尺寸断言均通过。Windows 撤下本地修正后双后端也通过，因此该修正的必要性尚未由失败复现证明。真实 Robot 档仍按仓库规则另行征得用户同意后运行。 |
+
 ## Viewport＋safe 支持边界
 
 当前宿主只支持 Viewport＋safe；渲染器仍可选择 mobile 或 gl_compatibility。
@@ -54,7 +72,7 @@ J-only 测试不需要启动 Godot，但其内部 API/模块补丁依赖本地 S
 
 GPU/GUI 测试串行执行；性能测试期间保持窗口前台，不进行其他操作，不同时构建或运行重负载。多数功能测试使用宿主注入输入，不需要人工点按钮，也不能据此宣布真实鼠标/IME/触摸验收完成。
 
-**前台与真实输入要求要分别判断**：Godot 合成输入和模块测试钩子不占用真实键鼠，但是否允许失焦取决于夹具；只有明确注明免前台的测试（如 ole-inject）才可据此后台运行。性能比较始终要求保持焦点并避免其他重负载。Robot 物理夹具会占用输入设备，须先获得用户授权、保持桌面空闲；同一会话中已有明确授权且未撤销时不必重复询问，开始前说明会操作真实输入。文件对话框专项使用限定本轮进程/标题的系统消息驱动，具体方式见该节。GPU/GUI 测试仍串行执行。
+**前台与真实输入要求要分别判断**：Godot 合成输入和模块测试钩子不占用真实键鼠，但是否允许失焦取决于夹具；只有明确注明免前台的测试（如 ole-inject）才可据此后台运行。性能比较始终要求保持焦点并避免其他重负载。Robot 物理夹具会占用输入设备，须先获得用户授权、保持桌面空闲；同一会话中已有明确授权且未撤销时不必重复询问，开始前说明会操作真实输入。原生 IME 夹具（`test-native-ime.ps1` / `test-native-ime.sh`）调用 `DisplayServer.warp_mouse` 移动系统光标，运行非物理输入测试时须排除整个入口。文件对话框专项使用限定本轮进程/标题的系统消息驱动，具体方式见该节。GPU/GUI 测试仍串行执行。
 
 表中命令选择 Vulkan（`mobile`）时已显式传参；未列参数使用脚本默认值。`gl_compatibility` 是 OpenGL。**可选参数以表中“可选公共参数”及后文该测试的专项说明为准**：`-RenderThread safe`、`-Runtime` 并非所有脚本支持。`-Jdk` 用于覆盖 JDK 路径。RenderThread 固定为 safe。
 
@@ -75,7 +93,9 @@ macOS 特有判定与限制：
 - `test-clipboard.sh` 由 `tests/native/macos_clipboard_peer.mm` 把共享 NSPasteboard 全部类型按原始字节快照，测试后恢复；pasteboard changeCount 出现测试以外的写入时拒绝恢复并保留快照目录供人工恢复。与 Windows 版相同：不要清空剪贴板换取 PASS。
 - Temurin 25.0.5 aarch64 的 FFM downcall 会随机导致 JVM 崩溃（C2 相关，可在 Godot 之外独立复现）；churn/soak 探针改用 `ps` 采样 RSS、以 `/dev/fd` 计数代替句柄类型统计，判定标准不变。
 - 尚无 macOS 入口的诊断项：`benchmark-*.ps1`、`profile-vfx-*.ps1`、`capture-vfx-reference.ps1`、`repro-hover-manual.ps1`。这些条目的 Windows 结果不能外推为 macOS 证据。
-- 历史窗口组诊断在 macOS 的现状：`test-window-commands.sh`、`test-window-resize.sh`、`test-popup-edge.sh` 在双渲染器通过。`test-window-resize.sh` 修复了两个真实缺陷（判定未变）：宿主 resize 命令原先可能在 `frame_post_draw` 应用，根渲染目标在该帧绘制之后重建导致读回空帧，现含 resize 的批次推迟到下一帧绘制前应用；Metal 上 FX 视口随窗口 resize 立即重建纹理，而根视口每帧先于 FX 视口绘制，会采到一空帧，现 resize 推迟到该尺寸的下一帧 present 并以视口交换过渡（旧视口纹理继续呈现到新视口首帧绘制完成），对 Windows 同为改进。`test-popup-edge.sh` 是探针就绪条件缺陷：FX 先设标题后发原生窗口配置，看到标题当帧原生窗口仍不可见，合成点击落到根窗口触发 autoHide；现等待原生窗口可见再点击。`test-logical-windows.sh`、`test-window-composition.sh`、`test-window-order.sh` 断言的是已被独立原生 Stage 替代的历史嵌入式逻辑窗口模型（见 [logical-windows.md](docs/logical-windows.md)），属陈旧诊断，脚本头已标注，不作为 macOS 验收项。`test-window-lifecycle.sh` 在双渲染器通过：macOS 隐藏最后一个可见 FX Stage 会 orderOut 根 NSWindow，`DisplayServerMacOS::window_can_draw` 随之关闭，Godot 跳过 `RenderingServer.draw`、`frame_post_draw` 不再触发（Windows 隐藏窗口继续绘制）；场景等待改为绘制信号与短定时器竞速避免挂起，隐藏态像素断言在 macOS 跳过（隐藏窗口不参与绘制、像素本质不可观测），状态覆盖、清理与资源断言不变。
+- 历史窗口组诊断在 macOS 的现状：`test-window-commands.sh`、`test-window-resize.sh`、`test-popup-edge.sh` 在双渲染器通过。`test-window-resize.sh` 修复了两个真实缺陷（判定未变）：宿主 resize 命令原先可能在 `frame_post_draw` 应用，根渲染目标在该帧绘制之后重建导致读回空帧，现含 resize 的批次推迟到下一帧绘制前应用；Metal 上 FX 视口随窗口 resize 立即重建纹理，而根视口每帧先于 FX 视口绘制，会采到一空帧，现 resize 推迟到该尺寸的下一帧 present 并以视口交换过渡（旧视口纹理继续呈现到新视口首帧绘制完成），对 Windows 同为改进。`test-popup-edge.sh` 是探针就绪条件缺陷：FX 先设标题后发原生窗口配置，看到标题当帧原生窗口仍不可见，合成点击落到根窗口触发 autoHide；现等待原生窗口可见再点击。`test-logical-windows.sh`、`test-window-composition.sh`、`test-window-order.sh` 的早期记录来自历史嵌入模型；迁移至独立原生 Stage 后的夹具在 macOS 待复验。`test-window-lifecycle.sh` 在双渲染器通过：macOS 隐藏最后一个可见 FX Stage 会 orderOut 根 NSWindow，`DisplayServerMacOS::window_can_draw` 随之关闭，Godot 跳过 `RenderingServer.draw`、`frame_post_draw` 不再触发（Windows 隐藏窗口继续绘制）；场景等待改为绘制信号与短定时器竞速避免挂起，隐藏态像素断言在 macOS 跳过（隐藏窗口不参与绘制、像素本质不可观测），状态覆盖、清理与资源断言不变。
+
+2026-11-18 合并上游 `ca8ff42` 后，Windows Editor、Runtime 与含 Media 的源码 SDK 重建通过。针对合并涉及的缩放、窗口层序、屏幕、合成拖拽、停止/异常退出、输入生命周期、窗口合成、Stage 循环、GodotView 和视频路径，OpenGL/mobile 及选定 Runtime 档共 36 次验证通过，记录位于 `artifacts/logs/macos-merge-20261118/results.csv`。这次验证使用合成输入默认档。共享夹具和材质回收的本地改动仍需在 macOS 复验；上游的 macOS 通过记录适用于其原始提交。尺寸处理采用上游的即时/延迟视口交换实现，已移除本地 Java 端调整命令顺序的补丁。
 
 ## 拖放专项
 
@@ -287,7 +307,7 @@ touch keyboard 警告。2026-11-10 当前产物运行返回关闭请求 HRESULT
 | `.\scripts\test-native-window-pixels.ps1 -Renderer mobile` | 多原生窗口的 GPU 内容。前置：G+J。 | 各窗口像素与资源释放断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
 | `.\scripts\test-native-stage.ps1 -Renderer mobile` | 标准 JavaFX Stage 映射独立原生窗口。前置：G+J。 | 窗口独立性、显示及生命周期断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
 | `.\scripts\test-native-stage-input.ps1 -Renderer mobile` | 窗口身份与重叠 Stage 输入路由。前置：G+J。 | 输入应到达正确 Stage；注入事件，不是物理设备验收。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-native-ime.ps1 -Renderer mobile` | 多个原生窗口的输入法状态隔离。前置：G+J。 | 组合/提交/取消等注入断言；不证明候选窗口真实位置。 | `-Jdk`、`-Renderer`、`-RenderThread` |
+| `.\scripts\test-native-ime.ps1 -Renderer mobile` | 多个原生窗口的输入法状态隔离；会移动真实光标，须获授权。前置：G+J。 | 组合/提交/取消等注入断言；不证明候选窗口真实位置。 | `-Jdk`、`-Renderer`、`-RenderThread` |
 | `.\scripts\test-native-order.ps1 -Renderer mobile` | 原生窗口顺序、所有者和前后关系。前置：G+J。 | 顺序与状态断言，无异常。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
 | `.\scripts\test-native-exit.ps1 -Renderer mobile` | 重复创建原生窗口后退出。前置：G；12 轮。 | 必须记录 12 个周期及 NATIVE_EXIT_PASS。 | `-Renderer`、`-RenderThread` |
 | `.\scripts\test-native-churn.ps1 -Renderer mobile` | 隔离 Godot Window/SubViewport 的资源增长。前置：G；Kind 可选 Idle/SubViewport/Window/JavaFXNativeWindow。 | 181 个样本及完成标记；仅传入非负 StaticRangeLimitBytes 才启用静态内存范围门槛。 | `-Renderer`、`-RenderThread` |
@@ -316,12 +336,12 @@ touch keyboard 警告。2026-11-10 当前产物运行返回关闭请求 HRESULT
 
 | 启动命令 | 用途 / 特殊前置条件 | 验收方式 | 可选公共参数 |
 | --- | --- | --- | --- |
-| `.\scripts\test-logical-windows.ps1 -Renderer mobile` | 早期嵌入式逻辑窗口诊断。前置：G+J；历史模型，不作独立 Stage 验收。 | 逻辑窗口测试自身的状态/像素断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
+| `.\scripts\test-logical-windows.ps1 -Renderer mobile` | 主窗与次级原生 Stage 的独立画面、按窗口寻址输入、位置及透明度。前置：G+J。 | 验证两个窗口的 GPU 像素、动作计数、隐藏与重显及清理。 | `-Jdk`、`-Renderer`、`-RenderThread` |
 | `.\scripts\test-window-layers.ps1 -Renderer mobile` | 原生窗口层绘制基础。前置：G；底层诊断。 | 图层像素/顺序及清理断言。 | `-Renderer`、`-RenderThread` |
 | `.\scripts\test-window-commands.ps1 -Renderer mobile` | 窗口相关批次命令。前置：G+J；底层诊断。 | 编码和宿主消费结果断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-window-composition.ps1 -Renderer mobile` | 多目标窗口合成。前置：G+J；底层诊断。 | 合成内容、保留/释放等断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
+| `.\scripts\test-window-composition.ps1 -Renderer mobile` | 独立原生窗口接收 Prism Presentable。前置：G+J。 | 合成内容、保留/释放等断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
 | `.\scripts\test-window-lifecycle.ps1 -Renderer mobile` | 窗口发布、隐藏和销毁。前置：G+J；历史/底层覆盖。 | 生命周期与清理断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-window-order.ps1 -Renderer mobile` | 逻辑窗口的图层顺序。前置：G+J；不代替当前 native-order。 | 图层顺序断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
+| `.\scripts\test-window-order.ps1 -Renderer mobile` | 重叠的独立 Stage 的系统层序及顶层窗口像素。前置：G+J。 | 十阶段窗口层序、像素与资源清理断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
 | `.\scripts\test-window-resize.ps1 -Renderer mobile` | 发布目标随窗口尺寸变化。前置：G+J；底层覆盖。 | 连续 resize 的画面/资源断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
 
 ### GPU 绘制、Shader、Effect 与嵌入场景

@@ -53,6 +53,7 @@ func _ready() -> void:
 			sample_count+=1;print("STAGE_CHURN_RESOURCES ",JSON.stringify(sample))
 			if cycle==6:
 				baseline=owned;baseline_texture=texture
+				print("STAGE_CHURN_BASELINE ",host.get_texture_resource_stats())
 			elif cycle>6 and (owned!=baseline or texture!=baseline_texture):
 				print("STAGE_CHURN_RETAINED ",host.get_texture_resource_stats())
 				push_error("Closed Stage resources did not return to warm baseline");get_tree().quit(1);return

@@ -45,6 +45,9 @@ bool JavaFXHost::refresh_native_owners(int64_t p_hidden_owner) {
 	for (const auto &item : native_windows) {
 		const auto &entry = item.second;
 		if (!entry.owner || entry.window->get_window_id() == DisplayServerEnums::INVALID_WINDOW_ID) continue;
+		// Hiding an owner only detaches its immediate children. Reparenting
+		// the closing window itself can race native teardown of its owner.
+		if (p_hidden_owner && entry.owner != p_hidden_owner) continue;
 		Window *owner = entry.owner > 0 ? get_native_window(entry.owner) : get_window();
 		ERR_FAIL_NULL_V(owner, false);
 		HWND handle = reinterpret_cast<HWND>(display->window_get_native_handle(DisplayServerEnums::WINDOW_HANDLE, entry.window->get_window_id()));
@@ -57,7 +60,9 @@ bool JavaFXHost::refresh_native_owners(int64_t p_hidden_owner) {
 		// destroy owned HWNDs behind their still-live Godot Window objects.
 		SetLastError(0);
 		LONG_PTR previous = SetWindowLongPtr(handle, GWLP_HWNDPARENT, reinterpret_cast<LONG_PTR>(owner_handle));
-		ERR_FAIL_COND_V(!previous && GetLastError() != 0, false);
+		DWORD error = GetLastError();
+		ERR_FAIL_COND_V_MSG(!previous && error != ERROR_SUCCESS, false,
+				vformat("Setting owner of JavaFX window %d to %d failed (hidden owner %d, Win32 error %d).", item.first, entry.owner, p_hidden_owner, error));
 	}
 	return true;
 }
@@ -76,6 +81,7 @@ bool JavaFXHost::configure_native_window(int64_t p_id, const Rect2i &p_bounds, b
 	set_window_input_enabled(p_id, native_windows.at(p_id).input_enabled);
 	if (p_visible && !was_visible) {
 		const auto &entry = native_windows.at(p_id);
+		if (entry.owned_topmost && !set_native_window_property(p_id, 9, 1, 0, String())) return false;
 		window->set_ime_active(entry.ime_enabled);
 		window->set_ime_position(entry.ime_position);
 	}
@@ -122,7 +128,16 @@ void JavaFXHost::restack_window(Window *p_window, bool p_front) {
 	HWND handle = reinterpret_cast<HWND>(DisplayServer::get_singleton()->window_get_native_handle(
 			DisplayServerEnums::WINDOW_HANDLE, p_window->get_window_id()));
 	// Match Windows Glass without moving/resizing or activating a peer.
-	ERR_FAIL_COND(!SetWindowPos(handle, p_front ? HWND_TOP : HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE));
+	HWND after = p_front ? HWND_TOP : HWND_BOTTOM;
+	if (!p_front && (GetWindowLongPtrW(handle, GWL_EXSTYLE) & WS_EX_TOPMOST)) {
+		// HWND_BOTTOM would clear WS_EX_TOPMOST. Lower only within this level.
+		after = handle;
+		for (HWND next = GetWindow(handle, GW_HWNDNEXT); next && (GetWindowLongPtrW(next, GWL_EXSTYLE) & WS_EX_TOPMOST); next = GetWindow(next, GW_HWNDNEXT)) {
+			after = next;
+		}
+		if (after == handle) return;
+	}
+	ERR_FAIL_COND(!SetWindowPos(handle, after, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE));
 }
 
 bool JavaFXHost::is_window_above(int64_t p_id, int64_t p_other) const {
@@ -158,7 +173,20 @@ bool JavaFXHost::set_native_window_property(int64_t p_id, int p_property, int p_
 		case 4: if (window->is_visible()) request_window_focus(window); break;
 		case 6: window->set_mode(static_cast<Window::Mode>(p_a)); break;
 		case 7: window->set_flag(Window::FLAG_RESIZE_DISABLED, p_a == 0); break;
-		case 9: window->set_flag(Window::FLAG_ALWAYS_ON_TOP, p_a != 0); break;
+		case 9: {
+			auto &entry = native_windows.at(p_id);
+			if (!entry.owner) {
+				window->set_flag(Window::FLAG_ALWAYS_ON_TOP, p_a != 0);
+				break;
+			}
+			// Godot disallows FLAG_ALWAYS_ON_TOP on transients. Glass supports
+			// changing the native level while preserving the HWND owner.
+			if (window->get_window_id() != DisplayServerEnums::INVALID_WINDOW_ID) {
+				HWND handle = reinterpret_cast<HWND>(DisplayServer::get_singleton()->window_get_native_handle(DisplayServerEnums::WINDOW_HANDLE, window->get_window_id()));
+				if (!SetWindowPos(handle, p_a ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER)) return false;
+			}
+			entry.owned_topmost = p_a != 0;
+		} break;
 		case 12: {
 			Size2i maximum = window->get_max_size();
 			if ((maximum.x && p_a > maximum.x) || (maximum.y && p_b > maximum.y)) return false;

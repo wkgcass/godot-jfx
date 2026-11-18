@@ -5,12 +5,10 @@ func _ready() -> void:
 	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"HostStopProbe"):
 		push_error("Host stop JVM start failed"); get_tree().quit(1); return
 	var deadline:=Time.get_ticks_msec()+30000
-	while get_window().title!="Host stop ready" or host.get_native_window_count()!=2 or host.is_composition_pending():
+	while get_window().title!="Host stop ready" or host.get_native_window_count()!=2 or DisplayServer.get_window_list().size()!=3 or host.is_composition_pending():
 		if Time.get_ticks_msec()>deadline:
 			push_error("Host stop setup timed out"); get_tree().quit(1); return
 		await get_tree().process_frame
-	if DisplayServer.get_window_list().size()!=3:
-		push_error("Host stop setup lacks independent windows"); get_tree().quit(1); return
 	host.stop_jvm()
 	# The host deliberately stays in the tree: stopping must not depend on free().
 	if host.get_native_window_count()!=0 or DisplayServer.get_window_list().size()!=1:

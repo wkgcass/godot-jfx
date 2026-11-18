@@ -1,8 +1,6 @@
 #!/bin/sh
 # macOS equivalent of test-window-composition.ps1.
-# 陈旧诊断，保留供参考：用伪造句柄（90001/90002）创建次级 Presentable 并断言其
-# 作为合成图层进入主视口——该嵌入式合成模型已被独立原生 Stage 替代，在当前架构
-# 全新构建上同样失败，不作为 macOS 验收项。见 docs/logical-windows.md。
+# The shared fixture exercises independent native Stage windows; macOS validation is pending.
 # Usage: test-window-composition.sh [--renderer gl_compatibility|mobile] [--render-thread safe]
 set -eu
 cd "$(dirname "$0")/.."

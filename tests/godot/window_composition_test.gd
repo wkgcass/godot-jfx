@@ -20,23 +20,32 @@ func _ready() -> void:
 		await RenderingServer.frame_post_draw
 		if not get_window().title.begins_with("Composition "): continue
 		var index := get_window().title.get_slice(" ",1).to_int()
+		if seen.has(index): continue
 		var image := get_viewport().get_texture().get_image()
-		var middle := image.get_pixel(80,30)
-		var right := image.get_pixel(140,30)
-		var expected := Color(.5,0,.5) if index in [0,4] else Color.RED
-		var right_expected := Color.BLUE if index == 1 else Color.RED
-		if differs(middle,expected) or differs(right,right_expected):
-			push_error("Composition pixels differ at %d: %s %s" % [index,middle,right])
-			get_tree().quit(1)
-			return
-		if host.get_surface_size() != Vector2i(240,160) or host.get_window_count() != (1 if index == 5 else 2):
-			push_error("Secondary Presentable changed host size or layer ownership")
-			get_tree().quit(1)
-			return
-		if not seen.has(index): image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/window-composition-%d.png" % index))
+		if differs(image.get_pixel(80,30),Color.RED) or differs(image.get_pixel(140,30),Color.RED):
+			push_error("Secondary publication overwrote primary");get_tree().quit(1);return
+		var peer=host.get_native_window(90001)
+		var scale:=DisplayServer.screen_get_scale(get_window().current_screen)
+		if host.get_surface_size()!=Vector2i(Vector2(240,160)*scale) or host.get_window_count()!=1: continue
+		if index==5:
+			if peer!=null or DisplayServer.get_window_list().size()!=1: continue
+		elif index==3:
+			if peer==null or peer.visible or DisplayServer.get_window_list().size()!=1: continue
+		else:
+			if peer==null or not peer.visible or peer.is_embedded() or peer.is_present_pending(): continue
+			if peer.position-get_window().position!=Vector2i(120 if index==1 else 60,10): continue
+			var above:bool=host.is_window_above(0,90001) if index==2 else host.is_window_above(90001,0)
+			if not above: continue
+			image=peer.get_texture().get_image()
+			if image.get_size()!=Vector2i(80,60): continue
+			var pixel:=image.get_pixel(20,20)
+			var opacity:=0.5 if index in [0,4] else 1.0
+			if differs(pixel,Color(0,0,opacity)) or absf(pixel.a-opacity)>.03:
+				push_error("Native composition pixel differs at %d: %s" % [index,pixel]);get_tree().quit(1);return
+		image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/window-composition-%d.png" % index))
 		seen[index] = true
 	if seen.size() != 6 or host.get_window_count() != 0 or DisplayServer.get_window_list().size() != 1:
-		push_error("Composition coverage/cleanup differs")
+		push_error("Composition coverage/cleanup differs: phases="+str(seen.keys()))
 		get_tree().quit(1)
 		return
 	remove_child(host)

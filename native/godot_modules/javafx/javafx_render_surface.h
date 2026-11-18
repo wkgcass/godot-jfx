@@ -74,6 +74,7 @@ class JavaFXRenderSurface : public Node2D {
 	void update_presentation();
 	void draw_prism_quads(const PackedFloat32Array &p_vertices, const PackedByteArray &p_colors, const Transform2D &p_transform, RID p_texture, float p_modulate = 1.0f);
 	void free_retired_textures();
+	void retire_sampler(RID p_rid);
 public:
 	// Sum of the most recent measured GPU render time of every tracked
 	// offscreen target, in microseconds (measurement must be enabled).

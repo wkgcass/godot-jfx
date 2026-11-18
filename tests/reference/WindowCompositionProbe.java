@@ -15,7 +15,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Secondary production Presentable, independent of still-disabled Glass popups. */
+/** Exercises a secondary Prism Presentable with its own native destination. */
 public final class WindowCompositionProbe {
     private static Stage stage;
     private static Presentable secondary;
@@ -44,6 +44,19 @@ public final class WindowCompositionProbe {
         if (!done.await(10,TimeUnit.SECONDS)) throw new AssertionError("Composition action timeout");
         if (failure.get() != null) throw new AssertionError(failure.get());
     }
+    private static void nativeCommand(int operation, int x, int y, int property, boolean visible) {
+        long sequence = GodotBridge.nativeWindowCommand(90001, 0, operation, x, y, 80, 60, property, visible, null);
+        long deadline = System.nanoTime() + 5_000_000_000L;
+        while (GodotBridge.nativeWindowAck() < sequence) {
+            tick = GodotBridge.awaitTick(tick, 100);
+            if (tick < 0 || System.nanoTime() > deadline)
+                throw new AssertionError("Native composition command timed out: " + operation);
+        }
+    }
+    private static void configure(int offset, boolean visible) {
+        int[] root = GodotBridge.hostInfo();
+        nativeCommand(2, root[3] + offset, root[4] + 10, 0, visible);
+    }
     private static void phase(int index) {
         waitFrames(45); GodotBridge.hostCommand(1,0,0,"Composition " + index); waitFrames(20);
         GodotBridge.hostCommand(1,0,0,"Transition");
@@ -68,17 +81,20 @@ public final class WindowCompositionProbe {
         });
         if (!ready.await(10,TimeUnit.SECONDS)) throw new AssertionError("Startup timeout");
         waitFrames(60);
+        nativeCommand(1, 0, 0, 3, false);
+        configure(60, true);
+        nativeCommand(4, 0, 0, 23, false);
         run(true,() -> {
             secondary = GraphicsPipeline.getDefaultResourceFactory().createPresentable(presentableState);
             var graphics = secondary.createGraphics(); graphics.clear(com.sun.prism.paint.Color.BLUE);
             if (!secondary.prepare(null) || !secondary.present()) throw new AssertionError("Secondary publication failed");
         });
         phase(0);
-        run(false,() -> state.setComposition(120,10,1,1)); phase(1);
-        run(false,() -> state.setComposition(60,10,-1,1)); phase(2);
-        run(false,() -> { state.setComposition(60,10,1,.5f); state.setVisible(false); }); phase(3);
-        run(false,() -> state.setVisible(true)); phase(4);
-        run(false,() -> state.close()); phase(5);
+        run(false,() -> state.setComposition(120,10,1,1)); configure(120, true); phase(1);
+        run(false,() -> state.setComposition(60,10,-1,1)); configure(60, true); nativeCommand(4, 0, 0, 22, false); phase(2);
+        run(false,() -> { state.setComposition(60,10,1,.5f); state.setVisible(false); }); configure(60, false); phase(3);
+        run(false,() -> state.setVisible(true)); configure(60, true); nativeCommand(4, 0, 0, 23, false); phase(4);
+        run(false,() -> state.close()); nativeCommand(3, 0, 0, 0, false); phase(5);
         run(true,() -> ((GraphicsResource)secondary).dispose());
         run(false,() -> stage.close()); waitFrames(60);
         Platform.exit();

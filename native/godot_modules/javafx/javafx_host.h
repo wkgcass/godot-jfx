@@ -105,6 +105,9 @@ class JavaFXHost : public JavaFXWindowSurface {
 		JavaFXNativeWindow *window;
 		int64_t owner;
 		bool input_enabled = true;
+#if defined(WINDOWS_ENABLED)
+		bool owned_topmost = false;
+#endif
 		bool ime_enabled = false;
 		String ime_text;
 		int ime_caret = 0;

@@ -939,3 +939,9 @@ also leaves any newly chosen application cursor intact. The native-window
 fixture checks the no-JVM case, and the image-cursor fixture checks a new
 application cursor between normal exit and final host destruction; both use
 synthetic viewport input, without moving the physical pointer.
+
+On Windows, an owned Stage retains its HWND owner when its always-on-top
+level changes. Sending a topmost Stage to the back lowers it within the
+topmost group. Hiding an owner detaches its immediate owned HWNDs before
+Windows destroys the handle. The window-order and failure-shutdown probes
+cover these transitions.

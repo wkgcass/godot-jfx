@@ -37,7 +37,6 @@ func release_left(window_id: int, pos: Vector2) -> void:
 	Input.flush_buffered_events()
 
 func drag_steps(window_id: int, screen0: Vector2, step: Vector2, count: int) -> Vector2:
-	var local := screen0
 	for k in range(1, count + 1):
 		var target := screen0 + step * k
 		var motion := InputEventMouseMotion.new()
@@ -46,10 +45,9 @@ func drag_steps(window_id: int, screen0: Vector2, step: Vector2, count: int) -> 
 		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
 		Input.parse_input_event(motion)
 		Input.flush_buffered_events()
-		local = motion.position
 		await get_tree().process_frame
 		await get_tree().process_frame
-	return local
+	return screen0 + step * count
 
 func run_drag() -> void:
 	var window_id := get_window().get_window_id()
@@ -58,10 +56,10 @@ func run_drag() -> void:
 	press_left(window_id, local)
 	for i in range(18):
 		await get_tree().process_frame
-	local = await drag_steps(window_id, screen0, Vector2(0, -48) * input_scale, 10)
+	var screen_end := await drag_steps(window_id, screen0, Vector2(0, -48) * input_scale, 10)
 	for i in range(36):
 		await get_tree().process_frame
-	release_left(window_id, local)
+	release_left(window_id, screen_end - Vector2(get_window().position))
 
 func run_resize() -> void:
 	var window_id := get_window().get_window_id()
@@ -70,10 +68,10 @@ func run_resize() -> void:
 	press_left(window_id, local)
 	for i in range(18):
 		await get_tree().process_frame
-	local = await drag_steps(window_id, screen0, Vector2(40, 32) * input_scale, 8)
+	var screen_end := await drag_steps(window_id, screen0, Vector2(40, 32) * input_scale, 8)
 	for i in range(36):
 		await get_tree().process_frame
-	release_left(window_id, local)
+	release_left(window_id, screen_end - Vector2(get_window().position))
 
 func _ready() -> void:
 	host = ClassDB.instantiate("JavaFXHost")

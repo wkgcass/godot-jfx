@@ -8,8 +8,9 @@ func child_window(host):
 func mouse(pressed: bool, point: Vector2, window = null) -> void:
 	if window == null: window = get_window()
 	point *= DisplayServer.screen_get_scale(window.current_screen)
-	var motion:=InputEventMouseMotion.new(); motion.position=point; motion.window_id=window.get_window_id()
-	Input.parse_input_event(motion)
+	if pressed:
+		var motion:=InputEventMouseMotion.new(); motion.position=point; motion.window_id=window.get_window_id()
+		Input.parse_input_event(motion)
 	var event:=InputEventMouseButton.new(); event.position=point; event.window_id=window.get_window_id(); event.button_index=MOUSE_BUTTON_LEFT; event.pressed=pressed
 	Input.parse_input_event(event)
 

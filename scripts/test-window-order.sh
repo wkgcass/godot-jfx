@@ -1,8 +1,6 @@
 #!/bin/sh
 # macOS equivalent of test-window-order.ps1.
-# 陈旧诊断，保留供参考：断言子 Stage 内容作为图层合成进主视口及其顺序——该嵌入式
-# 窗口模型已被独立原生 Stage 替代，在当前架构全新构建上同样失败，不作为 macOS
-# 验收项。见 docs/logical-windows.md。
+# The shared fixture exercises independent native Stage windows; macOS validation is pending.
 # Usage: test-window-order.sh [--renderer gl_compatibility|mobile] [--render-thread safe]
 set -eu
 cd "$(dirname "$0")/.."

@@ -176,6 +176,22 @@ RID JavaFXRenderTarget::get_texture() const {
 	return viewport_texture;
 }
 
+void JavaFXRenderTarget::retire_sampler(RID p_texture) {
+	for (auto *item = material_cache_order.front(); item;) {
+		auto *next = item->next();
+		const uint64_t key = item->get();
+		const MaterialEntry &entry = material_cache[key];
+		if (entry.rids.has(p_texture)) {
+			// A recorded pass may still be waiting for its draw fence.
+			if (draw_index) draw_resources.push_back(entry.material);
+			else RenderingServer::get_singleton()->free_rid(entry.material);
+			material_cache.erase(key);
+			material_cache_order.erase(item);
+		}
+		item = next;
+	}
+}
+
 int JavaFXRenderTarget::get_owned_resource_count() const {
 	return int(viewport.is_valid()) + int(canvas.is_valid()) + int(commands.is_valid()) + int(shader.is_valid()) + int(material.is_valid()) + draw_resources.size() + shader_cache.size() + slots.size() + material_cache.size();
 }

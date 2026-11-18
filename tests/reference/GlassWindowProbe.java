@@ -100,7 +100,9 @@ public final class GlassWindowProbe {
                 created.setView(view);
                 created.setMinimumSize(320, 240);
                 created.setMaximumSize(1600, 1200);
-                created.setBounds(120, 100, true, true, 800, 480, 0, 0, 0, 0);
+                // This fixture checks native pixels, including absolute pointer coordinates.
+                created.setPosition(120, 100);
+                created.setSize(800, 480);
                 created.setResizable(false);
                 created.setBackground(0.12f, 0.24f, 0.36f);
                 created.setCursor(app.createCursor(Cursor.CURSOR_TEXT));
