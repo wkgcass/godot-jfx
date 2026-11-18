@@ -7,8 +7,7 @@ For the macOS arm64 port see [build-macos.md](build-macos.md).
 After preparing the Windows toolchain, run these builds sequentially from the checkout.
 
 ```powershell
-.\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule
-.\scripts\build-windows.ps1 -Target godot-runtime -WithJavaFXModule
+.\scripts\build-windows.ps1 -Target godot-editor
 .\scripts\build-windows.ps1 -Target godot-library
 .\scripts\build-windows.ps1 -Target jfx
 .\scripts\build-jfx-media.ps1
@@ -20,23 +19,20 @@ Staging publishes six Java modules and the Windows x64 graphics and Media classi
 The example below builds the repository's sample consumer and launches it. Set the manifest main class to an ordinary Java launcher that calls `Application.launch`. See the [consumer build](../tests/library/shadow/build.gradle) for the dependencies and manifest.
 
 ```powershell
-.\jfx\gradlew.bat -p tests/library/shadow shadowJar '-Prepository=D:\Godot JavaFX\repository' '-PjavafxVersion=28-godot.3'
+.\jfx\gradlew.bat -p tests/library/shadow shadowJar '-Prepository=D:\Godot JavaFX\repository' '-PjavafxVersion=28-godot.4'
 & "$env:JAVA_HOME/bin/java.exe" -jar tests/library/shadow/build/libs/stage-app-all.jar
 ```
 
-For a module-path development run, staging also provides loose DLLs and modular JARs.
+For a module-path development run, resolve one JAR for each module. Use the Windows classifiers for graphics and Media.
 
 ```powershell
-$runtime = 'D:\Godot JavaFX'
-& "$runtime/run-javafx.ps1" -cp 'D:\myapp\classes' example.MyApplication
-# Equivalent invocation using modules resolved by the application's Maven build
-& "$env:JAVA_HOME/bin/java.exe" --module-path 'D:\myapp\target\modules' --add-modules javafx.controls,javafx.media --enable-native-access=javafx.graphics,javafx.media "-Djavafx.godot.runtime=$runtime" -cp 'D:\myapp\classes' example.MyApplication
+& "$env:JAVA_HOME/bin/java.exe" --module-path 'D:\myapp\target\modules' --add-modules javafx.controls,javafx.media --enable-native-access=javafx.graphics,javafx.media -cp 'D:\myapp\classes' example.MyApplication
 ```
 
 The default host starts with an empty scene tree, uses `mobile` and hides the window until its first presentation. An application using GodotView can include `META-INF/godot-jfx/scenes.pck` as a resource. An explicit imported directory or PCK remains available for applications that intend to launch an existing Godot project. [Library specification](godot-library-spec.md).
 
 ```java
-GodotRuntime.init(new GodotRuntime.Options(runtimeDirectory, projectPath, "mobile",
+GodotRuntime.init(new GodotRuntime.Options(projectPath, "mobile",
         GodotRuntime.StartupWindow.LOGO));
 ```
 
@@ -57,7 +53,7 @@ $env:JAVA_HOME
 & "$env:JAVA_HOME/bin/javac.exe" -version
 ```
 
-Child batch/Gradle processes and the Godot host need this directory even when
+Build and test scripts need this directory even when
 `java` is a shell function. Scripts that temporarily set `JAVA_HOME` restore it
 on exit. A new shell must have the desired environment initialized again.
 
@@ -91,7 +87,7 @@ not require corresponding files to exist.
 
 The JavaFX module now builds only the Viewport host, with safe rendering.
 There is no `-JavaFXRDDirect`/`javafx_rd_direct` build option or backend capability
-JNI query. Build logs are `godot-editor-javafx.log` and `godot-runtime-javafx.log`.
+JNI query. Build logs are `godot-editor.log` and `godot-library.log`.
 Rebuild both the host and local JFX SDK after this removal. Godot's RenderingDevice
 and Vulkan/OpenGL renderer implementations remain enabled; the host still targets
 Windows x64 as the reference platform, with macOS arm64 now ported separately
@@ -121,22 +117,13 @@ try {
 }
 
 .\scripts\build-windows.ps1 -Target godot-editor
-.\scripts\build-windows.ps1 -Target godot-runtime
 .\scripts\build-windows.ps1 -Target jfx
 ```
 
-Scripts are repeatable/incremental and propagate build failures. Logs and
-exit codes are under `artifacts/logs`. Current verified output locations:
-`godot/bin/godot.windows.editor.x86_64.exe`,
-`godot/bin/godot.windows.template_release.x86_64.exe`, `jfx/build/sdk`.
-The runtime is Godot's export template target, not a prebuilt download.
-The current integrated Editor and Runtime, and the default OpenJFX SDK, have
-built successfully; their latest recorded exit codes are zero. Godot currently
-reports `4.8.beta.custom_build.420dfdc1c` (Editor `--version`, checked 2026-11-04). Build the integrated binaries with:
+Build logs and exit codes are under `artifacts/logs`. The source editor imports test assets and exports custom scene packs. The shared engine is built at `godot/bin/godot.windows.template_release.x86_64.library.dll`. Build the platform classifiers and VFX Demo with:
 
 ```powershell
-.\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule
-.\scripts\build-windows.ps1 -Target godot-runtime -WithJavaFXModule
+.\scripts\build-windows.ps1 -Target godot-editor
 .\scripts\build-windows.ps1 -Target godot-library
 .\scripts\build-windows.ps1 -Target jfx
 .\scripts\build-jfx-media.ps1
@@ -144,7 +131,7 @@ reports `4.8.beta.custom_build.420dfdc1c` (Editor `--version`, checked 2026-11-0
 .\scripts\write-delivery-inventory.ps1
 ```
 
-The javafx custom module and JNI bridge are compiled into these Godot executables;
+The javafx custom module and JNI bridge are compiled into the shared Godot library;
 there is no separate bridge DLL or godot-cpp runtime dependency. OpenJFX SDK native
 graphics libraries include glass.dll, prism_d3d.dll, javafx_font.dll and
 javafx_iio.dll. The SDK also includes Java modules such as javafx.fxml.jar.
@@ -158,7 +145,7 @@ or untracked paths and selected artifact hashes; regenerate it after changes.
 
 ```powershell
 & "$env:JAVA_HOME/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing -encoding UTF-8 -d artifacts/reference tests/reference/ReferenceSmoke.java
-& "$env:JAVA_HOME/bin/java.exe" --enable-native-access=javafx.graphics --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing '-Dprism.verbose=true' '-Dreference.snapshot=artifacts/reference/stock-d3d.png' -cp artifacts/reference ReferenceSmoke
+& "$env:JAVA_HOME/bin/java.exe" --enable-native-access=javafx.graphics --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing '-Dprism.order=d3d' '-Dprism.verbose=true' '-Dreference.snapshot=artifacts/reference/stock-d3d.png' -cp artifacts/reference ReferenceSmoke
 ```
 
 This creates an actual JavaFX window, captures the scene using JavaFX's
@@ -183,14 +170,13 @@ in the SDK, and rejects an empty dependency scan. A failed upstream scan's marke
 file is removed before retrying. Overrides are process-local and restored.
 
 GLib, GStreamer, FX plugins and jfxmedia now compile and stage into the SDK.
-Silent PCM and local MP4 MediaView playback pass on GL/Vulkan Editor and packaged
-Vulkan Runtime; extended Media stability remains open (see media-godot.md). Do not equate library
+Silent PCM and local MP4 MediaView playback pass with the GL and Vulkan renderers; extended Media stability remains open (see media-godot.md). Do not equate library
 compilation with complete playback acceptance. An earlier
 Cygwin installer attempt was rejected and has not been retried.
 # Transparent native windows
 
-The host project must enable `display/window/per_pixel_transparency/allowed=true`
-before Godot starts. The test project now includes this setting. Standard JavaFX
+Applications that explicitly load a project must enable `display/window/per_pixel_transparency/allowed=true`
+before Godot starts. Projectless startup enables it internally. The test project includes this setting. Standard JavaFX
 `StageStyle.TRANSPARENT` plus a transparent Scene fill can then preserve empty
 pixels; an explicitly opaque Scene fill still draws an opaque background.
 
@@ -200,7 +186,6 @@ Build the `godot-library` target and the Media-enabled JavaFX SDK, then run
 `.\scripts\build-vfx.ps1`. It stages the platform libraries and builds the
 complete Intro Demo. Launch it with `java -jar artifacts/vfx/libs/vfx-demo.jar`.
 `.\scripts\run-vfx-demo.ps1` starts the same JAR and records a log.
-Use `-ExecutableHost` for the original Godot executable diagnostic fixture.
 The default launch uses
 Vulkan/safe and ordinary VSync. Secondary Stages use independent native windows.
 Only `safe` is supported by the JavaFX host.

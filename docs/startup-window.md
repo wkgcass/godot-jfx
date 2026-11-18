@@ -7,8 +7,8 @@
 > for current commands.
 
 
-On Windows, `scripts/run-vfx-demo.ps1` sets `GODOT_JFX_STARTUP=logo` before
-starting Godot. The native window stays hidden during engine and JVM startup.
+The VFX Demo requests `GodotRuntime.StartupWindow.LOGO` before launching JavaFX.
+The native window stays hidden while the engine starts.
 The first JavaFX window requested with `show()` becomes the startup window:
 its current size, position, title and decorations are used for the Godot logo.
 The host draws an opaque logo layer over that window, displays it for at least
@@ -19,24 +19,11 @@ Application input is withheld for this window while the startup layer is active;
 window close requests remain available. Later shows do not repeat the logo.
 Hiding or destroying the startup window cancels its pending startup display.
 
-Use `scripts/run-vfx-demo.ps1 -NoGodotLogo` to set
-`GODOT_JFX_STARTUP=hidden`: startup stays hidden until the first JavaFX frame is
-ready, then the application appears directly. The launcher restores the previous
-environment values when it exits. `-Smoke` can be combined with either mode.
-
-Other launchers can set the same environment variable **before launching Godot**.
-With the variable absent, existing Godot startup and test behavior is retained.
-These modes are for a Windows game process hosting JavaFX; the Godot editor UI
-is excluded. They are implemented by the Windows display server and JavaFX host,
-so an application does not need VFX-specific startup code. The logo reuses
-Godot's built-in splash image; it is not a separate native window. Like the
-native default splash, the full image is displayed at its original pixel size
-and centered on integer pixels, without scaling. Small windows clip the image.
+Use `scripts/run-vfx-demo.ps1 -NoGodotLogo` or `scripts/run-vfx-demo.sh --no-godot-logo` to select `StartupWindow.HIDDEN`. The first completed JavaFX frame reveals the application. Applications can select either mode with `GodotRuntime.Options`. The logo uses Godot's built-in splash image centered at its original size.
 
 ## Validation
 
-Build the source Editor with `build-windows.ps1 -Target godot-editor
--WithJavaFXModule` and the JFX SDK, then run:
+Build the shared engine, SDK and platform JARs, then run:
 
 ```powershell
 .\scripts\test-startup.ps1
@@ -57,15 +44,3 @@ GPU readback also does not prove physical monitor presentation timing.
 No physical keyboard or mouse input is generated. Logs use
 `artifacts/logs/startup-<mode>-<renderer>-<thread>`; the logo readback is
 `artifacts/reference/startup-logo.png`. Require `STARTUP_PASS` and no errors.
-
-Checked on Windows x64 on 2026-11-12: source Editor build; normal logo/hidden
-cases on mobile/safe, mobile/separate and gl_compatibility/safe; both
-cancellation cases on mobile/safe; VFX Demo smoke with and without the logo;
-and the existing native-window pixel test on mobile/safe with startup mode
-unset. The release template was not rebuilt in this check.
-
-The 0.5-second fade is checked on mobile/safe, mobile/separate and
-gl_compatibility/safe using timing assertions and a blended GPU readback
-(`artifacts/reference/startup-fade.png`). The full startup runner still catches
-an empty native window title in a later no-logo lifecycle case; that existing
-visibility failure is not resolved by the fade change.

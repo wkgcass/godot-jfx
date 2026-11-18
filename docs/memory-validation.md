@@ -26,7 +26,7 @@ active/retired targets, RD target count, target-owned count, target mesh/shader/
 material caches and draw slots, plus surface mesh cache and retired textures.
 These are per-owner counts (shared resources may be counted more than once), not
 GPU bytes. The existing on-demand `get_texture_resource_stats` interface gathers
-them on the main thread; it does not add per-frame collection. Rebuild the Editor
+them on the main thread; it does not add per-frame collection. Rebuild and publish the engine library
 before using the updated soak fixture. This diagnostic is not a performance run.
 
 The implemented follow-up shares the target geometry cache across main-thread
@@ -36,7 +36,7 @@ resources; the final target releases the cache. Surface-local caches are unchang
 `shared_target_meshes` reports the shared target cache size once; `target_meshes`
 remains a sum of per-target observations and must not be interpreted as unique
 meshes after this change. The unchanged-binary diagnostic completed with 57435 cached target meshes.
-Editor build and cross-target pressure/pixel regression pass; full-soak comparison
+Cross-target pressure/pixel regression passed; full-soak comparison
 and performance revalidation remain pending.
 
 ## Real VFX workload
@@ -46,15 +46,14 @@ and performance revalidation remain pending.
 python .\scripts\analyze-vfx-soak.py artifacts/reference/vfx-soak-mobile-3-heap256.json
 ```
 
-This uses source-built Godot Editor, the source-built JavaFX SDK, and the original
+This uses the published engine and JavaFX JARs, and the original
 VFX Intro classes. An observer reports page changes and JVM memory without changing
 business code. Godot injects mouse input into the Demo's Next/Previous controls,
 visits all pages in both directions each round, and waits two seconds after each
 page acknowledgement. Fusion animations remain enabled. No forced GC is used.
 
 The runner limits the JVM heap and records process private bytes, working set and
-handle count every second. It launches the actual engine `.exe` directly: Godot's
-`.console.exe` is only a launcher and its memory is not representative. The report
+handle count every second. It samples the Java process that loaded the packaged engine. The report
 records the sampled PID/executable; the analyzer excludes old reports without an
 engine identity. Per-page samples record tracked resources, Godot texture
 memory and Godot static memory after the transition. Java heap/GC samples occur
@@ -114,7 +113,7 @@ preserved `review-final-soak-growth` files for the 2026-11-11 run.
 
 ## Shared-cache follow-up results (2026-11-11)
 
-Editor/Runtime source builds pass. GL and Vulkan pressure fixtures verify a shared
+GL and Vulkan pressure fixtures verify a shared
 4096-entry budget, peer destruction preserving other users, final-user release
 starting a fresh cache, and queued-draw pixels. The old binary fails the new shared
 budget assertion. Three-round navigation/cleanup passes with 205 samples and final

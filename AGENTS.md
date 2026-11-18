@@ -22,8 +22,7 @@
 首次环境准备、依赖下载和路径覆盖参数见 [build-windows.md](docs/build-windows.md)。不要把下面的增量构建命令当成完整工具安装步骤。构建脚本对环境变量的修改应限于当前进程并恢复。
 
 ```powershell
-.\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule
-.\scripts\build-windows.ps1 -Target godot-runtime -WithJavaFXModule
+.\scripts\build-windows.ps1 -Target godot-editor
 .\scripts\build-windows.ps1 -Target godot-library
 .\scripts\build-windows.ps1 -Target jfx
 .\scripts\build-jfx-media.ps1
@@ -34,8 +33,7 @@ macOS arm64 在仓库根目录用 shell 执行（工具链准备详见 [build-ma
 
 ```sh
 export JAVA_HOME="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=editor vulkan=no accesskit=no angle=no custom_modules=$PWD/native/godot_modules -j8
-.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=template_release vulkan=no accesskit=no angle=no custom_modules=$PWD/native/godot_modules -j8
+.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=editor vulkan=no accesskit=no angle=no -j8
 (cd jfx && JAVA_HOME=$PWD/../.tools/jdk-25/Contents/Home GRADLE_USER_HOME=$PWD/../.gradle-cache ./gradlew sdk -PCOMPILE_MEDIA=true -PCOMPILE_WEBKIT=false --no-daemon)
 .tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=template_release library_type=shared_library extra_suffix=library disable_path_overrides=no vulkan=no accesskit=no angle=no custom_modules="$PWD/native/godot_modules" -j8
 sh scripts/build-vfx.sh
@@ -43,9 +41,9 @@ sh scripts/build-vfx.sh
 
 mac 上 Media 由这一次 Gradle SDK 构建启用（AVFoundation 后端），没有单独的 Media 构建脚本；渲染器 `mobile` 走 Metal 4.0、`gl_compatibility` 走 OpenGL 4.1，未构建 Vulkan（未安装 MoltenVK）。
 
-顺序执行原生构建；构建前关闭正在使用相应 EXE/DLL 的测试或 Demo，避免链接/复制冲突。`-WithJavaFXModule` 不可遗漏，否则得到的 Godot 没有 JavaFX 宿主。默认 JFX 构建不能代替 Media 构建；Media 步骤显式启用 Media 并关闭 WebKit。不使用预编译 Godot/JavaFX SDK 替代本仓库源码产物；JVM 使用已安装版本，不需要自行构建。
+顺序执行原生构建；构建前关闭正在使用相应产物 的测试或 Demo，避免链接/复制冲突。JavaFX 模块编入共享库，Editor 负责导入与导出资源。默认 JFX 构建不能代替 Media 构建；Media 步骤显式启用 Media 并关闭 WebKit。不使用预编译 Godot/JavaFX SDK 替代本仓库源码产物；JVM 使用已安装版本，不需要自行构建。
 
-产物：`godot/bin/godot.windows.editor.x86_64.exe`、`godot/bin/godot.windows.template_release.x86_64.exe`（macOS 对应 `godot.macos.editor.arm64`、`godot.macos.template_release.arm64`）、`jfx/build/sdk/`（mac 的 dylib 在 `lib/` 而非 `bin/`）、`artifacts/vfx/`。JNI 桥接在 Godot 模块内，没有独立桥接 DLL，也不依赖 godot-cpp。
+产物：`godot/bin/godot.windows.editor.x86_64.exe`、`godot/bin/godot.windows.template_release.x86_64.library.dll`（macOS 对应 `godot.macos.editor.arm64`、`libgodot.macos.template_release.arm64.library.dylib`）、`jfx/build/sdk/`（mac 的 dylib 在 `lib/` 而非 `bin/`）、`artifacts/vfx/`。JNI 桥接在 Godot 模块内，没有独立桥接 DLL，也不依赖 godot-cpp。
 
 ## 运行与常用验证
 
@@ -79,7 +77,7 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 ./scripts/test-vfx-intro.sh --renderer mobile --all-pages
 ```
 
-Windows 场景测试用 classpath 加载本次发布的 Windows 平台 JAR，由同一 Java 进程加载 `godot.dll` 并运行夹具。准备好源码 Editor、Godot 共享库和启用 Media 的 SDK 后，运行 `.\scripts\build-vfx.ps1` 一并刷新发行包。Editor 用于导入/导出资源；`-Runtime` 使用单独的夹具项目目录。Windows 非 Robot 组也包含模块路径、Shadow 和 Demo JAR 消费验收。
+场景测试用 classpath 加载本机发布的平台 JAR，由同一 Java 进程加载 `godot.dll` 或 `libgodot.dylib` 并运行夹具。准备好源码 Editor、Godot 共享库和启用 Media 的 SDK 后，运行 `.\scripts\build-vfx.ps1` 一并刷新发行包。Editor 用于导入/导出资源；`-Runtime` 使用单独的夹具项目目录。Windows 非 Robot 组也包含模块路径、Shadow 和 Demo JAR 消费验收。
 
 按改动范围选测试，详见 TESTS.md。GUI 和性能测试串行运行，保持测试窗口前台，不与构建或其他 GPU 重负载并行。默认 VFX/Media 基准为 Godot；显式 `-Backend d3d` 或 `-NativeD3D` 是原生 JavaFX 对照，不能当作 Godot 验收。
 

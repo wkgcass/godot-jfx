@@ -35,7 +35,7 @@ LCD 正常对照与隔离写入失败、两个探针宿主回归及隔离中断�
 | 已移除 separate 路径的一次历史像素失败 | 已确定旧完成通知可使第 275 轮读到上一轮颜色，并修复等待边界；新增显式通知积压回归档。原始偶发失败无截图，不能断言与确定性复现完全同因；保留原记录，后续失败须分析当次截图 |
 | 剪贴板互操作 | 当前 Windows 和 macOS 测试入口直接读写系统剪贴板，覆盖已有内容。运行命令和通过条件见 TESTS.md。 |
 | 虚拟键盘实际显示/关闭 | Java 调用及 tick 检查通过，系统关闭请求返回拒绝访问。保留系统能力限制，不把 PASS 当作可见性证明 |
-| OLE 回调与 JVM 退出（已修复） | UpcallState 用同一互斥锁保护入口发布、完整回调和关闭；关闭完成后才 DestroyJavaVM。附加线程前暂停的回归通过，移除锁会明确失败；真实 JVM 的 OLE 入站超时取消通过。不是所有系统退出时序的穷举证明 |
+| OLE 回调与 JVM 退出（已修复） | UpcallState 用同一互斥锁保护入口发布、完整回调和关闭；关闭完成后才释放 JNI 引用。附加线程前暂停的回归通过，移除锁会明确失败；真实 JVM 的 OLE 入站超时取消通过。不是所有系统退出时序的穷举证明 |
 | 全范围完成核对 | 原始 156/156、累计补充 52/52；源码核对、缺陷回归、双路径性能和六轮资源观察完成。哈希/清单用于对应证据，不替代实跑 |
 
 已完成的近期修复包括失效材质滞留、材质碰撞串色和同步备用回调生命周期；
@@ -130,7 +130,7 @@ uniform 退休、屏幕采样、pipeline 淘汰与待绘制源复制等门禁，
 原 100 轮像素检查仍输出 PASS，包装脚本正确因 ERROR 拒绝整项通过。
 
 现 separate 备用路径在返回前等待回调完成，保证对象及耗时访问的生命周期；
-默认按 RID 值排队的异步路径保持原来的批次等待。Editor/Runtime 构建成功，
+默认按 RID 值排队的异步路径保持原来的批次等待。引擎构建成功，
 mobile/separate 的开关 0、1 都通过；GL/separate 的开关 0 也通过，均含原有
 100 轮复制/透明度/资源门禁。日志 `review-sync-fallback-before-full.log`、
 `review-sync-fallback-after-{0,1}-full.log`、`review-sync-fallback-gl-full.log`。
@@ -151,7 +151,7 @@ mobile/separate 的开关 0、1 都通过；GL/separate 的开关 0 也通过，
 已发布材质；现移除该路径，保留不可变参数，按完整内容匹配碰撞条目，并在删除
 留下空位后仍搜索已有条目，避免重复创建。旧 MATERIAL_PATCH 环境开关不再生效。
 
-Editor 的 mobile/safe 完整 shader-cache 通过；mobile/separate 首次碰撞专项通过，
+引擎的 mobile/safe 完整 shader-cache 通过；mobile/separate 首次碰撞专项通过，
 但后续旧压力段第 275 轮像素失败。增加实际像素诊断后重跑完整通过，故保留此
 一次失败为待定位的间歇现象，不能以第二次通过宣称根因已修复，也不放宽断言。
 日志位于 `artifacts/logs/review-material-collision-before-full.log`、
@@ -172,7 +172,7 @@ Editor 的 mobile/safe 完整 shader-cache 通过；mobile/separate 首次碰撞
 调用者不持有会被淘汰的条目引用；相关调用在主线程宿主/目标路径，未发现该
 缓存淘汰能直接解释此失败的证据。当前不据此修改生产同步或延长测试等待。
 
-GL/safe 完整检查也通过；Editor/Runtime 构建成功。修复后 Viewport mobile/safe
+GL/safe 完整检查也通过；引擎构建成功。修复后 Viewport mobile/safe
 切页 68 次为 58.700 Pulse FPS / 56.133 宿主呈现 FPS，未失焦、资源清零，
 证据 `review-material-collision-gl-full.log`、`review-material-collision-transition-full.log`。
 
@@ -188,7 +188,7 @@ GL/safe 完整检查也通过；Editor/Runtime 构建成功。修复后 Viewport
 生命周期。命中路径不增加全表扫描。另修复同一函数删除 map 条目后再次读取
 旧指针的风险，使用互斥分支处理相同内容与哈希碰撞。
 
-Editor/Runtime 重新构建成功；开启 RID 缓存的 mobile/safe Runtime 24 轮
+引擎重新构建成功；开启 RID 缓存的 mobile/safe Runtime 24 轮
 `-Providers` 回归通过，owned 全程 31，退出为 0；纹理内存稳定。mobile 的
 shader 与 mesh-transform -CachePressure 像素回归通过。未将此宣称为无限期
 无泄漏或删除后访问的 ASan 动态覆盖。
@@ -199,7 +199,7 @@ shader 与 mesh-transform -CachePressure 像素回归通过。未将此宣称为
 shader、mesh 日志。视频控制和 WAV/MP3/AIFF 的最终 SDK/Runtime 组合也已通过；
 实际听音和音画同步仍未验收。
 
-本轮重新授权后，最终产物的补充回归通过：mobile/separate Editor 的 Robot、外部
+本轮重新授权后，最终产物的补充回归通过：mobile/separate 引擎的 Robot、外部
 OLE 拖放、hover-flicker -Robot、physical-drag -Robot、六用例文件对话框；
 mobile/safe Runtime 的 Robot 与外部 OLE 拖放。当前表格水平 Robot 回归也通过，
 96 Pulse、60.004 FPS、867px 位移且未失焦，补上此前受用户操作干扰的这一次验证。
@@ -251,7 +251,7 @@ GL/safe 合成通过。真实输入得到 Y=-14、740×576，连续手势检查�
 - resize 的资源表拒绝仍被当前 pass 引用的旧句柄，消费者保留同一 SceneView
   引用并更新尺寸后迁移句柄；没有复制整个场景或按帧创建新场景。
 
-当前 Editor 的 mobile/safe、mobile/separate `scene_views.tscn` 均通过：
+当前引擎的 mobile/safe、mobile/separate `scene_views.tscn` 均通过：
 各 100 轮加载、缩放、直接输入、纹理持有与释放，并验证嵌入弹窗、最终像素和
 父节点先销毁的兜底释放。日志 `review-scene-lifetime-safe.log`、
 `review-scene-lifetime-separate.log`。该夹具的 `push_input` 是直接合成输入，
@@ -285,7 +285,7 @@ GodotPulseScheduler 合并排队 pulse 并在派发时复核 running。未改生
 重新用原始首尾 Git 提交生成路径集合，与固定索引比较：根仓库 127、Godot 10、
 JFX 19 均逐路径一致。当前交付清单中的 13 个范围内产物重新计算 SHA-256，均与
 清单匹配；唯一缺失项 jfxwebkit.dll 属用户明确排除的 WebKit，不是构建失败。
-核对最终 Editor/Runtime 与 Media SDK 的构建成功日志，VFX 子模块无未提交修改；
+核对最终引擎与 Media SDK 的构建成功日志，VFX 子模块无未提交修改；
 三个相关仓库的 diff --check 通过。路径/哈希一致仍不等于功能验收。
 
 历史记录（已由上方重新授权后的实际运行补齐）：当时计划在最后一轮原生拖放修复后的构建上补跑 RD1/LCD1、mobile/safe 的 68 次切页，
@@ -358,7 +358,7 @@ length_error，清空旧载荷、返回 NONE 并消费失败拖放，不将异�
 `test-dnd-drag-image.cmd` 的读取复制失败、格式名分配失败、DragEnter/Drop 拒绝
 与既有数据对象契约/拖放图像检查均通过（`review-dnd-extraction-after.log`）。
 本次异常测试为普通组件构建，未声称 ASan 验证；length_error 由同一边界捕获但未
-单独注入。Editor/Runtime 最终源码构建通过，日志
+单独注入。引擎最终源码构建通过，日志
 `review-dnd-extraction-editor-build.log`、`review-dnd-extraction-runtime-build.log`。
 mobile/separate 模块内 OLE 注入正常路径通过，完整日志
 `review-dnd-extraction-inject-full.log`；没有执行真实拖动或改写系统剪贴板。
@@ -599,7 +599,7 @@ ResizeCursorProbe 的场景为 400×300 逻辑坐标。宿主测试原用窗口�
 固定 8 像素计算圆心，已改为逻辑圆心及每次偏移分别按窗口比例换算。包装脚本
 补齐输出目录创建。mobile/separate 和 GL/safe 合成输入两侧 PASS、资源归零
 通过；未移动真实鼠标，未切换显示器 DPI。随后 Runtime 变体亦通过，见
-review-scroll-fields-runtime-input.log；不能把早期仅验证 Editor 的记录当作当前缺口。
+review-scroll-fields-runtime-input.log；不能把早期仅验证引擎的记录当作当前缺口。
 
 本次按原始清单明确核对这组四个文件，未发现需要新增改写的问题：
 
@@ -671,7 +671,7 @@ review-glass-scroll-current.log。没有真实鼠标键盘输入或剪贴板改�
 滚轮设置已从单字段压缩改成窗口记录第 10/11 字段，记录长度为 12；新的
 pollWindowInputV2 JNI 入口要求宿主/SDK 同步构建。完整 UINT32 值按 Win Glass
 的 jint 位模式转换，无水平截断或垂直打包溢出。路由不再把记录截成九字段，
-并省掉一次数组复制。Editor/Runtime/Media SDK 构建均通过；首次旧 IME chunk
+并省掉一次数组复制。引擎/Media SDK 构建均通过；首次旧 IME chunk
 长度编译错误及路由截断失败已修正并复验。
 
 边界解码、mobile/separate 三格滚轮 120 px、Runtime resize-cursor 通过；
@@ -723,7 +723,7 @@ review-ime-order-modals.log、review-ime-order-cancel.log。之前的失败日�
 | `platform/windows/display_server_windows.cpp` | OLE 注册成功才发布对象/委托，失败 Release；GL 上下文切换和 vsync 调度到渲染线程。当前合成 OLE 和窗口立即关闭回归通过；系统 RegisterDragDrop 失败未动态注入 |
 | `platform/windows/display_server_windows.h` | 委托字段、返回 Error 的安装接口与模块调用端一致；接口不暴露为通用 DisplayServer API |
 | `platform/windows/drop_target_windows.cpp` | 先调用可选委托，再回退内置文件拖放；Release 使用 memdelete 调用析构。当前 OLE 注入覆盖宿主委托，不覆盖外部进程/真实拖放 |
-| `platform/windows/gl_manager_windows_native.cpp` | 当前修复有窗口表互斥和存在性检查，失败切换不更新 current；立即销毁后的排队操作不重建无效窗口。Editor/Runtime GL separate 各 32 轮立即关闭通过 |
+| `platform/windows/gl_manager_windows_native.cpp` | 当前修复有窗口表互斥和存在性检查，失败切换不更新 current；立即销毁后的排队操作不重建无效窗口。引擎 GL separate 各 32 轮立即关闭通过 |
 | `servers/rendering/renderer_canvas_cull.cpp` | dirty 更新和资源更新顺序未改；计数/计时受 OFFSCREEN_PROFILE 保护，当前 getter 调用来自渲染路径 |
 | `servers/rendering/renderer_canvas_cull.h` | 只增加四个诊断 getter，与实现/调用点一致；不是跨线程统计快照 API |
 | `servers/rendering/renderer_rd/storage_rd/utilities.cpp` | 四阶段资源更新保留原顺序；关闭 profile 不采集诊断时间、不打印统计；mesh 字段包含 skeleton，不能只解释成 mesh |
@@ -831,11 +831,11 @@ queued-texture-update-mobile-safe-boundary.log、queued-texture-update-mobile-se
 核对 prism_mesh.h 的完整内容比较、PackedArray 快照和有界 LRU，再追踪 surface/
 target 消费者：普通 surface 已持有绘制引用，但 target 的持久槽仅保存 RID，
 缓存淘汰可提前释放尚未绘制的网格。原压力测试只覆盖 surface；扩展为同时在
-target 绘制 4097 个不同的屏外网格，旧 Editor 复现 mesh is null、红色区域消失
+target 绘制 4097 个不同的屏外网格，旧引擎复现 mesh is null、红色区域消失
 （review-target-mesh-before.log）。
 
 DrawSlot 现持有 Ref<ArrayMesh>，隐藏并清空命令时释放且清除旧 RID；关闭槽复用
-时由本轮 uncached_meshes 持有绘制引用。缓存预算未改变。Editor/Runtime 源码
+时由本轮 uncached_meshes 持有绘制引用。缓存预算未改变。引擎源码
 构建通过；GL、mobile 的扩大后压力用例，以及 GL SLOT_REUSE=0 通过；Runtime
 mobile/separate Effect 通过。证据：review-target-mesh-editor-build.log、
 review-target-mesh-runtime-build.log、mesh-transform-mobile-cache-pressure.log、
@@ -849,7 +849,7 @@ draw_prism_mesh_with_instances 每次从零遍历 used 槽，N 次绘制累计�
 分开，因为矩形和 copy_target 参与绘制排序但不占网格槽。used/visible 仍用于
 轮末清除未使用的命令和网格强引用。未改变槽复用、缓存预算或绘制顺序语义。
 
-Editor/Runtime 构建成功；GL 高槽数缓存压力、100 轮 render-target 复制/引用释放、
+引擎构建成功；GL 高槽数缓存压力、100 轮 render-target 复制/引用释放、
 GL/separate Effect 回归通过。日志 review-slot-cursor-editor-build.log、
 review-slot-cursor-runtime-build.log、mesh-transform-gl_compatibility-cache-pressure.log、
 render-targets-gl_compatibility-safe.log、effects-gl_compatibility-separate.log。
@@ -858,14 +858,14 @@ render-targets-gl_compatibility-safe.log、effects-gl_compatibility-separate.log
 ## 复用槽的实例参数残留修复（2026-11-10）
 
 新增 -ViewportState 通过实际 Java 编码、宿主实例参数分流和 Viewport 渲染验证。
-旧 Editor 第一轮显式 tint=红色后，第二轮省略参数仍为红色，未恢复默认绿色；
+旧引擎第一轮显式 tint=红色后，第二轮省略参数仍为红色，未恢复默认绿色；
 复现日志 review-slot-parameters-before.log。DrawSlot 现记录设置过的参数名，
 最初尝试查询默认值并清空不存在的参数；后续输入取消场景发现 NIL 参数错误
 及逐帧 RenderingServer 同步警告，故已替换此实现。当前在旧参数被省略或着色器变化时
 重建该槽的 canvas item，由 Godot 初始化默认值；同着色器且参数集合不减少时继续复用。
 不再查询默认值或传入 NIL，同材质和替换材质两条路径均适用。
 
-Editor/Runtime 构建成功；mobile/safe、separate 的 ViewportState 三阶段（显式
+引擎构建成功；mobile/safe、separate 的 ViewportState 三阶段（显式
 红色、同着色器默认绿色、新着色器默认蓝色）逐像素通过，宿主确认 RD 提交为零
 且退出资源归零。separate 原 RD 两种批次边界回归也通过。日志
 review-slot-parameters-editor-build.log、review-slot-parameters-runtime-build.log、
@@ -879,15 +879,15 @@ queued-texture-update-mobile-separate-viewport-state.log。不是所有参数类
 现采样期间发现非零 max_fps 即终止回退，执行切换前重新确认 VSync 仍开启，
 拒绝非有限刷新率。日志和文档不再把低宿主速率直接断言为 FIFO 根因或保证无撕裂。
 
-Editor/Runtime 构建成功，mobile/GL 显式限速保护均通过；日志
+引擎构建成功，mobile/GL 显式限速保护均通过；日志
 review-pacing-cap-editor-build.log、review-pacing-cap-runtime-build.log、
 pacing-cap-mobile.log、pacing-cap-gl_compatibility.log。头文件最后仅调整注释。
 后续恢复缺失亦已复现：受控 40 ms 主线程延迟触发回退后，Java 结束仍遗留
 60 FPS/VSync 关闭（review-pacing-restore-before.log）。现保存实际安装的 FPS，
-正常结束、失败通知和 stop_jvm 都调用幂等恢复；只有当前值仍等于宿主设置时
+正常结束、失败通知和 stop_host 都调用幂等恢复；只有当前值仍等于宿主设置时
 才撤销，应用后来设置的不同值保留。一个进程仅允许一个 JVM 生命周期。
 
-Editor/Runtime 构建通过；mobile cap/restore/override 与 GL restore 均通过，
+引擎构建通过；mobile cap/restore/override 与 GL restore 均通过，
 override 证明 47 FPS 保留，restore 同时检查 Java 结束后及节点移除后状态。
 日志 pacing-cap-mobile-cap.log、pacing-cap-mobile-restore.log、
 pacing-cap-mobile-override.log、pacing-cap-gl_compatibility-restore.log；构建日志
@@ -962,7 +962,7 @@ test-rd-regressions、test-vfx-soak。提取九个脚本实际清理分支，逐
 已改为旧参数省略或 shader 变化时重建 canvas item，让 Godot 初始化默认值；
 同 shader、参数不减少时仍复用。像素用例增加删除 uniform 后的固定白色，
 与显式红色、默认绿色、换 shader 默认蓝色一起逐像素验证。
-Editor/Runtime 构建通过（review-slot-reset-editor-build.log、
+引擎构建通过（review-slot-reset-editor-build.log、
 review-slot-reset-runtime-build.log）；mobile safe/separate 的 ViewportState 及
 mobile/separate、GL/safe 的 input-cancel 通过，输出无 ERROR。
 本轮未重新测量 VFX FPS，不把消除同步查询直接换算为帧率提升。
@@ -1049,7 +1049,7 @@ SHADER_STATE 原先逐条构造临时 HashSet，再复制全部 Dictionary 键�
 参数。现直接遍历已缓存的实例参数名，用 String 键查询现有字典，复制 Variant
 后再删除条目，避免集合/键数组分配；省略参数与 sampler 留存语义保持一致。
 不修改 Java/C++ 协议、不增加长期缓存，不声称消除了全部分配。
-Editor/Runtime 构建通过（review-instance-lookup-{editor,runtime}-build.log）；
+引擎构建通过（review-instance-lookup-{引擎,runtime}-build.log）；
 mobile/separate ViewportState 四阶段像素与 RD Runtime Effect 对照通过，
 日志 queued-texture-update-mobile-separate-viewport-state.log、effects-mobile-separate-runtime.log。
 
@@ -1073,7 +1073,7 @@ ViewportState 增加实际 Java 编码→宿主转换→shader 执行→读回�
 float/int 各 1–4 分量，包含负整数、负小数及多分量值，逐像素要求白色。
 mobile/separate 通过 SHADER_CONSTANT_TYPES_PASS cases=8 及原四阶段状态测试，
 日志 queued-texture-update-mobile-separate-viewport-state.log。
-Editor/Runtime 构建日志 review-scalar-constants-{editor,runtime}-build.log。
+引擎构建日志 review-scalar-constants-{引擎,runtime}-build.log。
 此次减少分配由源码路径确认，不把它直接换算成 FPS 提升。
 
 显式 RD_DIRECT=1 的 mobile/separate Runtime Effect 像素对照亦通过，日志
@@ -1092,8 +1092,8 @@ RD 转换；现直接传只读引用。OffscreenPass::draw_quads 在调用内完
 新增 RD_VERTEX_INPUT_OWNERSHIP_PASS：记录后、提交前将调用方顶点改成 -1000、
 颜色清零；逐像素检查原位置、UV0.x、UV1.y、蓝色分量仍正确。夹具使用 RD 支持
 的 godot_uv1 约定名称，不据此扩大任意自定义 varying 的支持范围。
-Editor/Runtime 构建成功，日志 review-vertex-packing-{editor,runtime}-build.log。
-separate Editor 与 safe Runtime 的完整 RD 回归均通过（含该所有权检查），
+引擎构建成功，日志 review-vertex-packing-{引擎,runtime}-build.log。
+separate 引擎与 safe Runtime 的完整 RD 回归均通过（含该所有权检查），
 日志 rd-regressions-separate.log、rd-regressions-safe-runtime.log；Java→宿主两种
 容量跨批次像素回归亦通过（queued-texture-update-mobile-separate-boundary.log）。
 本轮没有新的帧率测量；不能把减少复制直接声明为达到 60 FPS。
@@ -1134,7 +1134,7 @@ SCROLL_ENV_RESTORE_PASS；日志 scroll_wheel-mobile-separate.log。未移动真
 ## RD 脚本公开入口的几何校验缺口（2026-11-10）
 
 Java 帧解码器与 Viewport 网格构造都拒绝非零 Z，但 Godot 脚本直接调用
-JavaFXRenderTarget.draw_prism_quads 的 RD 分支曾绕过这些检查。旧 Editor 将
+JavaFXRenderTarget.draw_prism_quads 的 RD 分支曾绕过这些检查。旧引擎将
 Z=1 的四边形正常画成红色，未报告不支持 3D；复现 review-rd-input-before.log。
 同入口还未明确拒绝顶点尾部多余数据、非有限属性及超出 16 位索引容量的批次。
 
@@ -1145,7 +1145,7 @@ Z=1 的四边形正常画成红色，未报告不支持 3D；复现 review-rd-in
 尾部 float、NaN、65540 顶点和短颜色数组；每次检查透明读回及下一合法 pass
 完整红色。包装器只接受按顺序五条指定错误，不能把任意 ERROR 当作预期。
 
-Editor/Runtime 构建通过：review-rd-input-{editor,runtime}-build.log。
+引擎构建通过：review-rd-input-{引擎,runtime}-build.log。
 safe/separate 五类拒绝与恢复均通过：rd-input-validation-{safe,separate}.log。
 separate 完整 RD 回归及 Java 两种容量边界像素回归也通过：rd-regressions-separate.log、
 queued-texture-update-mobile-separate-boundary.log。本轮未单独在 Runtime 执行负向
@@ -1216,7 +1216,7 @@ test-virtual-keyboard.ps1 新增 -CompileOnly；此模式编译后直接退出�
 非零序列号；如果间隙有外部写入则拒绝，最终恢复仍严格检查序列号。PowerShell
 包装器同时保证 Invoke 抛错时也报告保留的备份路径。
 
-修复后 Editor mobile 的完整格式交换及原始字节恢复通过，既有无剪贴板访问
+修复后引擎 mobile 的完整格式交换及原始字节恢复通过，既有无剪贴板访问
 guard 检查通过。证据：`review-clipboard-close-sequence.json`、
 `review-clipboard-postclose-guard.log`、`review-clipboard-postclose-interop.log`、
 `review-clipboard-postclose-editor-full.log`。先前等待准备回复的记录是历史，
@@ -1258,7 +1258,7 @@ review-clipboard-snapshot-budget.log。没有调用系统剪贴板读取/写入�
 
 ## Shared-cache follow-up results (2026-11-11)
 
-Editor/Runtime source builds pass. GL and Vulkan pressure fixtures verify a shared
+engine source builds pass. GL and Vulkan pressure fixtures verify a shared
 4096-entry budget, peer destruction preserving other users, final-user release
 starting a fresh cache, and queued-draw pixels. The old binary fails the new shared
 budget assertion. Three-round navigation/cleanup passes with 205 samples and final

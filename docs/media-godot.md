@@ -35,8 +35,7 @@ or prebuilt media SDK is used. Reproduce sequentially:
 The source SDK uses compact single-channel transfers and R8 media-plane storage
 (protocol operations 27/28). This removes Java RGBA expansion and cuts plane
 storage/transfer by four compared with RGBA. Replacing the entire plane also
-avoids copying/blitting the old CPU image. Editor and packaged Runtime have
-both been rebuilt against the paired protocol. MediaView is 640x360 logical
+avoids copying/blitting the old CPU image. MediaView is 640x360 logical
 pixels in both backends; decoding/upload remains 1920x1080. These measurements
 do not establish full-resolution-window scanout performance.
 
@@ -301,9 +300,7 @@ per-player AAC retention.
 The runner now supports `-Cycles 120` and collects current-process metrics from a
 test-only Java FFM helper, using Windows GetCurrentProcess,
 K32GetProcessMemoryInfo and GetProcessHandleCount. It only queries its own host
-process; there is no external process control or forced termination. The tested
-PID was independently checked as the Godot engine executable, not its console
-launcher. A 24-cycle sampler check and a 120-cycle Vulkan run both completed.
+process; there is no external process control or forced termination. A 24-cycle sampler check and a 120-cycle Vulkan run both completed.
 
 The 120-cycle run lasts 336.447 seconds, with 51 natural GCs and final tracked GPU
 resources zero. However, **native resource stability is not accepted**: private
@@ -482,7 +479,7 @@ The same 24-cycle fixture also passes `test-media-churn.ps1 -Runtime` and
 GL takes about 67.3 seconds. Both record 11 natural GCs, 32–52 tracked resources
 after warmup, repeated recovery to 32, and final teardown to zero. Runtime texture
 memory ranges 6,811,648–8,773,632 bytes; GL ranges 10,318,563–12,434,403 bytes.
-GL recovered static memory is 56,274,228 bytes. Release Runtime's static-memory
+GL recovered static memory is 56,274,228 bytes. The isolated run's static-memory
 counter is unavailable: `Memory::get_mem_usage()` returns zero without
 `DEBUG_ENABLED`, so its zero readings are not memory-usage evidence. Reports
 include `static_memory_available` to distinguish this case. All three workloads

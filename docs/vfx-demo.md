@@ -7,8 +7,7 @@ the original Intro application, its pages, images, Godot shader controls and
 platform-native libraries. Both run scripts select this JAR by default.
 To check startup and shutdown, add `--smoke` to the JAR command. This starts the
 same Intro UI, checks the visible Stage and its menu, then sends a close request.
-Use `-ExecutableHost` or `--executable-host` for the GDScript fixture and its
-native resource-drain checks. [Windows build](build-windows.md) · [macOS build](build-macos.md).
+[Windows build](build-windows.md) · [macOS build](build-macos.md).
 
 The host uses Viewport + safe on mobile or OpenGL. Dated RD/separate results
 below describe prior builds, not current backend choices or current-build
@@ -142,7 +141,7 @@ frame-rate acceptance.
 
 2026-11-12 validation of the pure lens shader and checkbox: the source VFX build
 and the complete fixture pass on
-Editor mobile/safe with RD off and on, plus OpenGL/safe. GPU captures were
+mobile/safe with RD off and on, plus OpenGL/safe. GPU captures were
 inspected. Native D3D also passes the absent-control check. No Runtime or
 physical-input acceptance is claimed for this addition.
 

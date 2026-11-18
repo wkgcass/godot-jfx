@@ -1,13 +1,12 @@
 # Godot-hosted JavaFX for Windows x64 and macOS arm64
 
-This source workspace implements Prism-Godot and Glass-Godot in OpenJFX, backed
-by a Godot custom module. Godot owns the event loop, native windows and GPU work;
+JavaFX loads the Godot engine from its platform JAR in the application JVM.
+The Prism-Godot and Glass-Godot backends use the engine for the event loop, native windows and GPU work.
 JavaFX retains its Application Thread, render jobs, scene graph, controls, CSS
 and FXML. The primary Stage uses the Godot root window; additional Stages use
 independent Godot-owned native windows. GodotView embeds a Godot 2D scene inside
 JavaFX, and GodotShaderEffect applies CanvasItem shaders to individual nodes.
-Windows x64 is the reference platform. The Godot executable host also runs on
-macOS arm64 with Metal/OpenGL renderers, with its own build steps in
+Windows x64 is the reference platform. The macOS arm64 library targets Metal and OpenGL. Build steps are in
 [macOS source builds](docs/build-macos.md) and platform-specific limits in the
 macOS sections of [acceptance status](docs/acceptance-status.md) and
 [TESTS.md](TESTS.md).
@@ -49,8 +48,7 @@ For initial dependency setup and alternate JDK paths, follow
 [Windows source builds](docs/build-windows.md). Run native builds sequentially.
 
 ```powershell
-.\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule
-.\scripts\build-windows.ps1 -Target godot-runtime -WithJavaFXModule
+.\scripts\build-windows.ps1 -Target godot-editor
 .\scripts\build-windows.ps1 -Target godot-library
 .\scripts\build-windows.ps1 -Target jfx
 .\scripts\build-jfx-media.ps1

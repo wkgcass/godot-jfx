@@ -59,7 +59,6 @@ Logical focus transfer now cancels held mouse/touch state as well as keys, witho
 waiting for a later native focus-loss record. Native input probes verify that an
 owner focus request during a child press suppresses the old release and still
 allows a subsequent touch action (OpenGL and Vulkan).
-OpenGL/safe Editor, Vulkan/separate Editor and Vulkan/separate Runtime pass.
 Topmost/unfocusable combinations and showing a child while its owner is hidden
 are not covered by this probe;
 historical embedded-window ordering results below do not validate those cases.
@@ -82,7 +81,7 @@ Logical screen/work
 rectangles follow upstream Glass screen anchoring while platform bounds stay in
 native pixels. The 200% system-scale probe verifies independent native windows,
 fractional render scales, pixels, logical dimensions and local/screen mouse
-coordinates; GL/safe and Release Runtime Vulkan/separate pass. Mixed-scale screen
+coordinates; Mixed-scale screen
 geometry has synthetic coverage, but physical multi-monitor/hotplug validation,
 native DPI transitions and logical-size preservation during transitions remain
 incomplete. Historical fixed-pixel fixture results need HiDPI revalidation.
@@ -94,8 +93,7 @@ cleanup. It supersedes the old requirement to clip popup content to the owner.
 
 Primary closure now has a native-window lifetime regression: the root HWND hides,
 independent Stages retain actual OS visibility/input, later Stages remain native,
-and closing the last Stage triggers implicit exit. It passes GL, Vulkan/separate
-and Release Runtime. Godot's Windows style update preserves the existing
+and closing the last Stage triggers implicit exit. It passed on OpenGL and Vulkan. Godot's Windows style update preserves the existing
 WS_VISIBLE bit, fixing borderless windows that previously had rendered viewports
 but an invisible HWND after style changes. Popup regressions check IsWindowVisible
 as well as GPU contents; this still does not replace OS-screen capture acceptance.
@@ -166,7 +164,7 @@ Implemented and integration-tested:
 
 - GodotEventLoop owns a non-daemon thread named JavaFX Application Thread.
   GodotApplication installs this thread as the Glass event thread before
-  startup. Neither Godot main nor the JVM bootstrap thread executes callbacks.
+  startup. Neither Godot main nor the probe thread executes callbacks.
 - invokeLater is FIFO; invokeAndWait propagates exceptions to its caller.
   Termination rejects pending synchronous tasks so their callers do not hang.
 - Nested event loops retain a stack. Upstream Glass EventLoop handles
@@ -394,19 +392,19 @@ cannot be received.
 Validation:
 
 ```powershell
-.\scripts\build-windows.ps1 -Target jfx
-.\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule
+.\scripts\build-jfx-media.ps1
+.\scripts\build-windows.ps1 -Target godot-library
+.\scripts\stage-godot-library.ps1
 .\scripts\test-glass-scheduler.ps1
 .\scripts\test-glass-window.ps1
-.\scripts\build-windows.ps1 -Target godot-runtime -WithJavaFXModule
 .\scripts\test-glass-window.ps1 -Runtime
 ```
 
-The source-built Godot host starts an actual JVM and selects GodotApplication.
+The Java fixture loads the packaged engine and selects GodotApplication.
 GlassSchedulerProbe validates thread identity, initial screen dimensions,
 invokeAndWait exception propagation, nested loops, periodic/per-frame timers,
 pause/resume, and cancellation of a definitely queued/parked synchronous
-caller. It terminates Glass and waits for JVM destruction. The test requires
+caller. It terminates Glass and waits for host shutdown. The test requires
 both GLASS_SCHEDULER_PASS and M2_GLASS_SCHEDULER_PASS, not exit zero alone.
 Latest result: PASS, artifacts/logs/m2-glass-scheduler.log.
 
@@ -414,10 +412,7 @@ GlassWindowProbe checks actual host size/position, View events, Unicode title,
 stock cursor and GPU background pixels, and requires exactly one window in
 Godot's display-server registry. Its image is a GPU readback, not an OS desktop
 screenshot. Window checks do not establish JavaFX Stage/controls compatibility.
-Latest result: PASS on both editor and template_release, recorded in
-artifacts/logs/m2-glass-window.log and m2-glass-window-runtime.log. The release
-test stages an imported project beside the executable in
-artifacts/runtime-window; no path-override build option is needed.
+The `-Runtime` check runs the imported project from `artifacts/runtime-window`.
 The latest probe also checks mouse boundary notifications, first-close veto,
 second-close acceptance, and restoration of SceneTree's original quit policy.
 
@@ -460,7 +455,7 @@ actual null Windows cursor handle with Godot's mouse mode still visible.
 The expanded fixture has thirteen steps, including hidden stock/image changes,
 explicit show, NONE-to-image recovery, all-transparent-to-default recovery and
 teardown while hidden. GL/safe and Vulkan/separate pass. The runner's `-Runtime`
-option packages the same fixture next to the source-built Release Runtime.
+option runs the fixture from an isolated project directory.
 
 ## Independent Stage churn
 
@@ -604,7 +599,7 @@ the JavaFX cursor to the arrow between commands. The host now mirrors every
 cursor shape/image command into that default through the new quiet setter
 `Input::set_default_cursor_shape_quiet`, which updates the fallback without
 synthesizing a fake motion event into the scene. The pre-runtime shape is
-saved on JVM start and restored on stop. Custom image cursors hang off
+saved on host attachment and restored on stop. Custom image cursors hang off
 CURSOR_ARROW, so the default is pinned to ARROW while one is active. Note the
 upstream enum quirk: on Windows the BDIAGSIZE glyph is the NESW diagonal and
 FDIAGSIZE is NWSE (names swapped). `test-resize-cursor.ps1` (OpenGL
@@ -659,7 +654,7 @@ measurements do not establish the current fixture's latency or physical acceptan
 Some Windows display states pace FIFO presents far below the refresh rate
 (observed: a stable ~33-Hz plateau on a 60 Hz panel, reproduced by a bare
 Godot window with no JavaFX on both Vulkan and OpenGL, while native D3D stays
-at 60). The host performs a one-shot health check after the JVM reaches
+at 60). The host performs a one-shot health check after the host reaches
 RUNNING: it skips 2 s of bring-up, samples 2 s of frame intervals, and when
 VSync is ENABLED on a non-fullscreen window and the average frame interval
 exceeds 1.4x the refresh period, it switches to VSYNC_DISABLED plus
@@ -853,7 +848,7 @@ exception, balance any thread attachment, and return no accepted drop effect.
 They never invoke the Java callback with a partially prepared payload.
 `test-dnd-drag-image.cmd` injects failures at all 23 JNI operations in a
 representative two-custom-format payload and checks these rules. This is a
-mock JNI regression, not an actual JVM heap-exhaustion test. VM shutdown uses the same mutex as callback entry. The worker publishes the
+mock JNI regression, not an actual JVM heap-exhaustion test. Bridge shutdown uses the same mutex as callback entry. The worker publishes the
 VM, global class reference and method together; it clears them only after an
 admitted callback has released its references and detached. The lock spans
 GetEnv through cleanup, so shutdown cannot overtake the gap before attachment.
@@ -894,22 +889,13 @@ request object, text and rich-text allocation, then retries on the same runtime.
 This fixture does not exhaustively inject every payload branch or actual JVM
 heap exhaustion; cross-process transfers remain separate integration evidence.
 
-### Launch-method lookup failure (2026-11-11)
-
-The JVM worker creates the application-name JNI string only after resolving
-GodotBridge.launch successfully. A lookup exception therefore goes directly
-to the existing error reporting/cleanup path without another allocation call
-under a pending exception. An isolated fixture extracted from this block
-checks lookup failure, string-allocation failure, invocation failure and normal
-launch; it does not replace a full incompatible-SDK startup test.
-
 ### Default cursor restoration ownership (2026-11-11)
 
-A host saves the Godot application's default cursor when starting its JVM and
+A host saves the Godot application's default cursor when connecting to JavaFX and
 restores that saved value once when stopping. A diagnostic-only host that never
-started a JVM does not own this setting. Later destruction after EXIT_TREE
+connected to JavaFX does not own this setting. Later destruction after EXIT_TREE
 also leaves any newly chosen application cursor intact. The native-window
-fixture checks the no-JVM case, and the image-cursor fixture checks a new
+fixture checks the unbound-host case, and the image-cursor fixture checks a new
 application cursor between normal exit and final host destruction; both use
 synthetic viewport input, without moving the physical pointer.
 

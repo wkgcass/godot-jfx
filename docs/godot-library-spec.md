@@ -2,7 +2,7 @@
 
 ## 普通应用
 
-Windows x64 应用可以只交付一个 Shadow JAR。用户从任意工作目录用 JDK 25 执行 `java -jar app.jar`。应用类、JavaFX 类、CSS、着色器和所选平台的原生库都在这个 JAR 中。分发物不要求配套的 SDK、Godot 可执行文件、工程目录或 PCK。
+Windows x64 应用可以只交付一个 Shadow JAR。用户从任意工作目录用 JDK 25 执行 `java -jar app.jar`。应用类、JavaFX 类、CSS、着色器和所选平台的原生库都在这个 JAR 中。分发物不要求配套的 SDK、工程目录或 PCK。
 
 清单的 `Main-Class` 指向普通 Java 类。它在当前 JVM 调用 `Application.launch(MyApplication.class, args)`。如果使用模块路径，也可以由 JDK 直接启动没有 main 的 Application 子类。两种入口与 `Platform.startup` 共用初始化协调器。
 
@@ -20,7 +20,7 @@ public final class Main {
 
 宿主在内存中创建空场景树，在根窗口上挂载 JavaFXHost。初始 `res://` 为空，不搜索应用目录、当前目录或上级目录中的 Godot 工程。默认使用 `mobile` 渲染器和 safe 渲染线程模式，启动窗口保持隐藏直到首次呈现。
 
-Windows 库宿主与 Godot EXE 采用相同的窗口策略。创建引擎实例时调用一次 `DisableProcessWindowsGhosting()`，使 Windows 停止为未响应窗口创建替代窗口。该设置对整个 JVM 进程有效，持续到进程退出。
+Windows 创建引擎实例时调用一次 `DisableProcessWindowsGhosting()`，使 Windows 停止为未响应窗口创建替代窗口。该设置对整个 JVM 进程有效，持续到进程退出。
 
 | JavaFX 操作 | 可观察行为 |
 | --- | --- |
@@ -35,11 +35,11 @@ Windows 库宿主与 Godot EXE 采用相同的窗口策略。创建引擎实例�
 
 Java 启动器若找到该资源，就把字节交给引擎。引擎启动空场景树后，将包挂载到 `res://`，再通知 JavaFX 就绪。包中的主场景、自动加载与窗口设置不会接管宿主。场景在 GodotView 请求时实例化到该控件自己的 SubViewport。损坏的包报告资源挂载失败。该约定支持一个应用级资源包，作者负责在导出时收齐场景依赖。
 
-已有宿主集成可以在 Toolkit 启动前通过 `GodotRuntime.init(new GodotRuntime.Options(runtimeDirectory, project, renderer, startupWindow))` 选择导入好的工程目录或文件系统 PCK。显式指定工程会采用该工程的启动配置，优先于 JAR 中的场景包。可空的 `runtimeDirectory` 和 `project` 分别控制原生库来源和工程来源，两者独立。显示类型、窗口句柄和操作系统文件名都未进入公共接口。
+应用可以在 Toolkit 启动前通过 `GodotRuntime.init(new GodotRuntime.Options(project, renderer, startupWindow))` 选择导入好的工程目录或文件系统 PCK。显式指定工程会采用该工程的启动配置，优先于 JAR 中的场景包。省略 `project` 即使用空场景树。显示类型、窗口句柄和操作系统文件名都未进入公共接口。
 
 ## 构建与加载
 
-源码构建向本地 Maven 仓库发布 `org.godotjfx` 的 base、graphics、controls、fxml、media、swing 六个模块，当前版本为 `28-godot.3`。应用依赖所需模块，同时选择同版本的 Windows x64 平台构件。以下 Gradle 依赖可用于普通控件应用，使用视频时再加入 Media。
+源码构建向本地 Maven 仓库发布 `org.godotjfx` 的 base、graphics、controls、fxml、media、swing 六个模块，当前版本为 `28-godot.4`。应用依赖所需模块，同时选择同版本的 Windows x64 平台构件。以下 Gradle 依赖可用于普通控件应用，使用视频时再加入 Media。
 
 ```groovy
 plugins {
@@ -50,10 +50,10 @@ repositories {
     maven { url = uri(providers.gradleProperty('repository').get()) }
 }
 dependencies {
-    implementation 'org.godotjfx:javafx-controls:28-godot.3'
-    runtimeOnly 'org.godotjfx:javafx-graphics:28-godot.3:win'
+    implementation 'org.godotjfx:javafx-controls:28-godot.4'
+    runtimeOnly 'org.godotjfx:javafx-graphics:28-godot.4:win'
     // 仅使用 Media 时添加
-    implementation 'org.godotjfx:javafx-media:28-godot.3:win'
+    implementation 'org.godotjfx:javafx-media:28-godot.4:win'
 }
 application { mainClass = 'example.Main' }
 tasks.shadowJar {
@@ -63,13 +63,13 @@ tasks.shadowJar {
 }
 ```
 
-graphics 平台 JAR 包含 Godot、JavaFX 图形库和 Windows SDK 构建随附的微软运行库；Media 平台 JAR 包含媒体库和插件。应用使用 Shadow 合并运行类路径和服务声明，把普通启动类写入清单，并声明 `Enable-Native-Access: ALL-UNNAMED`。模块路径开发运行及显式原生目录诊断仍有独立入口。[可执行 Gradle 示例](../tests/library/shadow/build.gradle) · [Windows 源码构建](build-windows.md#java-launched-library)
+graphics 平台 JAR 包含 Godot、JavaFX 图形库和 Windows SDK 构建随附的微软运行库；Media 平台 JAR 包含媒体库和插件。应用使用 Shadow 合并运行类路径和服务声明，把普通启动类写入清单，并声明 `Enable-Native-Access: ALL-UNNAMED`。模块路径开发运行使用同一套平台 JAR。[可执行 Gradle 示例](../tests/library/shadow/build.gradle) · [Windows 源码构建](build-windows.md#java-launched-library)
 
-OpenJFX 的原生库加载器根据平台文件名读取需要的 JAR 资源，将它们放入按构建标识和架构隔离的用户缓存，再按绝对路径加载。操作系统因此可以映射原生文件。应用类和场景包直接从 JAR 读取，启动过程始终在调用者的 JVM 内。首次运行需要可写的缓存位置，后续启动校验并复用缓存。显式提供原生目录时从该目录加载，缺少必需库会报错。
+OpenJFX 的原生库加载器根据平台文件名读取需要的 JAR 资源，将它们放入按构建标识和架构隔离的用户缓存，再按绝对路径加载。操作系统因此可以映射原生文件。应用类和场景包直接从 JAR 读取，启动过程始终在调用者的 JVM 内。首次运行需要可写的缓存位置，后续启动校验并复用缓存。平台 JAR 缺少必需库时会报告资源名并终止加载。
 
 ## 生命周期与平台边界
 
-同一进程拥有一个引擎实例。JavaFX 自动初始化和用户显式初始化共用状态，并发等待者观察相同的就绪状态或错误。已就绪后重复使用相同配置会复用宿主，冲突配置会失败。Windows 在专用平台线程处理消息并迭代引擎；JavaFX Application Thread、Prism 渲染线程和有界命令队列维持原有职责。关闭最后一个窗口遵守 implicitExit；显式退出保留应用的退出码。已有 Godot EXE 宿主登记当前 JVM 后复用同一套窗口与渲染桥接。
+同一进程拥有一个引擎实例。JavaFX 自动初始化和用户显式初始化共用状态，并发等待者观察相同的就绪状态或错误。已就绪后重复使用相同配置会复用宿主，冲突配置会失败。Windows 在专用平台线程处理消息并迭代引擎；JavaFX Application Thread、Prism 渲染线程和有界命令队列维持原有职责。关闭最后一个窗口遵守 implicitExit；显式退出保留应用的退出码。
 
 Windows x64 使用 `win` 构件，macOS arm64 使用本机 SDK 生成的 `mac-aarch64` 构件。Windows 使用专用引擎线程；macOS 将引擎创建、窗口事件、逐帧运行和销毁交给 AppKit 主线程。两平台均在原 JVM 中启动。完整 VFX Demo 的首选入口是 `java -jar artifacts/vfx/libs/vfx-demo.jar`。Windows 已验收，macOS 的共享库构建、Metal/OpenGL 运行和退出仍待实机验证。[跨平台待验证清单](../TESTS.md#跨平台待验证清单)
 

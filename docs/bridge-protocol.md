@@ -1,6 +1,6 @@
 # JVM host and batch bridge (M2 foundation)
 
-Windows 库模式和 EXE 宿主使用同一份 GodotBridge JNI 方法表。EXE 的 worker 创建并拥有 JVM。Java 启动库时，Windows 引擎线程从当前 JNI 调用取得 JavaVM 和应用传入的桥接类，完成注册和屏幕快照后向 Java 发布 READY。停止宿主会关闭 JNI 请求入口、唤醒队列和读回等待者，待已进入的调用返回后释放回调的全局引用。库模式的生命周期到进程退出结束。
+Java 从平台 JAR 加载引擎库。引擎线程从当前 JNI 调用取得 JavaVM 和应用传入的桥接类，完成注册和屏幕快照后向 Java 发布 READY。停止宿主会关闭 JNI 请求入口、唤醒队列和读回等待者，待已进入的调用返回后释放回调的全局引用。库模式的生命周期到进程退出结束。
 
 > Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
 > safe. Custom RD-direct and separate-thread host support have been removed.
@@ -15,12 +15,11 @@ Rebuild the source host and JFX SDK together: the obsolete
 `GodotBridge.isRDDirectCompiled()` JNI method and its GDScript capability query
 were removed. Retained frame opcodes keep their existing numbers and packet
 layouts. Targets use
-Viewport rendering only. JVM startup rejects separate rendering before creating
-the JVM; renderer selection (mobile or gl_compatibility) remains independent.
+Viewport rendering only. Host registration rejects separate rendering before connecting the bridge; renderer selection (mobile or gl_compatibility) remains independent.
 
 ## Compact media planes (operations 27/28)
 
-The source SDK and Editor/Runtime must be rebuilt together for these operations;
+The source SDK and shared engine must be rebuilt together for these operations;
 older hosts reject them. Operation 27 is ALPHA_TEXTURE_PATCH: little-endian
 uint64 handle, uint32 x/y/width/height (24-byte payload header), then exactly
 width*height bytes. Java copies the decoder's visible rows directly into an
@@ -105,7 +104,7 @@ ID, owner, native window ID, x, y, width, height, visible, focused, mode, ack.
 nativeWindowAck provides the latest applied sequence even after all windows close.
 Snapshots and ack are published together. This queue is independently ordered from
 the legacy host/render queues; Glass must await creation before using native state.
-Normal JVM return closes admission but preserves accepted requests for consumption;
+Normal probe return closes admission but preserves accepted requests for consumption;
 explicit stop/failure cancels remaining requests. No Java thread accesses Godot Nodes.
 
 Earlier test-native-window-bridge.ps1 runs passed GL and the retired Vulkan
@@ -149,9 +148,6 @@ closed peers and keeps pointer/touch capture ownership across dispatch callbacks
 No Java event thread reads Godot Nodes or calls Windows window APIs directly.
 
 `JavaFXHost` is a native Godot Node2D subclass owning a rendering surface.
-`start_jvm(jdk, sdk, classpath, main_class)` loads the installed JDK's
-`bin/server/jvm.dll` and invokes JNI_CreateJavaVM on a dedicated worker.
-The SDK is the locally built OpenJFX SDK. No JVM source is rebuilt.
 JNI RegisterNatives binds `com.sun.javafx.tk.godot.GodotBridge` inside the
 source-built javafx.graphics module, without a separate GDExtension DLL.
 
@@ -175,15 +171,8 @@ renderer. The low-level bridge probe alone does not exercise JavaFX controls.
 - Godot pulses increment a monotonic counter and wake `awaitTick`. Waiting
   callers see the latest tick (coalescing), not a growing queue of pulses.
 - Stop drops pending commands, rejects new submissions and wakes waiters
-  with -1. A Java daemon watcher calls Platform.exit. DestroyJavaVM runs on
-  the bootstrap worker, never on the Godot main thread.
-- The worker owns shared native state until VM destruction. If the node is
-  removed before Java exits, the worker detaches and keeps that state alive.
-  Applications must terminate their own non-daemon threads; a stuck user
-  thread can delay VM destruction until process exit. This is a known
-  lifecycle limitation, not a successful graceful shutdown.
-- One JVM lifecycle per Godot process; HotSpot restart is rejected. The JVM
-  DLL stays mapped until process exit to preserve TLS/callback safety.
+  with -1. The fixture stop watcher schedules JavaFX shutdown. The engine closes JNI admission before it releases host resources.
+- A Java process can claim one engine instance.
 
 ## Version 1 wire format
 
@@ -368,8 +357,9 @@ pair. Echo events retain repeated press/typed delivery.
 
 ```powershell
 cmd /d /c scripts\test-protocol.cmd
-.\scripts\build-windows.ps1 -Target jfx
-.\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule
+.\scripts\build-jfx-media.ps1
+.\scripts\build-windows.ps1 -Target godot-library
+.\scripts\stage-godot-library.ps1
 .\scripts\test-bridge.ps1
 .\scripts\test-bridge.ps1 -StopFromHost
 ```
@@ -377,8 +367,8 @@ cmd /d /c scripts\test-protocol.cmd
 The standalone native test checks malformed/truncated commands, atomic
 decode, bounded backpressure/retry, duplicate sequence rejection, stop and
 10,000 concurrent FIFO frames. BridgeProbe checks actual JNI argument
-validation, buffer ownership, Godot ticks, rendered pixels and normal JVM
-completion. The host-stop variant checks wake-up and VM shutdown. Actual
+validation, buffer ownership, Godot ticks, rendered pixels and normal probe
+completion. The host-stop variant checks wake-up and bridge shutdown. Actual
 GPU capture is in artifacts/reference/godot-bridge.png; logs must contain
 both Java and Godot PASS markers. These tests do not prove Glass input,
 FX Application Thread semantics, Prism rendering, effects or VFX support.
@@ -614,7 +604,7 @@ the output texture are managed by Godot, not included in this output-byte budget
 
 The host validates UTF-8, loads the PackedScene and creates JavaFXSceneView on
 the Godot main thread. Failure stops the command queue and marks the runtime
-failed with the resource path; normal JVM completion cannot overwrite that
+failed with the resource path; normal probe completion cannot overwrite that
 failure. The scene viewport's texture RID is borrowed. Shader and textured-quad
 sampling retain the scene owner; disposal invalidates the logical handle but
 keeps already referenced scene nodes alive until pass cleanup/clear. The RID is
@@ -719,17 +709,17 @@ Stage.showAndWait clears its in-loop state whenever enterNestedEventLoop returns
 or throws, including toolkit-wide loop exit. This avoids a second loop-exit attempt
 when shutdown subsequently hides still-visible Stages. FailureShutdownProbe and
 FailureApplicationProbe exercise two nested windows and both failure entry paths;
-test-failure-shutdown.ps1 supports -Runtime for the source-built release executable.
+test-failure-shutdown.ps1 supports -Runtime for an isolated scene directory.
 
 On normal Java main return, GodotBridge waits for the registered Quantum render
 thread to finish (including its queued disposal jobs) before native code stops
 JNI queue admission. Direct non-Quantum encoder probes have no registered worker.
 Explicit host stop still cancels the queue and wakes waiters as specified above.
-Normal JVM completion instead seals admission with FrameQueue.finish: waiters wake
+Normal probe completion instead seals admission with FrameQueue.finish: waiters wake
 and late submissions are rejected, but accepted frames remain available to the
 Godot consumer. Calling stop on failure or host teardown still discards them.
 This preserves final WINDOW_REMOVE/disposal commands when the last Stage closes
-and implicit exit follows immediately. JVM FINISHED is not a GPU drain fence:
+and implicit exit follows immediately. The FINISHED status is not a GPU drain fence:
 host-lifetime tests wait a bounded number of render frames for zero logical layers.
 
 ## Independent window metadata (25)
@@ -816,7 +806,7 @@ are published through the application-local drag clipboard; the Quantum layer
 stores file lists as `String[]` paths. The upcall queries the callback thread's JVM attachment and attaches only if
 needed; it detaches only the attachment it created. A shared lifetime mutex
 protects the entire callback, including attachment and cleanup. Shutdown closes
-that gate before DestroyJavaVM, so later callbacks cannot enter a destroyed VM.
+that gate before releasing JNI references, so later callbacks cannot enter the stopped bridge.
 JNI allocation failure stops marshalling, releases temporary references and
 rejects the drop without invoking Java with a partial payload. Inbound extraction also enumerates registered formats inside
 the `application/x-godot-custom-*` convention (bounded count/name length,

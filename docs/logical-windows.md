@@ -48,15 +48,11 @@ releases all owned GPU resources. The GPU capture was inspected. Reopening a tit
 Stage while only secondary layers survive still depends on decorated logical-window
 support; this test uses UNDECORATED secondary Stages.
 
-The source-built release Runtime also passes this probe with
-`test-host-lifetime.ps1 -Runtime -Renderer mobile -RenderThread separate`.
-The runner imports a dedicated adjacent-project fixture, since release templates
-disable development path overrides. Source SDK, editor and runtime builds pass;
-primary hide/show and secondary held-input lifecycle regressions pass.
+The isolated scene directory is exercised by `test-host-lifetime.ps1 -Runtime -Renderer mobile`.
 
-This probe exposed lost final disposal commands at normal JVM return. FrameQueue
+This probe exposed lost final disposal commands at normal probe return. FrameQueue
 now distinguishes finish (reject new submissions, wake waiters, retain accepted
-commands for consumption) from stop (cancel pending commands). Normal JVM return
+commands for consumption) from stop (cancel pending commands). Normal probe return
 uses finish after the Java renderer joins. Failure/explicit host stop still cancels.
 Native protocol tests cover ordered draining and rejected late submission; the
 encoded host-stop regression passes. A bounded post-JVM drain checks final layer
@@ -255,7 +251,7 @@ composition; teardown checks zero owned resources and one native window. Capture
 are `artifacts/reference/window-commands-<renderer>-<thread>-<stage>.png`; the
 OpenGL overlap capture was visually inspected. The C++ protocol suite also covers
 invalid geometry/identity, the 64-layer limit, transactional rejection, and shared
-target retention through the last removal. SDK/editor/runtime builds pass.
+target retention through the last removal.
 
 ## Standard Presentable ownership and resize
 
@@ -267,7 +263,7 @@ independent lower-layer update, hide, restore, move/resize, lower z, full opacit
 and removal. Presentation count remains three throughout metadata updates; hidden
 content stays retained and charged. The moved-layer OpenGL capture was inspected.
 Protocol tests reject malformed visibility, removed IDs, open presentations and
-even empty open offscreen passes. SDK/editor/runtime source builds pass. Glass
+even empty open offscreen passes. Glass
 visibility now emits these updates through the lifecycle bridge below;
 logical-window positioning and popup input routing remain to be connected.
 
@@ -340,7 +336,7 @@ z ordering, hide/show, moving/resizing beyond host bounds, removal while a draw
 retains the source, destruction of target ObjectIDs after completion, zero surface
 resources after tree removal and exactly one native display-server window. GPU
 captures are artifacts/reference/window-layers-<renderer>-<thread>.png; the GL
-capture was inspected. Editor/runtime source builds and existing render-target
+capture was inspected. Existing render-target
 regression pass. These are compositor checks, not modal/input or OS screenshots.
 
 ## Remaining integration

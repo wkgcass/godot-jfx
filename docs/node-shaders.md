@@ -102,7 +102,7 @@ and captures use `node-shader-dirty-<renderer>-safe` names under
 
 2026-11-12: the regression reproduced the unwarped duplicate before the fix.
 The source JFX SDK build, this regression and the existing node-shader suite pass
-on earlier Windows Editor builds with multiple backend choices. Current runs
+on earlier Windows builds with multiple backend choices. Current runs
 use only Viewport + safe on mobile or OpenGL. These bounded checks
 do not establish Runtime, cross-platform or performance acceptance.
 

@@ -7,7 +7,7 @@
 - 删除自定义 RD-direct 后端、翻译器、编译/运行开关、JNI 能力查询和专用探针，以及 separate 专用通知、纹理代理和 Windows 线程适配。保留 Godot 自身渲染器、RenderingDevice、区域上传及资源回收修复。
 - 以 `9d1f2a2` 和其 Godot/JFX 指针为基线，复查函数、内联方法、字段读写、JNI、ClassDB、协议和测试入口。累计清理遗留 spike/mesh 包装、旧剪贴板 JNI 入口、回调计时状态、上传派发包装、full-shadow 参数分支及从未更新的窗口 GPU 字段。
 - 34 个剩余 JNI 入口、30 个协议命令有调用/消费路径；层合成器仍服务主 Stage 和次级原生窗口，不是可删除的旧窗口模型。审计清单为 `artifacts/dead-code-audit/audit.json`，生成时的 HEAD 早于随后 amend；文件散列对应审计源码。
-- Editor、Runtime、JFX、Media 源码构建及主要回归分轮通过；最终上传 API 改动后重测两种渲染器的纹理更新、Viewport 状态、批次边界、协议、Runtime 窗口控制及 Demo 启动。更早的 Robot 与 Media 结果不等同每次清理都全量重跑。
+- 引擎、JFX、Media 源码构建及主要回归分轮通过；最终上传 API 改动后重测两种渲染器的纹理更新、Viewport 状态、批次边界、协议、Runtime 窗口控制及 Demo 启动。更早的 Robot 与 Media 结果不等同每次清理都全量重跑。
 - 表格和 68 次切页 GPU 诊断通过，但默认时间戳池先发生容量错误；临时使用 8192 槽位后恢复配置。直接离屏路径的 GPU 样本为零是测量限制；窗口 GPU 样本由夹具直接读取，不再输出旧宿主零值。诊断运行不作为普通性能验收。
 - 系统剪贴板复验因现有 `DataObject` 无法安全备份而在写入前停止，未改写内容；编码和保护单元测试通过。保留物理设备、长期内存等验收限制。
 - 清理验收入口与性能指南中的重复过程、已删除开关和旧字段说明；详细历史过程可从旧提交查阅。当前状态以对应指南为准。
@@ -51,7 +51,7 @@
 
 - 修改前分类三轮正常结束，第三轮首页 220 个目标、57435 个目标缓存网格。报告 review-soak-classified-before.json 独立保留；缓存的按目标预算累乘得到实际样本支持。
 - Viewport 目标改为惰性共享一个 4096 项/48 MiB 输入预算的 PrismMeshCache。弱注册表不拥有 GPU 资源，最后目标释放缓存；DrawSlot 自己的 Ref 继续保护排队网格。Surface 缓存不变，缓存预算不等同全部活跃网格/驱动内存。
-- 新压力断言在旧二进制上明确失败；新 Editor 的 mobile 和 GL 跨目标共享/销毁/像素测试通过，mobile/separate shader-cache 积压回归通过。Editor/Runtime 均源码构建成功，日志 review-shared-mesh-*-build.log。
+- 新压力断言在旧二进制上明确失败；新引擎的 mobile 和 GL 跨目标共享/销毁/像素测试通过，mobile/separate shader-cache 积压回归通过。引擎源码构建成功，日志 review-shared-mesh-*-build.log。
 - 修改后三轮 mobile/256MiB soak 已启动，尚未完成。共享缓存减少保留的实际幅度和帧率影响还需复验，未宣称增长问题全部解决。
 - 原始审查已完成/总计：156/156；累计补充收尾已完成/总计：51/52。
 
@@ -66,7 +66,7 @@
 
 - 扩展已有 get_texture_resource_stats 按需接口，增加每目标 owned/mesh/shader/material/slot/RD 字段及 surface mesh、retired texture 计数，并要求主线程调用。未修改缓存淘汰、纹理池预算或绘制行为。
 - soak 原始逐页采样新增 resources 分类，原有样本计数、导航和清理断言不变。分类为按所有者累计，不能当作去重 GPU 对象数或字节数。
-- Editor 源码构建通过（review-soak-counters-editor-build.log）；三轮分类诊断运行中。此前 58.742 FPS 对应旧测量产物，不冒充新增计数构建的性能复验。Memory 文档同步最新增长证据与旧文件名覆盖限制。
+- 引擎源码构建通过（review-soak-counters-editor-build.log）；三轮分类诊断运行中。此前 58.742 FPS 对应旧测量产物，不冒充新增计数构建的性能复验。Memory 文档同步最新增长证据与旧文件名覆盖限制。
 - 原始审查已完成/总计：156/156；累计补充收尾已完成/总计：51/52，最后资源增长定位仍进行中。
 
 ## 2026-11-11：最终 soak 暴露运行中资源增长
@@ -79,7 +79,7 @@
 ## 2026-11-11：最终覆盖核对与三轮 soak 复验启动
 
 - 审查状态文档明确历史与当前边界，补齐最后截图/输入探针修复记录及剪贴板最新复验限制。原始审查 156/156，累计收尾 51/52；最后 soak 结果尚未产生。
-- 当前所有已登记源码哈希匹配；未提交修改仅剩审查状态文档与 soak 入口待登记，没有清单外的 Godot/JFX 修改。性能测量记录的 Editor、Runtime、graphics.jar 哈希仍匹配当前产物。
+- 当前所有已登记源码哈希匹配；未提交修改仅剩审查状态文档与 soak 入口待登记，没有清单外的 Godot/JFX 修改。性能测量记录的引擎、graphics.jar 哈希仍匹配当前产物。
 - 复读 soak 脚本：采样实际引擎进程、等待退出后读取输出、严格核对每页样本数、失败终止自身子进程、释放 Process 并恢复环境；导航/清理与内存趋势结论分开。三轮 mobile/256 MiB 验证正在运行，不把启动当作通过。
 
 ## 2026-11-11：输入探针异常退出与最后输入链复核
@@ -129,7 +129,7 @@
 
 ## 2026-11-11：性能文档核对及当前切页复验
 
-- 性能文档全文核对，修正共享管线淘汰生命周期、launch upcall 计数范围和旧命令示例。最新普通 Editor mobile/safe RD1/LCD1 切页通过：58.742 Pulse FPS / 56.542773 合成 FPS，68 次切换、失焦 0、资源清理通过，max 114.793 ms；不追加偶发长帧修复。
+- 性能文档全文核对，修正共享管线淘汰生命周期、launch upcall 计数范围和旧命令示例。最新普通引擎 mobile/safe RD1/LCD1 切页通过：58.742 Pulse FPS / 56.542773 合成 FPS，68 次切换、失焦 0、资源清理通过，max 114.793 ms；不追加偶发长帧修复。
 - 日志 review-final-transition-full.log，独立复算 review-final-performance-rates.json，产物哈希 review-final-performance-binaries.json。首轮采样变量错误设为 0 的启动失败单独保留，不计入性能样本。未修改生产代码或测试断言。
 - 固定原始审查已完成/总计：153/156（根仓库 124/127、Godot 10/10、JFX 19/19）；剩余 TESTS、验收状态、历史进度与累计修复收尾。
 
@@ -177,42 +177,35 @@
 
 - 删除 Shader 缓存“分配内部编号”“一直保留到宿主清理且无固定上限”的过时描述。当前实现按哈希定位后比较完整源码，编译缓存最多 256 项 / 16 MiB 统计数据；快捷引用在插入前清除，排队绘制单独保留所需资源。
 - 区分按条目限制的顶点/参数/绑定缓存与同时受数据量限制的共享 Shader、Mesh 缓存，避免把局部预算解释为进程内存上限。明确默认视口路径、显式 RD 环境变量与 Demo 保留外部配置的行为。
-- 剪贴板说明保留此前 Editor/Runtime 完整互通通过的证据，同时说明最新修改后复测因未知私有格式保护而未完成，不能把历史结果当成最新代码完整复验。
+- 剪贴板说明保留此前引擎完整互通通过的证据，同时说明最新修改后复测因未知私有格式保护而未完成，不能把历史结果当成最新代码完整复验。
 - 本轮仅修改文档与审查记录，未重新构建或运行 Robot。固定原始审查已完成/总计：142/156（根仓库 113/127、Godot 10/10、JFX 19/19），剩余 14 项与累计修复收尾继续核对。
 
 ## 2026-11-11：宿主默认光标恢复所有权
 
-- stop_jvm 原先无条件恢复默认光标，导致从未启动 JVM 的诊断宿主也改写 Godot 应用设置；正常 EXIT_TREE 后析构再次调用 stop_jvm，还会覆盖应用新选择的光标。增加 default_cursor_state_saved：启动保存时置位，首次恢复后清除；未保存或已恢复均不再写入。
-- 在现有 native_windows_test 加入无 JVM 离树/析构的光标保留断言，在 image_cursor 加入正常 JavaFX 退出后应用重新选择光标再销毁宿主的断言。修复前两项分别明确失败（`review-cursor-ownership-before-raw.log`、`review-cursor-repeat-before-raw.log`）；前者旧夹具失败早退时尚有一个手工移出的宿主未释放，现已补齐失败清理，旧日志的该退出告警不单独归因于生产泄漏。
-- Editor、Runtime 顺序构建通过（`review-cursor-ownership-editor-build.log`、`review-cursor-ownership-runtime-build.log`）；mobile/separate 原生窗口测试与 Runtime 图像光标测试通过，日志 `review-cursor-ownership-after.log`、`review-cursor-repeat-runtime-after.log`。合成 viewport motion，不移动真实鼠标。Glass 和 TESTS 同步。
+- stop_host 原先无条件恢复默认光标，导致尚未连接 Java 应用 的诊断宿主也改写 Godot 应用设置；正常 EXIT_TREE 后析构再次调用 stop_host，还会覆盖应用新选择的光标。增加 default_cursor_state_saved：启动保存时置位，首次恢复后清除；未保存或已恢复均不再写入。
+- 在现有 native_windows_test 加入未绑定宿主离树/析构的光标保留断言，在 image_cursor 加入正常 JavaFX 退出后应用重新选择光标再销毁宿主的断言。修复前两项分别明确失败（`review-cursor-ownership-before-raw.log`、`review-cursor-repeat-before-raw.log`）；前者旧夹具失败早退时尚有一个手工移出的宿主未释放，现已补齐失败清理，旧日志的该退出告警不单独归因于生产泄漏。
+- 引擎顺序构建通过（`review-cursor-ownership-editor-build.log`、`review-cursor-ownership-runtime-build.log`）；mobile/separate 原生窗口测试与 Runtime 图像光标测试通过，日志 `review-cursor-ownership-after.log`、`review-cursor-repeat-runtime-after.log`。合成 viewport motion，不移动真实鼠标。Glass 和 TESTS 同步。
 - 主宿主源码全文及关联入口复核完成；进度覆盖代码审查与已说明范围的验证，不是所有 OS/内存耗尽状态的穷举证明。固定原始源码审查已完成/总计：141/156（根仓库 112/127、Godot 10/10、JFX 19/19）；剩余文档、子模块指针等 15 项及累计修复收尾继续进行。
-
-## 2026-11-11：JVM 启动方法查找异常顺序
-
-- run_jvm 查找 GodotBridge.launch 失败后原先仍调用 NewStringUTF，此时 JNI 已存在未处理异常。改为仅在方法查找成功后构造主类名参数；失败直接进入既有异常报告与销毁流程。
-- 实际启动代码块的隔离 JNI 模拟覆盖方法查找失败、字符串分配失败、Java 调用失败与正常启动，检查额外调用、引用清理、运行状态和调用计数。旧版在 fault=0 检出 pending exception 下继续调用，修复版四分支通过。日志 `review-jvm-launch-before.log`、`review-jvm-launch-after.log`，源位于 `artifacts/native-tests/jvm-launch-failure/`；未用破坏 SDK 的方式动态制造缺失方法。
-- Editor、Runtime 构建通过（`review-jvm-launch-editor-build.log`、`review-jvm-launch-runtime-build.log`）。实际 `test-glass-scheduler.ps1` 通过，使用项目默认 gl_compatibility 后端，验证 Godot Glass 启动/调度/嵌套循环和退出；日志 `m2-glass-scheduler.log`。Glass 文档同步。
-- 主宿主主循环、完成确认、读回和退出代码已读完。收尾仍需核对“未启动 JVM 的宿主销毁时是否错误恢复默认光标”等状态所有权边界，因此本轮不提前将主宿主计为完成。固定原始源码审查已完成/总计保持 140/156。
 
 ## 2026-11-11：外部拖放请求 JNI 分配异常边界
 
 - drag_start_external 只有部分局部分配带有 bad_alloc 处理，文本/富文本字符串、路径、自定义载荷和图像缓冲区仍可能让原生异常越过 JNI。给整个入口增加统一 bad_alloc 边界；原生所有权按栈展开清理、请求不发布，Java 收到 OutOfMemoryError。JNI 局部引用在本次原生调用返回时自动释放。
 - 隔离夹具使用实际函数体和模拟 JNI，注入请求对象、64 字符文本、64 字节富文本的三个分配失败位置。旧版在文本分配处退出 1；修复版三个失败均保持 dnd_pending 为空，并在同一 Runtime 上恢复分配后成功重试。日志 `review-drag-request-before.log`、`review-drag-request-after.log`，夹具 `artifacts/native-tests/drag-request-failure/`。没有声称已经逐一注入文件、自定义格式、图像所有分支或真实 JVM 堆耗尽。
-- Editor、Runtime 顺序构建通过（`review-drag-request-editor-build.log`、`review-drag-request-runtime-build.log`）。Runtime mobile/safe 真实 Robot 跨进程双向传输、拖动图像及取消测试通过，日志 `review-drag-request-runtime-external.log`；测试已退出。Glass 文档同步。
+- 引擎顺序构建通过（`review-drag-request-editor-build.log`、`review-drag-request-runtime-build.log`）。Runtime mobile/safe 真实 Robot 跨进程双向传输、拖动图像及取消测试通过，日志 `review-drag-request-runtime-external.log`；测试已退出。Glass 文档同步。
 - 主宿主复核已推进到 JVM 初始化/启动配置，仍需继续核对启动失败与主循环。固定原始源码审查已完成/总计保持 140/156。
 
 ## 2026-11-11：屏幕信息 JNI 分配失败边界
 
 - screen_info 原先复制原生 screens 向量时未捕获 std::bad_alloc，可能让 C++ 异常越过 JNI。现在与其他快照入口一致转换为 Java OutOfMemoryError；局部锁在异常处理前释放，正常查询路径不变。
 - 使用实际函数体与模拟 JNI 的隔离夹具注入快照复制失败。旧版退出 1 并报告原生异常逃逸；修复版验证 Java 异常类型、没有尝试创建 Java 数组、锁已释放及重试返回原始三个值。源与运行入口在 `artifacts/native-tests/screen-snapshot-failure/`，日志 `review-screen-snapshot-before.log` / `review-screen-snapshot-after.log`。这不是完整 JVM 内存耗尽测试。
-- Editor、Runtime 顺序构建通过（`review-screen-snapshot-editor-build.log`、`review-screen-snapshot-runtime-build.log`）；mobile/separate 的 `test-screens.ps1` 屏幕枚举、元数据与窗口关联通过（`screens-mobile-separate.log`），没有修改用户显示设置。
+- 引擎顺序构建通过（`review-screen-snapshot-editor-build.log`、`review-screen-snapshot-runtime-build.log`）；mobile/separate 的 `test-screens.ps1` 屏幕枚举、元数据与窗口关联通过（`screens-mobile-separate.log`），没有修改用户显示设置。
 - Glass 文档同步。主宿主 JNI 读取已推进至外部拖放请求构造部分；该部分还有字符串/图像容器分配需继续核对异常边界，主循环全文尚未完成。固定原始源码审查已完成/总计仍为 140/156。
 
 ## 2026-11-11：自定义光标入队序号事务修复
 
 - 主宿主 JNI 部分复核发现 custom_cursor 在 deque 入队前递增 next_host_sequence；若 push_back 分配失败，关闭完成判断会等待一个从未成功入队的序号。改为 push_back 成功后递增，与普通窗口/图标命令一致。
 - 从实际 custom_cursor 函数体生成隔离原生夹具，以模拟 JNI 环境和 STL 分配失败遍历队列已有 0～255 项，验证失败时队列/序号均不变、恢复分配后原序号可重试。旧版本退出 1（count=0 即暴露序号消耗）；修复版通过 256 次失败/重试。夹具在 `artifacts/native-tests/cursor-queue-transaction/`，日志 `review-cursor-queue-before.log`、`review-cursor-queue-after.log`；不是全进程内存耗尽或完整退出流程的动态测试。
-- Editor、Runtime 顺序构建通过：`review-cursor-queue-editor-build.log`、`review-cursor-queue-runtime-build.log`。Runtime mobile/separate 的 `test-image-cursor.ps1` 通过 13 步光标图像/热点/隐藏恢复/子窗口与退出清理；使用 Godot 合成输入，不移动真实鼠标。
+- 引擎顺序构建通过：`review-cursor-queue-editor-build.log`、`review-cursor-queue-runtime-build.log`。Runtime mobile/separate 的 `test-image-cursor.ps1` 通过 13 步光标图像/热点/隐藏恢复/子窗口与退出清理；使用 Godot 合成输入，不移动真实鼠标。
 - Glass 文档补充成功入队才提交序号的约束。主宿主文件全文复核仍未完成，本轮固定原始源码审查已完成/总计保持 140/156；后续继续核对 JNI 分配异常边界和主循环。
 
 ## 2026-11-11：原生窗口宿主与声明最终复核
@@ -233,7 +226,7 @@
 
 - 完整核对 javafx_rd_direct.cpp/.h 及宿主入口、现有调用方。cycle_probe 原先只检查 active，没有检查 translate_probe 第一阶段后的 phase_pending，重叠调用会覆盖同一个 CycleState 的 GPU 句柄。现统一拒绝尚有对照测试等待完成的状态；接口注释明确每次成功或失败后均须 release_rd_cycle 释放已创建资源。
 - 在三族着色器对照中加入真实 API 重叠调用：第一阶段后尝试 cycle 基准，要求 cycle_already_active，随后原测试的第二阶段、逐像素对照和左右预览仍通过。修复前退出 1 并报告 Pipeline/Shader/Index/Vertex/Framebuffer/Texture 泄漏（`review-rd-probe-overlap-before.log`）；修复后 mobile safe/separate 均通过，日志 `review-rd-probe-overlap-safe.log`、`review-rd-probe-overlap-separate.log`，无 ERROR 或泄漏警告。
-- Editor、Runtime 顺序构建通过，日志 `review-rd-probe-overlap-editor-build.log`、`review-rd-probe-overlap-runtime-build.log`。更新 TESTS、RD 历史计划的当前补充及头文件使用契约；此次修复只影响诊断探针，不改变生产逐帧渲染。未注入 GPU 分配失败，部分创建资源仍按明确调用方释放契约处理。
+- 引擎顺序构建通过，日志 `review-rd-probe-overlap-editor-build.log`、`review-rd-probe-overlap-runtime-build.log`。更新 TESTS、RD 历史计划的当前补充及头文件使用契约；此次修复只影响诊断探针，不改变生产逐帧渲染。未注入 GPU 分配失败，部分创建资源仍按明确调用方释放契约处理。
 - 固定原始源码审查已完成/总计：136/156（根仓库 107/127、Godot 10/10、JFX 19/19）；剩余 20 项及其他累计修复继续核对。
 
 ## 2026-11-11：外部拖放辅助程序最终复核
@@ -247,22 +240,22 @@
 
 - 确认原子 bridge_class 置空不足以保护“回调已读到桥接指针、尚未 GetEnv/AttachCurrentThread”这一窗口。改用 Runtime 持有的 UpcallState：同一互斥锁发布 VM/全局类引用/方法、保护完整回调和临时引用释放/线程脱离，并在销毁 JVM 前关闭入口。关闭后拒绝任何新调用，也消除入口字段分开发布的风险。锁不进入逐帧渲染路径。
 - 模拟 JNI 回归在 GetEnv 内、附加线程前暂停调用，核对关闭入口所用锁仍被占用，释放后等待调用与关闭线程完成，再确认关闭后的调用不触碰 JNI。当前通过 `DND_JNI_SHUTDOWN_GATE_PASS`；隔离副本移除生命周期锁后明确失败（`review-dnd-gate-without-lock.log`），没有修改生产测试断言。23 点异常回归及所有原有 OLE 组件测试一并通过（`review-dnd-gate-component.log`）。
-- Editor、Runtime 顺序构建通过（`review-dnd-gate-editor-build.log`、`review-dnd-gate-runtime-build.log`）。真实 JVM 的 mobile/separate OLE 入站超时取消通过；Runtime mobile/safe 真实 Robot 跨进程双向拖放、拖动图像及 Escape 取消通过。保留日志 `review-dnd-gate-ole-timeout.log`、`review-dnd-gate-external-runtime.log`。这些不是所有 Windows/JVM 退出时序的穷举验证。
+- 引擎顺序构建通过（`review-dnd-gate-editor-build.log`、`review-dnd-gate-runtime-build.log`）。真实 JVM 的 mobile/separate OLE 入站超时取消通过；Runtime mobile/safe 真实 Robot 跨进程双向拖放、拖动图像及 Escape 取消通过。保留日志 `review-dnd-gate-ole-timeout.log`、`review-dnd-gate-external-runtime.log`。这些不是所有 Windows/JVM 退出时序的穷举验证。
 - 更新架构入门说明、Glass 文档、TESTS 与审查清单。固定原始源码审查已完成/总计：132/156（根仓库 103/127、Godot 10/10、JFX 19/19）；剩余 24 项和累计新增修复继续收尾。
 
 ## 2026-11-11：OLE JNI 参数构造失败清理
 
 - 修复 windows_dnd.h 的 call_target：JNI 分配、数组写入或查找类失败后立即停止参数构造，释放已经取得的局部引用并平衡线程附加；不向 Java 回调传递部分构造的载荷。
 - 模拟 JNI 覆盖两项自定义格式载荷中的 23 个失败位置，包括 Java 回调本身异常；要求异常后无额外 JNI 转换、引用清零、拒绝拖放、清除异常并脱离线程。旧函数在新测试中报告 `JNI operation executed with a pending exception`，当前版本通过。日志 `review-dnd-jni-before.log` / `review-dnd-jni-after.log`；不是实际 JVM 堆耗尽实验。
-- Editor、Runtime 顺序构建通过：`review-dnd-jni-editor-build.log` / `review-dnd-jni-runtime-build.log`。mobile/separate 的 OLE 注入和超时取消分别通过：`ole-inject-mobile-separate.log` / `ole-inject-mobile-separate-timeout.log`。不操作真实鼠标或系统剪贴板。
-- 尚需核对 Upcall 从读取 bridge_class 到附加线程之间与 DestroyJavaVM 的竞态；原子指针置空本身不提供整个调用的生命周期保护。因此 windows_dnd.h 暂不计为最终复核完成。
+- 引擎顺序构建通过：`review-dnd-jni-editor-build.log` / `review-dnd-jni-runtime-build.log`。mobile/separate 的 OLE 注入和超时取消分别通过：`ole-inject-mobile-separate.log` / `ole-inject-mobile-separate-timeout.log`。不操作真实鼠标或系统剪贴板。
+- 尚需核对 Upcall 从读取 bridge_class 到附加线程之间与关闭桥接的竞态；原子指针置空本身不提供整个调用的生命周期保护。因此 windows_dnd.h 暂不计为最终复核完成。
 - 固定原始源码审查已完成/总计仍为 131/156；本轮完成上述缺陷修复，累计新增回归一并纳入收尾。
 
 ## 2026-11-11：剪贴板文件列表编码快照修复
 
 - 原生 encode_hdrop 原先先读取 Java String[] 计算长度，分配后再次读取；并发替换数组元素可能使第二次路径更长或为 null。现在逐项取得并验证原生 UTF-16 快照，再按同一快照分配与编码，同时把路径终止符纳入总字符预算。
 - 新增不访问系统剪贴板的确定性 JNI 模拟：同一数组第二次读取会返回替换路径。旧编码器失败，新编码器只读取一次并保留原路径和双 NUL；已有句柄、锁、枚举、图像布局检查一并通过。日志 `review-clipboard-path-before.log`、`review-clipboard-path-after.log`。
-- Editor、Runtime 顺序构建通过，日志 `review-clipboard-path-editor-build.log`、`review-clipboard-path-runtime-build.log`。当前剪贴板私有格式保护保持不变，没有清空或执行格式交换；这次证据为编码器回归及构建，不冒充完整系统互操作复测。
+- 引擎顺序构建通过，日志 `review-clipboard-path-editor-build.log`、`review-clipboard-path-runtime-build.log`。当前剪贴板私有格式保护保持不变，没有清空或执行格式交换；这次证据为编码器回归及构建，不冒充完整系统互操作复测。
 - glass-godot 文档同步。固定原始源码审查已完成/总计：131/156（根仓库 102/127、Godot 10/10、JFX 19/19），累计新增修复另行收尾。
 
 ## 2026-11-11：帧协议与资源事务最终核对
@@ -382,7 +375,7 @@
 ## 2026-11-11：SceneView 输入边界和生命周期复核
 
 - 复读 SceneView 完整实现、Surface 持有/迁移/释放路径及 Java/C++ 场景输入校验；未发现需要改写的生产代码。审查清单补充具体来源与验证范围。
-- 当前 Editor mobile/safe、mobile/separate 各 100 轮场景生命周期测试通过，包含父树先销毁而包装对象存活的场景；证据 `review-scene-lifetime-safe.log`、`review-scene-lifetime-separate.log`。
+- 当前引擎 mobile/safe、mobile/separate 各 100 轮场景生命周期测试通过，包含父树先销毁而包装对象存活的场景；证据 `review-scene-lifetime-safe.log`、`review-scene-lifetime-separate.log`。
 - 直接合成输入不是 Java 编码端或焦点取消的动态验收；未扩大通过结论，未改变性能配置。
 
 ## 2026-11-11：同类 GPU 夹具的绘制等待边界
@@ -403,33 +396,33 @@
 
 - mobile/separate shader-cache 六次串行运行全部通过；证据 `review-pixel-repro-1-full.log` 至 `review-pixel-repro-6-full.log`。没有修改生产代码、等待次数或像素断言。
 - 确认 separate 的绘制后通知通过延迟调用返回主线程，但尚未证明旧通知导致此前异常，继续保留单次历史失败为未闭环项。
-- 更正审查文档中仍把剪贴板完整互操作描述为“未验证”的旧段落，与已完成的 Editor/Runtime 交换及精确恢复结果保持一致。
+- 更正审查文档中仍把剪贴板完整互操作描述为“未验证”的旧段落，与已完成的引擎交换及精确恢复结果保持一致。
 
 ## 2026-11-11：剪贴板阻塞解除与发布序列号修复
 
 - 第三次恢复后只读复核成功，发现四种可备份格式，遂按原“所有测试”授权执行交换。双侧功能 PASS，但首次恢复被序列号保护拒绝；保护未被关闭。
 - 逐字节核对当前已发布测试格式后，在当前序列号保护下恢复保存的原内容，恢复校验成功。最初备份 `clipboard-86803022f16245eda0f940b7e240b05f.ready.backup.clixml` 仍保留；未把内容写入日志。
 - 有原始备份/精确恢复的独立实验确认 WriteRaw 返回关闭前序列号 101，CloseClipboard 后变成 103，见 `review-clipboard-close-sequence.json`。现发布后重新加锁并验证所有者仍为测试窗口，再记录序列号；外部改写、未知格式和最终序列号不匹配仍拒绝。
-- 包装器修复 Invoke 直接抛错时未显示备份路径的问题。guard 检查通过；mobile Editor 与 Runtime 完整交换及原始字节恢复都通过，证据 `review-clipboard-postclose-*.log`。此项不再因等待准备回复而阻塞。
+- 包装器修复 Invoke 直接抛错时未显示备份路径的问题。guard 检查通过；mobile 引擎完整交换及原始字节恢复都通过，证据 `review-clipboard-postclose-*.log`。此项不再因等待准备回复而阻塞。
 - TESTS、审查清单和验收状态同步更新。separate 单次历史像素失败及其他既有验收限制保持原状态。
 
 ## 2026-11-11：当前产物 RD 性能与外层命令状态核对
 
-- 当前 Editor（原生剪贴板枚举修复后）运行 RD1/LCD1、mobile/safe 切页基准：68 次、1625 Pulse，59.386 Pulse FPS；1616 次呈现 / 28516.743ms = 56.668 FPS，未失焦、资源清理通过。p99=25.469ms、max=108.733ms；不处理偶发长帧。
+- 当前引擎（原生剪贴板枚举修复后）运行 RD1/LCD1、mobile/safe 切页基准：68 次、1625 Pulse，59.386 Pulse FPS；1616 次呈现 / 28516.743ms = 56.668 FPS，未失焦、资源清理通过。p99=25.469ms、max=108.733ms；不处理偶发长帧。
 - 外层 shell 曾返回 1，但测试脚本已通过自身原生退出码/日志门禁。排查排除了诊断 stderr 假设，最小复现确认最后在 finally 中 Remove-Item 不存在的环境变量（SilentlyContinue）会留下失败状态。记录原状态与原因，没有重跑或隐藏失败记录。
 - 逐页加权复算、宿主计数复算及当前 Editor/graphics.jar 哈希见 `review-current-rd-transition-rates.json`，完整日志 `review-current-rd-transition-full.log`。验收文档与审查入口同步更新，未修改生产代码。
 
 ## 2026-11-11：窗口销毁与输入取消当前证据
 
 - 复核 owned window 递归释放、拖放委托解绑、渲染等待和 held_buttons 清理顺序；失焦先清除按住状态和 IME 组合，再入事件队列，当前未发现新的状态遗留问题。
-- 当前 Editor 的 mobile/separate 输入取消回归通过，包含模态窗口切换、丢失鼠标/键盘释放、触摸取消及下一次正常动作。日志 `review-current-input-cancel-full.log`；Godot 合成输入，不操作真实设备。
+- 当前引擎的 mobile/separate 输入取消回归通过，包含模态窗口切换、丢失鼠标/键盘释放、触摸取消及下一次正常动作。日志 `review-current-input-cancel-full.log`；Godot 合成输入，不操作真实设备。
 - 未修改生产代码。共享剪贴板互操作仍等待用户准备回复，不把该局部限制当作其他审查工作的停止理由。
 
 ## 2026-11-11：原生自定义剪贴板格式枚举错误传播
 
 - 同类核对发现生产 custom_formats 也把 Win32 枚举失败当作结束。现由 next_format 区分结束与错误，错误通过 JNI 抛出 IllegalStateException，RAII 关闭剪贴板，避免静默返回部分列表。
 - 原生组件以 mock API 覆盖初始/中途失败、正常空/结束和成功结果伴随旧错误码，CLIPBOARD_ENUMERATION_FAILURE_PASS 与所有权检查通过；日志 `review-native-clipboard-enumeration.log`。未访问真实剪贴板或修改 OLE 的不同枚举契约。
-- Editor/Runtime 顺序构建成功，日志 `review-native-clipboard-editor-build.log`、`review-native-clipboard-runtime-build.log`。完整互操作仍等待用户准备完成的回复，不绕过快照保护。
+- 引擎顺序构建成功，日志 `review-native-clipboard-editor-build.log`、`review-native-clipboard-runtime-build.log`。完整互操作仍等待用户准备完成的回复，不绕过快照保护。
 - TESTS、Glass 说明和审查记录已同步。
 
 ## 2026-11-11：剪贴板快照拒绝不完整枚举
@@ -461,7 +454,7 @@
 
 - 检查发现关闭 ASYNC_PASS_FENCE 且 PASS_SYNC_INTERVAL=0 时，绑定目标对象的回调仍异步入队，却提前读取耗时并返回。新增 128 次提交后立即释放目标，在修复前捕获 Invalid Object id；原 100 轮复制检查的 PASS 不足以掩盖该 ERROR。
 - separate 备用路径现在每次返回前完成队列同步，保证对象和成员耗时访问安全；默认异步 RID 路径不增加逐次等待，safe 模式仍保留原节流策略。
-- Editor/Runtime 构建成功。mobile/separate 的 ASYNC_PASS_FENCE=0 和 1、GL/separate 的 0，均通过新增生命周期检查和原像素/资源门禁。证据 `artifacts/logs/review-sync-fallback-*`；修改诊断环境变量后均恢复。
+- 引擎构建成功。mobile/separate 的 ASYNC_PASS_FENCE=0 和 1、GL/separate 的 0，均通过新增生命周期检查和原像素/资源门禁。证据 `artifacts/logs/review-sync-fallback-*`；修改诊断环境变量后均恢复。
 - 同步协议说明、TESTS 和审查清单已更新。这是独立的非默认路径错误，尚无证据解释早前默认 separate 压力检查的单次像素失败。
 
 ## 2026-11-10：碰撞条目删除与最终 Media 回归
@@ -486,7 +479,7 @@
 
 - 新增实际 Dictionary 哈希碰撞夹具：96 个存活纹理目标，搜索三采样器组合；修复前两次绘制的左侧颜色被第二组覆盖，完整证据 `review-material-collision-before-full.log`。
 - 移除就地改写已发布材质的 patch 路径。缓存以完整 shader/参数身份复用，碰撞另存条目；主键未命中时查找已有碰撞条目，保留上一轮失效 sampler 回收。旧 MATERIAL_PATCH 诊断开关不再影响实现。
-- Editor/Runtime 顺序源码构建成功。mobile/safe 与 GL/safe shader-cache 完整通过，包含三轮碰撞像素/两份材质复用、原有 305 轮压力门禁。mobile/separate 首次碰撞通过、后续第 275 轮旧像素门禁失败；增加实际颜色诊断后重跑通过，仍保留第一次失败为待定位间歇现象，不宣称已解决。
+- 引擎顺序源码构建成功。mobile/safe 与 GL/safe shader-cache 完整通过，包含三轮碰撞像素/两份材质复用、原有 305 轮压力门禁。mobile/separate 首次碰撞通过、后续第 275 轮旧像素门禁失败；增加实际颜色诊断后重跑通过，仍保留第一次失败为待定位间歇现象，不宣称已解决。
 - Viewport（RD_DIRECT=0、LCD_SCREEN=1）mobile/safe 的 68 次切页：58.700 Pulse FPS、56.133 宿主呈现 FPS，未失焦、资源清理通过。日志 `review-material-collision-transition-full.log`，不以单次波动声称提速。
 - 相关构建及测试证据均为 `artifacts/logs/review-material-collision-*`；TESTS、Prism 和审查清单同步更新。未改业务功能或放宽断言。
 
@@ -495,7 +488,7 @@
 - 当前 Runtime 视频控制与 WAV/MP3/AIFF 解码控制通过；TabTip 错误传播/COM 释放组件测试通过。未将这些等同实际听音或系统键盘显示验收。
 - Media churn 原断言在第 11 轮失败：owned 从 31 持续增至 51，纹理内存不变。关闭 RID 缓存的诊断对照 24 轮通过、owned=29，证据保存在 `review-final-media-churn-runtime-full.log` 和 `review-media-churn-cache-diagnostic-full.log`。
 - 修复 `JavaFXRenderTarget::acquire_material`：缓存未命中时清理已失效采样器的条目及顺序索引，材质沿原 pass 资源路径延迟释放；不再等缓存满才回收。另消除 map erase 后继续读取旧条目指针的风险。未禁用交付缓存、未放宽测试阈值。
-- Editor 和 Runtime 顺序构建成功。缓存显式开启的 mobile Runtime 24 轮 `-Providers` 通过，owned=31、退出=0；shader 和 mesh-transform 缓存压力像素检查通过。日志 `review-material-retirement-*.log` 位于 `artifacts/logs/`。
+- 引擎顺序构建成功。缓存显式开启的 mobile Runtime 24 轮 `-Providers` 通过，owned=31、退出=0；shader 和 mesh-transform 缓存压力像素检查通过。日志 `review-material-retirement-*.log` 位于 `artifacts/logs/`。
 - 显式 RD_DIRECT=0、LCD_SCREEN=1 的 mobile/safe 切页 68 次：58.457 Pulse FPS、56.008 宿主呈现 FPS，未失焦，资源清理通过。与之前 RD 结果配置不同，不作因果性能提升声明；偶发长帧仍按用户要求暂不处理。
 
 ## 2026-11-10：系统接口补测与结果范围修正
@@ -508,8 +501,8 @@
 ## 2026-11-10：重新授权后的最终产物与 Robot 回归
 
 - 用户重新明确允许 Robot 及其他测试，本轮 GUI 测试串行执行，没有修改生产代码或放宽断言。
-- 最终 Editor 的 mobile/safe 切页基准，显式 RD_DIRECT=1、LCD_SCREEN=1，关闭采样/性能诊断变量：68 次切页、1613 Pulse，59.006 Pulse FPS；1602 次宿主呈现 / 28634.649ms = 55.946 FPS；unfocused=0，资源清理通过。p99=51.433ms、max=117.829ms；按用户要求不处理偶发长帧。日志 `review-final-transition-full.log`，独立复算 `review-final-transition-rates.json`，均位于 `artifacts/logs/`。
-- mobile/separate Editor 的 Robot、外部 OLE 拖放、hover-flicker -Robot、physical-drag -Robot、文件对话框通过。悬停 FusionButton 有效 HOLD/GAP 样本 583/222，资源清零；文件对话框完成六用例。
+- 最终引擎的 mobile/safe 切页基准，显式 RD_DIRECT=1、LCD_SCREEN=1，关闭采样/性能诊断变量：68 次切页、1613 Pulse，59.006 Pulse FPS；1602 次宿主呈现 / 28634.649ms = 55.946 FPS；unfocused=0，资源清理通过。p99=51.433ms、max=117.829ms；按用户要求不处理偶发长帧。日志 `review-final-transition-full.log`，独立复算 `review-final-transition-rates.json`，均位于 `artifacts/logs/`。
+- mobile/separate 引擎的 Robot、外部 OLE 拖放、hover-flicker -Robot、physical-drag -Robot、文件对话框通过。悬停 FusionButton 有效 HOLD/GAP 样本 583/222，资源清零；文件对话框完成六用例。
 - mobile/safe 的表格水平 Robot 拖动通过：96 Pulse、60.004 FPS、位移 867px、unfocused_ticks=0；这是有界物理输入回归，不是长期性能保证。完整日志 `review-final-table-robot-full.log`。
 - mobile/safe Runtime 的 Robot 和外部 OLE 拖放也通过，覆盖最终原生产物的正常跨进程路径。日志 `robot-mobile-safe-runtime.log` 和 `drag-drop-external-mobile-safe-runtime.log`。
 - 这些结果覆盖本轮测试配置，不能替代混合 DPI、真实音频/A-V 同步或全部剪贴板格式验收；宿主呈现计数不等于显示器实际扫描输出。
@@ -517,7 +510,7 @@
 ## 2026-11-10：最终产物核对与测量拒绝记录
 
 - 原始 127/10/19 路径集合与固定索引完全匹配，13 个范围内交付产物哈希匹配；WebKit 依用户要求排除，VFX 无本轮修改。
-- 最终 Editor/Runtime、Media SDK 构建成功记录与三仓库 diff 检查通过。
+- 最终引擎、Media SDK 构建成功记录与三仓库 diff 检查通过。
 - 自动审批拒绝补跑最终构建的 RD 切页测量，未启动、未绕过或伪称新 FPS；整体完成未宣布，已有测量保留原版本/配置限定。
 
 ## 2026-11-10：原始场景绑定与证据定位
@@ -536,7 +529,7 @@
 
 - 组件测试复现生产 read_hglobal 分配失败后锁/介质未释放；修复 scoped 解锁、介质及格式枚举器释放。
 - TargetHandler 捕获分配/长度异常，清空旧载荷并拒绝拖放，避免异常穿过 COM 或落入另一消费者。
-- 故障组件、Editor/Runtime 构建和 mobile/separate 正常 OLE 注入通过；没有真实键鼠或系统剪贴板写入。
+- 故障组件、引擎构建和 mobile/separate 正常 OLE 注入通过；没有真实键鼠或系统剪贴板写入。
 - 补齐 Surface 原始缓存/变换/资源路径的源码对应。测试 helper 的历史修复不再混同为生产读取路径已覆盖。
 
 ## 2026-11-10：原始包装脚本审查对应
@@ -621,7 +614,7 @@
 
 - 复现 RD 直接调用静默忽略非零 Z 并绘制；补齐形状、精确长度、有限值、65536 顶点上限及 Z=0 检查。
 - 新负向脚本逐一核对五类错误及合法 pass 恢复，safe/separate 通过；完整 RD 与 Java 跨批次回归通过。
-- Editor/Runtime 构建成功，测试与架构说明同步。未运行 Robot，不扩展 3D 支持。
+- 引擎构建成功，测试与架构说明同步。未运行 Robot，不扩展 3D 支持。
 
 ## 2026-11-10：环境恢复误判纠正与系统接口审查
 
@@ -632,20 +625,20 @@
 ## 2026-11-10：RD 输入复制与顶点打包
 
 - 去掉 RD 入口对同类型数组的深拷贝，打包循环一次获取可写指针，并以字节复制避免 float 指针别名写入。
-- 新增提交前改写调用方数组的像素检查，验证原位置、两组 UV 和颜色保持；separate Editor、safe Runtime 全 RD 回归及 Java 跨批次验证通过。
-- Editor/Runtime 构建与文档检查完成。没有运行 Robot，没有据减少复制宣称新 FPS。
+- 新增提交前改写调用方数组的像素检查，验证原位置、两组 UV 和颜色保持；separate 引擎、safe Runtime 全 RD 回归及 Java 跨批次验证通过。
+- 引擎构建与文档检查完成。没有运行 Robot，没有据减少复制宣称新 FPS。
 
 ## 2026-11-10：常量解码减少临时堆分配
 
 - 宿主标量和向量解码使用固定四元素局部存储，数组常量仍用原 PackedArray 表示；保留原位模式与参数类型。
 - 协议边界拒绝检查及完整 10000 并发帧测试通过，实际 shader 的 float/int 1–4 分量八类像素检查通过。
-- Editor/Runtime 构建与 Runtime RD Effect 对照通过。测试说明和审查记录同步；本轮不报告新的 FPS 提升，未运行 Robot。
+- 引擎构建与 Runtime RD Effect 对照通过。测试说明和审查记录同步；本轮不报告新的 FPS 提升，未运行 Robot。
 
 ## 2026-11-10：水平负载长测及参数分流分配优化
 
 - 表格测试新增 -Sweeps（3..30），延长到 960 脉冲后确认性能差距不限于启动阶段。保留完整间隔、轴位移、资源检查。
 - 宿主实例参数分流直接查缓存名称，去掉每条命令的临时集合与全键数组；复制值后才删除字典条目。
-- Editor/Runtime 构建、默认值/参数删除像素、Runtime RD Effect 与长负载回归通过。修复版平均 53.707 FPS，未据单次数据宣称确定提速或稳定 60。
+- 引擎构建、默认值/参数删除像素、Runtime RD Effect 与长负载回归通过。修复版平均 53.707 FPS，未据单次数据宣称确定提速或稳定 60。
 - 未运行 Robot，未针对偶发长帧修改运行时。相关测试、性能及审查文档同步。
 
 ## 2026-11-10：水平表格滚动测试修正
@@ -670,7 +663,7 @@
 
 - 失焦、窗口销毁、最后一个按钮释放时清理宿主保持状态；取消测试故意省略原窗口释放，旧版意外拖动已复现，新版 mobile/separate、GL/safe 通过。
 - 修正此前槽默认值处理引入的空值错误和同步查询：参数减少或着色器切换时重建绘制对象，其余继续复用。mobile safe/separate 四阶段像素检查通过。
-- Editor/Runtime 构建成功；mobile/separate 合成及真实 Robot 拖动通过，测试结束已恢复键鼠使用。测试说明、架构和审查记录同步。本轮不新增 FPS 结论。
+- 引擎构建成功；mobile/separate 合成及真实 Robot 拖动通过，测试结束已恢复键鼠使用。测试说明、架构和审查记录同步。本轮不新增 FPS 结论。
 
 ## 2026-11-10：当前状态文档一致性复核
 
@@ -681,31 +674,31 @@
 ## 2026-11-10：VSync 回退状态恢复
 
 - 复现 Java 结束后仍遗留回退设置；宿主记录自己安装的 FPS，完成/失败/停止时仅撤销仍与其相同的设置，保留应用后改的不同值。
-- Editor/Runtime 构建、mobile cap/restore/override、GL restore 通过。实际触发回退后恢复 0 FPS/VSync 开启，另测应用改为 47 FPS 后仍保留。
+- 引擎构建、mobile cap/restore/override、GL restore 通过。实际触发回退后恢复 0 FPS/VSync 开启，另测应用改为 47 FPS 后仍保留。
 - 性能、测试、架构及审查文档同步；同值外部写入无法由值比较区分，失败与中途停止未单独故障注入。
 
 ## 2026-11-10：VSync 回退尊重显式 FPS 限制
 
 - 复现应用设置 30 FPS 被自动改为 60、VSync 被关闭；回退现跳过非零显式帧率限制，切换前重查 VSync，校验刷新率有限值。
-- Editor/Runtime 构建、mobile/GL 限速保护用例通过。修正日志、性能文档与头文件中未经普遍证明的 FIFO 因果/无撕裂表述。
+- 引擎构建、mobile/GL 限速保护用例通过。修正日志、性能文档与头文件中未经普遍证明的 FIFO 因果/无撕裂表述。
 - 新测试和限制写入 TESTS.md；回退触发后的全局状态恢复仍待核对，不据局部修复宣称已完成。
 
 ## 2026-11-10：修复绘制槽实例参数残留
 
 - 实际 Java→宿主→Viewport 路径复现省略 tint 后仍使用旧红色。复用槽记录参数名，省略项恢复当前着色器默认值，并跟踪已写入的默认值以正确处理后续换 shader。
-- Editor/Runtime 构建成功，safe/separate 显式值→默认值→新 shader 默认值三阶段像素及资源检查通过；原 separate RD 批次边界仍通过。
+- 引擎构建成功，safe/separate 显式值→默认值→新 shader 默认值三阶段像素及资源检查通过；原 separate RD 批次边界仍通过。
 - 新增 -ViewportState 用法与证据说明，更新初学者架构文档；未禁用实例参数优化或修改 VFX 行为。
 
 ## 2026-11-10：离屏绘制槽改用顺序游标
 
 - 消除每次绘制从零扫描 used 槽的累计平方开销；独立网格槽游标在清理时复位，保留矩形/复制的独立层级顺序。
-- Editor/Runtime 构建、GL 缓存压力、100 轮目标复制生命周期、GL/separate Effect 均通过，日志见 review-open-items.md。
+- 引擎构建、GL 缓存压力、100 轮目标复制生命周期、GL/separate Effect 均通过，日志见 review-open-items.md。
 - 初学者架构说明同步；未改变测试入口或资源预算，不据源码优化声明实测 FPS 增幅。
 
 ## 2026-11-10：修复离屏网格被缓存淘汰后提前销毁
 
-- 扩展 mesh-transform 压力用例到离屏 target，旧 Editor 复现空 mesh 和红色区域丢失。持久 DrawSlot 增加强引用，命令清空时释放；不复用槽时由本轮资源列表持有。
-- Editor/Runtime 构建通过，GL/mobile 压力、GL 无槽复用、Runtime mobile/separate Effect 回归通过；失败与修复证据见 review-open-items.md。
+- 扩展 mesh-transform 压力用例到离屏 target，旧引擎复现空 mesh 和红色区域丢失。持久 DrawSlot 增加强引用，命令清空时释放；不复用槽时由本轮资源列表持有。
+- 引擎构建通过，GL/mobile 压力、GL 无槽复用、Runtime mobile/separate Effect 回归通过；失败与修复证据见 review-open-items.md。
 - 同步初学者架构说明和 TESTS.md；未提高缓存预算，未改 VFX 行为或追加长帧修复。
 
 ## 2026-11-10：Shader 状态与 LCD 原始接口审查
@@ -795,7 +788,7 @@
 ## 2026-11-10：Godot 原始十文件审查证据
 
 - 对照 Godot 基线与当前工作树逐项核对原始十文件，以及 GL 管理器关联头文件。记录诊断开关、计数含义、窗口表保护、OLE 注册发布顺序与验证限制到 review-open-items.md。
-- 当前 Editor/Runtime 在 GL separate 各 32 轮窗口立即关闭通过；mobile/separate OLE 合成注入通过。日志 review-godot-scope-close-editor.log、review-godot-scope-close-runtime.log、review-godot-scope-ole.log。
+- 当前引擎在 GL separate 各 32 轮窗口立即关闭通过；mobile/separate OLE 合成注入通过。日志 review-godot-scope-close-editor.log、review-godot-scope-close-runtime.log、review-godot-scope-ole.log。
 - 本轮未发现需新增行为修改的结论；没有将组件/短循环结果扩大为真实输入、系统失败或所有驱动的证明。未修改代码，架构说明无需更新。
 
 ## 2026-11-10：修复 IME 完成时的输入重入
@@ -807,7 +800,7 @@
 ## 2026-11-10：无损滚轮设置与输入记录 V2
 
 - 宿主/Java 改用 12 字段窗口输入，分别传递两轴 UINT32 设置，保留分页 -1；消除旧水平 1000 截断和有符号打包溢出。JNI 入口改名以拒绝不同记录版本；旧九字段低层探针仍保留。
-- 修复 IME chunk 长度与路由中九字段截断，复用出队记录减少一次复制。Editor/Runtime/Media SDK 重建通过。
+- 修复 IME chunk 长度与路由中九字段截断，复用出队记录减少一次复制。引擎/Media SDK 重建通过。
 - scroll-settings 边界与非法值测试、mobile/separate 滚轮、Runtime resize-cursor 通过。IME DPI 坐标已修正，但默认同帧点击发现真实重入顺序问题，保留默认失败夹具；显式 -SpacedClick 隔离模式通过。
 - 失败证据、完整日志和下一项重入修复要求见 review-open-items.md。协议、架构及测试文档同步；未修改系统设置或操作真实输入设备。
 
@@ -849,7 +842,7 @@
 - 两者 GetCanonicalFormatEtc 原来只清空 ptd，却返回 SAMEFORMATETC，其他输出字段未初始化；现复制输入后清空设备指针，空指针明确失败。不支持订阅时清空连接编号和枚举器输出。
 - 实现依据 Microsoft GetCanonicalFormatEtc 的 device-independent 指引，链接见 glass-godot.md。共享测试同时检查生产 DataObject 与 helper，包含别名和失败输出。
 - `test-dnd-drag-image.cmd` 和 `test-dnd-helper-lifetime.cmd --asan` 通过；日志 `artifacts/logs/review-dnd-output.log`、`artifacts/logs/review-dnd-helper-output-asan.log`。无真实输入操作；未替代跨进程拖放验收。
-- Godot Editor/Runtime 源码增量构建均通过（日志 review-dnd-output-editor-build.log、review-dnd-output-runtime-build.log）。架构分工不变，architecture.md 无需修改。
+- Godot 引擎源码增量构建均通过（日志 review-dnd-output-editor-build.log、review-dnd-output-runtime-build.log）。架构分工不变，architecture.md 无需修改。
 
 ## 2026-11-10：helper 文件列表读取边界
 
@@ -972,14 +965,14 @@
 - DisplayServerWindows 的新增 JavaFX 委托路径在 RegisterDragDrop 之前发布 DropTarget 指针；失败后留下非空未注册对象，后续调用跳过注册。原有文件拖放路径也有相同发布顺序。两者改为临时对象注册成功后才写入 WindowData；失败 Release 临时对象并输出 HRESULT。
 - window_set_drag_delegate 返回 Error，成功后才发布委托/userdata；失败保留旧委托。JavaFX 宿主只在成功后保存 handler，否则明确报告运行时失败。清除委托不创建新 DropTarget。
 - DropTargetWindows::Release 最后一次引用释放由 memfree 改为 memdelete，确保执行 C++ 析构、释放 String 等成员持有的存储；正常窗口销毁仍先 RevokeDragDrop 再释放窗口持有引用。
-- 源码 Editor/Runtime 顺序构建通过；mobile/separate OLE 注入普通档及 -Timeout 档通过（后者含 OLE_TIMEOUT_CANCEL_PASS），未移动真实鼠标或键盘。日志 ole-inject-mobile-separate.log 和 ole-inject-mobile-separate-timeout.log。测试覆盖正常委托收发/取消；没有人为制造 OS 注册失败，失败回滚尚无动态故障注入证据。
+- 源码引擎顺序构建通过；mobile/separate OLE 注入普通档及 -Timeout 档通过（后者含 OLE_TIMEOUT_CANCEL_PASS），未移动真实鼠标或键盘。日志 ole-inject-mobile-separate.log 和 ole-inject-mobile-separate-timeout.log。测试覆盖正常委托收发/取消；没有人为制造 OS 注册失败，失败回滚尚无动态故障注入证据。
 - 根仓库及 Godot 子模块 diff --check 通过；更新 glass 文档，测试入口/架构分工未变。
 
 ## 2026-11-10：实现重审——触摸键盘原生错误不能被静默丢弃
 
 - windows_tabtip 原来忽略 CoCreateInstance、Toggle 和 PostMessageW 的失败；注释/文档把不抛 Java 异常等同于调用链成功。request/release 现返回 HRESULT；宿主按操作首次失败记录 WARNING，保留错误码且不终止 JVM。没有键盘窗口可关返回 S_FALSE；消息失败但错误码为零时仍返回失败。保留现有 Toggle 策略，不宣称重复 request 等同于幂等显示。
 - 新增 test-tabtip-result.cmd，以独立 C++ 测试替换所有触摸键盘相关 OS 调用；覆盖组件缺失、成功却空指针、Toggle 失败/成功、窗口缺失、投递成功/失败和错误码为零，验证取得的 COM 接口恰好释放一次。TABTIP_RESULT_TEST_PASS 通过，不会触碰真实系统键盘。
-- 源码 Editor/Runtime 顺序构建通过，VirtualKeyboardProbe 重新编译通过；git diff --check 通过。没有运行真实虚拟键盘显示/关闭测试，不据构建及原生模拟宣布物理验收完成。
+- 源码引擎顺序构建通过，VirtualKeyboardProbe 重新编译通过；git diff --check 通过。没有运行真实虚拟键盘显示/关闭测试，不据构建及原生模拟宣布物理验收完成。
 - 同步 TESTS/glass/acceptance 文档及探针消息，明确旧 PASS 仅证明 Java 调用完成和宿主存活，不能证明 OS 显示成功。组件/线程架构未变，architecture 无需修改。
 
 ## 2026-11-10：实现重审——LCD 生成着色器不能静默跳过转换
@@ -1013,14 +1006,14 @@
 ## 2026-11-10：实现重审——顶点更新排队数据的重复复制
 
 - 检查 RD 缓存与更新路径时发现 queue_vertex_buffer_update 对已有顶点向量再次 resize/memcpy 整批数据。确认 Godot PackedByteArray 是 Vector<uint8_t>、绑定 Variant 持有 COW 存储后，改为共享所有权排队；后续生产者写入自动分离，任务执行前不会引用已销毁的临时缓冲。保留原有 ring epoch、FIFO 次序和退休机制。
-- Editor / Runtime 源码构建通过，Editor separate / Runtime safe RD 回归通过，覆盖每 pass 48 次绘制跨 16 槽、多轮清空/保留及旧图像像素。真实 VFX 大表 direct / RD_DIRECT=1 / mobile / separate / 无栈采样通过，日志 `review-vertex-upload-cow.log`，96 pulses、位移 2325、失焦 0；本次 55.785 pulse/s、p95 25.364 ms 仅为单次观察，不据此宣称提速或稳定 60 FPS。
+- 引擎源码构建通过，引擎 separate / Runtime safe RD 回归通过，覆盖每 pass 48 次绘制跨 16 槽、多轮清空/保留及旧图像像素。真实 VFX 大表 direct / RD_DIRECT=1 / mobile / separate / 无栈采样通过，日志 `review-vertex-upload-cow.log`，96 pulses、位移 2325、失焦 0；本次 55.785 pulse/s、p95 25.364 ms 仅为单次观察，不据此宣称提速或稳定 60 FPS。
 - 此改动消除一次明确的整批 CPU 分配/复制，不声称降低 GPU 顶点缓冲容量或覆盖真实设备分配失败。
 
 ## 2026-11-10：实现重审——RD 翻译诊断释放次序与 PASS 后错误
 
 - 继续核对原始 javafx_rd_direct 诊断实现，LCD spike 实跑得到 max_diff=0 和 PASS，却随后报 Attempted to free invalid ID，退出码仍为 0。保留 `review-rd-lcd-release-before.log`。原因是 release_cycle 先释放 screen stand-in 纹理，设备连带销毁 uniform set，之后又显式释放该 set。
 - 将 uniform set/sampler/value buffer 退休任务排在所有引用纹理和 shader 释放之前；清理 set 时检查设备有效性，兼容外部输入先被释放的情况。该实现是诊断 probe，独立于生产 OffscreenPass，不能把两者的生命周期证据混用。
-- 新增严格包装器 test-rd-lcd.ps1（safe/separate、Runtime），检查完整日志中的错误；旧产物被此包装器拒绝。无 RenderingDevice 不再输出成功标记。Editor/Runtime 源码构建通过，Editor separate 与 Runtime safe LCD 检查通过、像素最大差 0、无释放错误；Editor 全 262 Shader 严格语料仍通过。
+- 新增严格包装器 test-rd-lcd.ps1（safe/separate、Runtime），检查完整日志中的错误；旧产物被此包装器拒绝。无 RenderingDevice 不再输出成功标记。引擎源码构建通过，引擎 separate 与 Runtime safe LCD 检查通过、像素最大差 0、无释放错误；引擎全 262 Shader 严格语料仍通过。
 
 ## 2026-11-10：实现重审——累计原生与调度约束复验
 
@@ -1061,58 +1054,58 @@
 ## 2026-11-10：实现重审——累计切页复验与模块退出阶段
 
 - 当前 Shader/缓存修复后的无诊断 VFX 全部 68 次切页通过，显式 RD_DIRECT=1 / LCD_SCREEN=1、mobile/safe、失焦 0、无绑定错误。日志 `review-vfx-post-shader-fixes.log`：57.296 pulse/s、54.614 次宿主合成/s、p95 20.486 ms、p99 45.996 ms、最大 188.866 ms。启动后 FIFO pacing 被检测为平均 32.967 ms 并切为 CPU pacing；不宣称稳定 60 FPS 或整段 VSync。该性能测量在本节下述退出修复之前。
-- 核对 Godot main.cpp 卸载顺序，模块 uninitialize 在 EDITOR/SCENE/SERVERS/CORE 多阶段调用，而 JavaFX 原先无阶段过滤。RD_PROFILE=1 的 Editor 回归实际输出四份相同汇总，保留 `review-module-teardown-before.log`。现只在与注册一致的 SCENE 阶段做全局资源清理与汇总，避免后续渲染服务已销毁阶段再次进入清理。
-- Editor / Runtime 源码构建通过；带 RD_PROFILE=1 的 separate / safe RD 回归通过，包装器要求恰好一份汇总。根仓库与相关子模块 diff --check 通过。另复核 JFX EventLoop/PulseScheduler/View/Window/TexturePool 与 Godot viewport 诊断改动的差异；本轮未据此新增兼容性或物理输入验收结论。
+- 核对 Godot main.cpp 卸载顺序，模块 uninitialize 在 EDITOR/SCENE/SERVERS/CORE 多阶段调用，而 JavaFX 原先无阶段过滤。RD_PROFILE=1 的引擎回归实际输出四份相同汇总，保留 `review-module-teardown-before.log`。现只在与注册一致的 SCENE 阶段做全局资源清理与汇总，避免后续渲染服务已销毁阶段再次进入清理。
+- 引擎源码构建通过；带 RD_PROFILE=1 的 separate / safe RD 回归通过，包装器要求恰好一份汇总。根仓库与相关子模块 diff --check 通过。另复核 JFX EventLoop/PulseScheduler/View/Window/TexturePool 与 Godot viewport 诊断改动的差异；本轮未据此新增兼容性或物理输入验收结论。
 
 ## 2026-11-10：实现重审——全局 instance-uniform 名称缓存有界化
 
 - 将 shader_rewrite 的无界源码→名称 HashMap 替换为已有 BoundedLruCache，限制 256 项 / 4 MiB 源码及名称数据；完整 String 键比较保留哈希冲突正确性。超预算源码仍正常处理而不缓存，空名称也受同一预算限制，退出时清空。名称列表按 COW 值返回，避免淘汰后引用悬空；移除多余的空名称分支。
 - shader-cache 夹具显式使用 viewport，包装器强制开启 instance uniforms 并恢复环境。扩展为 305 轮 / 301 份不同源码，先验证达到 256 项，再加入长注释触发字节淘汰；仍检查逐轮颜色、64 项目标 shader 缓存和溢出资源释放。mobile/separate 通过，最终名称 memo 为 31 项 / 4,079,724 字节。
-- Editor / Runtime 源码构建通过；显式 RD_DIRECT=0 的 Editor mobile/separate Node Shader 测试、Runtime mobile Effect 与原生 D3D 对照通过。后者日志另存 `review-instance-memo-runtime-effects.log`。预算不是总进程/驱动内存，正常测试也不证明所有异常分配路径无泄漏。
+- 引擎源码构建通过；显式 RD_DIRECT=0 的引擎 mobile/separate Node Shader 测试、Runtime mobile Effect 与原生 D3D 对照通过。后者日志另存 `review-instance-memo-runtime-effects.log`。预算不是总进程/驱动内存，正常测试也不证明所有异常分配路径无泄漏。
 
 ## 2026-11-10：实现重审——RD 初始化结果检查与剩余缓存范围
 
 - OffscreenPass::initialize 未检查 snapshot_texture 创建结果，可能以缺失屏幕快照的状态成功；framebuffer 失败后仍继续分配并安排 bridge 初始化。现按 color texture、framebuffer、snapshot、bridge 顺序逐项检查并报告具体失败，失败即停止。调用端已有 unref → 析构 release 路径回收部分分配，然后走既有 viewport fallback；不再无日志地把不完整 RD 目标视为成功。
-- Editor / Runtime 源码构建及 separate / safe RD 回归通过。未注入驱动分配失败；这里的失败分支结论来自代码审查，不将正常回归当成设备 OOM 验收。
+- 引擎源码构建及 separate / safe RD 回归通过。未注入驱动分配失败；这里的失败分支结论来自代码审查，不将正常回归当成设备 OOM 验收。
 - 重新枚举 9ae5a635（不含）至 HEAD 原始变更，继续核对 host_windows、register_types、shader_rewrite 等范围。发现 javafx_shader_rewrite.cpp 的 process-global HashMap<String, Vector<StringName>> 没有条目/字节上限，独立于已修复的 RD pipeline LRU。host 与 target 编译路径都会调用，当前 shader-cache 夹具只检查目标自身的 64 项 shader 缓存，不能证明该全局 memo 有界。此项仍待修复；需同时考虑返回名称列表在淘汰后的生命周期。
 
 ## 2026-11-10：实现重审——读回数据所有权和无效读回
 
 - RD readback 原来先取得完整 RGBA8 向量，再创建空图、取出并修改其数据、memcpy 整图；静态 staging 还保留最后一张图至下次请求。现同步后通过 Image::create_from_data 的写时复制存储接收数据，并立即清空 staging 引用，去掉重复整图分配/清零/复制与静态持有。
 - 入口明确要求主线程和存活目标，长度不符时报错并返回空 Image；宿主已有空值检查会使 Java 请求失败。旧实现会返回看似成功的空白图。未注入真实设备读回失败，因此不将正常测试扩大为设备故障恢复证明。
-- 新增 RD_READBACK_OWNERSHIP_PASS：17×9 目标先红后绿，保留三次读回 Image，修改第一张一个像素，销毁目标后逐像素检查各图仍独立有效。Editor / Runtime 源码构建与 separate / safe RD 回归通过；Editor separate 的 Java→协议→RD→读回 queued-texture-update 测试也通过。此优化针对显式读回，不宣称改善正常渲染 FPS。
+- 新增 RD_READBACK_OWNERSHIP_PASS：17×9 目标先红后绿，保留三次读回 Image，修改第一张一个像素，销毁目标后逐像素检查各图仍独立有效。引擎源码构建与 separate / safe RD 回归通过；引擎 separate 的 Java→协议→RD→读回 queued-texture-update 测试也通过。此优化针对显式读回，不宣称改善正常渲染 FPS。
 
 ## 2026-11-10：实现重审——屏幕采样器声明与引用不一致
 
 - 继续检查翻译器发现：hint 采样器一律声明为 dst_color_snap，但仅替换 header 中 SCREEN_TEXTURE 字符串，fragment 直接引用和其他合法变量名均未同步。新增 helper / fragment 直接采样 / scene_snapshot 三种写法；旧产物报 undeclared identifier 并丢弃绘制，保留 `review-rd-screen-sampler-before.log`。
 - 保留原始采样器名，只移除 Canvas hint、添加 RD descriptor binding，并保持声明在 helper 前；省掉不必要的字符串替换，也避免名称不一致。同步更正头文件中“pass 前快照”的过期注释。
 - 加强屏幕像素断言：旧 pass 品红，本轮蓝/绿背景，采样后交换红蓝通道，必须得到红/绿；没有背景则要求透明。这样丢弃绘制后原背景不变也无法通过，而非只依赖日志 ERROR 门禁。
-- Editor / Runtime 源码构建通过，Editor separate / Runtime safe RD 回归通过，真实 JavaFX LCD 重叠文字 separate 双路径对照通过。相关日志为 `rd-regressions-separate.log`、`rd-regressions-safe-runtime.log`、`lcd-overlap-separate-0.log` 和 `lcd-overlap-separate-1.log`。此验证覆盖上述声明/引用及 LCD 路径，不代表所有 Canvas Shader 语法均可翻译。
+- 引擎源码构建通过，引擎 separate / Runtime safe RD 回归通过，真实 JavaFX LCD 重叠文字 separate 双路径对照通过。相关日志为 `rd-regressions-separate.log`、`rd-regressions-safe-runtime.log`、`lcd-overlap-separate-0.log` 和 `lcd-overlap-separate-1.log`。此验证覆盖上述声明/引用及 LCD 路径，不代表所有 Canvas Shader 语法均可翻译。
 
 ## 2026-11-10：实现重审——像素坐标翻转与 corpus 宽松门禁
 
 - 完整语料原样复验仍为 186 strict / 76 edge。核对 Godot canvas.glsl 的 gl_FragCoord.xy 与正数 screen_pixel_size，新增实际 RD 坐标渐变断言，首行预期 0.03125 却读 0.9686；日志 `review-rd-pixel-coordinate-before.log`。
-- SCREEN_UV / SCREEN_PIXEL_SIZE 改为 gl_FragCoord.xy。Editor 构建和 separate RD 回归通过；完整语料变为 262 项全图每通道最大差不超过 2/255、0 edge、0 deferred、0 failed。
+- SCREEN_UV / SCREEN_PIXEL_SIZE 改为 gl_FragCoord.xy。引擎构建和 separate RD 回归通过；完整语料变为 262 项全图每通道最大差不超过 2/255、0 edge、0 deferred、0 failed。
 - 删除 corpus 的 40% 差异字节容忍和 deferred/GLES 跳过路径；新增严格包装器 `test-rd-corpus.ps1` 并运行通过。旧“两个近似”的解释已在文档更正，不把历史宽松 PASS 当作当前验收。Runtime 构建和 RD safe 回归通过。实际 Effect/D3D 对照随后暴露 ADD/MULTIPLY 失败，日志 `review-rd-blend-mode-before.log`。
 - 另定位到 blend_mode 用整份源码的子串判断，Blend_ADD 的 blend_add 辅助函数、Blend_MULTIPLY 的函数名前缀会错误改变管线混合因子。改为复用 Godot ShaderLanguage 解析结果中的 render_modes；新增带同名 helper 的半透明回归。整份语料仅覆盖固定参数/纹理，不能替代实际效果合成。
-- 修复后 Editor / Runtime 源码构建、Editor separate / Runtime safe RD 回归、262 项严格语料均通过。新增夹具首次运行的 GDScript 局部类型推断错误已改为显式 String 声明。显式 `GODOT_JFX_RD_DIRECT=1` 的 Editor / Runtime mobile Effect 与原生 D3D 对照均通过：Blend 和 Blend_ADD 平均差 0，Blend_MULTIPLY 约 0.000000123，PerspectiveTransform 约 0.0000598，各项 bad=0。保留 `review-rd-blend-mode-editor.log`、`review-rd-blend-mode-runtime.log`；检查 Runtime GPU 截图 `godot-effects-mobile-runtime.png`。这些证明本夹具的效果输出，不扩大为所有 Shader 参数或稳定 60 FPS。
+- 修复后引擎源码构建、引擎 separate / Runtime safe RD 回归、262 项严格语料均通过。新增夹具首次运行的 GDScript 局部类型推断错误已改为显式 String 声明。显式 `GODOT_JFX_RD_DIRECT=1` 的引擎 mobile Effect 与原生 D3D 对照均通过：Blend 和 Blend_ADD 平均差 0，Blend_MULTIPLY 约 0.000000123，PerspectiveTransform 约 0.0000598，各项 bad=0。保留 `review-rd-blend-mode-editor.log`、`review-rd-blend-mode-runtime.log`；检查 Runtime GPU 截图 `godot-effects-mobile-runtime.png`。这些证明本夹具的效果输出，不扩大为所有 Shader 参数或稳定 60 FPS。
 
 ## 2026-11-10：实现重审——END_PASS 后纹理引用标记过早清除
 
 - 最小复现将“红色纹理画入 A、END_PASS、更新同一纹理为蓝色、画入 B”放在一个 Java 传输批次中。原实现读回 A 为蓝色，保留 `review-queued-texture-update-before.log`。它不依赖 VFX 时序，证实旧纹理在 RD 消费前被原地改写。
 - Surface::clear_draw_resources 原来在每个 pass 完成后无条件重置 referenced，但 RD 路径仅把绘制追加到 pending batch。现仅在没有待提交 RD 批次时重置；存在待消费绘制时保留引用，后续上传生成新版本，退休纹理仍按已有提交后释放规则处理。不会为了重置标记而每个 pass 强制同步。
-- 新增实际 Java→协议→RD→读回夹具，检查两张目标完整红/蓝及正数批次计数。Editor / Runtime 构建通过；新夹具 safe/separate 通过，LCD separate 对照仍通过。显式 RD_DIRECT=1、LCD_SCREEN=1、无调试/采样的 68 次切页通过且无绑定错误，日志 `review-vfx-texture-reference-fence.log`：58.183 pulse/s、55.530 次宿主合成/秒、p95 19.964 ms、最大 158.954 ms、失焦 0。Runtime mobile 视频回归通过；不将该单次性能结果扩大为稳定 60 FPS。夹具显式启用 RD batching/direct offscreen 并恢复环境，避免环境覆盖绕过待提交状态。
+- 新增实际 Java→协议→RD→读回夹具，检查两张目标完整红/蓝及正数批次计数。引擎构建通过；新夹具 safe/separate 通过，LCD separate 对照仍通过。显式 RD_DIRECT=1、LCD_SCREEN=1、无调试/采样的 68 次切页通过且无绑定错误，日志 `review-vfx-texture-reference-fence.log`：58.183 pulse/s、55.530 次宿主合成/秒、p95 19.964 ms、最大 158.954 ms、失焦 0。Runtime mobile 视频回归通过；不将该单次性能结果扩大为稳定 60 FPS。夹具显式启用 RD batching/direct offscreen 并恢复环境，避免环境覆盖绕过待提交状态。
 
 ## 2026-11-10：实现重审——LCD 文字节点快照边界
 
 - 新建真实 JavaFX 文字夹具，将蓝/红和绿/黑文字错开重叠，比较同一 Godot 后端的 LCDBuffer 与 SCREEN 两种路径。修复前有 3813 个像素通道差大于 2/255，最大 255/255；保留 `review-lcd-overlap-before.png`，确认原注释提到的重叠差异确实可见。
-- 在 BaseShaderGraphics 已有 lcdSampleInvalid 的文字节点边界调用可选 prepareLCDScreenSample；默认后端不变，Godot 刷新当前顶点并结束/重新选择同一目标，使每个节点的首次采样包含前面的文字。继续使用批量命令，不增加每节点 JNI 同步调用。启用 Media 的 SDK 构建通过。仅此改动后对照仍有 5552 个差异像素，继续定位出 RD SCREEN_UV 额外 Y 翻转：分色背景顶部应蓝却读绿，保留 `review-rd-screen-coordinate-before.log`。改用实际 framebuffer 方向后，Editor separate RD 回归通过，LCD safe/separate 均为 0 个超容差像素（文字像素 31885）。Runtime 源码构建与 RD safe 回归通过。但无采样、显式 RD_DIRECT=1 的完整切页基准报一次 recorded uniform binding was invalidated before submission，包装器正确失败，日志 `review-vfx-lcd-node-snapshot.log`；其 FPS 数值不作为通过证据。两页 RD 调试 smoke 通过。另一次诊断切页未显式启用 RD，rd_batch_commits=0，只能作为 Canvas 路径观察，不能用于排除该 RD 故障。下一步检查 END_PASS 后 Surface 重置 referenced，而 RD 批次尚未消费时纹理是否被原地更新；此为待最小复现验证的假设。
+- 在 BaseShaderGraphics 已有 lcdSampleInvalid 的文字节点边界调用可选 prepareLCDScreenSample；默认后端不变，Godot 刷新当前顶点并结束/重新选择同一目标，使每个节点的首次采样包含前面的文字。继续使用批量命令，不增加每节点 JNI 同步调用。启用 Media 的 SDK 构建通过。仅此改动后对照仍有 5552 个差异像素，继续定位出 RD SCREEN_UV 额外 Y 翻转：分色背景顶部应蓝却读绿，保留 `review-rd-screen-coordinate-before.log`。改用实际 framebuffer 方向后，引擎 separate RD 回归通过，LCD safe/separate 均为 0 个超容差像素（文字像素 31885）。Runtime 源码构建与 RD safe 回归通过。但无采样、显式 RD_DIRECT=1 的完整切页基准报一次 recorded uniform binding was invalidated before submission，包装器正确失败，日志 `review-vfx-lcd-node-snapshot.log`；其 FPS 数值不作为通过证据。两页 RD 调试 smoke 通过。另一次诊断切页未显式启用 RD，rd_batch_commits=0，只能作为 Canvas 路径观察，不能用于排除该 RD 故障。下一步检查 END_PASS 后 Surface 重置 referenced，而 RD 批次尚未消费时纹理是否被原地更新；此为待最小复现验证的假设。
 
 ## 2026-11-10：实现重审——RD 屏幕快照早于本轮清空和背景
 
 - 复查 Prism LCD 屏幕采样优化时，发现 RD 实现与“首次屏幕采样时取快照”的文档不符：实际在整个 pass 开始前复制，因此读到旧帧。新增实际 GPU 回归，上一 pass 红色、当前清空并画蓝色，采样错误返回红色；保存 `review-rd-screen-snapshot-before.log`。
 - 改为首次屏幕采样前结束初始 draw list，执行 texture_copy，再以保留现有内容的方式继续；这使清空和前序背景先进入快照。测试另覆盖当前 pass 只清空时必须采样透明。
-- 同一 pass 后续采样仍共用首次快照；原有“每 pass 与每文字节点取快照”的重叠差异没有因此消失。Editor / Runtime 源码构建通过；Editor separate、safe 禁用批量提交、Runtime safe 的 RD 回归均通过；RD/mobile/safe 原始 VFX 全 35 页通过，日志 `vfx-intro-mobile-safe-all-pages.log`。根仓库及两个子模块差异检查通过；本次改变快照位置后的性能尚未重测。
+- 同一 pass 后续采样仍共用首次快照；原有“每 pass 与每文字节点取快照”的重叠差异没有因此消失。引擎源码构建通过；引擎 separate、safe 禁用批量提交、Runtime safe 的 RD 回归均通过；RD/mobile/safe 原始 VFX 全 35 页通过，日志 `vfx-intro-mobile-safe-all-pages.log`。根仓库及两个子模块差异检查通过；本次改变快照位置后的性能尚未重测。
 
 ## 2026-11-10：实现重审——自定义剪贴板编码的分配边界
 
@@ -1124,7 +1117,7 @@
 
 - 重新读取 Git 范围：根仓库 9ae5a635（不含）至 04e4ba1 共 127 条变更路径；子模块需另查，JFX 从 4f673a0 至当前工作区共 19 个文件，Godot 从 420dfdc 至当前工作区共 11 个文件。工作区后续修复与新增文件也属于审查范围，不能用根仓库 submodule 指针 diff 代替内部补丁。
 - 复查 JFX 事件循环、pulse 调度、LCD/顶点 alpha 扩展及原生宿主模块导出，发现 TARGET_SWITCHES 虽存在且递增，但所在 impl.ps 包没有导出，基准反射读取一直输出 unavailable。补充宿主导出，Godot 基准要求正整数计数；保留历史 FPS 数据但不将缺失项宣称为已测。
-- 计数为进程累计值（含启动/结束），不是切页计时区间差值，也不是 GPU 提交或物理显示次数。Editor 构建与实际 mobile/safe 基准通过，累计计数 33412。日志 `review-vfx-target-switch-counter.log`：57.436 pulse/s、55.033 次宿主合成/秒、p95 24.324 ms、p99 57.498 ms、最大 255.111 ms、失焦 0；依然存在长帧，不宣称稳定 60 FPS。Runtime 源码构建也通过；整体审查仍未完成。
+- 计数为进程累计值（含启动/结束），不是切页计时区间差值，也不是 GPU 提交或物理显示次数。引擎构建与实际 mobile/safe 基准通过，累计计数 33412。日志 `review-vfx-target-switch-counter.log`：57.436 pulse/s、55.033 次宿主合成/秒、p95 24.324 ms、p99 57.498 ms、最大 255.111 ms、失焦 0；依然存在长帧，不宣称稳定 60 FPS。Runtime 源码构建也通过；整体审查仍未完成。
 
 ## 2026-11-10：实现重审——输入协议与独立时钟验证
 
@@ -1135,45 +1128,45 @@
 ## 2026-11-10：实现重审——GodotView 父节点销毁与缩放复验
 
 - 核对 JavaFXSceneView、Surface 的场景纹理登记/销毁、dispose_texture 和 resize_scene_texture。正常 Surface 释放先移除 textures 中 RID 的存活登记，再释放场景引用；包装对象通过 ObjectID 查找节点，父树已销毁时不会解引用旧指针。没有据此确认新的生命周期缺陷，未为猜测改写实现。
-- 最新 Editor 的 `test-scene-views.ps1 -Renderer mobile` 与 `-Renderer gl_compatibility` 都通过：每种后端 100 轮加载/缩放/合成保留/合成输入/释放，包含父节点先销毁而包装对象仍存活的检查。日志 `scene-views-mobile.log`、`scene-views-gl_compatibility.log`。测试检查节点/包装对象和宿主自有资源计数，不等同于完整 GPU 驱动内存泄漏证明。
+- 最新引擎的 `test-scene-views.ps1 -Renderer mobile` 与 `-Renderer gl_compatibility` 都通过：每种后端 100 轮加载/缩放/合成保留/合成输入/释放，包含父节点先销毁而包装对象仍存活的检查。日志 `scene-views-mobile.log`、`scene-views-gl_compatibility.log`。测试检查节点/包装对象和宿主自有资源计数，不等同于完整 GPU 驱动内存泄漏证明。
 - `test-scene-textures.ps1 -Renderer mobile -Resize` 通过，验证跨 Java/协议/宿主的场景状态保留、纹理版本、图像与退休资源清理。查看 `godot-scene-textures-mobile-resize.png`，左侧状态保留为蓝色，右侧仍为红色，透明混合区和缩放位置标记均存在；像素断言通过。此处未运行 Robot，也没有替代物理输入验收。
 
 ## 2026-11-10：实现重审——有界管线性能复验与合成诊断开销
 
 - 无调试/采样的 mobile/safe 68 次切页完成，日志 `review-vfx-bounded-pipelines.log`：58.242 pulse/s、55.604 次宿主合成/秒、p95 24.686 ms、p99 39.301 ms、最大 212.925 ms、失焦 0。平均和分位数优于前一份退休修复记录，但最大值更高，非受控 A/B，不能归因于缓存提速或宣称稳定 60 FPS。
 - 原始变更中的 JavaFXWindowSurface::composition_finished 每次都读取计时器与 RD_DEBUG 环境变量。改为首次进入时缓存开关，关闭调试不执行额外计时；draw/sync 始终执行。上面的基准早于这项小修复，不作为其性能证据。
-- Editor 构建通过；mobile/separate 原生窗口像素测试在默认配置与显式 RD_DEBUG=1 下通过，诊断日志保留为 `review-window-compose-debug.log`。Runtime 源码构建也通过；根仓库及 Godot/JFX 子模块差异检查通过。本次未新增 Runtime 窗口像素运行证据。
+- 引擎构建通过；mobile/separate 原生窗口像素测试在默认配置与显式 RD_DEBUG=1 下通过，诊断日志保留为 `review-window-compose-debug.log`。Runtime 源码构建也通过；根仓库及 Godot/JFX 子模块差异检查通过。本次未新增 Runtime 窗口像素运行证据。
 
 ## 2026-11-10：实现重审——共享 RD 管线缓存有界化
 
 - 原先成功编译的 pipeline 和源码身份表一直保留到进程退出。改为共享 LRU：最多 256 项，源码/翻译文本/默认参数载荷最多 16 MiB；超过预算的单项照常绘制但不缓存，完整源码比较仍防止哈希冲突画错内容。
 - RecordedDraw 持有独立的 PipelineLifetime 引用；缓存淘汰只放弃缓存所有权，不提前释放开放 pass 或已排队绘制使用的管线。最后一个引用消失时，带 RID 值的渲染线程调用按 pipeline、shader 顺序释放。release 同时清除尚存记录的引用，避免目标对象跨引擎关闭保留资源。
 - 热缓存命中刷新 LRU，插入前清空 8 项源码备忘，避免隐藏保留已淘汰资源。uniform 绑定复用当前绘制已取得的 pipeline，省去第二次源码查找，也避免超预算源码重复编译。
-- 新回归让红色目标保持开放，在另一个目标绘制 260 个不同源码，检查缓存容量、旧红色像素，以及旧源码重新编译后的绿色像素。首轮修正测试输入为翻译器采用的分行声明及 Vector4 参数后，Editor separate 通过。最终 Editor / Runtime 源码构建通过；Editor separate、safe 禁用批量提交、Runtime safe 的 RD 回归通过；RD/mobile/safe 原始 VFX 全 35 页通过，日志 `vfx-intro-mobile-safe-all-pages.log`。根仓库及 Godot/JFX 子模块差异检查通过。预算不包含驱动内存和未完成绘制持有的资源，性能影响仍待无采样基准验证。
+- 新回归让红色目标保持开放，在另一个目标绘制 260 个不同源码，检查缓存容量、旧红色像素，以及旧源码重新编译后的绿色像素。首轮修正测试输入为翻译器采用的分行声明及 Vector4 参数后，引擎 separate 通过。最终引擎源码构建通过；引擎 separate、safe 禁用批量提交、Runtime safe 的 RD 回归通过；RD/mobile/safe 原始 VFX 全 35 页通过，日志 `vfx-intro-mobile-safe-all-pages.log`。根仓库及 Godot/JFX 子模块差异检查通过。预算不包含驱动内存和未完成绘制持有的资源，性能影响仍待无采样基准验证。
 
 ## 2026-11-10：实现重审——退休修复后的性能与管线失败清理
 
 - 无调试/采样的 68 次 VFX 切页：pulse 56.744/s、宿主合成 53.972/s、p95 26.212 ms、p99 60.800 ms、最大 181.025 ms、失焦 0。日志 `review-vfx-transition-retirement.log`；与之前单次运行不可当作受控 A/B，尚未达到稳定 60 FPS，详见 frame-benchmark.md。
 - 源码检查发现 RD shader 成功创建后，pipeline 创建失败会直接返回，shader 尚未进入共享缓存，因此退出时也无法由该缓存释放。失败分支改为向渲染线程提交带 RID 值的释放调用并等待完成，兼容 separate 模式，同时明确报告创建失败。该分支不增加成功路径的同步；构建与正常回归不能代替真实设备分配失败注入。
 
-- 本轮 Editor / Runtime 源码构建通过；Editor separate 与 Runtime safe RD 像素回归通过；根仓库和两个修改过的子模块 `git diff --check` 通过。管线创建失败的设备故障分支尚未直接注入，不能将正常路径通过等同于故障验证。
+- 本轮引擎源码构建通过；引擎 separate 与 Runtime safe RD 像素回归通过；根仓库和两个修改过的子模块 `git diff --check` 通过。管线创建失败的设备故障分支尚未直接注入，不能将正常路径通过等同于故障验证。
 
 ## 2026-11-10：实现重审——退休纹理早于 RD 批次提交
 
 - RD_DEBUG 增加绑定/采样视图/退休/目标释放编号，前两页即可复现多次失效。`review-vfx-rd-texture-trace.log` 将首个失效 set 的 engine texture 与 RD_SURFACE_RETIRE_TEXTURE 对应，证明 Canvas 清空释放旧纹理时，引用它的 RD 批次还未提交。
 - free_retired_textures 在列表非空时先 commit_batches，再释放旧 engine RID，避免设备视图连带销毁已排队的 UniformSet；空列表不增加提交。诊断只在 RD_DEBUG 开启时输出，不作为性能样本。
-- 两页诊断复现通过（`review-vfx-rd-retire-fence.log`），关闭调试后的 RD/mobile/safe 35 页 VFX 通过，Editor separate RD 像素回归通过。Runtime 源码构建与 RD safe 像素回归也通过；当前集成失败已在该 Editor 工作负载上消除，不扩大为全设备/帧率验收。
+- 两页诊断复现通过（`review-vfx-rd-retire-fence.log`），关闭调试后的 RD/mobile/safe 35 页 VFX 通过，引擎 separate RD 像素回归通过。Runtime 源码构建与 RD safe 像素回归也通过；当前集成失败已在该引擎工作负载上消除，不扩大为全设备/帧率验收。
 
 ## 2026-11-10：实现重审——uniform buffer 退休后的绑定缓存
 
 - 定位到依赖缓存失配：uniform buffer 淘汰后仍延迟物理释放，但依赖它的 UniformSet 保留在缓存且暂时通过 RD 有效性检查；绘制先取出这个绑定，再因顶点环形缓冲耗尽提交前批次，退休缓冲区使手中绑定失效，导致后续绘制漏画。
 - UniformEntry 记录 value_buffer。缓冲区碰撞或容量淘汰时，同步移除引用它的绑定缓存项并延迟退休，禁止再取出即将失效的绑定；已排队绘制仍先于实际释放完成。
-- 最小复现用 129 个不可变 Mesh 参数版本耗尽 uniform buffer 缓存，再用 17 个可变顶点批次强制提交；最后一次必须改变可见区域。修复前 Runtime 同时报绑定失效与像素错误（`review-uniform-retirement-before.log`），修复后 Editor separate 完整 RD 回归通过。VFX 全页与 Runtime 更新验证继续进行。
-- 后续 Editor / Runtime 构建和 Runtime safe RD 回归通过。但 VFX 35 页复验仍报一次绑定提前失效，日志 `review-vfx-rd-invalidated-set-after-buffer-fix.log`。本次修复解决了可独立复现的 buffer 依赖缓存缺陷，并未证明消除了 VFX 的全部失效来源；下一步需要绑定/纹理 RID 生命周期诊断。
+- 最小复现用 129 个不可变 Mesh 参数版本耗尽 uniform buffer 缓存，再用 17 个可变顶点批次强制提交；最后一次必须改变可见区域。修复前 Runtime 同时报绑定失效与像素错误（`review-uniform-retirement-before.log`），修复后引擎 separate 完整 RD 回归通过。VFX 全页与 Runtime 更新验证继续进行。
+- 后续引擎构建和 Runtime safe RD 回归通过。但 VFX 35 页复验仍报一次绑定提前失效，日志 `review-vfx-rd-invalidated-set-after-buffer-fix.log`。本次修复解决了可独立复现的 buffer 依赖缓存缺陷，并未证明消除了 VFX 的全部失效来源；下一步需要绑定/纹理 RID 生命周期诊断。
 
 ## 2026-11-10：实现重审——主线集成复验暴露 RD 失效绑定
 
-- 最新源码产物的 mobile Media video 在 Editor / Runtime 都通过，包含 seek/end/stop/replay 和 Godot 宿主标记；不是原生 D3D 对照，不作为帧率或物理音画同步证明。
+- 最新源码产物的 mobile Media video 在引擎都通过，包含 seek/end/stop/replay 和 Godot 宿主标记；不是原生 D3D 对照，不作为帧率或物理音画同步证明。
 - RD/mobile/safe VFX 全 35 页完成导航并打印 SMOKE_PASS，但日志出现 `recorded uniform binding was invalidated before submission`，包装器正确判为失败。保留 `review-vfx-rd-invalidated-set.log`；首次截图后即出现错误，后续页面完成不能覆盖此失败。
 - 下一步追查原生资源更新/退休与开放 pass、批量提交之间的时序。保留新增错误门禁，不通过恢复静默漏画获得 PASS。acceptance-status 已区分历史结果与当前失败，整体重审未完成。
 
@@ -1187,7 +1180,7 @@
 
 - 新增内置文本替换检查后，原实现原生测试失败：SetData 成功但 GetData 优先返回 SourceData 旧值，格式列表同时包含源格式和 extra 的重复项。现 extras 优先读取，枚举去重。
 - 替换原来先 ReleaseStgMedium 再写 entry.second，外部 pUnkForRelease 回调可重入追加格式使 vector 引用失效。现先安装新 medium、将旧 medium 复制到局部变量，再释放旧值，回调之后不再访问 entry。
-- 新增释放观察器，在回调中读取新值并追加 64 个格式强制容器扩容；检查只释放一次且重入成功。/W4 /WX 原生测试（含原有分配失败和 shell 拖放图像）及 Editor / Runtime 构建、mobile/safe OLE Timeout 注入通过。
+- 新增释放观察器，在回调中读取新值并追加 64 个格式强制容器扩容；检查只释放一次且重入成功。/W4 /WX 原生测试（含原有分配失败和 shell 拖放图像）及引擎构建、mobile/safe OLE Timeout 注入通过。
 
 ## 2026-11-10：实现重审——缺失 RD 纹理视图的实际回归
 
@@ -1199,7 +1192,7 @@
 
 - 代码审查发现白色回退创建的 UniformSet 没有记录临时性质，若引擎 RID 存活且设备绑定有效，缓存可继续命中，不符合原注释所述“下次 pass 重新解析”。现记录 provisional 标记，下一次 acquire 强制重新解析，旧绑定仍按排队绘制的延迟释放路径退休。
 - 必需 sampler/value-buffer 的绑定创建失败时，在两个几何路径都明确拒绝绘制；合法的无 uniform shader 仍允许无绑定。提交时已失效的 UniformSet 继续避免绑定死 RID，但现在输出 ERROR，而非仅在 debug 开关开启时记录漏画。
-- Editor / Runtime 构建、Editor RD separate 与 Runtime RD safe 像素回归、RD GodotView Transform 通过。上述正常路径通过不等于异常路径全部验证；临时视图缺失和创建失败仍需针对性故障夹具。
+- 引擎构建、引擎 RD separate 与 Runtime RD safe 像素回归、RD GodotView Transform 通过。上述正常路径通过不等于异常路径全部验证；临时视图缺失和创建失败仍需针对性故障夹具。
 
 ## 2026-11-10：实现重审——剪贴板恢复序列与持久备份
 
@@ -1220,25 +1213,25 @@
 - 剪贴板/OLE 文件列表原解析器在最后一条路径终止后耗尽负载时仍接受，未要求额外列表终止符；UTF-16 路径通过外部偏移强转宽字符指针，还依赖地址对齐。
 - 两个消费者共用 windows_dropfiles.h 的按字节扫描器，要求完整双 NUL 终止，逐次读取均检查剩余字节，使用 memcpy 读取可能未对齐的 UTF-16 单元。路径转换结果只在整份负载有效后交付；保留数量/长度上限。ANSI 转换直接写最终字符串，减少临时 wstring 分配。
 - 私有内存测试覆盖 ANSI/UTF-16、奇数偏移、单 NUL、路径截断、半个 UTF-16 终止单元、越界偏移、空列表及数量/长度边界；/W4 /WX 测试与原有 DND 原生测试通过。未访问系统剪贴板或操作真实输入设备。
-- Editor / Runtime 源码构建与 mobile/safe OLE 注入（含 Timeout 取消）通过；各仓库 diff 检查通过。首次集成编译暴露公共头文件缺少 shlobj.h，已补齐直接依赖后重新构建成功。剪贴板全格式互操作和 RD 异常路径的整体审查仍待完成。
+- 引擎源码构建与 mobile/safe OLE 注入（含 Timeout 取消）通过；各仓库 diff 检查通过。首次集成编译暴露公共头文件缺少 shlobj.h，已补齐直接依赖后重新构建成功。剪贴板全格式互操作和 RD 异常路径的整体审查仍待完成。
 
 ## 2026-11-10：实现重审——DIB 可选颜色表
 
 - 对照 Microsoft Bitmap Header Types 确认 24/32 位 DIB 也可以有颜色表。原实现将 biSize 后的数据直接当成像素，忽略 biClrUsed，导致有表时读错位置，也可能把不完整像素负载判为有效。
 - 布局校验先用剩余字节数限制 RGBQUAD 表项数量，再计算像素起点并验证完整行存储；实际解码使用这个经过校验的偏移。
-- 独立测试覆盖 24/32 位、普通/V4/V5 头部长度、两项颜色表、表后像素截断和 DWORD_MAX 表项数量；/W4 /WX 测试与 Editor / Runtime 构建通过。未访问系统剪贴板；不代表完整 V5 色彩配置支持。文件列表终止符/对齐与后续 RD 审查仍未完成。
+- 独立测试覆盖 24/32 位、普通/V4/V5 头部长度、两项颜色表、表后像素截断和 DWORD_MAX 表项数量；/W4 /WX 测试与引擎构建通过。未访问系统剪贴板；不代表完整 V5 色彩配置支持。文件列表终止符/对齐与后续 RD 审查仍未完成。
 
 ## 2026-11-10：实现重审——剪贴板 DIB 有符号尺寸边界
 
 - 图片解析原来在验证尺寸前计算负高度的绝对值，LONG_MIN 会触发有符号整数溢出。提取生产布局校验函数，先限制宽高与头部范围，再计算绝对值、补齐行跨度和像素存储边界。
-- JNI 分配图片失败时保留原先的异常，不再覆盖为“不支持的布局”。独立原生测试覆盖正/负高度、24 位行补齐、截断最后一行、LONG_MIN、零和超限高度、超大宽度与头部；/W4 /WX 测试及 Editor / Runtime 构建通过。测试不访问系统剪贴板。
+- JNI 分配图片失败时保留原先的异常，不再覆盖为“不支持的布局”。独立原生测试覆盖正/负高度、24 位行补齐、截断最后一行、LONG_MIN、零和超限高度、超大宽度与头部；/W4 /WX 测试及引擎构建通过。测试不访问系统剪贴板。
 - 文件列表的双 NUL 终止和 UTF-16 偏移对齐、DIB 可选颜色表布局仍需进一步检查；本轮不将整个格式解析审查标记完成。
 
 ## 2026-11-10：实现重审——剪贴板分配异常的所有权
 
 - 审查发现 full-format 准备阶段的 vector/string 分配异常可以绕过 HGLOBAL 手工释放，文件列表/ANSI URL 读取中的异常可以绕过 GlobalUnlock；相关 JNI 入口未捕获 std::bad_alloc。
 - 新增不可复制的 PreparedExtras 和 LockedGlobal 作用域守卫；发布列表先预留最多 34 个条目，再取得 Windows 内存，每块取得后立即纳入所有权。成功转交的句柄置空，异常仅释放未转交块。五个会分配 C++ 容器的 JNI 入口捕获 bad_alloc 并报告 Java OutOfMemoryError。
-- 独立 `test-clipboard-ownership.cmd` 以 /W4 /WX 编译通过，验证抛出异常后的两块私有内存释放、转交块保留、借用块解锁且不释放；未访问系统剪贴板。Editor / Runtime 源码构建通过。此证据不覆盖全部 JNI 内存不足、格式互操作或畸形输入边界，仍需继续审查。
+- 独立 `test-clipboard-ownership.cmd` 以 /W4 /WX 编译通过，验证抛出异常后的两块私有内存释放、转交块保留、借用块解锁且不释放；未访问系统剪贴板。引擎源码构建通过。此证据不覆盖全部 JNI 内存不足、格式互操作或畸形输入边界，仍需继续审查。
 
 ## 2026-11-10：实现重审——输入取消夹具的多余移动
 
@@ -1258,14 +1251,14 @@
 - 32 次原生 Window 创建、切换 VSync、立即销毁复现异步 GL 回调使用已销毁 HWND/HDC，日志反复报告 Error 6（句柄无效），且仍打印 PASS。保留 `window-immediate-close-before.log`，测试包装器明确拒绝任何 ERROR。
 - Windows GL manager 用递归互斥保护窗口表和当前上下文读写；延迟操作查找失败直接取消，不再通过 map 下标插入空窗口。切换失败不更新 current；销毁与交换缓冲区同步，空 current 不解引用。
 - 检查引擎清理顺序为 RenderingServer finish/delete 后再销毁 DisplayServer，因此排队 callback 所持 manager 指针在该生命周期内有效。
-- Editor 构建、立即关闭 safe/separate 两档、OpenGL separate 的 12 轮 Native Exit 均通过。后续仍需完成输入停止、剪贴板及 RD 异常路径的剩余重审。
-- 补充验证：Runtime 源码构建与 OpenGL/separate 立即关闭通过，Editor mobile/separate 立即关闭和 OpenGL/separate 原生多窗口像素验证通过。Runtime 夹具首次运行因缺少全局脚本缓存被错误门禁拒绝；脚本现先调用源码 Editor 导入项目，再执行 Runtime，不忽略该错误。多窗口像素探针改用当前 drawQuads 接口的单位变换，原有颜色、隐藏/恢复、关闭后不复活及资源释放断言保持不变。
+- 引擎构建、立即关闭 safe/separate 两档、OpenGL separate 的 12 轮 Native Exit 均通过。后续仍需完成输入停止、剪贴板及 RD 异常路径的剩余重审。
+- 补充验证：Runtime 源码构建与 OpenGL/separate 立即关闭通过，引擎 mobile/separate 立即关闭和 OpenGL/separate 原生多窗口像素验证通过。Runtime 夹具首次运行因缺少全局脚本缓存被错误门禁拒绝；脚本现先调用源码引擎导入项目，再执行 Runtime，不忽略该错误。多窗口像素探针改用当前 drawQuads 接口的单位变换，原有颜色、隐藏/恢复、关闭后不复活及资源释放断言保持不变。
 
 ## 2026-11-10：实现重审——Godot 诊断热路径
 
 - 重查 Godot 基线 `420dfdc1..0b19501` 的 10 个变更文件和 Java 输入/调度线程。确认 Canvas / RD 资源阶段计时原来在未启用诊断时仍执行，且资源阶段会定期输出日志。
 - 将这些额外时钟读取、累计计数和日志统一受已有 `GODOT_JFX_OFFSCREEN_PROFILE` 开关控制；正常资源更新调用保留。
-- Editor / Runtime 源码构建通过。Viewport/mobile/safe 的两轮 VFX 各完成 68 次切换：关闭时 27198 次离屏绘制且无阶段日志；开启时 24518 次并包含 OFFSCREEN/RES 两类阶段报告，两轮开关断言均通过。日志 `review-offscreen-profile-0.log` / `review-offscreen-profile-1.log`。开启轮有 548 个失焦样本，且不是同条件改前对照，不能据此宣称 FPS 改善。
+- 引擎源码构建通过。Viewport/mobile/safe 的两轮 VFX 各完成 68 次切换：关闭时 27198 次离屏绘制且无阶段日志；开启时 24518 次并包含 OFFSCREEN/RES 两类阶段报告，两轮开关断言均通过。日志 `review-offscreen-profile-0.log` / `review-offscreen-profile-1.log`。开启轮有 548 个失焦样本，且不是同条件改前对照，不能据此宣称 FPS 改善。
 - 待继续核对的范围：Windows GL 上下文异步调用与窗口立即销毁的时序、输入接收线程的终止保障、剪贴板新增格式的所有权与边界、RD 异常/资源失效路径和最终整体验证。已完成的缓存/OLE/诊断改写证据见以下记录；不能据这些局部结果声称整体重审完成。
 
 ## 2026-11-10：实现重审——原生 Mesh LRU 与绘制所有权
@@ -1273,7 +1266,7 @@
 - Prism Mesh 缓存改为单次内容哈希加完整 COW 顶点/颜色比较；淘汰由全表扫描改为链表 LRU，预算为 48 MiB 输入负载与 4096 条目。预算不覆盖 ArrayMesh/驱动对象或仍被命令保留的资源。
 - 共享 `BoundedLruCache` 处理替换计费、超大条目拒绝、插入失败回滚和加法溢出边界；`test-bounded-lru.cmd` 以 /W4 /WX 编译并通过资源释放、碰撞、淘汰及故障注入检查。
 - 容量压力测试复现命令引用已被缓存淘汰的 Mesh：屏幕绿色图形消失，GLES 报 mesh null，日志 `review-mesh-retention-before.log`。窗口绘制列表现按 RID 去重持有 Mesh 引用，清空/销毁命令后释放，缓存淘汰不再破坏待绘制内容。
-- Editor 构建、OpenGL/mobile 两种 `mesh-transform -CachePressure` 及 RD separate 回归通过。测试提交 4097 个不同屏外图形，强制淘汰最早可见图形的缓存项，再验证它仍正确显示。整体重审仍未完成。
+- 引擎构建、OpenGL/mobile 两种 `mesh-transform -CachePressure` 及 RD separate 回归通过。测试提交 4097 个不同屏外图形，强制淘汰最早可见图形的缓存项，再验证它仍正确显示。整体重审仍未完成。
 - Runtime 源码构建和 RD safe 回归通过；mobile render-targets、OpenGL shader-cache、OpenGL M1 Surface 生命周期测试也通过，后者日志 `review-surface-lru.log`。
 
 ## 2026-11-10：实现重审——Mesh 解码身份
@@ -1281,14 +1274,14 @@
 - RD Mesh 解码 memo 由裸地址键改为 ObjectID。每次解码 miss 先撤销该地址的 GPU 顶点身份缓存，覆盖对象地址复用及 memo 淘汰后的重建路径；不通过增加 Mesh 强引用延长 GPU 对象寿命。
 - 读取属性前检查单个表面、四顶点批次范围及 UV/颜色/custom 数组长度，避免不完整输入导致越界。注册 Mesh 保持既有不可变约定。
 - 将无实例参数的 Mesh 绘制入口与宿主实例参数入口分开，增加脚本绑定以直接验证生产 RD 解码路径。
-- 新增 96 个短生命周期 Mesh、每个重复绘制两次、全图颜色读回与对象销毁断言。Editor / Runtime 构建、Editor safe/separate/no-ring/no-batch 与 Runtime safe RD 回归、OpenGL mesh-transform 均通过。本轮 Runtime 夹具导入正常。整体重审仍未完成。
+- 新增 96 个短生命周期 Mesh、每个重复绘制两次、全图颜色读回与对象销毁断言。引擎构建、引擎 safe/separate/no-ring/no-batch 与 Runtime safe RD 回归、OpenGL mesh-transform 均通过。本轮 Runtime 夹具导入正常。整体重审仍未完成。
 
 ## 2026-11-10：实现重审——离屏纹理存活登记
 
 - 检查 RD 纹理失效路径，`test-godot-view.ps1 -Renderer mobile -Transform` 在 RD/debug 下通过；记录一次底层视图变化，未记录 `RD_BATCH_DEAD_SET` 或白色回退。这是该场景证据，不证明所有更新/销毁场景安全。
 - 修复直接创建的 JavaFXRenderTarget 未登记存活纹理的问题：RD 和 Viewport 初始化成功后登记，销毁时在释放 RD 对象前移除正确的纹理身份。过去只有通过宿主 sampler retain 的纹理才会登记，直接 copy_target 会重复重建绑定。
 - 增加 RD UniformSet 创建计数诊断，并在四轮完整像素复制回归后断言只创建一个绑定；继续验证短生命周期源的保留和释放。
-- Editor / Runtime 构建通过；Editor safe/separate/no-ring/no-batch 和 Runtime safe 的 RD 回归通过。Runtime 首次夹具导入在 Editor 退出阶段报 `EditorNode::is_cmdline_mode` singleton null，日志归档 `review-runtime-import-failure.log`；确认进程结束后重跑，同一导入和 GPU 回归通过，尚未确定该导入退出问题的根因。
+- 引擎构建通过；引擎 safe/separate/no-ring/no-batch 和 Runtime safe 的 RD 回归通过。Runtime 首次夹具导入在引擎退出阶段报 `EditorNode::is_cmdline_mode` singleton null，日志归档 `review-runtime-import-failure.log`；确认进程结束后重跑，同一导入和 GPU 回归通过，尚未确定该导入退出问题的根因。
 - 下一步仍需检查 RD mesh 解码 memo 的裸指针键生命周期、原生 Mesh 内容缓存和跨线程交接；整体重审尚未完成。
 
 ## 2026-11-10：实现重审——性能采样器
@@ -1305,7 +1298,7 @@
 - 修复 `SetData(..., TRUE)` 插入分配失败时错误释放调用方介质的路径；复制模式仍清理自己的副本。补齐不支持的 lindex 校验。
 - `GetData`、格式枚举和克隆的 STL 分配失败转换为 HRESULT，枚举输出失败时清空，Next 缺少必要计数输出时拒绝且不前进。
 - `test-dnd-drag-image.cmd` 以 /W4 /WX 构建并通过新增故障注入、所有权计数、复制隔离和枚举测试，原 shell 8×6 拖放图像注册仍通过。未操作真实输入设备。
-- Editor / Runtime 源码构建通过；`test-drag-drop-ole-inject.ps1 -Renderer mobile -Timeout` 通过。Windows 自定义模块启用 /EHsc，故障处理不只在独立测试的编译配置中生效。整体重审仍未完成。
+- 引擎源码构建通过；`test-drag-drop-ole-inject.ps1 -Renderer mobile -Timeout` 通过。Windows 自定义模块启用 /EHsc，故障处理不只在独立测试的编译配置中生效。整体重审仍未完成。
 
 ## 2026-11-10：实现重审——Java 几何缓存
 
@@ -1323,7 +1316,7 @@
 - 保留原有同步完成点及延迟回收时序。COW 共享减少此处的数据装配工作，但仍需实际基准才能判断整体 FPS 变化。
 - 调试参数读取改为先检查对应 float 的真实字节范围，再用 `memcpy` 读取，避免旧的长度判断不足与对齐假设。
 - 原始 VFX 页面切换基准（RD / Vulkan mobile / safe，2560×1600，60 Hz）完成 68 次切换：Pulse 57.808 FPS，宿主呈现 53.937 FPS，P95 20.842 ms，P99 57.010 ms，最大 328.540 ms。`unfocused=497`，且没有同条件改前配对数据，不能据此认定性能提升或通过帧率验收。日志归档 `artifacts/logs/review-rd-shared-draws-transitions.log`。
-- Editor / Runtime 源码构建以及 Editor `safe`、`separate`、`-NoBatch` 和 Runtime `safe` GPU 回归通过。整体重审仍在进行，后续继续检查 Java 几何缓存和跨线程任务所有权。
+- 引擎源码构建以及引擎 `safe`、`separate`、`-NoBatch` 和 Runtime `safe` GPU 回归通过。整体重审仍在进行，后续继续检查 Java 几何缓存和跨线程任务所有权。
 
 ## 2026-11-10：实现重审——RD 数据缓存与延迟回收
 
@@ -1331,7 +1324,7 @@
 - 修复 Uniform 参数哈希冲突时仅移除缓存项、丢失仍有效 GPU UniformSet 所有权的路径。替换项进入延迟回收队列，已排队绘制结束后才释放；已被设备级联销毁的绑定跳过重复释放。
 - 缓冲区字节采用 COW 引用保留；现有条目容量上限保留，但这不是固定字节预算，也未测量新的 FPS 或长期内存趋势。
 - 扩展 RD 回归：合法 Uniform 名 `Ab`/`BA` 产生相同 Dictionary 哈希，384 次交替绘制同时超过 128 项 Uniform 缓冲区容量，逐像素检查结果。此场景验证替换/淘汰时序，不等价于穷举 64 位字节哈希碰撞。
-- 当前 Editor 构建通过；GPU 回归 `safe`、`separate`、`-NoRing`、`-NoBatch` 全部通过。Runtime 源码构建及 `-Runtime` 回归也通过；RD 模式下 `test-node-shaders.ps1 -Renderer mobile` 通过，截图为 `artifacts/reference/godot-node-shaders-mobile-safe.png`。整体代码重审尚未完成。
+- 当前引擎构建通过；GPU 回归 `safe`、`separate`、`-NoRing`、`-NoBatch` 全部通过。Runtime 源码构建及 `-Runtime` 回归也通过；RD 模式下 `test-node-shaders.ps1 -Renderer mobile` 通过，截图为 `artifacts/reference/godot-node-shaders-mobile-safe.png`。整体代码重审尚未完成。
 
 ## 2026-11-10：实现重审——RD Shader 身份缓存
 
@@ -1339,7 +1332,7 @@
 - 已复现等长、同 `String.hash()` 的两个不同 Shader 被缓存混同：期望绿色的实际 GPU 读回为红色，旧产物日志为 `artifacts/logs/review-shader-collision-before.log`。
 - 源码身份改为完整字符串比较后分配编号；八槽快速缓存持有 COW 字符串引用，避免依靠已释放地址及首尾字符猜测内容。共享 Pipeline 清理时同步释放源码缓存。重复绘制仍走指针命中路径；尚未重新测量帧率，不能宣称 FPS 提升。
 - 扩展 `test-rd-regressions.ps1` 的场景，三轮交替绘制哈希冲突的红/绿 Shader，并检查完整读回图像。
-- 验证：Editor 与 Runtime 源码构建通过；RD GPU 回归 Editor `safe`、Editor `separate`、Runtime `safe` 均通过。日志分别为 `rd-regressions-safe.log`、`rd-regressions-separate.log`、`rd-regressions-safe-runtime.log`；本轮未运行真实键鼠测试。
+- 验证：引擎源码构建通过；RD GPU 回归引擎 `safe`、引擎 `separate`、Runtime `safe` 均通过。日志分别为 `rd-regressions-safe.log`、`rd-regressions-separate.log`、`rd-regressions-safe-runtime.log`；本轮未运行真实键鼠测试。
 - 后续重审仍包括顶点/Uniform 缓存的完整键比较、批量提交数据和线程所有权、Java 几何缓存、Windows OLE/输入及 Godot 子模块改动；现有共享 Pipeline 缓存仍无固定容量上限。
 
 
@@ -1356,7 +1349,7 @@
 - 恢复 initialize 的脚本默认参数；矩形/复制顶点补齐 z，矩形颜色预乘 alpha，允许 RD 目标作为复制源。复制源保留到提交结束并释放，避免早退分支长期持有源引用。
 - uniform 默认值由 Godot ShaderLanguage 解析后按 std140 布局保留，再应用显式参数；修复单元素数组和 ivec2/3/4 参数打包。新增生产路径像素测试覆盖默认值、覆盖、array[1]、ivec3。
 - Java 编码器先校验顶点及 float 范围再更新缓存，重复非法输入不再生成未注册 QUADS_REF。OLE 使用可取消排队任务，超时后跳过未开始的 Enter/Drop，并排队清理旧目标状态；已开始的用户回调不强行中断或撤销。
-- Editor、Runtime、Media SDK 源码构建通过；RD safe/separate、ring off、batch off、Runtime 专项通过；编码器、OLE 正常及 Vulkan/OpenGL 超时恢复通过；原 render-target、node-shaders 双渲染器及 RD node-shaders、protocol 通过。新增语料完整性检查后 corpus 为 186 exact / 76 edge / 0 failed。
+- 引擎、Media SDK 源码构建通过；RD safe/separate、ring off、batch off、Runtime 专项通过；编码器、OLE 正常及 Vulkan/OpenGL 超时恢复通过；原 render-target、node-shaders 双渲染器及 RD node-shaders、protocol 通过。新增语料完整性检查后 corpus 为 186 exact / 76 edge / 0 failed。
 - 更新 TESTS、初学者架构、当前验收、RD 计划及 Glass/Node Shader 文档，将历史结论与当前修复结果分开。未重新测量性能，历史 P95 27.6ms 仍不满足 <25ms 目标。
 
 ## 2026-11-09（Robot 测试改造）：三个物理夹具转为默认合成输入
@@ -1371,9 +1364,9 @@
 
 ## 2026-11-09（菜单扫过 hover 结案）：对照实验证伪前提——非 Godot 缺陷，实验改动已回退
 
-- 用户报：demo menu 页快速扫过按钮，原生 JavaFX 每个按钮微微亮起，Godot 版可能完全无反应，疑与"事件帧率"有关。引擎侧确证 Godot 默认 use_accumulated_input=true（input.cpp:1654），一帧内连续 MouseMotion 合并为最新位置一个事件，中间按钮收不到 enter/exit；遂实验性在 start_jvm 关闭积累（GODOT_JFX_ACCUMULATED_INPUT=1 可退回）。
+- 用户报：demo menu 页快速扫过按钮，原生 JavaFX 每个按钮微微亮起，Godot 版可能完全无反应，疑与"事件帧率"有关。引擎侧确证 Godot 默认 use_accumulated_input=true（input.cpp:1654），一帧内连续 MouseMotion 合并为最新位置一个事件，中间按钮收不到 enter/exit；遂实验性在宿主初始化时关闭积累（GODOT_JFX_ACCUMULATED_INPUT=1 可退回）。
 - 证伪：带该实验改动的 Godot demo 实测依旧无微亮；继而用原生 JavaFX（Win Glass + D3D 管线，同一份 vfx 类）对照，同样无微亮。结论：该菜单页的 hover 过渡在快速扫过的极短停留内本就不可见，与平台/事件分发密度无关——最初"原生会微亮"的观察不成立（可能来自不同页面或扫速）。
-- 处置：实验改动三处（javafx_host.cpp start_jvm/stop_jvm、javafx_host.h 字段）全部回退，宿主恢复引擎默认输入合并；editor 重建，protocol、hover-flicker(mobile/safe)、vfx 冒烟验证通过。若未来在其他场景确证 Godot 与原生 hover 密度有差异，调查起点：Input 积累模式 + FX 脉冲批处理（一帧内多个事件在同一脉冲消费，过渡进度为零即不可见）。
+- 处置：实验改动三处（宿主输入配置、javafx_host.h 字段）全部回退，宿主恢复引擎默认输入合并；引擎重建，protocol、hover-flicker(mobile/safe)、vfx 冒烟验证通过。若未来在其他场景确证 Godot 与原生 hover 密度有差异，调查起点：Input 积累模式 + FX 脉冲批处理（一帧内多个事件在同一脉冲消费，过渡进度为零即不可见）。
 
 ## 2026-11-09（悬停冻结结案）：宿主主循环停顿定性 + 脉冲饥饿补救
 
@@ -1384,7 +1377,7 @@
 ## 2026-11-07（第三批补遗）：求值顺序缺陷复盘与修复后诚实数字
 
 - 第三批首测 44.4fps/22.9ms 系错误行为下测得：set_material 跳过条件先把局部 slot.material 赋为新值再比较——比较恒假、fresh path 上重绑全部被跳过，复用槽位 item 沿用前任住客的材质→跨用例传色（composite-edges 154 像素差异、effects/stage/render-targets/shader-cache/mesh×2/godot-view/intro 十项连锁失败）。二分（env 关 RID 缓存 / 关跳过）定罪跳过；RID 缓存无缺。修复：赋值前捕获前任 material 再比较。
-- 修复后完整回归 16/16 全绿（含 composite-edges D3D 逐像素对照）。诚实数字：翻页 42.5fps（维持 42-43 区间，跳过收益被真实材质切换抵消）；真实输入拖拽 p95 26.0→23.6ms、p99 67.0→63.8ms（8 事件/帧）；纯渲染地板历史最优（59.9fps/p50 16.7/p95 18.4/p99 41.2）。另把材质缓存键升级为全量身份校验（哈希仅分桶，命中时深比较 shader RID + 参数字典，碰撞旹盐化键共存）。editor/runtime 重建。
+- 修复后完整回归 16/16 全绿（含 composite-edges D3D 逐像素对照）。诚实数字：翻页 42.5fps（维持 42-43 区间，跳过收益被真实材质切换抵消）；真实输入拖拽 p95 26.0→23.6ms、p99 67.0→63.8ms（8 事件/帧）；纯渲染地板历史最优（59.9fps/p50 16.7/p95 18.4/p99 41.2）。另把材质缓存键升级为全量身份校验（哈希仅分桶，命中时深比较 shader RID + 参数字典，碰撞旹盐化键共存）。引擎重建。
 - 经验教训落档：性能数字只有在像素回归全绿后才可采信；首个 44.4fps 就是在渲染错误的二进制上测的。
 
 ## 2026-11-07（第十批）：最后杠杆 API 阻断定论——逐 item 多纹理与共享纹理数组在公开渲染 API 中不可实现
@@ -1396,7 +1389,7 @@
 
 - 实施：acquire_material 新增补丁路径——同 shader 同参数形状、仅纹理 RID 不同时，对缓存材质 material_set_param 变更项（一次纹理仅透明的 uniform-set 重建代替“创建+全量参数+排队”），材质 RID 稳定使槽位 item 同时跳过重绑依赖更新；命中前校验新 RID 存活；GODOT_JFX_MATERIAL_PATCH=0 可退。
 - 验证：像素门六项全绿（含 composite-edges 对 D3D）；翻页 44.5/44.5 开 vs 44.0 关——在 42-45 噪声带内，远低于估计的 5-8fps；重建计数仅 4.70→4.50s。机制定位：~120µs/次的主体是 update_parameters_uniform_set 内部的描述符集重建，纹理 RID 真变化时无可避免——补丁消除的只是对象创建与 UBO 更新。表格拖拽真实输入历史最优（p50 16.6/p95 22.7/59.9fps）。
-- 彻底消除该成本需把效果输入移出材质参数（逐 item 纹理或共享纹理数组）——协议/渲染路径级变更，已记录为本杠杆之外的剩余路径。editor/runtime 重建，完整回归后台验证中。
+- 彻底消除该成本需把效果输入移出材质参数（逐 item 纹理或共享纹理数组）——协议/渲染路径级变更，已记录为本杠杆之外的剩余路径。引擎重建，完整回归后台验证中。
 
 ## 2026-11-07（第八批）：GPU 时间剖析完成再归因——呈现管线排除，单 pass 提交 CPU ~314µs 为主项（材质重建 ~120µs 为其最大分量）
 
@@ -1412,7 +1405,7 @@
 
 ## 2026-11-07（第六批）：逐 pass 同步流水化——可实施切片落地，量化如实为噪声级
 
-- 实施：每 pass 全设备 rs->sync() 改为 GODOT_JFX_PASS_SYNC_INTERVAL 可调（默认 0 = 依赖帧尾批量围栏；k>1 每 k 个 pass 等一次）。第三批时的 39.1fps 负结果在实例参数/材质修复落地后不再复现；今日六次运行 42.4-45.2fps 全部落在同一噪声带。像素门与回归全绿（composite-edges 对 D3D、effects×2、render-targets、shader-cache、stage、intro -AllPages、table-scroll）；editor/runtime 重建。
+- 实施：每 pass 全设备 rs->sync() 改为 GODOT_JFX_PASS_SYNC_INTERVAL 可调（默认 0 = 依赖帧尾批量围栏；k>1 每 k 个 pass 等一次）。第三批时的 39.1fps 负结果在实例参数/材质修复落地后不再复现；今日六次运行 42.4-45.2fps 全部落在同一噪声带。像素门与回归全绿（composite-edges 对 D3D、effects×2、render-targets、shader-cache、stage、intro -AllPages、table-scroll）；引擎重建。
 - 诚实结论：同步间隔的差异在运行间方差之内，未产生可复现收益。验证器要求的完整 RenderingDevice 直连路径（用自建 draw list 替换视口渲染周期，把单 pass 降到 render-pass begin/end + draw 的价格）是渲染器重写级工程，六轮数据链（Java 空闲、pass 数低于原生、视口渲染单价主导、材质重建稳定 ~13%）足以立项但无法作为桥接层补丁落地。翻页 42-45 vs 原生 62、拖拽真实输入 p95 22.5-24.7 vs 地板 18.4-18.7 的差距在当前架构下已到实际地板。
 
 ## 2026-11-07（第五批）：效果图像池帧亲和——实施完毕，量化证据将剩余差距锁定在引擎级视口渲染单价
@@ -1424,7 +1417,7 @@
 ## 2026-11-07（第四批）：实例参数材质迁移——实施完毕，归因升级到效果链图像池的 RID 轮换
 
 - 落地预定杠杆：新增 javafx_shader_rewrite.{h,cpp}，目标路径着色器编译时把值 uniform 改写为 instance uniform（按源串 memo 名单；采样器保留在材质级；>16 个值 uniform 不改写）；SHADER_STATE 常量分流到 target_instance_params，槽位绘制经 canvas_item_set_instance_shader_parameter 直写实例缓冲（无队列无重建）；共享 item 的立即模式 surface 路径保留原始源（同 item 多绘制无法逐绘制实例态）。GODOT_JFX_INSTANCE_UNIFORMS=0 可退。过程中修复两个工程问题：ClassDB 绑定方法不接受 HashMap 指针参数（拆出 draw_prism_quads_with_instances 内部函数）；状态分流块替换后残留重复 else。
-- 正确性：像素门全绿（composite-edges 对 D3D、effects 双渲染器、render-targets、shader-cache、mesh、m1、composite、drag-drop、vfx-table、intro -AllPages、table-scroll 共 13 项）。editor/runtime 重建。临时诊断（miss 分类计数、sampler RID 追踪、rewrite dump）用完即删。
+- 正确性：像素门全绿（composite-edges 对 D3D、effects 双渲染器、render-targets、shader-cache、mesh、m1、composite、drag-drop、vfx-table、intro -AllPages、table-scroll 共 13 项）。引擎重建。临时诊断（miss 分类计数、sampler RID 追踪、rewrite dump）用完即删。
 - 诚实量化：值常量驱动的 uniform 重建已消除（_update_queued_materials 5.47→4.56s/37s），但翻页 fps 不变（43.2 开 vs 43.3 关）、拖拽分位数不变。归因：miss 分类 cold=100%（同键 RID 变分类不可达，因 RID 变会改键），且 sampler RID 追踪证据确凿：字形图集/掩码纹理 RID 完全稳定，而效果链 inputTex 每条命令指向不同的池化 RT——材质冷 miss 全部由此驱动。下一杠杆已升级并记录：Prism 效果图像池（ImagePool）的帧间亲和复用，使同一效果位置跨帧拿同一块 RT，从而让材质键跨帧稳定。剩余与原生 62fps 的差距仍由视口渲染单价与每帧真实换绑主导。
 
 ## 2026-11-07（第三批）：单价瓶颈实施优化——逐 pass 成本相位剖分与两项修复
@@ -1434,7 +1427,7 @@
 - 修复二（RID 材质缓存）：acquire_material 恢复缓存含 RID 参数集（上一轮因“悬空 RID 白屏”禁用的路径）：条目记录其 RID 并在命中时对照静态存活集校验（由 surface dispose/版本换代/release、RT与 scene view 析构共同维护；RID 值不复用，退休条目自然失效）；缓存压力时先清扫失效条目再按插入序淘汰。命中即证明所有绑定纹理仍存活——以构造方式消除旧隐患。
 - 实测：翻页 42-43→43.8-44.4fps；真实输入拖拽收益最大（hover 重绘场景）：p95 26.0→22.9ms、p99 67.0→59.6ms（8 事件/帧），与纯渲染地板的差距从 +40% 缩至 +19%（地板 p50 16.5ms/59.9fps）。几何缓存 256→1024（上传 -7%，fps 不变）。
 - 如实登记无效实验：safe 模式跳过逐 pass sync 更慢（39.1 vs 42.9，该等待兼任 CPU/GPU 节流）；突发预算 10ms/64 批次噪声内。剩余 4.4s uniform 重建由真实每帧变化的效果/裁剪链常量驱动（~4.4 万次/运行，每次 ~100µs）——属 Prism 材质级 uniform 模型，下一个架构杯杆是映射到 Godot 逐实例参数（需重写生成着色器）。
-- editor/runtime 重建；完整回归批后台验证中。
+- 引擎重建；完整回归批后台验证中。
 
 ## 2026-11-07（第二批）：原生对照定位翻页/拖拽差距——单价缺口定论
 
@@ -1444,7 +1437,7 @@
 - 决定性证据二（pass 单价）：BaseShaderContext 新增 TARGET_SWITCHES 计数器，两条管线同基准打印——原生 70,428 次目标切换（~30/帧） vs Godot 27,675 次（~19/帧，LCD 优化后更少）：**pass 数更少却更慢**。每次切换宿主付 ~440µs（draw_offscreen_2d 完整视口渲染，Vulkan 命令编码），D3D SetRenderTarget 为 µs 级——即 kimi 会话预言的“每次重绘单价”架构差距，量级比 30-50 倍。宿主主线程 71% 忙（render_offscreen 9.5s+几何 5.6s+纹理 2.0s+目标 2.3s / 37s）与此一致。
 - 排除项：separate 渲染线程更慢（35.2 vs 43.1，同步开销无补）；宿主突发预算/批次上限 env 化（GODOT_JFX_PASS_BUDGET_US 默认 4000、GODOT_JFX_BATCH_CAP 默认 16）A/B 提到 10ms/64 仅噪声内——队列排空也不是约束。收窄需渲染后端每 pass 低于视口渲染的成本（RenderingDevice 级路径或 Godot 引擎轻量视口），属引擎架构级工作，如实登记。
 - 拖拽三层定位：夹具新增驱动模式（GODOT_JFX_DRAG_MODE=direct/real/robot，real 可配 GODOT_JFX_REAL_EVENTS/帧；robot 走 Glass Robot 真实 OS 光标，诊断用需前台）。实测：direct p95 18.5ms；real 1/8/32 每帧 24.1/26.0/25.7ms；robot 25.2ms——p50 全不变，事件速率非主因；真实输入比 direct 多 ~1500 次全量上传：指针移动合成 enter/exit，VFX hover 高亮随指针移动，批次内容真变化——这是真实重绘工作（原生同样做，单价低）；滚轮不动指针故流畅。Glass-Godot 输入本身合并正确（批量 drain + 帧锁脉冲，无每事件脉冲风暴）。
-- 回归：本轮改动为诊断工具与 env 化参数（无默认行为变化），editor/runtime 重建，关键回归批后台运行中。
+- 回归：本轮改动为诊断工具与 env 化参数（无默认行为变化），引擎重建，关键回归批后台运行中。
 
 ## 2026-11-07：架构级修改落地（绘制调制协议 + 编码器连续状态抑制）
 
@@ -1453,7 +1446,7 @@
 - flush 不变式会在调制值切换处拆分批次（实测批次总数 +6%），拆出的新批次要重发完整着色器状态——补上编码器连续状态抑制：完全相同的背靠背 SHADER_STATE(11)/CLIP(12) 发送被跳过（宿主本就把它们当持久状态）；追踪在 TARGET_SELECT/END_PASS/发布/帧开始/clear/纹理销毁处失效（对齐宿主侧状态重置点），进程内出现第二个编码器则永久禁用（两流在提交点交错）；GODOT_JFX_STATE_SUPPRESS=0 可关。新增 quads_uploaded/quads_referenced 常驻计数器。
 - 实测（同二进制交替 A/B，全部 unfocused=0）：68 页翻页基准新架构 41.6fps 均值 vs 旧行为 42.2（p50 17.4-18.5ms 两者重叠）——如实报告为帧率中性；命中率实打实升（引用 44868/上传 23565 vs 41514/25659，全量上传 -8%）；表格拖拽 59.9fps 持平，p95 19.4→18.5ms、p99 42.4→41.1ms 略优。翻页帧率的真实约束再次确认为每 presentation ~15 个圆角裁剪离屏 pass（原生 D3D 同款），编码侧工作不改变该天花板。早期单次对比曾出现 32 vs 44fps 的差距，经交替重跑证明为环境噪声（用户在机器旁、窗口失焦采样不平衡），已用 unfocused 计数作有效性门槛重做。
 - 修复两个实现过程缺陷：ClassDB 绑定未给新参数 DEFVAL（add_prism_quads/draw_prism_quads 报参数数不匹，m1/mesh×2/render-targets/shader-cache 五项连锁失败，补 DEFVAL(1.0f) 后全过）；协议负例测试误用 1.0f 作越界值（合法边界，改 2.0f）及 QUADS alpha 字节偏移算错（176→196）。
-- 验证：FRAME_PROTOCOL_PASS（含 alpha 解码断言与越界/非有限负例）；像素正确性——stage、effects×2、composite、composite-edges（源码构建 D3D 管线逐像素对照）、shader-state、readback 及最终全量回归批均通过；editor/runtime/JFX 三端重建。
+- 验证：FRAME_PROTOCOL_PASS（含 alpha 解码断言与越界/非有限负例）；像素正确性——stage、effects×2、composite、composite-edges（源码构建 D3D 管线逐像素对照）、shader-state、readback 及最终全量回归批均通过；引擎/JFX 三端重建。
 
 ## 2026-11-06（夜）：大表格拖拽与翻页深度优化（LCD 文本目标采样改走渲染器后台缓冲）
 
@@ -1470,13 +1463,13 @@
 - 问题1 父级容器移动卡帧：命令级剖析（GODOT_JFX_PROFILE_COMMANDS）显示宿主几何命令应用 11.2s/36s（encode 的 65%），kimi 的内容寻址网格缓存 A/B 无效证明成本不在网格重建。本轮实施协议级几何去重：帧协议新增 QUADS_REF(29)/GEOMETRY_FREE(30)，QUADS/TEXTURED 携带几何句柄；Java 编码端按内容哈希（256 项 LRU、64 次提交闲置后退役）对未变批次只发句柄引用；宿主 GeometryLedger 与纹理账本同款的提交期投影校验（引用必须存活、句柄至多注册一次、退役恰好一次）；离屏 target 增加跨 pass 持久绘制槽（CanvasItem+材质复用，仅命令列表与 draw_index 刷新）与无 RID 参数材质缓存。实测宿主几何应用 11.1s→5.2s（-53%），vfx-frames 59.93fps 满帧不退化；68 页翻页整体帧率持平（38.9 vs 39.2，噪声内）——剩余瓶颈为 Java 侧 Prism 每帧全量重编码与每 presentation 30-70 个离屏 pass，属已记录的架构级限制，如实登记不虚报。
 - 过程中修掉四个真实缺陷：QUADS 声明长度少 4 字节（新句柄字段）；材质缓存把采样器纹理 RID 固化在键里导致命中悬空 RID、效果链全白（修复：含 RID 参数的材质不缓存）；`canvas_item_set_visible(false)` 与待渲染的 UPDATE_ONCE 离屏 pass 竞争导致效果输出白屏（修复：退役槽改用 canvas_item_clear 清命令列表）；canvas_item_clear 会重置已录制的 clip 状态导致复用槽越界覆盖（修复：复用槽重录时补 set_custom_rect/set_clip）；另有 shader 首建未置 persistent 标志使首材质进 per-pass 生命周期。
 - 测试不依赖置顶：按用户要求梳理并落档。既有两种免前台模式（Godot 合成输入；模块测试钩子 ole-inject）延续为首选；物理输入夹具（external/physical-drag/-Robot/robot/file-dialog）保留置顶并在 TESTS.md"前置"列注明。TESTS.md 新增三分类说明（可后台/需前台焦点/需物理桌面空闲）。实例改造：drag_drop.gd 的 phase-0 门槛移除 has_focus()（合成输入按窗口 ID 投递、与 OS 焦点无关）——此前用户在前台使用其他应用时该夹具会停在 case 2（本轮实测复现，前台为 ZCode），移除后在其他应用持焦点时七用例全 PASS；input_lifecycle/input_cancel/native_stage_input 的 focus 检查是焦点语义断言本身，保留不动。
-- 回归全绿：FRAME_PROTOCOL（含新几何账本与线格式用例）、effects×2、mesh-transform×2、m1、render-targets、composite、shader-cache（资源清点公式计入槽+材质，暴露 get_draw_slot_count/get_cached_material_count）、stage、stage-churn、scroll-wheel、glass-scheduler；editor/runtime/JFX 三端重建。
+- 回归全绿：FRAME_PROTOCOL（含新几何账本与线格式用例）、effects×2、mesh-transform×2、m1、render-targets、composite、shader-cache（资源清点公式计入槽+材质，暴露 get_draw_slot_count/get_cached_material_count）、stage、stage-churn、scroll-wheel、glass-scheduler；引擎/JFX 三端重建。
 
 ## 2026-11-06：拖放预览图（setDragView）接入 shell 拖拽图像助手
 
 - 承接 11-04 中断批次（usage limit 截断）遗留的"拖放预览图未完成"项。此前 `Dragboard.setDragView` 一旦在拖动离窗后触发 OLE 交接即抛 UnsupportedOperationException（`application/x-java-drag-image` mime 被 startExternalDrag 拒绝）。
 - 实现：Quantum 发布的拖拽视图缓冲（大端 w/h 信封 + BGRA、大端偏移对）经 `dragStartExternal` 新增参数传入宿主；`run_dnd_source` 在 `DoDragDrop` 前用 `IDragSourceHelper::InitializeFromBitmap` 注册 32bpp HBITMAP 预览（偏移缺省取图像中心，对齐 Win Glass setDragImage 路径）；OLE `DataObject` 补齐 `SetData`（仅 HGLOBAL，接受 shell 写回的 DragImageBits/DragContext，替换同格式旧值并在枚举/GetData 中暴露）。指针仍在宿主窗口内的本地段不绘制预览（架构限制，已记录）。
-- 验证：editor/runtime/JFX/Media 四项源码构建通过；新增 `tests/native/dnd_drag_image_test.cpp` + `scripts\test-dnd-drag-image.cmd` 原生组件测试通过（shell 助手写入的 DragImageBits 尺寸/偏移与发布的 8x6@5,3 完全一致，SetData/GetData/EnumFormatEtc 往返成立）；`test-drag-drop-ole-inject.ps1` Vulkan/safe、`test-glass-scheduler.ps1` 通过。`test-drag-drop-external.ps1` 观察器设置拖拽视图，helper 端在 DragEnter 断言 `image=8x6@5,3`。
+- 验证：引擎/JFX/Media 四项源码构建通过；新增 `tests/native/dnd_drag_image_test.cpp` + `scripts\test-dnd-drag-image.cmd` 原生组件测试通过（shell 助手写入的 DragImageBits 尺寸/偏移与发布的 8x6@5,3 完全一致，SetData/GetData/EnumFormatEtc 往返成立）；`test-drag-drop-ole-inject.ps1` Vulkan/safe、`test-glass-scheduler.ps1` 通过。`test-drag-drop-external.ps1` 观察器设置拖拽视图，helper 端在 DragEnter 断言 `image=8x6@5,3`。
 - 环境一度再次阻塞 GUI 夹具（锁屏前台 + ~60ms/帧平台期，SendInput 不达应用；bisect 证明 case-2 停滞在变更前二进制上同样复现，属环境性）。用户解锁后串行重跑全部通过：`test-drag-drop-external.ps1` Vulkan/safe、gl_compatibility、-Runtime 三组合 PASS（helper 日志 `DND_HELPER_ENTER ... image=8x6@5,3 bytes=216`，即跨进程观察到 shell 写入的拖拽图像位），`test-drag-drop.ps1 -Renderer mobile` 七用例 PASS。经验：Runtime 夹具的 headless 导入在残留旧版 `.godot` 缓存时报 `EditorNode::is_cmdline_mode` null singleton，删除 `artifacts/runtime-dnd-external/.godot` 后恢复。
 - 顺带：windows_dnd.h 自定义格式名窄化改为显式转换（/W4 /WX 下无警告，行为不变）；核查 system menu —— Win 参考实现同样不提供（仅 Mac 覆盖 `_supportsSystemMenu`），维持显式报错即为平台一致行为，不算缺口。
 
@@ -1509,14 +1502,14 @@
 
 - Godot 已为每个窗口注册 `DropTargetWindows`，二次注册会被 Windows 拒绝；改为在 `DisplayServerWindows` 注入拖放委托，模块在既有 IDropTarget 回调内接管，不支持的格式回退 Godot 文件拖放。
 - 拖出：离开全部托管窗口后由 Godot 主线程运行 `DoDragDrop`，IDataObject 暴露 Unicode 文本、HTML、RTF、URL 与 CF_HDROP 文件列表；完成事件以 kind 20 输入记录返回执行效果。拖入：OLE 回调经有界等待转发 FX 事件线程，卡死降级为 DROPEFFECT_NONE。
-- 调试发现并修复三个问题：测试环境为 3120×2080@200%，Robot 坐标是 FX 逻辑坐标（×2 物理），helper 窗口改为按系统 DPI 缩放放置；Quantum 层文件列表是 String[] 路径而非 List<File>；OLE 上调会 Attach 调用线程，必须配套 Detach，否则 DestroyJavaVM 永久等待 Godot 主线程。
+- 调试发现并修复三个问题：测试环境为 3120×2080@200%，Robot 坐标是 FX 逻辑坐标（×2 物理），helper 窗口改为按系统 DPI 缩放放置；Quantum 层文件列表是 String[] 路径而非 List<File>；OLE 上调会 Attach 调用线程，必须配套 Detach，以释放 JNI 线程关联。
 - `test-drag-drop-external.ps1` 以真实 Win32 OLE 端点验证双向 text/URL/文件与 Escape 取消，Vulkan/safe、OpenGL/safe、打包 Runtime 均通过；应用内七用例（注入与 Robot）和调度回归保持通过。
 - 拖放预览图、自定义格式、系统菜单、虚拟键盘、image/file/custom 剪贴板格式仍未完成；剪贴板集成测试重试仍被备份保护挡住（用户剪贴板含图像格式），未修改系统内容。
 
 ## 2026-11-04：Unicode URL 剪贴板接入
 
 - URI_TYPE 映射为 Windows UniformResourceLocatorW，UTF-16 保留中文及补充字符。URL 与文本/HTML/RTF 可共同发布；所有数据在清空系统剪贴板前完成校验与分配，非法 NUL 不替换原内容。
-- 扩展剪贴板观察器及 Windows Forms 对照端，覆盖 URL-only、格式发现、双向 Unicode 交换、清空和拒绝非法参数。源码 Editor 与 Media SDK 构建通过，Java 测试编译通过。
+- 扩展剪贴板观察器及 Windows Forms 对照端，覆盖 URL-only、格式发现、双向 Unicode 交换、清空和拒绝非法参数。源码引擎与 Media SDK 构建通过，Java 测试编译通过。
 - 系统互通测试在写入前的备份阶段被 Windows error 5 拒绝，未启动测试宿主、未修改剪贴板；日志 clipboard-url-preflight.log。增加原生错误码诊断，不绕过保护、不把构建成功视为互通通过。
 - 图片、文件列表、自定义系统剪贴板格式和 ANSI-only URL 输入仍待实现，其余拖放与 Glass 工作继续。
 
@@ -1525,13 +1518,13 @@
 - 接入 Windows IFileDialog：单选、多选、保存、目录、扩展名过滤器及取消；Godot 主线程提供 Stage HWND，独立 COM 线程显示系统界面，FX 等待期间继续处理事件。
 - 对照 FileChooser 源码契约，将直接 owner 禁用扩展为完整所属窗口链，平衡 Glass 禁用计数；测试检查祖先窗口禁用、对话框关闭后恢复。
 - 宿主停止时关闭对话框，并在等待 COM 线程结束期间处理同步 Windows 消息，避免恢复 owner 时相互等待。测试脚本使用随机标题和进程校验限定操作对象，失败只终止本轮测试进程。
-- Media SDK、Runtime 源码构建通过。六用例在 Editor Vulkan/OpenGL safe、Runtime Vulkan safe 通过；Runtime Vulkan safe 的 StopHost 用例也通过，取消返回、停止返回和资源清零断言成立。
+- Media SDK、Runtime 源码构建通过。六用例在引擎 Vulkan/OpenGL safe、Runtime Vulkan safe 通过；Runtime Vulkan safe 的 StopHost 用例也通过，取消返回、停止返回和资源清零断言成立。
 - 同步 README、TESTS、架构、Glass 与验收文档。一次一个选择器仍是明确限制；跨应用 OLE、拖放反馈、其余 Glass 缺口与最终验收继续进行，不将本轮通过视为整体完成。
 
 ## 2026-11-04：Robot 与系统输入拖放验证
 
 - 实现 GodotRobot：复用源码 WinRobot 的键盘/按钮/滚轮，按宿主屏幕模型转换坐标，Windows GDI 按需桌面截图与 cursor JNI；未新增 Glass 窗口或事件循环。
-- Editor、Runtime、Media SDK 源码构建通过。Robot 桌面测试在 Vulkan/OpenGL safe、Vulkan Runtime safe 通过，2× DPI，截图已检查；输入 A 经 Enter 提交并在 Escape 后保留。
+- 引擎、Media SDK 源码构建通过。Robot 桌面测试在 Vulkan/OpenGL safe、Vulkan Runtime safe 通过，2× DPI，截图已检查；输入 A 经 Enter 提交并在 Escape 后保留。
 - 初次测试暴露前台拒绝和 Windows 输入体验候选窗口遮挡；最终夹具置顶、提交/关闭候选后继续，不修改输入法配置，不以宿主注入代替桌面输入。
 - test-drag-drop 新增 -Robot，七个既有断言在 Windows 系统合成输入下通过，默认同批输入注入模式仍通过。失败路径也安排释放按键、恢复鼠标并关闭窗口。
 - 外部 OLE 数据交换、拖放预览/反馈、文件对话框、其他 Glass 缺口和最终 VFX/物理验收仍未完成；总体目标保持进行中。
@@ -1570,7 +1563,7 @@ ENCODED 1080p60 / BACKEND IDENTITY: A locally built MF encoder/independent reade
 verifies 960 distinct 1920x1080 H.264 frames at 60/1 FPS. Compact command 27
 transfers alpha/plane bytes without Java RGBA expansion; command 28 allocates
 R8 media planes, with correct ledger accounting and YV12 red-channel sampling.
-Full-plane replacement avoids old-shadow clone/blit. Source Editor, Runtime
+Full-plane replacement avoids old-shadow clone/blit. Source engine
 and Media SDK builds pass; protocol and GL/Vulkan color/alpha/padding tests pass.
 After early 23/33-FPS stages, observer off/on/off repeats reach
 60.140/60.163/60.145 FPS; packaged Runtime reaches 60.037, all focused with zero
@@ -1707,14 +1700,14 @@ near EOS, resume/end, stop and replay with a decoded-picture check. Both native
 D3D and Godot reproduced a stuck end timestamp: upstream MediaPlayer retained
 isEOS after confirmed stop. onStop now clears isEOS on the FX thread before
 STOPPED notification. Source Media SDK rebuild passes. The full regression passes
-native D3D, Vulkan Editor, GL Editor and packaged Vulkan Runtime; PCM audio also
+native D3D, Vulkan engine, GL engine and packaged Vulkan Runtime; PCM audio also
 passes. Replay screenshot inspected. Test waits for the actual restarted clock
 before sampling rather than treating an asynchronous PLAYING status as enough.
 
 
 MEDIA CHURN MATRIX COMPLETE: Extended the direct runner with packaged Runtime
-support. Vulkan Runtime and OpenGL Editor each pass 24 new-player render/dispose
-cycles, alongside prior Vulkan Editor. Both new runs have 11 natural GCs,
+support. Vulkan Runtime and OpenGL engine each pass 24 new-player render/dispose
+cycles, alongside prior Vulkan engine. Both new runs have 11 natural GCs,
 tracked resources 32-52 after warmup/repeated recovery to 32, and final zero.
 Runtime completes in 66.7 s, GL in 67.3 s. Runtime static-memory zero is explicitly
 marked unavailable, confirmed by Memory::get_mem_usage without DEBUG_ENABLED.
@@ -1767,8 +1760,8 @@ gstreamer-lite.dll and fxplugins.dll are source-built and staged. Workspace
 makedepend wrapper is verified; explicit Gradle WINDOWS_VS_PATH includes it while
 keeping MSVC linker before MSYS link.exe. Silent PCM audio passes GL/safe,
 Vulkan/safe and packaged Vulkan/safe: track/duration, clock, pause, seek while
-paused, resume/end and dispose; final Godot resources zero. Editor/Runtime had
-built with javafx.media in the module list. Follow-up Editor/Runtime builds also
+paused, resume/end and dispose; final Godot resources zero. engine had
+built with javafx.media in the module list. Follow-up engine builds also
 enable native access for javafx.media; both audio retests pass without those warnings. Video
 and planar YCbCr remain incomplete. See media-godot.md; Media is not fully accepted.
 
@@ -1778,7 +1771,7 @@ and MSYS/MSVC link.exe name collision. GLib/GStreamer/fxplugins/jfxmedia native
 libraries compile from current JFX source. Workspace makedepend 1.0.10 is built
 from pinned official source using existing UCRT64 GCC; header dependency probe
 passes. No installer/system package changes. SDK build/staging is still running,
-as are sequential Editor/Runtime rebuilds adding javafx.media to JVM root modules.
+as are sequential engine rebuilds adding javafx.media to JVM root modules.
 Prepared silent PCM MediaPlayer test for ready/play/pause/seek/end/dispose; not
 run yet. Planar video and full playback remain pending, so no Media support claim.
 
@@ -1803,7 +1796,7 @@ capture paths exist. Default run-vfx-demo.ps1 -Smoke starts and closes the origi
 Demo successfully; no VFX business-source changes. Documentation consolidation
 does not assert overall completion or expand the tests' acceptance scope.
 
-CORRECTED REAL-DEMO SOAK COMPLETE: Actual editor engine PID/executable sampled;
+CORRECTED REAL-DEMO SOAK COMPLETE: Host process sampled;
 537-second Vulkan/safe test completes three 35-page round trips (205 Java/native,
 517 process observations), 256-MiB heap, no forced GC, 656 natural collections.
 All three homepage endpoints retain 99 resources/135692288 texture bytes;
@@ -1813,20 +1806,7 @@ Process latter-half private bytes: 1.90–2.61 GB, median 2.29 GB, fitted slope
 ~2155/2193 MiB. No clear sustained accumulation at this duration; this does not
 prove absence of small leaks or cover arbitrary/longer workloads. Both logs and
 analysis complete, no test process remains live. See memory-validation.md and
-artifacts/reference/vfx-soak-mobile-3-heap256.analysis.json. The earlier launcher
-measurements remain explicitly invalid. Overall goal stays active.
-
-VFX SOAK FIRST RUN / PROCESS TARGET CORRECTION: The 540-second, three-round
-35-page forward/backward run completed 205 native and Java observations, with
-final tracked resources zero. Natural GC count increased by 523. Round 2/3
-homepage endpoints both have 99 owned resources and 135692288 texture bytes;
-Godot static memory differs by only 72 bytes. However process measurements were
-of the .console.exe launcher (~0.8 MiB private), NOT the JVM engine, so they are
-invalid and excluded by the analyzer. Original report preserved with suffix
--launcher-invalid. Source confirms console_wrapper_windows.cpp uses CreateProcessW.
-Runner now launches/samples the actual editor .exe and records PID/executable.
-The corrected three-round run is live; CIM verifies actual engine working set
-around 1.55 GB. Do not accept all-process memory until that run is analyzed.
+artifacts/reference/vfx-soak-mobile-3-heap256.analysis.json. Overall goal stays active.
 
 REAL VFX MEMORY SOAK IN PROGRESS: Added test-vfx-soak.ps1 and vfx_soak scene,
 using original Demo Next/Previous controls through host input. Three full 35-page
@@ -1852,9 +1832,9 @@ representable points. Arbitrary-transform/physical-input stress remains open.
 
 CLIPBOARD MAINLINE: Added immediate Windows HTML/RTF alongside Unicode text,
 reusing upstream CF_HTML encoding and preserving bounded native ownership.
-Editor GL/Vulkan and Runtime application assertions pass: Unicode HTML offsets,
+engine GL/Vulkan and Runtime application assertions pass: Unicode HTML offsets,
 external .NET interchange, RTF, plain text paste, clear and invalid-write preservation.
-Editor/Runtime/JFX source builds pass. Overall clipboard acceptance is still pending:
+engine/JFX source builds pass. Overall clipboard acceptance is still pending:
 Runtime's OLE snapshot restoration changed ANSI Text representation. The fixture now
 uses exact native byte backup/restore and a single STA thread, but the latest run
 refused preexisting non-text native clipboard formats before writing. Do not clear
@@ -1871,7 +1851,7 @@ Stage.getIcons() for primary and independent native windows. JNI copies bounded
 BGRA_PRE assets into the existing ordered queues (primary op25/native op5), with
 1-MiB pending-icon limits per queue, validation and close rejection. Godot owns
 native icon allocation/replacement/destruction. Native protocol tests pass.
-Editor/Runtime and OpenJFX SDK source builds pass. Initial native compile failed
+engine and OpenJFX SDK source builds pass. Initial native compile failed
 on a missing namespace qualifier and was repaired before testing. First icon
 probe exposed the incorrect fixed 32px assumption: LR_DEFAULTSIZE gives 64px at
 the current 200% scale. Test now checks system-scale dimensions and bounded
@@ -1887,7 +1867,7 @@ Native taskbar appearance and mixed-monitor scaling remain outside this fixture.
 
 DEFAULT SAFE BROAD REGRESSION: Packaged Vulkan/safe transparent-perimeter,
 original VFX scroll, table edit, loading completion and loading cancellation
-tests pass; Editor Vulkan/safe dialog passes. Fresh 35-page Vulkan/safe navigation
+tests pass; engine Vulkan/safe dialog passes. Fresh 35-page Vulkan/safe navigation
 passes with scale 2, 2560x1600 captures and final_owned_resources=0. Compared
 against the existing completed 35-page same-scale native D3D baseline, the
 contact sheet shows no obvious new layout regression. Pages 18/19 have the
@@ -1930,7 +1910,7 @@ MONITOR SNAPSHOT REUSE: refresh_host_info now queries monitor count once and
 reuses the enumerated current-monitor bounds/work area/DPI for primary-window
 metadata. OS/scene queries finish before acquiring the JNI snapshot mutex.
 No cross-frame cache or delayed topology refresh was introduced; the original
-default-monitor fallback remains when the current index is absent. Editor and
+default-monitor fallback remains when the current index is absent. engine and
 Runtime source builds pass. Screens tests on Vulkan/separate and GL/safe verify
 metadata against DisplayServer, including primary ordering and window association;
 Vulkan resize and packaged Runtime render-scale/VFX-window-controls tests pass.
@@ -1947,7 +1927,7 @@ persists, but stable 60 FPS and physical multi-monitor acceptance remain open.
 
 RENDER-THREAD ATTRIBUTION: Added opt-in process-wide atomic wall-time/pass/slow
 pass counters inside the actual draw_offscreen_2d callback, covering synchronous
-and queued paths without a new fence. Editor/Runtime builds pass. Profile-enabled
+and queued paths without a new fence. engine builds pass. Profile-enabled
 GL/safe and Vulkan/separate target tests pass; packaged Runtime timing control
 also completes (this timing-only control is not GPU-motion acceptance).
 Focused default trace vfx-frame-benchmark-render-thread.log has zero unfocused
@@ -1964,7 +1944,7 @@ the JNI snapshot mutex. This is a newly isolated investigation target, not proof
 that every stall is caused by monitor enumeration. No performance improvement
 is claimed for these diagnostic changes. All processes completed.
 
-ASYNC TARGET TEXTURE EXPERIMENT: Editor and Runtime builds pass. Optional
+ASYNC TARGET TEXTURE EXPERIMENT: engine builds pass. Optional
 GODOT_JFX_ASYNC_TARGET_TEXTURE=1 allocates a thread-safe texture RID, initializes
 its proxy on the rendering thread after viewport setup, and frees the owned
 proxy before its viewport. Render-target lifetime/count fixtures include exactly
@@ -1996,7 +1976,7 @@ gain at the display cap; the texture work reduction is the supported result.
 Runtime 39 effects, 36-cycle heap128 churn, pending readback stop and GPU motion
 pass. Combined region+reuse ordinary run: 59.780 compositions/s, p95 19.336 ms,
 max 53.953 ms, zero unfocused ticks. REUSE_SHADOW now defaults to enabled unless
-explicitly 0; REGION_UPLOAD stays opt-in. Editor/Runtime rebuilds and unset-env
+explicitly 0; REGION_UPLOAD stays opt-in. engine rebuilds and unset-env
 GL/Vulkan texture checks pass. Default separate benchmark is 59.493 compositions/s,
 p95 19.487 ms, max 65.341 ms, zero unfocused ticks, with region upload disabled.
 Packaged Runtime GPU-motion and transparent-perimeter tests pass on these actual
@@ -2008,7 +1988,7 @@ texture_update delegates with an empty region and retains its previous behavior.
 RD/GLES storage implementations support plain 2D RGBA8/RGBAF and retain a full
 update fallback. The JavaFX surface opt-in GODOT_JFX_REGION_UPLOAD=1 captures
 RID/image/rectangle in a render-thread callback only when no encoded draw retains
-the texture; referenced revisions still use full replacement. Editor build and
+the texture; referenced revisions still use full replacement. engine build and
 GL/Vulkan-separate texture-version tests pass, including overlapping patches,
 the 1024x1024 atlas's last pixel, float-region values and untouched corners.
 The extended Prism fixture retains one additional texture and mesh (22 resources,
@@ -2038,7 +2018,7 @@ coalescing does not address this hotspot. Measured 58.408 compositions/s and
 counters; retained the overlap test, test-bridge render-thread selector and
 analysis support for the archived experiment log. Evidence:
 vfx-frame-benchmark-separate-coalesced-patches.log/.analysis.json. Native
-Editor/Runtime rebuilds after removal pass, as do the extended Vulkan/separate
+engine rebuilds after removal pass, as do the extended Vulkan/separate
 texture version test and packaged Runtime GPU animation. All sessions completed.
 Current patch_texture still duplicates the
 CPU image and calls full texture_2d_update/create for each region; RenderingServer
@@ -2058,7 +2038,7 @@ with the large pauses during startup and later pauses around 1–2 ms; do not
 attribute measured long frames to GC without temporal correlation. JFR/event
 exports are under artifacts/logs/vfx-default-frames.*. Optional native command
 profiling now splits texture/target/geometry/shader-state wall costs and counts
-target shader-cache misses; Editor and Runtime builds pass. A focused native
+target shader-cache misses; engine builds pass. A focused native
 command-profile run identifies the first two long intervals as target allocation
 (31.024 / 36.533 ms), plus texture commands (6.516 / 10.538 ms). Whole-window
 texture wall cost is 2.669 s, geometry .427 s, shader-state .138 s, target .068 s;
@@ -2076,7 +2056,7 @@ to enabled unless explicitly set to `0`, in both Java and native consumers.
 DIRECT_OFFSCREEN now tests the value rather than environment-variable presence,
 so `0` actually disables it. run-vfx-demo.ps1 no longer forces performance flags;
 it inherits defaults/explicit overrides. The benchmark records both raw values
-and resolved enabled states. Source Editor, Runtime and SDK rebuilds pass.
+and resolved enabled states. Source engine and SDK rebuilds pass.
 With all seven environment variables unset: timer cadence, pulse-stop, original
 interactive Demo smoke, Vulkan/separate packaged Runtime scroll, 39 effects and
 transparent perimeter checks pass. 36-cycle heap128 Stage churn and pending
@@ -2103,7 +2083,7 @@ waits for completed_render_sequence before pixel assertions. Applied sequence
 alone still failed on GL because it does not prove final window composition.
 The existing completion watermark is now exposed by get_render_stats; no render
 ordering or acceptance thresholds were relaxed. Failure images/stats are saved.
-GL/safe passes with the corrected completion barrier. Editor and Runtime rebuilds
+GL/safe passes with the corrected completion barrier. engine rebuilds
 pass. Packaged Vulkan/separate Runtime scrolling passes with 1,224 changed samples
 after horizontal drag and 25,871 after vertical scroll; all four input phases,
 clip checks and final resource drain pass. Fresh safe-mode benchmark after builds:
@@ -2129,7 +2109,7 @@ Testing an explicit host-frame clock separate from capacity notifications:
 GODOT_JFX_FRAME_PULSE=1 selects awaitFrameTick and a host-driven zero-period
 Glass pulse timer. General timed Glass timers remain unchanged. Native frame
 queue tests cover separation/coalescing and stop/finish wakeups. Builds pending.
-Editor/Runtime/SDK builds and timer/pulse-stop tests now pass. First frame-clock
+engine/SDK builds and timer/pulse-stop tests now pass. First frame-clock
 results reach 59.215 safe and 58.850 separate compositions/s under ordinary
 60-Hz VSync, but the initial off control was unfocused. The benchmark now
 requests focus once before warm-up and records unfocused intervals/ticks.
@@ -2212,7 +2192,7 @@ restored, so this is not proof that all Java changes or external state are ruled
 out. Mailbox is unsupported on this Vulkan surface: driver explicitly falls
 back to Enabled, measured mode=1; the benchmark rejects it and stops further
 Mailbox cap runs. No stable 60-FPS claim. Source cache and async remain opt-in.
-Final validation of this turn: rebuilt Editor, Runtime and SDK; bounded source
+Final validation of this turn: rebuilt engine and SDK; bounded source
 cache test and 212-loader shader state test pass. With all six opt-in switches,
 36-cycle Stage churn passes, packaged Runtime original GPU animation, 39 effects
 (native exit zero), transparent perimeter/lifecycle pass; pending-readback stop
@@ -2242,7 +2222,7 @@ effects runs also exit zero; test-effects now records native exit codes for
 future diagnosis of the one historical unexplained exit anomaly.
 Further changes under validation: preserve Glass timer phase across jitter
 without catch-up bursts, and acquire PackedArray write pointers once per mesh.
-Both changes rebuild successfully (SDK, Editor, Runtime). Deterministic timer
+Both changes rebuild successfully (SDK, engine). Deterministic timer
 jitter/missed-deadline/pause/stop test and 50-iteration queued-pulse shutdown test
 pass. Combined remeasurement: safe 49.356 completed presentations/s, pulse
 49.432 Hz, p95 29.304 ms, max 50.483 ms; separate 30.261 presentations/s,
@@ -2261,7 +2241,7 @@ backpressure. Original GPU animation and all 39 effects pass. Further resource
 and transparent-window checks are in progress. Stable 60 FPS remains unmet.
 Follow-up: 36-cycle heap128 Stage churn passes with exact warm baseline
 (29 owned, 13,209,600 texture bytes), final resources zero; full-perimeter
-transparent Stage passes. Final Editor and Runtime rebuild successfully.
+transparent Stage passes. Final engine rebuild successfully.
 VSync-off / 120-Hz host diagnostic (separate -host120 logs): safe 53.732
 compositions/s, pulse p95 24.587 ms; separate 48.679 compositions/s, p95
 28.549 ms. Thus display-cadence waits explain only part of the remaining gap.
@@ -2284,7 +2264,7 @@ as normal pass completion. This exposed repeated shader_set_code calls from
 surface cleanup and uniform/clip updates; JavaFXRenderSurface now only submits
 shader source for a newly created shader or changed code. Godot's source confirms
 that identical shader_set_code still calls ShaderData::set_code and invalidates
-material dependencies. Editor and JavaFX SDK rebuild successfully.
+material dependencies. engine and JavaFX SDK rebuild successfully.
 
 With direct offscreen + batching + source cache, capture-free VFX action timings
 are 39 presentations / 1418 ms (27.50 FPS) Vulkan/safe, and 36 / 1524 ms
@@ -2308,7 +2288,7 @@ unretained branch cannot depend on a later frame. Temporary Java reflection and
 delayed-thread diagnostics have been removed; native retained-texture stats are
 available only on request and printed if the churn gate fails.
 
-Editor, Runtime and SDK rebuild pass. With both switches, Vulkan/separate and
+engine and SDK rebuild pass. With both switches, Vulkan/separate and
 OpenGL/safe's 39 Effect pixel comparisons pass; Vulkan NodeShader uniform/clip
 tests, GodotView, readback, and full-perimeter transparent Stage also pass.
 One first Vulkan Effect run ended after EFFECTS_PROBE_PASS without the native
@@ -2335,7 +2315,7 @@ the TRANSPARENT style and Quantum cleared the Scene white. Root native-window
 transparency and backing alpha now follow the effective style. The host project
 enables per-pixel transparency. TransparentStageProbe covers independent root
 and child windows, hide/show, transparent/opaque Scene fill, and alpha at empty,
-opaque and half-transparent pixels. GL/safe Editor and Vulkan/separate Editor
+opaque and half-transparent pixels. GL/safe engine and Vulkan/separate engine
 pass; packaged Vulkan Runtime also passes the expanded full-perimeter zero-alpha
 check. The user confirms transparency is visible. VFX's original VStage draws a
 0.5-logical-pixel light border (one physical pixel at 200% DPI); its source remains
@@ -2343,10 +2323,10 @@ unchanged. Physical desktop/DWM-edge verification remains unavailable.
 
 The strict animation GPU-motion gate now samples only newly completed
 presentations, avoiding repeated synchronous readbacks of the same image. It
-passes GL/safe Editor, Vulkan/separate Editor, and packaged Vulkan Runtime with
+passes GL/safe engine, Vulkan/separate engine, and packaged Vulkan Runtime with
 the original >=20-pixel displacement requirement. These runs predate the newest
 transparency changes and do not establish smooth frame pacing. Capture-free
-Vulkan timing on the latest Editor records 14 presentations over 2955 ms
+Vulkan timing on the latest engine records 14 presentations over 2955 ms
 (4.74 FPS including action/title latency), host ticks 55.84 Hz, and 480 offscreen
 passes. Draw/sync totals 2,201,877 us; JNI submissions 44,027 us over 1626 calls,
 metadata JNI 694 us over 249 calls, and native-to-Java launch upcalls zero during
@@ -2373,7 +2353,7 @@ Both asynchronous batching and queue-capacity changes were reverted; the failed
 log is stage-churn-direct-async-failed.log. The opt-in path retains per-pass CPU
 fences and default admission capacity three. Native protocol tests passed during
 the experiment. Runtime has not yet been rebuilt with the direct-offscreen path.
-After reverting the rejected experiment, Editor rebuild passes, the opt-in
+After reverting the rejected experiment, engine rebuild passes, the opt-in
 synchronous path passes OpenGL/safe's strict original VFX GPU-motion gate and
 Vulkan/separate's full-perimeter transparent Stage probe. Default rendering is
 still unchanged pending broader validation and a satisfactory performance fix.
@@ -2405,9 +2385,9 @@ SetWindowPos failure: Windows destroyed owned HWNDs when Godot destroyed their
 owner HWND, leaving live Godot Window objects with invalid handles. Before hiding
 an owner, refresh_native_owners now detaches its direct owned HWNDs; after a window
 is recreated it refreshes native owner links. Owners without HWNDs are skipped
-without calling DisplayServer with an invalid ID. GL/safe Editor,
-Vulkan/separate Editor and packaged Vulkan/separate Runtime pass all seventeen
-phases and final zero-resource checks. Editor and Runtime rebuild successfully.
+without calling DisplayServer with an invalid ID. GL/safe engine,
+Vulkan/separate engine and packaged Vulkan/separate Runtime pass all seventeen
+phases and final zero-resource checks. engine rebuild successfully.
 The failing log is native_order-gl-before-owner-hide-fix.log.
 
 OWNED-WINDOW INPUT CANCELLATION: The native input regression then exposed a third
@@ -2424,9 +2404,9 @@ NATIVE MODELESS OWNER FIX: Expanded NativeOrderProbe from seven to fifteen phase
 with two nested owned Stages. Raising their owner exposed that Godot's nonexclusive
 transient flag did not set GWLP_HWNDPARENT, so the owner could cover its children.
 configure_native_window now establishes the HWND owner on show/recreation without
-turning on Godot exclusivity. GL/safe Editor, Vulkan/separate Editor and packaged
+turning on Godot exclusivity. GL/safe engine, Vulkan/separate engine and packaged
 Vulkan/separate Runtime pass owner raising, child/owner lowering, leaf hide/reshow
-and final zero-resource checks. Editor/Runtime builds and Vulkan native Stage
+and final zero-resource checks. engine builds and Vulkan native Stage
 lifecycle regression pass. The failing order log is retained as
 native_order-gl-before-native-owner.log. Hidden-owner and topmost combinations
 remain outside this probe's scope.
@@ -2449,9 +2429,9 @@ window after toBack. It now explicitly uses HWND_TOP without activation, resize
 or movement; toBack uses HWND_BOTTOM. NativeOrderProbe/native_order.gd and
 test-native-order.ps1 verify seven actual HWND-order phases with the root and two
 unowned secondary Stages, OS window count three, and final zero resources.
-OpenGL/safe Editor, Vulkan/separate Editor and packaged Vulkan/separate Runtime
+OpenGL/safe engine, Vulkan/separate engine and packaged Vulkan/separate Runtime
 pass. Protocol validation covers both commands and malformed arguments. SDK,
-Editor and Runtime rebuild successfully. The failed pre-raise GL run is retained
+engine rebuild successfully. The failed pre-raise GL run is retained
 as native_order-gl-before-explicit-raise.log. Owned/topmost/unfocusable ordering
 combinations and physical desktop interaction remain outside this test's scope.
 
@@ -2464,7 +2444,7 @@ Godot测试, clicks the FXML-bound action, and closes the second FXML-loaded Sta
 The controller checks injected objects, bundle text, include content, FX-thread
 callbacks and Chinese result text. The host verifies the CSS swatch's GPU pixel
 (#336699), independent secondary native window, four phases and final zero-resource
-drain. OpenGL/safe Editor, Vulkan/separate Editor and packaged Runtime
+drain. OpenGL/safe engine, Vulkan/separate engine and packaged Runtime
 Vulkan/separate pass. Primary/secondary GPU captures were visually inspected.
 The initial GL fixture sampled a white startup frame too early; its log is saved
 as fxml-gl-early-render-fence.log. Readiness now queues after the pulse and host
@@ -2481,7 +2461,7 @@ icons, primary lowering, virtual keyboard, Robot, non-text clipboard, drag/drop)
 and Prism limits (3D, MSAA, mipmaps, planar media). These are not marked implemented.
 Default SDK contains javafx.fxml.jar but no FXMLLoader fixture was found in the
 current test/script tree; standard FXML/controller/CSS acceptance is a concrete
-next task. Native jfxmedia.dll/jfxwebkit.dll remain absent. Current Editor/Runtime
+next task. Native jfxmedia.dll/jfxwebkit.dll remain absent. Current engine
 and SDK build exit-code records are zero; actual binaries/DLLs were inspected.
 Corrected stale build-output and native-window migration statements. Added
 write-delivery-inventory.ps1 to list modified/untracked/staged paths across the
@@ -2499,7 +2479,7 @@ The observer reads selection order and the existing red Circle, checks movement,
 playing control states, arrival at b, reset of all selections/controls, and soft
 stop ending before d. Host GPU readbacks require visible red samples during both
 runs, eight action/observation phases, and final presentation/window drain with
-zero owned resources. OpenGL/safe Editor, Vulkan/separate Editor and packaged
+zero owned resources. OpenGL/safe engine, Vulkan/separate engine and packaged
 Runtime Vulkan/separate pass. The initial GL fixture waited for a
 Java title/render fence and missed the short 1.2-second animation; the failed
 observation log is saved as vfx-animation-gl-title-fence-missed-frame.log. The
@@ -2534,7 +2514,7 @@ and the original "loading complete" alert. Host checks that loader and alert are
 visible independent native windows, have different Glass/native identities, and
 that the loader is destroyed before acknowledging the alert. Host clicks Ok;
 all presentation/windows must drain and removal must leave zero owned resources.
-OpenGL/safe Editor, Vulkan/separate Editor and Vulkan/separate packaged Runtime
+OpenGL/safe engine, Vulkan/separate engine and Vulkan/separate packaged Runtime
 pass. Observed progress changes are 8, 30 and 19 respectively, all ending at 1.0.
 Loading and completion GPU captures were visually inspected. Logs/captures use
 vfx-loading-<renderer>-<thread>[-runtime] prefixes. This covers normal completion,
@@ -2567,7 +2547,7 @@ uniform sets themselves were released through RenderingDevice dependencies, but
 the map entries remained. Screen blitting now uses the existing UniformSetCacheRD,
 whose invalidation callback removes the cache entry when its resources are freed.
 Its cache key also includes the shader variant and bindings. The obsolete map is
-removed. Editor and Runtime source builds pass.
+removed. engine source builds pass.
 Post-fix Vulkan/separate native Window churn completes 180 cycles with the
 StaticRangeLimitBytes=1024 gate enabled: cycle 20..180 static range is only
 62272249..62272749 (500 bytes); last sample 62272717, texture_bytes=1835008.
@@ -2591,7 +2571,7 @@ releasing the original. Window teardown removed the event registration and its
 ComPtr, leaving the handler and its Godot Callable alive. The code now adopts the
 initial reference directly into the typed ComPtr with Attach, preserving callback
 registration and automatic release on both success and early return.
-Editor and Runtime source builds pass. Post-fix ordinary Window OpenGL/safe churn
+engine source builds pass. Post-fix ordinary Window OpenGL/safe churn
 completes 180 cycles: all cycle 20..180 samples equal 54005810 static bytes, with
 texture_bytes=3381603 unchanged. The runner has an optional StaticRangeLimitBytes
 gate over cycle 20..180; a 1024-byte gate was also applied to the completed JSON
@@ -2665,10 +2645,10 @@ checks per cycle, red-pixel verification and target reference release.
 Before-cache Vulkan batches (microseconds per 1000): 2873,2242,25509,2396,31551,1287;
 after-cache: 140,135,170,170,147,171. Observed medians are 2634.5 versus 158.5 us.
 This isolated six-batch comparison is not a whole-scene frame-rate benchmark.
-OpenGL cached batches are 139,137,149,158,151,150 us. Editor/Runtime source builds
+OpenGL cached batches are 139,137,149,158,151,150 us. engine source builds
 pass. The 100-cycle render-target copy/alpha/clip/source-retention regression passes
 OpenGL/safe and Vulkan/separate; its runner now exposes RenderThread explicitly.
-All 39 effects retain their comparison thresholds on OpenGL/safe Editor and
+All 39 effects retain their comparison thresholds on OpenGL/safe engine and
 Vulkan/separate packaged Runtime. The Vulkan/separate long-table drag, bottom/top
 scroll, clip-sampling and resource-drain regression also passes; its current log
 contains no viewport_get_texture synchronization warning. No whole-scene frame-rate
@@ -2730,7 +2710,7 @@ Second, GodotWindow native refresh sent RESIZE when a minimized/maximized host
 became normal. Glass cleared its own state, but Quantum only clears public Stage
 properties on RESTORE. Primary and secondary refresh now select RESTORE on that
 transition. Failure evidence: vfx-window-controls-first-failure.log and
-vfx-window-controls-native-restore-failure.log. Source SDK/Editor/Runtime builds
+vfx-window-controls-native-restore-failure.log. Source SDK/engine builds
 pass. New controls test passes OpenGL/safe, Vulkan/separate and packaged Runtime
 Vulkan/separate at 200% scale; existing 13-phase native Stage fullscreen/Escape/
 restore Vulkan regression also passes. Maximized and restored render-target PNGs
@@ -2782,11 +2762,11 @@ Vulkan/separate VFX Stage/resize and nested-modal application-failure shutdown
 regressions pass after these resource-disposal changes.
 
 EXPLICIT HOST STOP / GLASS SHUTDOWN ORDER: Added HostStopProbe and host_stop.gd,
-which open primary/owned/grandchild Stages, call stop_jvm while retaining the Host
+which open primary/owned/grandchild Stages, call stop_host while retaining the Host
 in the tree, and verify actual OS window removal, idempotent stop, Application.stop
 and launch return, all three Glass handles closed, JVM completion, and zero owned
 resources after Host removal. Before repair, stop retained two native windows
-(host-stop-before.log). stop_jvm now stops native admission, destroys the native
+(host-stop-before.log). stop_host now stops native admission, destroys the native
 owner trees and clears snapshots before stopping frame admission. A second failure
 showed the scheduler directly terminated Glass, racing PaintCollector and stranding
 Application.launch. It now requests Platform.exit so Quantum coordinates shutdown.
@@ -2795,7 +2775,7 @@ Glass peers survived because base termination aborted at the first cancelled hid
 GodotApplication now attempts hide and close for every peer; only typed host
 cancellation is consumed during termination, with other failures still reported.
 GodotWindow releases its Java peer after cancelled native close; native destruction
-remains host-owned. SDK/Editor/Runtime builds pass. OpenGL/safe and Vulkan/separate
+remains host-owned. SDK/engine builds pass. OpenGL/safe and Vulkan/separate
 host-stop tests pass all the stated window/lifecycle/resource assertions. Render
 submission, queued RenderJobs and renderer resource disposal still log typed host
 cancellation, including an uncaught renderer cancellation; this is an explicitly
@@ -2810,7 +2790,7 @@ separate from its permanent protocol/error state, including backpressure awaitTi
 shutdown and subsequent calls. Invalid arguments, queue limits and other failures
 retain their existing error behavior; no cancellation is suppressed. Native protocol
 tests cover typed finish/stop rejection and pending-command removal, and pass with
-the existing malformed-input/backpressure/10,000-frame cases. Source SDK, Editor and
+the existing malformed-input/backpressure/10,000-frame cases. Source SDK, engine and
 Runtime builds pass. Vulkan/separate VFX independent Stage creation/closing and
 resize regression passes. The Stage runner also rejects logged typed cancellation
 during a normal run. Abrupt diagnostic vfx-abrupt-typed-cancellation.log confirms
@@ -3015,7 +2995,7 @@ fractional rounding and disabled HiDPI. It does not simulate native DPI events.
 The available 192-DPI screen now reports output scale 2. RenderScaleProbe checks
 logical Scene size, native output size, buffer dimensions, pixel positions and
 both local/screen mouse coordinates across six explicit render scales. GL/safe
-and packaged Release Runtime Vulkan/separate pass, as does the editor Vulkan
+and packaged Release Runtime Vulkan/separate pass, as does the engine Vulkan
 run (before the additional screen-coordinate assertions). The updated screen
 metadata probe and VFX independent-dialog regression pass on Vulkan/separate.
 The 200-snapshot stress regression also passes at system scale 2, with 65 retained
@@ -3034,7 +3014,7 @@ The six-phase RenderScaleProbe switches primary/child scales independently throu
 1, 2, fractional and anisotropic values, checks actual buffer dimensions and
 displayed pixel positions, alternates local mouse clicks, verifies distinct native
 window IDs, and requires final window/resource teardown. GL/safe, Vulkan/separate
-and packaged Release Runtime Vulkan/separate pass; source SDK/editor/runtime
+and packaged Release Runtime Vulkan/separate pass; source SDK/engine
 builds pass. Captures are GPU viewport images, not OS screenshots. Initial fixture
 widths below Windows' decorated-window minimum were corrected to 320/288 pixels.
 This initial run validated explicit renderScale only; the subsequent system-DPI
@@ -3063,7 +3043,7 @@ collection; snapshot-stress-before-gc-observation.log records 196/336/476/616
 resources at 20/40/60/80 reads. After GC, all ten checkpoints report 38 resources
 and 843,776 texture bytes on Vulkan/separate; GL/safe reports 38 and 1,374,051 bytes.
 Godot tracked heap stays near 62.6 MB Vulkan / 54.7 MB GL after warmup; this excludes
-Java heap and driver allocations. Source SDK/editor/runtime builds pass. GL/safe,
+Java heap and driver allocations. Source SDK/engine builds pass. GL/safe,
 Vulkan/separate and packaged Release Runtime Vulkan/separate stress runs pass with
 final window/resource teardown. Release Runtime's static-memory counter returns
 zero, so only its resource/texture counters are meaningful.
@@ -3079,7 +3059,7 @@ fully-transparent image (null Windows cursor handle) from a hidden mouse mode.
 The expanded thirteen-step primary/independent-child fixture passes GL/safe and
 Vulkan/separate, covering hidden stock/custom changes, explicit show, NONE/image
 transition, transparent/default transition and teardown while explicitly hidden.
-Editor and Release Runtime source builds pass; the packaged Release Runtime
+engine and Release Runtime source builds pass; the packaged Release Runtime
 Vulkan/separate thirteen-step fixture also passes.
 
 CUSTOM IMAGE CURSOR: Glass-Godot now copies BGRA_PRE or ARGB_PRE Pixels into an
@@ -3117,7 +3097,7 @@ heap/direct buffers and input validation. Normal presentation remains GPU-only.
 One pending request and a ten-second wait bound prevent unbounded accumulation;
 host stop wakes it without modifying the destination. New targets receive their
 transparent initialization; repeated reads do not add empty redraw passes.
-Source SDK/editor/runtime builds pass. Direct and standard synchronous Node/Scene
+Source SDK/engine builds pass. Direct and standard synchronous Node/Scene
 plus asynchronous Node snapshot pixel checks pass GL/safe and Vulkan/separate.
 The async callback stays on FX. Release Runtime Vulkan/separate snapshot and
 observed-pending-request cancellation pass; VFX dialogs also regress successfully.
@@ -3174,7 +3154,7 @@ postShowing, followed by stable coordinates and its existing render-job fence.
 Business animations remain unchanged; the failed run is retained in
 vfx-dialog-budget-transition-failure.log. Vulkan/separate 14-effect D3D comparison
 and injected VFX failure cleanup pass with the new allowance. GL/safe also passes
-the 14-effect D3D comparison. Source editor and Release Runtime builds pass;
+the 14-effect D3D comparison. Source engine and Release Runtime builds pass;
 Release Runtime Vulkan/separate passes nested Application failure cleanup and
 host lifetime (primary closure, surviving/new independent native Stages, input,
 actual HWND visibility, implicit exit and final resource drain).
@@ -3204,7 +3184,7 @@ existing pass lifetime and are freed at completion; target destruction releases
 the cache and resource accounting includes its retained RIDs. A dedicated 75-pass
 probe passes GL/safe and Vulkan/separate: same-code reuse across draws/frames,
 two simultaneous distinct tint uniforms, alternating pixels, 71 unique codes,
-64-entry bound, overflow cleanup and final target/surface disposal. Source editor
+64-entry bound, overflow cleanup and final target/surface disposal. Source engine
 and Release Runtime builds pass; 14-effect D3D comparisons pass Vulkan/separate.
 The real VFX dialog still passes, but its measured 27,140 ms versus the prior
 27,543 ms run does not establish a meaningful latency improvement. Keep the
@@ -3226,7 +3206,7 @@ counts differ and these are single functional runs, not a steady-state FPS claim
 The result remains slow; full performance acceptance is outstanding.
 Fourteen effect tiles pass the existing D3D comparison thresholds in GL/safe and
 Vulkan/separate. Real VFX normal/failure shutdown and Release Runtime nested-failure
-cleanup pass; editor/runtime source builds pass. The effect fixture formerly
+cleanup pass; engine source builds pass. The effect fixture formerly
 hard-stopped the host after pixels matched, exposing rejected cleanup submissions.
 It now waits for its Java probe's normal exit and verifies drained windows/resources;
 effects-hard-stop-cleanup-failure.log preserves that failure. Arbitrary hard host
@@ -3321,7 +3301,7 @@ throwing while showAndWait is active and FX-thread Platform.exit followed by an
 Application.launch failure report (the Demo observer pattern). Both also pass the
 source-built release Runtime with Vulkan separate threading. They require the
 original injected exception, returned loops, drained windows and zero resources,
-and reject additional shutdown exceptions/render errors. SDK/editor/runtime source
+and reject additional shutdown exceptions/render errors. SDK/engine source
 builds and protocol tests pass. GPU device loss, a hung application thread, and
 arbitrary host cancellation are not covered by this graceful-failure validation.
 
@@ -3356,7 +3336,7 @@ bug; the attempted notification-coordinate change was reverted.
 Input regression exposed an overly restrictive foreground-process guard in focus
 requests. The host now activates only its own UI-thread HWND even if Windows denies
 foreground activation. GL/Vulkan native-input regression and Vulkan IME pass again.
-SDK/editor/runtime source builds and protocol validation pass, including the final
+SDK/engine source builds and protocol validation pass, including the final
 focus-request change.
 
 NATIVE FULLSCREEN: GodotView now requests mode changes through its own GodotWindow,
@@ -3401,7 +3381,7 @@ Stages, isolated clicks, actual native focus transitions and FX focused properti
 TextField typing, wheel, touch, focus-loss cancellation of a held button, stale
 release suppression, close veto followed by accepted close and clean resources.
 Input and close requests are injected through Godot, not physical OS interaction.
-The primary Stage interaction regression and SDK/editor/runtime builds pass.
+The primary Stage interaction regression and SDK/engine builds pass.
 An earlier focus-timeout run also crashed during Vulkan failure teardown; its log
 is retained as native-stage-input-focus-before-fix.log. Successful shutdown passes,
 but robustness of that failure teardown path remains unverified and outstanding.
@@ -3429,7 +3409,7 @@ unsupported/out-of-range rejection and requests after owner destruction. The
 untouched window retains its initial device-dependent maximum-size default;
 explicitly removing a size limit records zero. Focus command admission/application
 is exercised, but physical foreground activation is not yet asserted.
-SDK/editor/runtime source builds and protocol checks pass. Standard Glass wiring
+SDK/engine source builds and protocol checks pass. Standard Glass wiring
 remains pending; these native property operations are a prerequisite.
 
 Native GPU publication now routes opcode 26 by window ID to each independent
@@ -3448,7 +3428,7 @@ final cleanup; GL and Vulkan separate-thread pass with all original pixel assert
 JNI native-window transport is implemented: bounded FIFO admission, projected
 owner/identity validation, main-thread create/configure/destroy and copied snapshots
 with acknowledgement sequences. IDs increase monotonically without retaining an
-unbounded set of historical identities. SDK/editor/runtime source builds and native
+unbounded set of historical identities. SDK/engine source builds and native
 protocol tests pass. The Java JNI probe passes two distinct native windows, Chinese
 titles, independent bounds/visibility, 12 hide/show cycles, bad-request rejection
 and recursive owner destruction in GL and Vulkan separate-thread mode.
@@ -3467,7 +3447,7 @@ target destruction and window-count restoration. JNI command queuing and Glass
 Stage routing are still pending; these APIs are main-thread native operations only.
 
 Independent-native-window foundation added as JavaFXNativeWindow (Godot Window
-subclass with force_native and an independent GPU presentation surface). Editor
+subclass with force_native and an independent GPU presentation surface). engine
 and Runtime source builds pass; GL/Vulkan separate-thread native probes pass distinct window IDs,
 placement outside the original host, separate red/blue contents, target replacement,
 independent resize/hide/show and window/GPU cleanup. Per-window GPU captures were
@@ -3607,7 +3587,7 @@ and visibility through the render queue. OpenGL and Vulkan separate-thread probe
 pass eight pixel-checked states including hide/restore, move/resize, ordering and
 opacity without republishing GPU content. Hidden targets retain their budget
 charge; protocol tests reject removed IDs and updates during open drawing passes.
-SDK/editor/runtime source builds pass. This is a tested transport capability;
+SDK/engine source builds pass. This is a tested transport capability;
 Primary Glass lifecycle synchronization is now connected as described above;
 additional JavaFX windows are still explicitly rejected pending input/modal work.
 
@@ -3631,7 +3611,7 @@ JavaFXHost consumes them and retains each GPU target independently. Ledger tests
 reject disposal of published/shared targets until the last layer is removed,
 keeping output within the texture budget. OpenGL, Vulkan and Vulkan separate-thread
 integration probes pass independent lower-layer updates, alpha overlap, upper-layer
-removal and final GPU cleanup. The OpenGL capture was inspected; SDK/editor/runtime
+removal and final GPU cleanup. The OpenGL capture was inspected; SDK/engine
 source builds pass. Glass popup lifecycle/input remains unwired, so additional
 JavaFX windows remain unsupported.
 The existing Stage drawing/effect/mouse/keyboard regression also passes. Its
@@ -3642,7 +3622,7 @@ the same pixel and resource-growth assertions still apply.
 Native logical-window GPU composition is now implemented as JavaFXWindowSurface.
 GL, Vulkan and Vulkan separate-thread tests pass 100 cycles covering opacity,
 stacking, hide/move/clip, in-flight source retention and destruction after close,
-with one native window. Editor/runtime builds and the render-target regression
+with one native window. engine builds and the render-target regression
 pass. Glass input/modal routing for additional windows is not connected yet;
 additional JavaFX windows still reject explicitly. This is the compositor
 foundation for real VFX dialogs, not popup acceptance. See logical-windows.md.
@@ -3676,7 +3656,7 @@ before capture. A Windows D3D reference set from the same SDK and a paired
 contact sheet were produced and inspected. LCD-heavy tables exposed the cost
 of waiting one host display frame per offscreen target transition. The host now
 drains offscreen draws without window swaps on its default main-thread renderer,
-bounded to 16 batches / 4 ms checked after each batch. Editor/runtime builds and
+bounded to 16 batches / 4 ms checked after each batch. engine builds and
 GL/Vulkan effects, render-target and GodotView regressions pass. All 35 pages also
 pass navigation/capture/close on Vulkan; both paired contact sheets were inspected.
 The separate rendering-thread failure is now fixed: deferred post-draw signals
@@ -3686,7 +3666,7 @@ GL/Vulkan with `-RenderThread separate`; the default GodotView regression passes
 A separate upstream shutdown bug was reproduced in an empty scene without JVM:
 the main RenderingDevice retained the departed worker's thread ID. Returning its
 ownership to main after joining that worker fixes finalization. Empty-scene safe
-and separate shutdown tests pass in editor and release runtime without leak
+and separate shutdown tests pass in engine and release runtime without leak
 warnings. Full VFX interaction/stress acceptance is still pending.
 OS screenshot capture is still pending: the computer-use skill's
 required @oai/sky package could not be imported in the current node runtime.
@@ -3707,7 +3687,7 @@ The probe verifies mouse coordinates, wheel factor, Space key/Unicode, JavaFX
 touch press/move/release coordinates, sibling event isolation and focus loss
 releasing a held key plus canceling a held touch. GUI focus clears before cancel
 events to avoid accidental activation. Protocol malformed-input/kind/stale-handle
-tests pass. SDK/editor/runtime builds pass; resource peak remains 30 with cleanup.
+tests pass. SDK/engine builds pass; resource peak remains 30 with cleanup.
 Touch now enters through Godot Input.parse_input_event and the native Glass
 queue. Primary-touch mouse promotion activates ordinary Button controls while
 GodotView ignores promoted mouse events. Both renderers verify exactly one mouse
@@ -3731,7 +3711,7 @@ with new physical dimensions. A GPU pass boundary precedes resize, and admission
 rejects resizing a still-referenced scene. Protocol tests cover that rejection,
 completion ordering, decode and stale-handle invalidation. The runtime probe
 changes scene color before resizing and checks stable root ObjectID, retained
-color/ticks, new pixels, alias invalidation and updated pool charge. SDK, editor
+color/ticks, new pixels, alias invalidation and updated pool charge. SDK, engine
 and runtime builds pass. The public javafx.scene.layout.GodotView / NGGodotView
 composition result is recorded above; JavaFX input/focus forwarding remains pending.
 
@@ -3741,8 +3721,8 @@ texture namespace. GodotSceneTexture and the factory/pool encode real allocation
 preserve same-mode shared locks, reject CPU uploads and release accounting.
 Native retained scene owners outlive Java disposal while submitted draws reference
 them, then release scene nodes at clear/pass cleanup. Load failures stop the queue
-and remain FAILED even as the JVM worker exits. Protocol tests pass for malformed
-paths, kind restrictions and rollback. Source SDK/editor/runtime builds pass.
+and remain FAILED even as the probe worker exits. Protocol tests pass for malformed
+paths, kind restrictions and rollback. Source SDK/engine builds pass.
 test-scene-textures.ps1 passes GL/Vulkan for two differently sized live scenes,
 alpha pixels, disposal-before-render retention and node cleanup; the Vulkan GPU
 capture was inspected. The missing-scene failure test passes. This is transport
@@ -3754,7 +3734,7 @@ PackedScene in an isolated World2D, exposes its borrowed texture, resizes withou
 reloading, and forwards local mouse/touch/key InputEvents. Scene subwindows are
 embedded to preserve one native host window. Surface draw commands retain the
 scene owner until cleared; checked ObjectIDs tolerate parent-first destruction.
-Editor/runtime builds pass. test-scene-views.ps1 passes GL/Vulkan for 100 real
+engine builds pass. test-scene-views.ps1 passes GL/Vulkan for 100 real
 scene cycles, processing, resized markers, transparent texture composition,
 input-driven redraw, retained lifetime, embedded-window count and parent-first
 teardown. Pixel results match across backends; GL capture was inspected. This
@@ -3779,7 +3759,7 @@ acceptance. GodotView and the full remaining objective are still pending.
 Float textures / DisplacementMap: protocol commands 18/19 now allocate/patch
 RGBAF textures, preserving signed finite float32 channels. Java/native budgets
 count 16 bytes per pixel and reject format mismatches/non-finite input. Protocol
-tests pass including budget enforcement and rollback. Source SDK, module editor
+tests pass including budget enforcement and rollback. Source SDK, module engine
 and module runtime builds pass. PrismTextureProbe passes GL/Vulkan with padded
 float uploads, immutable source position, no partial NaN upload, filter mutation
 flush and disposal accounting. EffectsProbe now has 14 tiles including signed
@@ -3839,7 +3819,7 @@ CPU-upload rejection, transparent sampling after Java disposal, and native clear
 returning to eight base resources. Native offscreen targets additionally draw
 Prism meshes with shader parameters/scissor via the shared prism_mesh.h converter.
 The 100-cycle offscreen test passes on both backends with shader color/clip,
-GPU copy/alpha and full reference release. SDK/editor/runtime builds pass;
+GPU copy/alpha and full reference release. SDK/engine builds pass;
 Vulkan mesh/shader regressions pass. Commands 16/17 select targets/end passes;
 consumption pauses at pass completion before targets are sampled or rewritten.
 Protocol tests reject feedback, image textures as targets, and switches that
@@ -3907,7 +3887,7 @@ Sampler transport now resolves named texture units into versioned handles and
 retains the bound GPU revision. The shader probe binds a white texture, draws,
 updates it to green, binds/draws again, and disposes it before consumption;
 both GL and Vulkan preserve purple/green output. Resource counts are 15 before
-clear, 8 after clear, 0 after tree removal. SDK/editor/runtime rebuilds pass.
+clear, 8 after clear, 0 after tree removal. SDK/engine rebuilds pass.
 Protocol tests cover unallocated sampler rejection and retained-version budget.
 Clear removes current uniform/sampler bindings, requiring state rebind. Shader
 transport currently accepts ASCII source only. These probes do not establish
@@ -3942,43 +3922,27 @@ M0 evidence:
 - The manually opened baseline exec session 56110 was stopped after the
   automatic snapshot run. Its nonzero interruption status is not a test pass.
 
-Stock Godot template_release build passed in 8m52s, exit 0. Version command
-returns 4.8.beta.custom_build.7be59b463; hash in m0-runtime-hash.json.
-
 M1 validated:
 - native/godot_modules/javafx provides JavaFXRenderSurface, an explicitly
   limited main-thread RID owner for viewport/CanvasItem/texture/shader.
-- Custom-module editor build passed after fixing a missing ClassDB include.
-  Initial compile failure preserved in godot-editor-javafx-first-failure.log.
 - tests/godot passed on OpenGL Compatibility and Vulkan Mobile: rendered
   pixel values, resize, resource ownership and 100 create/remove/free cycles.
   Captures godot-m1-gl_compatibility.png and godot-m1-mobile.png were inspected.
   Actual RGB samples match (51,102,204) and (0,204,0). Logs have no errors.
-- scripts/build-windows.ps1 now accepts -WithJavaFXModule and separate logs.
-- Do not run concurrent SCons builds in this checkout: generated module
-  files are shared between editor and runtime targets.
 
 M2 foundation implemented and tested:
-- JavaFXHost starts the installed JVM on a worker and registers GodotBridge
-  natives inside the source-built javafx.graphics module. Godot main thread
-  alone consumes frame commands; no per-primitive JNI calls.
+- The JNI bridge transports batches consumed on the Godot main thread.
 - frame_protocol.h: little-endian validated batches, 4 MiB/65,536-command
   limits, bounded three-frame FIFO, monotonic sequences and coalesced ticks.
 - Native tests passed malformed/truncated inputs, atomic rejection,
   backpressure/retry, stop, and 10,000 concurrent FIFO frames.
-- test-bridge.ps1 passed normal JVM completion and -StopFromHost. Java
+- test-bridge.ps1 passed normal probe completion and -StopFromHost. Java
   memory was overwritten after submission; the native-owned commands still
   rendered the expected pixel. godot-bridge.png was visually inspected.
 - Standard application launch forces glass.platform=Godot/prism.order=godot;
   until these backends exist it fails explicitly instead of opening a second
   native window or using a fallback pipeline.
 - All latest editor/JFX builds and both JNI bridge tests returned success.
-
-Custom-module editor and template_release runtime builds both include the
-latest host commands and Windows event-pump correction. The Glass window
-probe passes on both binaries. Release tests stage/import a dedicated project
-beside the executable under artifacts/runtime-window, retaining the release
-template's default prohibition on path overrides. No builds are running.
 
 Glass-Godot scheduler implemented and verified:
 - GodotPlatformFactory selects GodotApplication. GodotEventLoop provides the
@@ -3987,7 +3951,7 @@ Glass-Godot scheduler implemented and verified:
 - GodotPulseScheduler coalesces native ticks and GodotTimer supports periodic
   and per-frame callbacks, pause/resume/stop without an independent clock.
 - Native hostInfo returns initial Godot viewport dimensions and monitor DPI.
-- Latest editor and OpenJFX builds passed. test-glass-scheduler.ps1 passed
+- Latest engine and OpenJFX builds passed. test-glass-scheduler.ps1 passed
   including non-innermost nested-loop exit, both timer modes and cancellation
   of a caller verified WAITING on a queued synchronous task.
 - The host-stop JNI regression test also passed after these changes.
@@ -4005,7 +3969,7 @@ The probe exposed a Godot Windows event-pump bug: mutable RBMap indexing for
 an invalid focused-window ID inserted a phantom window. A minimal core patch
 uses find() and keeps the window registry unchanged when focus is absent.
 
-Host input routing now passes on both editor and template_release:
+Host input routing now passes on both the tested configurations:
 - Godot Node::input captures mouse/key records into a bounded 4096-event FIFO.
 - Glass drains records on its event thread before pulse timer callbacks.
 - Input.parse_input_event integration checks move/down/drag/up order,
@@ -4018,7 +3982,7 @@ These are injected engine input tests, not physical-device or IME tests.
 No builds remain running. Logs: m2-glass-window.log,
 m2-glass-window-runtime.log, m2-glass-scheduler.log, m2-bridge-host-stop.log.
 
-Window boundary/close routing now passes on editor and template_release.
+Window boundary/close routing now passes on the tested configurations.
 The probe sends mouse exit/enter and close notifications through the Godot
 Window notification path. Glass receives them on its event thread, vetoes
 the first close request, accepts the second, and the host restores the
@@ -4076,7 +4040,7 @@ optimization remains. No full JavaFX scene bitmap is produced.
 The JavaFX native module now locally enables exception unwinding; Godot's
 other modules retain their default. JNI converts render/window allocation
 failures to Java OutOfMemoryError, and window title copying no longer pins
-a Java string across a potentially throwing STL allocation. Editor/runtime
+a Java string across a potentially throwing STL allocation. engine
 builds and texture, encoded host-stop and window regressions pass after this
 configuration correction. No builds remain running.
 

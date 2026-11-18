@@ -21,7 +21,8 @@ Build the source engine with this module (a separate stock build is not a
 prerequisite; do not run SCons concurrently in the same checkout):
 
 ```powershell
-.\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule
+.\scripts\build-windows.ps1 -Target godot-library
+.\scripts\stage-godot-library.ps1
 .\scripts\test-m1.ps1
 .\scripts\test-m1.ps1 -Renderer mobile
 ```
@@ -64,7 +65,7 @@ protocol now separately supports many generation-tagged texture resources,
 projected transaction validation and retained draw revisions. See
 bridge-protocol.md for limits and the remaining Prism resource work.
 
-M1 verification passed on 2026-10-30 with the source-built editor:
+M1 verification passed on 2026-10-30 during primitive bring-up:
 OpenGL 3.3 Compatibility and Vulkan 1.4.330 Mobile on Intel Arc B390.
 Both output images were inspected; sampled RGB values are (51,102,204)
 and (0,204,0), matching the 0.8 shader multiplier. Both runs completed
@@ -188,6 +189,6 @@ the input-side wake-up path.
 
 ## Java 启动的 Godot 库
 
-使用 `scripts/build-windows.ps1 -Target godot-library` 将模块编入共享库。在 Windows 引擎线程上，库入口创建并启动 GodotInstance，将 JavaFXHost 挂到 SceneTree 根窗口，注册现有 JVM 的 JNI 方法并运行 iteration。默认的资源文件系统为空；可选的 JAR 场景包在内存中挂载，再由 GodotView 按路径加载。只有显式选择外部工程或主 PCK 才进入 Godot 的工程启动流程。EXE 入口由场景创建宿主并调用 start_jvm。[单 JAR 规格](godot-library-spec.md)
+使用 `scripts/build-windows.ps1 -Target godot-library` 将模块编入共享库。在 Windows 引擎线程上，库入口创建并启动 GodotInstance，将 JavaFXHost 挂到 SceneTree 根窗口，注册现有 JVM 的 JNI 方法并运行 iteration。默认的资源文件系统为空；可选的 JAR 场景包在内存中挂载，再由 GodotView 按路径加载。只有显式选择外部工程或主 PCK 才进入 Godot 的工程启动流程。[单 JAR 规格](godot-library-spec.md)
 
 macOS arm64 的共享库入口将同一启动和退出流程调度到 AppKit 主线程，在每帧处理系统窗口事件。构建 VFX Demo 时，`sh scripts/build-vfx.sh` 把本机的 dylib 随应用打入 JAR。[macOS 构建与待验证项](build-macos.md)

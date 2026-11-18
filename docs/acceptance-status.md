@@ -1,20 +1,19 @@
 # Acceptance status
 
-Last checked on Windows on 2026-11-18. This page describes the supported configuration and
+Last checked on Windows on 2026-11-19. This page describes the supported configuration and
 validation limits. Earlier implementation rounds and removed-mode measurements
 are historical evidence in [progress](progress.md) and Git history; current
 commands are in [TESTS.md](../TESTS.md).
 
 ## Supported configuration
 
-The validated platforms are Windows x64 and macOS arm64; Linux hosting is not
-accepted.
+Windows x64 has verified JAR builds. macOS arm64 verification of the packaged library is pending.
 JavaFX hosting uses **Viewport + safe**, with Godot `mobile` (Vulkan on the
 validated Windows configuration, Metal 4.0 on macOS) or `gl_compatibility`
 (OpenGL). The custom
 RD-direct backend, translator, build/runtime switches and dedicated probes are
 removed, as are separate-thread host adaptations. Godot's own RenderingDevice
-and renderers remain. Unsupported separate hosting is rejected before JVM startup.
+and renderers remain. Unsupported separate hosting is rejected before bridge registration.
 
 JavaFX keeps its application and Prism render threads. The host consumes the
 bounded command queue on Godot's main thread. Primary Stage presentation and
@@ -28,6 +27,42 @@ referenced textures retain immutable revisions. Active protocol diagnostics,
 reflection/virtual callbacks and resource-lifetime fixes are retained.
 
 ## Validation evidence
+
+### Packaged-library-only host on Windows x64 (2026-11-18–19)
+
+The Windows source build produced the shared Godot library and Media-enabled
+JavaFX SDK. The graphics classifier and full VFX JAR contain the same
+`godot.dll`, SHA-256 `f3422d267e21b791e5736d082c1503996969c39ae9722030639f569bfdb0624c`.
+The editor is built separately for asset import and export. Scene fixtures
+check the DLL loaded by their Java PID against the graphics JAR. Production
+JavaFX modules and the Demo JAR exclude the fixture's Java launcher.
+
+The Windows group runs used the rebuilt modules under the previous
+`28-godot.3` coordinates. All eight module JARs have byte-identical file
+contents under the final `28-godot.4` coordinates. The first run passed
+106/108 NonRobot entries, including all 27 module-path cases, all five
+Shadow cases, the isolated VFX JAR, and three complete 35-page soak rounds.
+The window-order probe exceeded its 30-second limit while waiting a fixed
+number of frames per phase. With each phase acknowledged by a fresh capture
+of the verified top window, all ten phases passed twice on OpenGL and once
+on Vulkan/mobile. The final `28-godot.4` publication passed all 27 module-path
+cases, all five Shadow cases, Media audio/video, both Demo JAR launch scripts
+and the isolated VFX JAR responsiveness and shutdown check.
+
+The clipboard test initially failed in both fixture directories. Java reported
+that it could not open the Windows clipboard. The first Robot run passed
+native IME, the system file dialog and touch-keyboard call/liveness checks.
+Seven entries failed: Robot desktop pixels, external drag and drop, hover
+demo, drag and drop, physical drag, hover flicker and VFX table scrolling.
+The Windows session reported a locked desktop and an independent
+`OpenClipboard` call returned access denied. After unlocking Windows, clipboard
+interoperability passed in both the normal and isolated fixture directories.
+All ten Robot entries then passed together on the final publication. The
+touch-keyboard result covers Java calls, live host ticks and teardown. The
+script does not assert OS keyboard visibility. Including the two successful
+targeted reruns, all 108 NonRobot entries have a passing result.
+The original results and reruns are under `artifacts/logs/packaged-host/` in
+`NonRobot/`, `Robot/`, `release-4/` and `unlocked/`.
 
 ### Windows regression using the packaged engine (2026-11-18)
 
@@ -66,15 +101,14 @@ The Java process mapped the packaged Godot DLL, handled a window close request
 and exited with code 0. The directory still contained only the JAR after exit.
 
 The PowerShell JAR launcher passed smoke on Vulkan/mobile and OpenGL, and the
-shell JAR launcher passed on Windows under Git Bash. The executable-host smoke,
-27 module-path cases and five Shadow consumer cases also passed. Interactive and
+shell JAR launcher passed on Windows under Git Bash. The module-path and Shadow consumer cases also passed. Interactive and
 smoke logs are in `artifacts/logs/vfx-demo-jar/`. macOS arm64 build, AppKit,
 Metal and OpenGL checks are pending in [TESTS.md](../TESTS.md).
 
 An interactive launch exposed a gap in the original smoke check. Windows
 replaced the Intro with a “Not responding” ghost window even though the real
 window could answer synchronous messages and exit cleanly. The Windows library
-host now follows the standalone EXE and disables ghosting once before Godot
+host disables ghosting once before Godot
 creates its windows. The policy lasts for the lifetime of the JVM process.
 On both Vulkan/mobile and OpenGL, Windows reported the idle Intro as hung
 without creating a ghost window. After 20 seconds idle, two pairs of native
@@ -97,68 +131,7 @@ Each successful case recorded the original Java PID and verified the loaded Godo
 
 All 27 module-path checks passed against the same engine and six Maven-resolved modules. The cases covered projectless automatic and explicit initialization, concurrent requests, failure propagation, imported directories and external packs, rendering, synthetic input, video replay and process exit. Commands, exit codes, native module paths and GPU captures are in `artifacts/logs/projectless-final-consumers/modules/`.
 
-The final executable host passed all 105 Windows non-Robot entry points. The three-round VFX soak visited all 35 pages and finished with zero owned resources (505.6 seconds). All 10 desktop/Robot cases passed after correcting the IME fixture's click coordinates for its 800 × 360 native child window. The initial IME timeout and all four successful repeats (two per renderer) are preserved. The virtual keyboard probe passed its call/liveness assertions; Windows returned access denied when asked to dismiss the keyboard. CSV results are in `artifacts/logs/projectless-final-nonrobot/results.csv` and `artifacts/logs/projectless-final-robot/{results.csv,ime-retests.csv,verified.csv}`. macOS verification of the shared changes is tracked in [TESTS.md](../TESTS.md).
-
-### Earlier module-path baseline (2026-11-18)
-
-The Windows x64 Editor, Runtime, shared library and Media-enabled JFX SDK were built
-from root `6389aa6`, Godot `06d565e4c0` and JFX `169f4cdd5e` with the local
-changes listed in `artifacts/change-inventory.json`. The distributed
-`bin/godot.dll` matches the built library. Its SHA-256 is
-`9db434bdc4a8da6d771d874741077a96a1da3fd07f0a447aad89f4fb65062cbe`.
-
-Temurin 25.0.3+9 ran 27 child-process cases against six Maven-resolved modules
-in a separate working directory. They exercised the following behavior.
-
-| Area | Observed result |
-| --- | --- |
-| Startup and shutdown | Direct Application without main, Application with main, named module, explicit init, concurrent requests and Platform.startup passed. Successful Godot cases each created one instance and one iteration loop. Explicit OpenGL selection survived automatic startup. System.exit from the main and FX threads both preserved exit code 37. |
-| Error handling | Missing DLL, wrong architecture, missing project and invalid PCK created zero loops. A duplicate scene host failed during attach. Eight concurrent callers and subsequent init/startup attempts saw the stored failure, with zero startup callbacks. |
-| Rendering and input | Vulkan/mobile presented the embedded Godot scene and a separate Stage. Godot's synthetic pointer events triggered the JavaFX button. Imported directories and packs with supplementary Unicode characters preserved the process working directory. Node Shader, glyph and Effect pixel checks passed against the original observers. |
-| Native dependencies | The early JPEG decoder loaded the distributed image library. Local MP4 playback, pause, seek, stop/replay and disposal passed with the shipped Media libraries. The test recorded Windows module paths at startup and after a decoded frame. Removing a Media dependency failed as expected. Explicit native D3D selected Win Glass without the engine DLL. |
-
-The launcher also ran the no-main example directly from the staged distribution.
-The executable commands, JDK, hashes, native module lists, exports, logs and GPU
-captures are in `artifacts/logs/java-library-20261118/`. The distribution is in
-`artifacts/godot-library/`. macOS native runtime tests
-remain open in [TESTS.md](../TESTS.md).
-
-### Executable host
-
-In the earlier 2026-11-18 batch, all 106 selected Windows test entry points passed with their
-default arguments. The virtual keyboard now belongs to the Robot group. The batch included the 35-page, three-round VFX soak (505 seconds,
-final owned resources zero). One synthetic drag fixture initially sampled
-window size before native layout completed. After moving the sample to the
-gesture request, all six reruns passed (three each on OpenGL and Vulkan).
-The original batch, reruns and per-test final evidence are in
-`artifacts/logs/library-windows-20261118/{results.csv,physical-drag-retests.csv,verified.csv}`.
-The Startup fixture passed all four visibility and title cases twice. A separate
-OpenGL Stage run observed one EXE-to-Java launch and the process module list
-contained the JVM and zero Godot shared libraries. See
-`artifacts/logs/java-library-20261118/stage-exe.log` and `stage-exe-modules.txt`.
-
-The consolidation and follow-up cleanup used source-built Editor, Runtime,
-JFX SDK and Media outputs. Coverage is recorded by round; the later cleanup
-reran affected checks, not every earlier physical-device fixture.
-
-| Validation | Evidence and scope |
-| --- | --- |
-| Builds and removed APIs | Editor, Runtime, JFX and Media builds passed during consolidation; Editor/Runtime rebuilt after the final storage change. Archive inspection and `javap` confirm removed RD/clipboard APIs are absent. Logs: `godot-editor-javafx.log`, `godot-runtime-javafx.log`, `jfx.log`, `jfx-media-native.log` |
-| Texture ownership and rendering | RGBA8/RGBAF partial updates on mobile/OpenGL; mobile Viewport-state and batch boundaries; render-target, shader-cache, node-shader, blackhole/ripple and transformed GodotView checks. Logs: `queued-texture-update-*`, `render-targets-*`, `shader-cache-*`, `node-shaders-*`, `vfx-blackhole-*`, `vfx-ripple-*`, `godot-view-*` |
-| Protocol and lifecycle | Malformed-input/atomicity/backpressure/shutdown tests, including 10000 concurrent frames; native windows, immediate close, 12-cycle Stage churn, Runtime controls and Demo smoke passed |
-| Media and interaction | Media planes and Editor/Runtime playback/control checks passed. Editor/Vulkan and Runtime/OpenGL Robot passed during consolidation; these do not prove all physical-device behavior |
-| VFX and effects | All-page navigation, LCD overlap, menu progress and effects compared with native D3D passed. Menu profiling observed about 60 pulses/s; this is not physical scanout FPS |
-| Final diagnostic checks | Profiled table scrolling and 68 transitions passed with a temporary 8192-element timestamp pool. See `vfx-table-scroll-mobile-safe.log` and `vfx-transition-mobile-safe.log`; these instrumented runs are not performance acceptance |
-
-Logs above are under `artifacts/logs/`. The cleanup inventory at
-`artifacts/dead-code-audit/audit.json` records the baseline, inspected paths,
-source hashes and retention decisions. It was generated before the commits
-were amended; its HEAD values identify that audit snapshot, not current tips.
-The audit covered inline methods, field reads/writes, 34 remaining JNI entries,
-30 protocol commands, shader generation and test entry points. No unresolved
-dead-code candidates remained; the inventory is not a substitute for tests.
-
-## macOS arm64 validation (2026-11-16)
+## macOS arm64 verification scope
 
 The macOS port reuses the same Viewport + safe hosting; `mobile` renders
 through Metal 4.0 and `gl_compatibility` through OpenGL 4.1. Vulkan is not
@@ -167,13 +140,6 @@ built (MoltenVK is not installed). Toolchain and build commands are in
 `scripts/test-*.sh` runners with the macOS differences listed in
 [TESTS.md](../TESTS.md).
 
-- Every ported `scripts/test-*.sh` entry passes with the same pass markers
-  and judgment semantics as the Windows runners, except the robot-class
-  physical-input fixtures, which have not been run on macOS (they seize the
-  real input devices and await user authorization): `test-robot`,
-  `test-hover-demo` and `test-drag-drop-external` have no macOS entry, and
-  the macOS runners for drag-drop, physical-drag and hover-flicker reject
-  their `--robot` modes.
 - Explicit platform outcomes: `test-window-icon.sh` SKIPs by design (macOS
   has no per-window icon; the Dock icon belongs to NSApplication); the
   virtual keyboard entry points report unsupported explicitly (no Windows
@@ -198,11 +164,6 @@ built (MoltenVK is not installed). Toolchain and build commands are in
 
 ## Current validation limits
 
-- On 2026-11-18 the Windows Editor and Runtime both passed direct clipboard exchange
-  on Vulkan/mobile. The external peer checked native formats, file paths, bitmap
-  pixels and custom bytes. Both Java and Godot recorded PASS. The scripts overwrite
-  the clipboard and leave the last test payload in place. Logs are
-  `artifacts/logs/clipboard-mobile.log` and `artifacts/logs/clipboard-mobile-runtime.log`.
 - Default GPU diagnostics overflowed the 256-element timestamp pool. The
   diagnostic rerun used 8192 temporarily and restored the project configuration.
   The failure log is `artifacts/dead-code-audit/table-default-timestamp-limit.log`.
@@ -235,7 +196,7 @@ built (MoltenVK is not installed). Toolchain and build commands are in
 | 4.3: per-node CanvasItem shader | GodotShaderEffect, node-shader fixture with uniforms, UVs, clip/opacity and chained effect | Additional sampler uniforms and geometry beyond input bounds are unsupported |
 | 4.4: GodotView | Public Region/peer, live GPU SubViewport, resize/reload/clip/opacity and mouse/key/touch probes; combined scale/shear/translation has GL/Vulkan/Runtime evidence with D3D clip reference | Logical-resolution output on HiDPI; arbitrary transform and physical interaction stress incomplete |
 | 6: Glass adapters | Application/Window/View/Screen/Timer, window-addressed input, text/HTML/RTF clipboard, cursors and synthetic/native IME probes | See validation limits above; physical IME candidate/conversion behavior unverified |
-| 7: source builds | Editor, template_release Runtime, custom module/JNI bridge and source OpenJFX SDK builds; Media-enabled SDK now includes all four native Media libraries | WebKit excluded by user; godot-cpp is not used |
+| 7: source builds | Shared engine with JNI bridge, resource editor and source OpenJFX SDK builds; Media-enabled SDK now includes all four native Media libraries | WebKit excluded by user; godot-cpp is not used |
 | 8: M0–M6 flow | Architecture, build scripts, module, standard Stage, NodeShader, GodotView and original VFX implementations exist | Milestones are not blanket-accepted while explicit gaps remain |
 
 ## Section 9 acceptance items

@@ -16,18 +16,13 @@ The validated architecture is Apple silicon arm64. No prebuilt Godot or
 JavaFX SDK substitutes for these source builds, and the JVM is the installed
 JDK — it is not rebuilt.
 
-## Godot with the JavaFX module
+## Resource editor
+
+The test fixtures use the source-built editor for headless asset import and scene export.
 
 ```sh
-.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=editor vulkan=no accesskit=no angle=no custom_modules=$PWD/native/godot_modules -j8
-.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=template_release vulkan=no accesskit=no angle=no custom_modules=$PWD/native/godot_modules -j8
+.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=editor vulkan=no accesskit=no angle=no -j8
 ```
-
-Outputs are `godot/bin/godot.macos.editor.arm64` and
-`godot/bin/godot.macos.template_release.arm64`. The javafx custom module and
-the JNI bridge are compiled into these executables; there is no separate
-bridge library and no godot-cpp dependency. The host loads the JVM with
-`dlopen` on `<JDK>/lib/server/libjvm.dylib`.
 
 Renderer mapping on macOS: `mobile` renders through Metal 4.0 and
 `gl_compatibility` through OpenGL 4.1. Vulkan is not built (`vulkan=no`;
@@ -36,17 +31,15 @@ MoltenVK is not installed).
 ## JavaFX SDK
 
 ```sh
-cd jfx
-JAVA_HOME="$PWD/../.tools/jdk-25/Contents/Home" GRADLE_USER_HOME="$PWD/../.gradle-cache" \
-    ./gradlew sdk -PCOMPILE_MEDIA=true -PCOMPILE_WEBKIT=false --no-daemon
+(cd jfx && JAVA_HOME="$PWD/../.tools/jdk-25/Contents/Home" GRADLE_USER_HOME="$PWD/../.gradle-cache" \
+    ./gradlew sdk -PCOMPILE_MEDIA=true -PCOMPILE_WEBKIT=false --no-daemon)
 ```
 
 A single Gradle invocation builds the SDK with Media enabled and WebKit
 disabled; on macOS the Media backend is AVFoundation (`libjfxmedia_avf.dylib`),
 so there is no separate Media build step like `build-jfx-media.ps1`.
 Products are in `jfx/build/sdk`; native libraries are `.dylib` files under
-`lib/` (not `bin/` as on Windows). The host's `java.library.path` already
-branches per platform.
+`lib/` (not `bin/` as on Windows). The platform classifiers package the dylibs for Java to load.
 
 ## Build the VFX Demo JAR
 
@@ -58,7 +51,7 @@ sh scripts/build-vfx.sh
 
 This packages the local Media-enabled SDK, Godot dylib, VFX resources and Intro
 pages in `artifacts/vfx/libs/vfx-demo.jar`. The loose classes, resources and
-dependencies under `artifacts/vfx` also serve the executable-host fixtures.
+dependencies under `artifacts/vfx` also serve the Java scene fixtures.
 
 ## Running the VFX Demo
 
@@ -70,7 +63,6 @@ scripts/run-vfx-demo.sh --renderer gl_compatibility      # OpenGL 4.1
 scripts/run-vfx-demo.sh --disable-vsync --max-fps 60     # CPU pacing instead of swapchain vsync
 ```
 
-`--executable-host` selects the existing Godot editor fixture explicitly.
 The new JAR path needs validation on macOS arm64, including Metal, OpenGL,
 AppKit thread ownership and clean window close. [Pending checks](../TESTS.md).
 
@@ -96,5 +88,4 @@ Windows-only entries that do not apply.
 - macOS has no per-window icon (the Dock icon belongs to NSApplication) and
   no Windows-style touch keyboard; the host reports both explicitly instead
   of silently ignoring requests.
-- Robot fixtures that move the physical pointer/keyboard have not been run
-  on macOS; they require user authorization and an idle desktop.
+- Run the packaged-engine Robot fixtures serially on an idle desktop with user authorization. Record arm64 results in the cross-platform checklist in TESTS.md.

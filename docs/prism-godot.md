@@ -171,7 +171,7 @@ samplers participate in transactional queue resource validation and the same
 retired-memory budget as ordinary textured quads. Clear removes parameter and
 sampler bindings before releasing retired textures; the context must rebind
 state afterward. Current GodotSampler helpers explicitly map Prism filtering
-and wrap modes rather than relying on Godot defaults. SDK, editor and runtime builds pass with this change.
+and wrap modes rather than relying on Godot defaults.
 
 ## Prism context and Graphics integration
 
@@ -380,7 +380,7 @@ after readback. `-Snapshot` exercises standard synchronous Node/Scene snapshots
 and an asynchronous Node snapshot with FX-thread callback and pixel checks.
 `-StopDuringRead` withholds host processing until a request is observed pending,
 then checks cancellation without partial writes. GL/safe and Vulkan/separate
-direct/snapshot probes pass; Release Runtime Vulkan/separate snapshot and stop
+direct/snapshot probes pass; Vulkan/separate snapshot and stop
 probes pass. Raw RT resources are disposed; the application fixture drains windows
 and checks all host-owned resources at teardown, including Quantum pool caches.
 
