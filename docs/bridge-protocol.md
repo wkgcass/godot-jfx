@@ -1,5 +1,7 @@
 # JVM host and batch bridge (M2 foundation)
 
+Windows 库模式和 EXE 宿主使用同一份 GodotBridge JNI 方法表。EXE 的 worker 创建并拥有 JVM。Java 启动库时，Windows 引擎线程从当前 JNI 调用取得 JavaVM 和应用传入的桥接类，完成注册和屏幕快照后向 Java 发布 READY。停止宿主会关闭 JNI 请求入口、唤醒队列和读回等待者，待已进入的调用返回后释放回调的全局引用。库模式的生命周期到进程退出结束。
+
 > Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
 > safe. Custom RD-direct and separate-thread host support have been removed.
 > Dated RD/separate measurements below are historical evidence, not runnable

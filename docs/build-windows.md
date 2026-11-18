@@ -2,6 +2,46 @@
 
 For the macOS arm64 port see [build-macos.md](build-macos.md).
 
+## Java-launched library
+
+After preparing the Windows toolchain, run these builds sequentially from the checkout.
+
+```powershell
+.\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule
+.\scripts\build-windows.ps1 -Target godot-runtime -WithJavaFXModule
+.\scripts\build-windows.ps1 -Target godot-library
+.\scripts\build-windows.ps1 -Target jfx
+.\scripts\build-jfx-media.ps1
+.\scripts\stage-godot-library.ps1 -Destination 'D:\Godot JavaFX'
+```
+
+Staging publishes six Java modules and the Windows x64 graphics and Media classifiers to `repository/`. Use this Maven repository when building the application. The graphics classifier includes the engine DLL from the library target. Applications deliver the resulting Shadow JAR. The Editor is needed for exporting custom scenes and running the full regression suite.
+
+The example below builds the repository's sample consumer and launches it. Set the manifest main class to an ordinary Java launcher that calls `Application.launch`. See the [consumer build](../tests/library/shadow/build.gradle) for the dependencies and manifest.
+
+```powershell
+.\jfx\gradlew.bat -p tests/library/shadow shadowJar '-Prepository=D:\Godot JavaFX\repository' '-PjavafxVersion=28-godot.3'
+& "$env:JAVA_HOME/bin/java.exe" -jar tests/library/shadow/build/libs/stage-app-all.jar
+```
+
+For a module-path development run, staging also provides loose DLLs and modular JARs.
+
+```powershell
+$runtime = 'D:\Godot JavaFX'
+& "$runtime/run-javafx.ps1" -cp 'D:\myapp\classes' example.MyApplication
+# Equivalent invocation using modules resolved by the application's Maven build
+& "$env:JAVA_HOME/bin/java.exe" --module-path 'D:\myapp\target\modules' --add-modules javafx.controls,javafx.media --enable-native-access=javafx.graphics,javafx.media "-Djavafx.godot.runtime=$runtime" -cp 'D:\myapp\classes' example.MyApplication
+```
+
+The default host starts with an empty scene tree, uses `mobile` and hides the window until its first presentation. An application using GodotView can include `META-INF/godot-jfx/scenes.pck` as a resource. An explicit imported directory or PCK remains available for applications that intend to launch an existing Godot project. [Library specification](godot-library-spec.md).
+
+```java
+GodotRuntime.init(new GodotRuntime.Options(runtimeDirectory, projectPath, "mobile",
+        GodotRuntime.StartupWindow.LOGO));
+```
+
+An application module requires `javafx.controls` and exports its Application package to `javafx.graphics`. Resolve `javafx.media` when using Media. `-Dprism.order=d3d` selects the stock Windows backend for control runs. Supply its Windows native directory using `-Djava.library.path` when consuming Maven jars outside the SDK.
+
 ## JDK selection
 
 PowerShell build, run and test scripts default `-Jdk` to `$env:JAVA_HOME`;
@@ -97,6 +137,7 @@ reports `4.8.beta.custom_build.420dfdc1c` (Editor `--version`, checked 2026-11-0
 ```powershell
 .\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule
 .\scripts\build-windows.ps1 -Target godot-runtime -WithJavaFXModule
+.\scripts\build-windows.ps1 -Target godot-library
 .\scripts\build-windows.ps1 -Target jfx
 .\scripts\build-jfx-media.ps1
 .\scripts\build-vfx.ps1
@@ -155,8 +196,12 @@ pixels; an explicitly opaque Scene fill still draws an opaque background.
 
 ## Running the VFX Demo
 
-After building the local Godot module, JavaFX SDK and VFX classes, run
-`./scripts/run-vfx-demo.ps1`. This opens the original interactive Demo using
+Build the `godot-library` target and the Media-enabled JavaFX SDK, then run
+`.\scripts\build-vfx.ps1`. It stages the platform libraries and builds the
+complete Intro Demo. Launch it with `java -jar artifacts/vfx/libs/vfx-demo.jar`.
+`.\scripts\run-vfx-demo.ps1` starts the same JAR and records a log.
+Use `-ExecutableHost` for the original Godot executable diagnostic fixture.
+The default launch uses
 Vulkan/safe and ordinary VSync. Secondary Stages use independent native windows.
 Only `safe` is supported by the JavaFX host.
 

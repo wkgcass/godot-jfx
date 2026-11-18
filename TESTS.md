@@ -8,22 +8,51 @@
 
 ## 跨平台待验证清单
 
-以下项目针对合并 `ca8ff42` 后的本地共享改动。Windows 已完成相关测试三轮共 63 次运行，结果见 `artifacts/logs/restored-stability-20261118/results.csv`。macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物；带 `--renderer` 的下列用例分别运行 `mobile`（Metal）和 `gl_compatibility`（OpenGL），使用 safe 模式，GUI 测试串行执行。每个入口均须正常退出、退出码为 0，并满足脚本原有 PASS 与错误检查。
+macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。带 `--renderer <后端>` 的用例分别运行 `mobile`（Metal）和 `gl_compatibility`（OpenGL），使用 safe 模式，GUI 测试串行执行。每个入口均须正常退出、退出码为 0，并满足脚本原有 PASS 与错误检查。合并 `ca8ff42` 后既有窗口及资源修复的 Windows 三轮稳定性记录位于 `artifacts/logs/restored-stability-20261118/results.csv`。
 
 | 目标平台与待验证内容 | 验证入口与参数 | 通过条件及已知限制 |
 | --- | --- | --- |
+| macOS arm64，剪贴板直接互操作 | `./scripts/test-clipboard.sh --renderer mobile` 及 `--runtime` 档 | 直接覆盖原剪贴板后，原生对端、Java 与 Godot 的格式交换标记均通过，脚本正常退出。 |
+| macOS arm64，首次显示 Stage 时的原生窗口标题 | `./scripts/test-startup.sh --renderer <后端>`，使用能读取窗口标题的测试环境 | logo、hidden 及两种取消场景均通过。首次显示主窗口与次级窗口时已设置对应的应用标题。如果系统隐去标题，仅验证可见性时序，保留标题待办。 |
+| macOS arm64，原生 JavaFX 参考图 | `./scripts/test-effects.sh --renderer <后端>`、`./scripts/test-composite-edges.sh --renderer <后端>`、`./scripts/test-godot-view.sh --renderer <后端> --transform` | 三个参考进程显式使用 Mac Glass，Prism 仍按 macOS 的默认顺序选择原生后端。确认参考图或参考数据生成，随后 Godot 对照的原有像素断言通过。 |
+| macOS arm64，共享像素观察器及原生 Glass 加载 | `./scripts/test-node-shaders.sh --renderer mobile`、`./scripts/test-effects.sh --renderer <后端>`、`./scripts/test-window-drag.sh --renderer <后端>` | EXE 宿主的 Shader 与 Effect 原有像素和清理断言通过。合成窗口拖动夹具只读取物理指针位置，须能通过本次 SDK 的 Glass 创建 MacRobot 并完成拖动断言。 |
+| macOS arm64，JavaFX 启动协调器及已有 EXE 宿主 | 按 macOS 构建说明重建 Editor、Runtime 和启用 Media 的 SDK。依次运行 `./scripts/test-stage.sh --renderer mobile`、`./scripts/test-fxml.sh --renderer mobile`、`./scripts/test-host-stop.sh --renderer gl_compatibility` 和 `./scripts/test-media-video.sh` | EXE 在调用应用前登记已有 JVM；验证 FXML 和通过 Application.launch(args) 查找应用类的夹具仍可通过上下文类加载器找到观察器，两种渲染后端均可启动且退出，Media 的原有播放与清理断言通过。核对同一版 Maven graphics、media JAR 中的 MacRobot、OSXPlatform 和 gdshader，检查原生 Glass 和 AVFoundation 库来源。 |
+| macOS arm64，OpenJFX 原生库缓存 | 用本机源码 SDK 的 JavaFX 模块构建 Shadow 测试应用，将 SDK 的 `lib/*.dylib` 放在 JAR 根目录，显式选择 `-Dglass.platform=Mac`。在新的 `-Djavafx.cachedir` 首次启动，再复用缓存，并用两个进程同时首次启动到另一个空缓存，记录实际映射的 dylib | 各进程均从完整缓存加载本次构建的图形与 AVFoundation 库并完成播放。复测已有 EXE 宿主的 Stage 与视频入口。这项共享加载器回归可在 macOS 的 Java 主导 Godot 调度器实现前执行。 |
+| macOS arm64，完整 VFX Demo JAR 和 Java 启动的 Godot 库 | 按 macOS 构建文档编译共享库和 SDK，运行 `sh scripts/build-vfx.sh`。仅将 JAR 复制到空目录，用 `java -jar vfx-demo.jar` 打开菜单并关闭窗口。分别执行 `scripts/run-vfx-demo.sh --smoke` 和 `--smoke --renderer gl_compatibility --disable-vsync --max-fps 60`，再用 `--executable-host --smoke` 验证原入口。另测场景包、无 main 的模块化 Application、显式 init 和 Platform.startup | 两个渲染器均显示完整 Intro、正常退出并记录 VFX_DEMO_CLOSED；原 Java PID 加载本次 libgodot.dylib，唯一 NSApplication 的主线程负责窗口和事件泵。检查冷、热缓存，最后一个 Stage 隐藏后的事件推进、GodotView 与 Unicode 工程路径。 |
 | macOS arm64，采样纹理退役后的材质缓存回收 | `./scripts/test-stage-churn.sh --renderer <后端> --cycles 36`；`./scripts/test-media-churn.sh --renderer <后端>`；`./scripts/test-media-video.sh --renderer <后端>`；`./scripts/test-godot-view.sh --renderer <后端>` | Stage 循环连续三轮通过，关闭后的资源回到原有预热基线，最终资源清理通过；Media 与 GodotView 的原有像素、生命周期断言通过。检查纹理替换和关闭过程中是否出现无效资源错误或画面异常。短期资源计数通过仅覆盖本组场景。 |
-| macOS arm64，三个迁移至独立 Stage 的窗口夹具 | `./scripts/test-logical-windows.sh --renderer <后端>`；`./scripts/test-window-order.sh --renderer <后端>`；`./scripts/test-window-composition.sh --renderer <后端>` | 原有阶段覆盖、事件、系统层序、窗口像素与清理断言均通过，关闭最后一个窗口后正常完成。当前三份 GDScript 仍直接等待 `frame_post_draw`，macOS 无可绘制窗口时可能停住，需参照 `tests/godot/native_order.gd` 的绘制信号与定时器竞速处理；脚本退出上限触发不能算通过。 |
+| macOS arm64，三个迁移至独立 Stage 的窗口夹具 | `./scripts/test-logical-windows.sh --renderer <后端>`；`./scripts/test-window-order.sh --renderer <后端>`；`./scripts/test-window-composition.sh --renderer <后端>` | 原有阶段覆盖、事件、系统层序、窗口像素与清理断言均通过，关闭最后一个窗口后正常完成。多窗口合成按场景帧观察六个阶段并读取实际视口像素；另外两个夹具仍直接等待 `frame_post_draw`，需检查无可绘制窗口时是否停住；脚本退出上限触发不能算通过。 |
 | macOS arm64，Retina 与混合缩放多屏下的共享窗口夹具 | 在 Retina 单屏和不同缩放双屏环境运行上述三个窗口入口，将主窗口置于屏幕交界附近，覆盖子窗口落在另一屏的情况；记录各窗口所在屏幕、缩放和位置 | 核对窗口尺寸、相对位置、输入坐标与 GPU 像素。当前部分断言用主窗口屏幕缩放计算子窗口采样点，可能误判；如需修正，应依据各窗口实际坐标与渲染尺寸。缺少对应显示器环境时保留该范围的待办。 |
-| macOS arm64，Glass 物理尺寸及窗口生命周期夹具调整 | `./scripts/test-glass-window.sh` 和 `./scripts/test-glass-window.sh --runtime`；`./scripts/test-host-stop.sh --renderer <后端>`；`./scripts/test-input-lifecycle.sh --renderer <后端>` | Glass 尺寸、位置和上游 macOS 滚轮手势断言通过；宿主停止须等待独立窗口就绪并完成清理；输入取消不得额外产生拖拽。记录显示缩放。 |
-| macOS arm64，合成拖拽释放坐标调整 | `./scripts/test-physical-drag.sh --renderer <后端>` | 默认合成输入档的拖动、缩放最终位置和尺寸断言均通过。Windows 撤下本地修正后双后端也通过，因此该修正的必要性尚未由失败复现证明。真实 Robot 档仍按仓库规则另行征得用户同意后运行。 |
+| macOS arm64，Glass 物理尺寸及窗口生命周期夹具调整 | `./scripts/test-glass-window.sh` 和 `./scripts/test-glass-window.sh --runtime`；`./scripts/test-host-stop.sh --renderer <后端>`；`./scripts/test-input-lifecycle.sh --renderer <后端>` 及 `./scripts/test-input-cancel.sh --renderer <后端>` | Glass 尺寸、位置和上游 macOS 滚轮手势断言通过；宿主停止须等待独立窗口就绪并完成清理；输入取消不得额外产生拖拽。记录显示缩放。 |
+| macOS arm64，合成拖拽坐标 | `./scripts/test-physical-drag.sh --renderer <后端>` | 默认合成输入档在收到拖动指令时采样已显示窗口的尺寸。核对日志中的初始矩形、释放点以及拖动、缩放的最终位置与尺寸断言。获得授权后以 `--robot` 运行，确认物理拖动与缩放断言通过，并在 `artifacts/reference/physical-drag-desktop.png` 生成本轮桌面截图。 |
+| macOS arm64，Robot 拖放的按下与移动顺序 | 获得授权后运行 `./scripts/test-drag-drop.sh --renderer <后端> --robot` | 源节点先收到按下事件，随后物理移动开始拖放。七种同窗、跨窗、拒绝或取消场景均完成，三次放入成功，清理断言通过。 |
+| macOS arm64，独立 IME 窗口的点击坐标 | 获得 Robot 授权后，在 Retina 屏运行 `./scripts/test-native-ime.sh --renderer mobile` 和 `--renderer gl_compatibility` | 从已显示的子窗口尺寸换算点击位置，焦点离开输入框后取消预编辑，按钮动作完成，根文本与资源清理断言通过，并恢复光标。 |
 
 ## Viewport＋safe 支持边界
+
+### Windows 库模式的独立验收
+
+Windows 场景入口和性能脚本由 JDK 直接启动测试进程，classpath 包含本次 Maven 发布的 Windows graphics、media 平台 JAR、其余 JavaFX 模块和应用观察器。`GodotSceneFixture` 调用 JavaFX 原生库加载器，核对进程中加载的引擎文件与 JAR 中 `godot.dll` 的 SHA-256，并输出 PID 和库路径。场景夹具继续选择 Java 观察器并检查窗口、像素和资源回收，二者共用该 JVM。普通应用启动与退出另外由模块路径和 Shadow 用例覆盖。源码 Editor 只用于预先导入或导出资源。独立 C++/Java 单元测试、刻意破坏依赖的负向测试和显式 D3D 对照保留各自的被测对象。
+
+完整 VFX Demo 构建后，用 `python scripts/test-vfx-demo-jar.py` 检查 Intro 类和资源，并在只含该 JAR 的临时目录启动。Windows 使用普通交互入口，连续观察可见的 VFX Intro 窗口至少 20 秒，出现系统替代窗口即失败。读取该 Java 进程实际映射的模块，核对引擎 DLL 的构建缓存路径和 JAR 内资源哈希。随后向原窗口投递最大化和还原命令，每次均验证窗口状态发生预期变化，最后发送原生关闭消息。macOS 使用 `--smoke` 验证 Stage、菜单和关闭事件。两端均检查退出状态和目录内仅余原始 JAR。普通交互启动用 `java -jar artifacts/vfx/libs/vfx-demo.jar`。
+
+从仓库根目录构建并准备发行包后，使用 JDK 25、Python 和 Maven 3.9 运行下列命令。首次解析 Maven 插件需要联网。消费工程从本机回环地址读取本次发行的 Maven 仓库，Java 子进程的 PATH 只包含 JDK 和 Windows 系统目录。
+
+```powershell
+.\scripts\stage-godot-library.ps1 -Destination 'D:\Godot JavaFX'
+python scripts/test-godot-library.py --runtime 'D:\Godot JavaFX' --maven 'D:\tools\apache-maven\bin\mvn.cmd'
+python scripts/test-shadow-jar.py --runtime 'D:\Godot JavaFX'
+```
+
+默认依次执行启动、失败处理和绘制三组。可用 `--group launch`、`--group failures` 或 `--group render` 单独复测。默认使用新的临时目录；控制台的 `Evidence` 行给出位置。其中 `results.json` 记录子进程命令、退出码、耗时、JAR 哈希和受检查的 DLL 路径，`artifacts/reference` 保存 GPU 读回。Media 使用已有 `test-media-video.ps1` 下载并校验的 Oracle MP4。
+
+启动组覆盖显式与自动初始化、无 main 的类、模块化入口、并发、配置冲突、隐藏最后窗口后再次显示以及退出。失败组要求重复初始化和等待者观察到同一错误，约定退出码为 31；显式退出用例应保留 37。绘制组使用 Godot 合成输入、独立 Stage、GodotView 像素、Node Shader 原有断言及 Effect 的 D3D 参考图，还验证本地视频的暂停、seek、重播和释放。
+
+Shadow 脚本通过 Gradle Wrapper 和 Shadow 插件在独立目录构建消费应用。首次构建需要联网解析插件。它把单 JAR 复制到空目录，清理启动环境，核对应用 PID、实际映射的 DLL 与 JAR 资源哈希、Stage、外来工程隔离和视频；另构建带场景包和带损坏包的 JAR，检查 GodotView 合成像素、第二个 Stage、引擎合成输入和启动失败。控制台输出日志和截图目录。用相同 Maven 版本号重新发布后，两条验收命令均使用新的工作目录，避免上次的 release 缓存参加验证。
 
 当前宿主只支持 Viewport＋safe；渲染器仍可选择 mobile 或 gl_compatibility。
 RD-direct 实现、编译开关、专用探针和 separate 专用运行路径已删除。
 `test-render-mode-rejection.ps1` 故意直接传入 Godot 的 separate 参数，要求
-宿主在启动 JVM 前拒绝，输出唯一的预期错误，并释放全部宿主资源。
+宿主在登记 JavaFX 桥接和启动应用前拒绝，输出唯一的预期错误，并释放全部宿主资源。
 负向夹具使用 OpenGL；不运行已撤销宿主支持的 Vulkan/separate 引擎清理路径。
 其他测试的 `-RenderThread` 仅接受 safe；`-RD` 与 `-JavaFXRDDirect` 已移除。
 历史日志中的 RD/separate 结果不能作为本次构建的验收证据。
@@ -42,7 +71,7 @@ false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PAS
 先执行 `build-vfx.ps1` 更新 Demo 类（包括内嵌着色器），再运行
 `test-vfx-blackhole.ps1`（默认 mobile/safe/Viewport）；
 `-Renderer gl_compatibility` 验证 OpenGL；仅支持 safe 线程模式。
-需要源码 Editor、SDK 和 VFX 产物，不需要真实键鼠授权。
+需要源码 Editor、SDK、已发布的 Windows 平台 JAR 和 VFX 产物，不需要真实键鼠授权。
 
 夹具检查实际 Intro 抽屉菜单末尾的复选框、效果只附着于内容 VSceneGroup、
 标题栏和底部导航不变、开关恢复、鼠标移动/拖动和缩放后的
@@ -62,15 +91,17 @@ false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PAS
 
 | 标记 | 需要准备什么 |
 | --- | --- |
-| G | 带 JavaFX 模块的源码 Godot Editor，测试项目 `tests/godot`，可用的 Windows 图形桌面与 GPU 驱动 |
+| G | 源码 Godot Editor（仅导入测试资源）、`godot-library` 共享库、`stage-godot-library.ps1` 发布的 Windows 平台 JAR，以及可用的 Windows 图形桌面与 GPU 驱动 |
 | J | JDK 25（默认 `$env:JAVA_HOME`，可用 `-Jdk` 覆盖）和 `jfx/build/sdk`；必须是本仓库源码 SDK |
 | M | 执行 `build-jfx-media.ps1`，SDK 中具备 jfxmedia/glib-lite/gstreamer-lite/fxplugins 原生库 |
 | V | 执行 `build-vfx.ps1`，准备 `artifacts/vfx` 的主类、测试类、资源和依赖 |
-| Runtime | 额外构建 `godot-runtime -WithJavaFXModule`；脚本还借助 Editor 导入测试项目，再运行打包目录中的 Runtime |
+| Runtime | Windows 上以隔离目录中的项目和默认主场景运行同一个 DLL；Editor 负责资源导入 |
 
-J-only 测试不需要启动 Godot，但其内部 API/模块补丁依赖本地 SDK。G-only 测试不启动 JVM。首次构建需要的工具安装、下载与路径见 [build-windows.md](docs/build-windows.md)。
+J-only 测试不需要启动 Godot，但其内部 API/模块补丁依赖本地 SDK。Windows 的 G-only 场景也由 Java 加载引擎，可在场景内单独验证没有 JavaFX 应用连接时的行为。首次构建需要的工具安装、下载与路径见 [build-windows.md](docs/build-windows.md)。
 
 GPU/GUI 测试串行执行；性能测试期间保持窗口前台，不进行其他操作，不同时构建或运行重负载。多数功能测试使用宿主注入输入，不需要人工点按钮，也不能据此宣布真实鼠标/IME/触摸验收完成。
+
+Windows DLL 回归用 `./scripts/run-windows-tests.ps1 -Group NonRobot` 或获得授权后的 `-Group Robot`。两组都支持 `-List` 预览。Robot 组包含系统虚拟键盘、原生 IME、文件对话框、外部拖放和显式物理输入档，即使没有移动鼠标，只要入口会唤起触摸键盘也归入这一组。虚拟键盘的 `-CompileOnly` 只编译，`test-tabtip-result.cmd` 使用模拟接口，均不请求系统键盘。NonRobot 也运行上节的模块路径、Shadow 和完整 Demo JAR 三个 Python 验收入口。
 
 **前台与真实输入要求要分别判断**：Godot 合成输入和模块测试钩子不占用真实键鼠，但是否允许失焦取决于夹具；只有明确注明免前台的测试（如 ole-inject）才可据此后台运行。性能比较始终要求保持焦点并避免其他重负载。Robot 物理夹具会占用输入设备，须先获得用户授权、保持桌面空闲；同一会话中已有明确授权且未撤销时不必重复询问，开始前说明会操作真实输入。原生 IME 夹具（`test-native-ime.ps1` / `test-native-ime.sh`）调用 `DisplayServer.warp_mouse` 移动系统光标，运行非物理输入测试时须排除整个入口。文件对话框专项使用限定本轮进程/标题的系统消息驱动，具体方式见该节。GPU/GUI 测试仍串行执行。
 
@@ -90,7 +121,7 @@ macOS 特有判定与限制：
 - `test-scroll-pan.sh`（macOS 专有，无 Windows 对应）：触控板 pan 流契约探针。Godot 侧按阶段标题注入 `InputEventPanGesture` 流（向下、过冲、向上、过冲、松手静置），Java 探针断言 vvalue 单调、两端精确钳制、松手后不再移动，并比对注入数与 ScrollEvent 数精确相等（exactly-once；上游 Godot 对手势事件双重派发，本 fork 已修复为单次）。双渲染器通过。
 - 以下 Windows-only 入口在 macOS 不适用、没有对应脚本：`test-clipboard-ownership.cmd`、`test-dnd-drag-image.cmd`、`test-dnd-helper-lifetime.cmd`、`test-tabtip-result.cmd`（针对 Win32/OLE/触摸键盘实现的原生组件测试）和 `make-media-fixture.ps1`（Media Foundation 编码夹具）。`test-virtual-keyboard.ps1` 无 macOS 入口：平台没有触摸键盘，宿主对 `_requestInput`/`_releaseInput` 显式报不支持。
 - Robot 物理夹具在 macOS 的运行现状（均需用户授权、保持桌面空闲，终端需辅助功能与屏幕录制权限）：`test-robot.sh`、`test-drag-drop.sh --robot`、`test-physical-drag.sh --robot`、`test-hover-flicker.sh --robot`、`test-hover-demo.sh`、`test-drag-drop-external.sh` 均有 macOS 入口并在双渲染器通过。hover-flicker mobile 曾偶发 Fusion 定居亮度抖动（单帧 502/584 不亮），修复后复跑 3 次全部通过，按环境性抖动记录、机制未定位。hover-demo 的 GAP 像素判定曾按帧数跳过过渡期（31 帧），但 VFX 退出过渡是墙钟驱动、帧率下降时跨越更多帧，现改为 GAP 标题首次出现后 500ms 墙钟窗口（5% 阈值未放宽）。Robot 坐标在 macOS 走真实 CGEvent；窗口允许置于菜单栏之上（与 Windows 离屏一致），macOS 原生边缘缩放在 FX 宿主窗口关闭（热区会吞掉角落按下，FX 缩放把手收不到事件），本机 scale=1，HiDPI 未验证。
-- `test-clipboard.sh` 由 `tests/native/macos_clipboard_peer.mm` 把共享 NSPasteboard 全部类型按原始字节快照，测试后恢复；pasteboard changeCount 出现测试以外的写入时拒绝恢复并保留快照目录供人工恢复。与 Windows 版相同：不要清空剪贴板换取 PASS。
+- `test-clipboard.sh` 用 macOS 原生对端直接读写共享 NSPasteboard，校验两个方向的实际格式交换。
 - Temurin 25.0.5 aarch64 的 FFM downcall 会随机导致 JVM 崩溃（C2 相关，可在 Godot 之外独立复现）；churn/soak 探针改用 `ps` 采样 RSS、以 `/dev/fd` 计数代替句柄类型统计，判定标准不变。
 - 尚无 macOS 入口的诊断项：`benchmark-*.ps1`、`profile-vfx-*.ps1`、`capture-vfx-reference.ps1`、`repro-hover-manual.ps1`。这些条目的 Windows 结果不能外推为 macOS 证据。
 - 历史窗口组诊断在 macOS 的现状：`test-window-commands.sh`、`test-window-resize.sh`、`test-popup-edge.sh` 在双渲染器通过。`test-window-resize.sh` 修复了两个真实缺陷（判定未变）：宿主 resize 命令原先可能在 `frame_post_draw` 应用，根渲染目标在该帧绘制之后重建导致读回空帧，现含 resize 的批次推迟到下一帧绘制前应用；Metal 上 FX 视口随窗口 resize 立即重建纹理，而根视口每帧先于 FX 视口绘制，会采到一空帧，现 resize 推迟到该尺寸的下一帧 present 并以视口交换过渡（旧视口纹理继续呈现到新视口首帧绘制完成），对 Windows 同为改进。`test-popup-edge.sh` 是探针就绪条件缺陷：FX 先设标题后发原生窗口配置，看到标题当帧原生窗口仍不可见，合成点击落到根窗口触发 autoHide；现等待原生窗口可见再点击。`test-logical-windows.sh`、`test-window-composition.sh`、`test-window-order.sh` 的早期记录来自历史嵌入模型；迁移至独立原生 Stage 后的夹具在 macOS 待复验。`test-window-lifecycle.sh` 在双渲染器通过：macOS 隐藏最后一个可见 FX Stage 会 orderOut 根 NSWindow，`DisplayServerMacOS::window_can_draw` 随之关闭，Godot 跳过 `RenderingServer.draw`、`frame_post_draw` 不再触发（Windows 隐藏窗口继续绘制）；场景等待改为绘制信号与短定时器竞速避免挂起，隐藏态像素断言在 macOS 跳过（隐藏窗口不参与绘制、像素本质不可观测），状态覆盖、清理与资源断言不变。
@@ -118,7 +149,7 @@ macOS 特有判定与限制：
 .\scripts\test-drag-drop-external.ps1 -Runtime
 ```
 
-前置条件为 G+J；`-Runtime` 还要求已构建 `godot-runtime`。脚本编译并启动两个由 `tests/native/dnd_helper.cpp` 编译到 `artifacts/native-tests/dnd_helper.exe` 的 Win32 OLE 端点（一个接受放入的 IDropTarget，一个在按下时发起 DoDragDrop 的源），由 Java 观察器用 Robot 驱动真实鼠标完成三个阶段：向外部进程拖出 text+URL+文件列表、从外部进程拖入三格式数据、Escape 取消拖出。helper 窗口按系统 DPI 缩放放置（FX 逻辑坐标 × 缩放 = 物理像素），均为置顶窗口。观察器在拖出时设置 `Dragboard.setDragView(8×6, 偏移 5,3)`，判定要求 helper 日志记录的放入负载与预期完全一致（含 `application/x-godot-custom-*` 自定义格式双向负载）、DragEnter 日志包含与设置一致的 shell `DragImageBits`（尺寸与偏移，证明拖放预览图经 IDragSourceHelper 注册并可跨进程观察）、源端完成效果为 COPY、观察器打印 `EXTERNAL_DRAG_PROBE_PASS`、宿主打印 `GODOT_EXTERNAL_DRAG_PASS` 且无 ERROR。`-RenderThread`/`-Renderer` 与 `-Jdk` 可用。
+前置条件为 G+J。`-Runtime` 从隔离的场景目录启动同一 DLL。脚本编译并启动两个由 `tests/native/dnd_helper.cpp` 编译到 `artifacts/native-tests/dnd_helper.exe` 的 Win32 OLE 端点（一个接受放入的 IDropTarget，一个在按下时发起 DoDragDrop 的源），由 Java 观察器用 Robot 驱动真实鼠标完成三个阶段：向外部进程拖出 text+URL+文件列表、从外部进程拖入三格式数据、Escape 取消拖出。helper 窗口按系统 DPI 缩放放置（FX 逻辑坐标 × 缩放 = 物理像素），均为置顶窗口。观察器在拖出时设置 `Dragboard.setDragView(8×6, 偏移 5,3)`，判定要求 helper 日志记录的放入负载与预期完全一致（含 `application/x-godot-custom-*` 自定义格式双向负载）、DragEnter 日志包含与设置一致的 shell `DragImageBits`（尺寸与偏移，证明拖放预览图经 IDragSourceHelper 注册并可跨进程观察）、源端完成效果为 COPY、观察器打印 `EXTERNAL_DRAG_PROBE_PASS`、宿主打印 `GODOT_EXTERNAL_DRAG_PASS` 且无 ERROR。`-RenderThread`/`-Renderer` 与 `-Jdk` 可用。
 
 外部探针的 FX 驱动调用设有 10 秒超时，回调异常会使测试失败；退出时停止并回收驱动线程，逐项尝试释放输入、恢复原鼠标位置和关闭窗口，清理失败不输出 PASS。脚本恢复调用前的 helper 坐标环境变量。早期 2026-11-10 记录仅有编译和语法检查；后续已获授权的 Runtime mobile/safe 跨进程实跑通过，含拖入/拖出、自定义负载、预览元数据和取消，日志 `review-drag-request-runtime-external.log`。实际运行仍需有效用户授权和空闲桌面；不据此证明所有外部应用兼容。
 
@@ -176,7 +207,7 @@ macOS 入口为 `./scripts/test-robot.sh [--renderer mobile|gl_compatibility]`�
 .\scripts\test-file-dialog.ps1 -Renderer mobile -StopHost
 ```
 
-前置：G+J，Runtime 模式还需包含对话框实现的 Runtime 源码构建产物，以及可显示窗口的 Windows 交互桌面。可选参数：`-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime`、`-StopHost`。串行运行，不要手动关闭或操作测试对话框。
+两种场景档均需要 G+J 和可显示系统对话框的 Windows 交互桌面。可选参数：`-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime`、`-StopHost`。串行运行，不要手动关闭或操作测试对话框。
 
 常规模式验证单选、多选、保存路径、目录选择、无 owner 取消和关闭 owner 后取消。检查扩展名过滤器对象、打开期间 Pulse 继续、原生窗口所属关系、整个 owner 链禁用及恢复、最终资源清零。脚本在 `artifacts/reference/dialog-fixtures` 创建 a.txt/b.txt 测试文件；保存用例只选择 chosen.new 路径，不写入该文件，该路径应不存在。
 
@@ -188,11 +219,7 @@ macOS 等价入口为 `sh scripts/test-file-dialog.sh`（`--renderer`、`--rende
 
 ## 如何判定通过
 
-剪贴板交换的 `WriteRaw` 在 CloseClipboard 完成后重新加锁，确认所有者仍是
-测试窗口，再记录序列号。Windows 可能在发布收尾时合成格式并推进序列号；
-不能使用关闭前的旧序列号判定恢复，也不能无条件接受关闭后的新序列号。
-恢复仍在锁内要求序列号一致。恢复失败（包括 runspace Invoke 抛错）必须报告
-保留备份路径；只有原始字节恢复验证成功才输出整项通过。
+剪贴板交换通过同步文件协调原生对端与 JavaFX 的读写时序，按双方实际读取的格式和内容判定。
 
 `test-clipboard-ownership.cmd` 包含原生格式枚举错误门禁：用模拟 Win32 调用覆盖
 首项失败、中途失败、成功结果伴随无关旧错误码，以及正常空列表/结束。
@@ -324,8 +351,8 @@ touch keyboard 警告。2026-11-10 当前产物运行返回关闭请求 HRESULT
 | `.\scripts\test-scroll-wheel.ps1 -Renderer gl_compatibility` | 滚轮速率契约：Windows 宿主读取系统 SPI_GETWHEELSCROLLLINES/CHARS，Java 侧按 40px/行换算，与原生 Win Glass 一致；macOS 宿主上报 kind-17 滚动记录（滚轮行 delta / 触控板 pan 点 delta），Java 侧按原生 MacGestureSupport 的 10px 倍率换算，与原生 Mac Glass 一致。前置：G+J。 | 逐事件换算校验，第三次事件分发完成后按三个 delta 累加并限制到可滚动范围，位移误差 ≤0.01 px；要求完整 SCROLL_RESULT、双侧 PASS 且无脚本/Shader 错误。不修改系统滚轮设置。 | `-Jdk`、`-Renderer`、`-RenderThread` |
 | `.\scripts\test-physical-drag.ps1 -Renderer gl_compatibility` | 按下后指针快速逃出窗口的 press-drag-release 连续性（宿主重放按住按钮位、按住期间抑制进出事件）。前置：G+J。默认合成模式：GDScript 按探针标题指令注入按下/移动/释放（坐标冲出窗口边界，等价于光标逃出），不移动真实鼠标、不需要前台；断言拖动/缩放精确跟随路径和（合成坐标无 OS 屏幕钳制）且无中断手势的无按键 MOUSE_MOVED。加 `-Robot` 走 Glass Robot 物理档（需桌面空闲、窗口前台）：覆盖合成无法到达的 OS 投递语义（光标屏幕边缘钳制、WM 进出通知抑制），期望按钳制后的实际光标位置推导。双侧 PASS。 | PHYS_DRAG/PHYS_RESIZE 事件计数与跟随断言、PHYS_TRACE 无 gesture-killer；FX 调用异常传回驱动线程，超时/中断取消尚未执行的任务，关闭后等待驱动线程停止；带按键 MOUSE_EXITED 是 Quantum 拾取变化的标准合成（原生同款），不算中断。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Robot` |
 | `.\scripts\test-window-icon.ps1 -Renderer mobile` | Stage 图标设置、替换和清除。前置：G+J。 | 原生图标像素、透明度、窗口独立性及释放断言。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-clipboard.ps1 -Renderer mobile` | 文本、HTML、RTF、Unicode URL、文件列表(CF_HDROP)、图片(CF_DIB)、ANSI-only URL 回退与自定义格式(application/x-godot-custom-*)的系统剪贴板互通。前置：G+J；见剪贴板特别说明。 | Java/原生数据断言及原内容精确恢复都成功才算通过。 | `-Jdk`、`-Renderer`、`-Runtime` |
-| `.\scripts\test-virtual-keyboard.ps1` | 虚拟键盘 `_requestInput`/`_releaseInput` 到 Windows 触摸键盘(TabTip)的调用链路，正常运行会请求系统键盘。前置：G+J；`-CompileOnly` 只需 J，编译后退出，不调用系统键盘。 | Java 调用不抛异常、宿主 tick 必须实际前进、等待 FX 清理完成后输出 `VIRTUAL_KEYBOARD_PASS`；超时/中断取消尚未运行的任务，退出尝试释放输入请求并关闭 Stage，宿主移除后资源归零。原生失败记首次 WARNING；PASS 不证明 OS 调用成功或键盘可见/关闭，须另行设备验收。后续系统链路已运行，关闭请求出现拒绝访问 HRESULT；详见上文记录，不能以 Java PASS 证明键盘实际关闭。 | `-Jdk`、`-CompileOnly` |
+| `.\scripts\test-clipboard.ps1 -Renderer mobile` | 文本、HTML、RTF、Unicode URL、文件列表(CF_HDROP)、图片(CF_DIB)、ANSI-only URL 回退与自定义格式(application/x-godot-custom-*)的系统剪贴板互通。前置：G+J；见剪贴板特别说明。 | Java 与原生对端的格式、内容断言均通过，宿主正常退出。 | `-Jdk`、`-Renderer`、`-Runtime` |
+| `.\scripts\test-virtual-keyboard.ps1 -Robot` | 虚拟键盘 `_requestInput`/`_releaseInput` 到 Windows 触摸键盘(TabTip)的调用链路，正常运行会请求系统键盘。前置：G+J；`-CompileOnly` 只需 J，编译后退出，不调用系统键盘。 | Java 调用不抛异常、宿主 tick 必须实际前进、等待 FX 清理完成后输出 `VIRTUAL_KEYBOARD_PASS`；超时/中断取消尚未运行的任务，退出尝试释放输入请求并关闭 Stage，宿主移除后资源归零。原生失败记首次 WARNING；PASS 不证明 OS 调用成功或键盘可见/关闭，须另行设备验收。后续系统链路已运行，关闭请求出现拒绝访问 HRESULT；详见上文记录，不能以 Java PASS 证明键盘实际关闭。 | `-Jdk`、`-CompileOnly` |
 | `.\scripts\test-popups.ps1 -Renderer mobile` | 弹出控件的基本显示与交互。前置：G+J。 | Popup 内容、交互和生命周期断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
 | `.\scripts\test-popup-bounds.ps1 -Renderer mobile` | Popup 屏幕边界约束。前置：G+J。 | 位置/边界规则断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
 | `.\scripts\test-popup-edge.ps1 -Renderer mobile` | 靠近边缘时 Popup 定位与自动修正。前置：G+J。 | 边缘放置和 autoFix 相关断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
@@ -418,13 +445,11 @@ touch keyboard 警告。2026-11-10 当前产物运行返回关闭请求 HRESULT
 
 ### 剪贴板
 
-`.\scripts\test-clipboard-encoding.ps1` 使用源码 SDK 与默认 JDK，在 `-Xmx32m` / `MaxDirectMemorySize=96m` 下检查自定义格式 UTF-8、NUL、缓冲区位置/范围保持、只读短序列化字符串、长序列化字符串、伪造长度拒绝，以及 64 MiB 直接缓冲区在复制前被拒绝。还调用 Java 图片尺寸预检，覆盖无效尺寸、16384 单边上限及包含 40 字节 DIB 头的 64 MiB 预算，不实际分配大图片。要求 `CLIPBOARD_ENCODING_PASS`、`CLIPBOARD_IMAGE_BUDGET_PASS` 和正常退出；不启动 Godot、不访问系统剪贴板，不替代实际格式互操作与备份恢复验证。
+`.\scripts\test-clipboard-encoding.ps1` 使用源码 SDK 与默认 JDK，在 `-Xmx32m` / `MaxDirectMemorySize=96m` 下检查自定义格式 UTF-8、NUL、缓冲区位置/范围保持、只读短序列化字符串、长序列化字符串、伪造长度拒绝，以及 64 MiB 直接缓冲区在复制前被拒绝。还调用 Java 图片尺寸预检，覆盖无效尺寸、16384 单边上限及包含 40 字节 DIB 头的 64 MiB 预算，不实际分配大图片。要求 `CLIPBOARD_ENCODING_PASS`、`CLIPBOARD_IMAGE_BUDGET_PASS` 和正常退出；不启动 Godot、不访问系统剪贴板，不替代实际格式互操作验证。
 
 `.\scripts\test-clipboard-snapshot-guard.ps1` 编译快照辅助类，测试注册格式白名单、空 owner、序列号保护和 256 MiB 总预算（精确上限、超限、空块、溢出）；还用一个 4 KiB 临时 HGLOBAL 和抛错字典验证跟踪失败会释放原生块。要求 `CLIPBOARD_SNAPSHOT_GUARD_PASS`、`CLIPBOARD_SNAPSHOT_BUDGET_PASS`、`CLIPBOARD_SNAPSHOT_ALLOCATION_FAILURE_PASS`。需要 Windows 和 PowerShell Add-Type/C# 编译支持，只操作该临时内存，不打开或读写剪贴板，也不启动 Godot；不能据此宣称实际备份恢复通过。
 
-`test-clipboard.ps1` 会实际读写 Windows 剪贴板，先在 STA 线程备份全部可恢复格式（文本/HTML/RTF/URL、CF_HDROP 文件列表、CF_DIB 图片，以及已知可移植的注册格式 HTML Format、Rich Text Format、UniformResourceLocator(W)、application/x-godot-custom-*——按名称记录、恢复时期望同一会话内格式 ID 不变；未知注册格式包括 OLE 私有元数据会拒绝），结束后恢复；它需要 Windows Forms 和测试中的 `ClipboardSnapshot.cs`。存在无法安全备份的格式时，会在写入前拒绝执行。这表示测试未完成，不是接口已经失败或通过。测试还要求会话处于解锁可用状态：若 `OpenClipboard` 对所有进程持续返回 ERROR_ACCESS_DENIED（锁屏/会话异常），脚本同样停在备份阶段且不写入任何系统内容，解锁后重跑即可。
-
-运行期间不要复制新内容。恢复前在持有剪贴板锁时核对序列号，只有与已知发布完成点一致才恢复；不会仅因文本相同或都无文本就覆盖新内容。首次测试写入前将原始格式字节和注册名称保存到 `artifacts/native-tests/clipboard-<随机标识>.ready.backup.clixml`，精确恢复验证成功后删除；恢复被拒绝/失败时保留并报告该路径，供人工恢复。测试早期失败、尚无可信发布完成点时也可能拒绝自动恢复，这表示原内容已备份但恢复未完成。备份可能含原剪贴板的私人数据，不应提交到 Git。不要清空用户剪贴板或绕过保护来获得 PASS；要把应用断言与恢复断言分开记录。
+`test-clipboard.ps1` 在 Windows Forms STA 线程与 JavaFX 之间直接交换文本、HTML、RTF、URL、文件、图片和自定义格式。测试会覆盖现有系统剪贴板，结束后保留测试内容；无需备份、恢复或预先复制纯文本。验收要求两个方向的数据断言、Java 和宿主 PASS 标记及正常退出。
 
 ### Media 数据与生命周期
 
@@ -518,7 +543,8 @@ Media 性能脚本还支持 `-FramePhases`、`-ClockSkew`、`-NoVSync`；后端�
 & "$env:JAVA_HOME/bin/java.exe" --enable-native-access=ALL-UNNAMED -cp artifacts/reference MediaFoundationLifecycleProbe artifacts/reference/media-oracle-sample.mp4
 
 # 只有 Godot 的帧循环，不加载 JavaFX，用于区分宿主自身的节奏
-.\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot --script res://host_frame_probe.gd --rendering-method mobile --render-thread safe
+. .\scripts\godot-fixture.ps1
+Invoke-GodotFixture --path tests/godot --script res://host_frame_probe.gd --rendering-method mobile --render-thread safe
 ```
 
 句柄探针打印自进程类型统计；MF 探针无参数时检查 24 对启动/关闭，传文件时增加 Source Reader 创建/释放，要求 HRESULT 成功及 `MF_LIFECYCLE_PROBE_PASS`。它不读取播放中的全部样本，不代表完整解码链路。宿主帧探针输出配置和 `HOST_FRAME_RESULT`；它不是 JavaFX 性能门槛测试。
@@ -547,7 +573,7 @@ VFX 翻页基准可用 `GODOT_JFX_STACK_SAMPLE` 启用采样；必须是正整�
 
 ### 原生窗口立即关闭竞态
 
-`.\scripts\test-window-immediate-close.ps1` 默认使用 OpenGL / safe，可选 `-Renderer mobile`、`-RenderThread safe`、`-Runtime`。前置 G，Runtime 档还需源码 Runtime，脚本在 artifacts 建立独立项目，并使用源码 Editor 导入生成脚本缓存后运行。连续 32 次创建不可聚焦的原生 Window、切换 VSync 并立即关闭，中间不等待帧或渲染同步；随后等待渲染队列消费。必须有 32 个周期记录、`WINDOW_IMMEDIATE_CLOSE_PASS`、退出码 0 且无 ERROR。日志 `window-immediate-close-<renderer>-<thread>[-runtime].log`。此测试会短暂创建窗口，但不操作真实鼠标或键盘。
+`.\scripts\test-window-immediate-close.ps1` 默认使用 OpenGL / safe，可选 `-Renderer mobile`、`-RenderThread safe`、`-Runtime`。前置条件为 G。Runtime 档在 artifacts 建立独立项目，由源码 Editor 导入后通过发布的 DLL 运行。连续 32 次创建不可聚焦的原生 Window、切换 VSync 并立即关闭，中间不等待帧或渲染同步；随后等待渲染队列消费。必须有 32 个周期记录、`WINDOW_IMMEDIATE_CLOSE_PASS`、退出码 0 且无 ERROR。日志 `window-immediate-close-<renderer>-<thread>[-runtime].log`。此测试会短暂创建窗口，但不操作真实鼠标或键盘。
 
 ## LCD 着色器加载检查
 
@@ -555,16 +581,16 @@ VFX 翻页基准可用 `GODOT_JFX_STACK_SAMPLE` 启用采样；必须是正整�
 
 ## LCD 重叠文字对照
 
-`.\scripts\test-lcd-overlap.ps1 [-RenderThread safe]` 需要源码 Editor、JFX SDK 与 JDK，使用 Vulkan/mobile + Viewport。两次运行分别启用原有 LCDBuffer 路径和屏幕采样路径，绘制同位置错开的蓝/红、绿/黑中英文 LCD 文字。两次都是 Godot 后端，不是原生 D3D 对照。脚本要求每次 Java/宿主完成标记及无错误，截图等待新一帧绘制完成，空图像或 PNG 保存失败立即报错；第二次全图 RGBA 差异不超过 2/255、图像包含足够文字像素，并打印 `LCD_OVERLAP_DIFF_PASS`。日志为 `lcd-overlap-<thread>-0/1.log`，截图为 `lcd-overlap-0/1.png`。退出确认使用 Godot 合成点击，不移动真实鼠标或键盘；测试串行运行，期间保持显示缩放和字体环境一致。该夹具覆盖相邻文字节点重叠，不是全部字体或 LCD 兼容性证明。
+`.\scripts\test-lcd-overlap.ps1 [-RenderThread safe]` 需要 G+J，使用 Vulkan/mobile + Viewport。两次运行分别启用原有 LCDBuffer 路径和屏幕采样路径，绘制同位置错开的蓝/红、绿/黑中英文 LCD 文字。两次都是 Godot 后端，不是原生 D3D 对照。脚本要求每次 Java/宿主完成标记及无错误，截图等待新一帧绘制完成，空图像或 PNG 保存失败立即报错；第二次全图 RGBA 差异不超过 2/255、图像包含足够文字像素，并打印 `LCD_OVERLAP_DIFF_PASS`。日志为 `lcd-overlap-<thread>-0/1.log`，截图为 `lcd-overlap-0/1.png`。退出确认使用 Godot 合成点击，不移动真实鼠标或键盘；测试串行运行，期间保持显示缩放和字体环境一致。该夹具覆盖相邻文字节点重叠，不是全部字体或 LCD 兼容性证明。
 
 ## 已排队纹理版本
 
-`.\scripts\test-queued-texture-update.ps1 [-RenderThread safe]` 使用源码 Editor、SDK、JDK，使用 Viewport＋safe。在一次 Java 命令提交中把红色纹理画入第一目标，结束 pass、将同一逻辑纹理更新为蓝色，再画入第二目标。读回必须分别完整为红/蓝；要求 `QUEUED_TEXTURE_UPDATE_PASS`、`GODOT_QUEUED_TEXTURE_UPDATE_PASS`、正常退出且无错误。日志为 `queued-texture-update-mobile-<thread>.log`。不操作真实输入或系统剪贴板；验证 END_PASS 后尚未消费的纹理版本，不代替所有资源销毁场景。
+`.\scripts\test-queued-texture-update.ps1 [-RenderThread safe]` 需要 G+J，使用 Viewport＋safe。在一次 Java 命令提交中把红色纹理画入第一目标，结束 pass、将同一逻辑纹理更新为蓝色，再画入第二目标。读回必须分别完整为红/蓝；要求 `QUEUED_TEXTURE_UPDATE_PASS`、`GODOT_QUEUED_TEXTURE_UPDATE_PASS`、正常退出且无错误。日志为 `queued-texture-update-mobile-<thread>.log`。不操作真实输入或系统剪贴板；验证 END_PASS 后尚未消费的纹理版本，不代替所有资源销毁场景。
 
 ### 显式 FPS 限制保护
 
 `test-pacing-cap.ps1 -Renderer mobile`（也支持 gl_compatibility、-Jdk）需要源码
-Editor/SDK/JDK。夹具把 Engine.max_fps 设为 30、VSync 设为开启，让 JVM 存活
+G+J。夹具把 Engine.max_fps 设为 30、VSync 设为开启，让 JVM 存活
 6.5 秒，超过回退采样周期；要求设置均未被覆盖、无回退日志、Java 与宿主 PASS。
 结束恢复夹具原设置，无真实键鼠输入。日志 artifacts/logs/pacing-cap-<renderer>-<mode>.log。
 `-Mode cap` 为默认；`-Mode restore` 用每帧 40 ms 的受控延迟触发真实回退，要求
@@ -615,7 +641,7 @@ Java/宿主协议连续复用同一离屏目标：显式红色、参数省略后
 .\scripts\test-queued-texture-update.ps1 -RenderThread safe -BatchBoundary
 ```
 
-沿用该脚本的源码 Editor/SDK 前置条件，固定 Viewport＋safe，覆盖 direct-offscreen 与协议批次边界。
+沿用该脚本的 G+J 前置条件，固定 Viewport＋safe，覆盖 direct-offscreen 与协议批次边界。
 可选模式用真实裁剪命令填满 65536 条命令的批次，观察编码器 count（不修改它），
 检查下一次绘制确实自动提交，再读回 16×16 图像逐像素断言红色与透明裁剪区。
 要求 BATCH_BOUNDARY_PIXELS_PASS、原纹理版本双侧 PASS 以及退出资源归零。

@@ -16,6 +16,8 @@ view.loadScene("res://scenes/effect.tscn");
 root.getChildren().add(view);
 ```
 
+For a Java-launched Windows application, export the custom scenes and their imported dependencies into `META-INF/godot-jfx/scenes.pck` in the application JAR. The embedded scene above then resolves from that pack. An application using only ordinary JavaFX controls can omit the pack. [Library specification](godot-library-spec.md).
+
 Use normal JavaFX layout, transforms, opacity, clipping and sibling order.
 Region insets define the scene content rectangle. Its peer samples a live
 SubViewport texture through Prism-Godot; there is no CPU readback. Scene output

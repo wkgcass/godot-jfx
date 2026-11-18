@@ -6,8 +6,8 @@ JavaFX retains its Application Thread, render jobs, scene graph, controls, CSS
 and FXML. The primary Stage uses the Godot root window; additional Stages use
 independent Godot-owned native windows. GodotView embeds a Godot 2D scene inside
 JavaFX, and GodotShaderEffect applies CanvasItem shaders to individual nodes.
-Windows x64 is the reference platform; a macOS arm64 port is validated with the
-same hosting model (Metal/OpenGL renderers), with its own build steps in
+Windows x64 is the reference platform. The Godot executable host also runs on
+macOS arm64 with Metal/OpenGL renderers, with its own build steps in
 [macOS source builds](docs/build-macos.md) and platform-specific limits in the
 macOS sections of [acceptance status](docs/acceptance-status.md) and
 [TESTS.md](TESTS.md).
@@ -28,6 +28,19 @@ remaining work. The user's remaining white-edge issue is explicitly waived.
 
 ## Build and run
 
+The preferred way to open the full VFX Intro Demo is to run its platform-specific
+Shadow JAR with JDK 25. You can copy the JAR to another directory or machine
+of the same OS and architecture.
+
+```sh
+java -jar artifacts/vfx/libs/vfx-demo.jar
+```
+
+Both `scripts/run-vfx-demo.ps1` and `scripts/run-vfx-demo.sh` launch this JAR
+by default. Add `-Smoke` on Windows or `--smoke` on macOS for a bounded run.
+Build the Windows x64 JAR on Windows and the macOS arm64 JAR on macOS.
+Windows execution is verified; macOS JAR validation is tracked in [TESTS.md](TESTS.md).
+
 Use PowerShell at this directory (macOS uses the shell equivalents in
 [macOS source builds](docs/build-macos.md)). The scripts use JDK 25 from `JAVA_HOME`
 (or an explicit `-Jdk` override), Visual Studio 2022/MSVC, Windows SDK and
@@ -38,10 +51,10 @@ For initial dependency setup and alternate JDK paths, follow
 ```powershell
 .\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule
 .\scripts\build-windows.ps1 -Target godot-runtime -WithJavaFXModule
+.\scripts\build-windows.ps1 -Target godot-library
 .\scripts\build-windows.ps1 -Target jfx
 .\scripts\build-jfx-media.ps1
 .\scripts\build-vfx.ps1
-.\scripts\run-vfx-demo.ps1
 ```
 
 The launcher defaults to Vulkan (`mobile`) with the `safe` render-thread mode.
@@ -55,6 +68,8 @@ remains available to the engine. `-Smoke` runs a bounded startup/close check;
 the normal launcher remains interactive until the Demo is closed.
 
 ## Implementation and delivery map
+
+On Windows x64, a JavaFX application can ship as a single Shadow JAR and start with `java -jar app.jar` on JDK 25. The application's Stage controls the window. A regular application needs no Godot project. An application that embeds a custom GodotView scene can include its resource pack in the same JAR. Build the source SDK and publish its platform artifacts for the application build. [Single-JAR specification](docs/godot-library-spec.md) · [Windows build instructions](docs/build-windows.md#java-launched-library).
 
 | Area | Source / documentation |
 | --- | --- |
@@ -96,8 +111,8 @@ These are rendered viewport captures, not OS desktop screenshots.
 - WebKit support is excluded by the user. Media native SDK build, silent PCM
   and local MP4 MediaView playback pass. Encoded 1080p60 and the documented
   120-player churn pass their bounded acceptance checks; physical audio output,
-  A/V synchronization and broader codec/workload coverage remain unverified. System menus, virtual keyboard,
-  image/file/custom system clipboard formats remain unsupported.
+  A/V synchronization and broader codec/workload coverage remain unverified. System menus and
+  the virtual keyboard remain unsupported.
   Windows native file/directory choosers are implemented; see docs/glass-godot.md
   for validation and the current single-active-chooser limit.
   Application-local drag/drop is implemented; cross-application OLE transfer and
@@ -105,10 +120,9 @@ These are rendered viewport captures, not OS desktop screenshots.
   Robot keyboard/mouse and desktop pixel capture pass Vulkan/OpenGL and packaged
   Vulkan Runtime at 2× DPI. OS-synthesized input also passes the seven application-local
   drag/drop cases; this does not prove cross-application OLE transfer.
-  Unicode URL clipboard support is implemented; integration validation is pending
-  because Windows currently denies clipboard access (error 5).
-  HTML/RTF clipboard application assertions passed, but full clipboard test
-  acceptance with exact restoration remains pending.
+  Windows Editor and Runtime pass direct clipboard exchange with an external peer
+  for text, HTML, RTF, URLs, file lists, bitmap pixels and a custom format.
+  The test overwrites the system clipboard and leaves its final contents in place.
 - Physical IME/device input, mixed-monitor transitions and OS-desktop visual
   acceptance remain incomplete. 3D is outside the requested 2D scope.
 

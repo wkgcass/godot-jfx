@@ -24,6 +24,7 @@
 ```powershell
 .\scripts\build-windows.ps1 -Target godot-editor -WithJavaFXModule
 .\scripts\build-windows.ps1 -Target godot-runtime -WithJavaFXModule
+.\scripts\build-windows.ps1 -Target godot-library
 .\scripts\build-windows.ps1 -Target jfx
 .\scripts\build-jfx-media.ps1
 .\scripts\build-vfx.ps1
@@ -32,10 +33,12 @@
 macOS arm64 在仓库根目录用 shell 执行（工具链准备详见 [build-macos.md](docs/build-macos.md)；JDK 25 在 `.tools/jdk-25`，SCons 在 `.tools/pyenv`，需要 Xcode 与 `xcodebuild -downloadComponent MetalToolchain` 安装的 Metal 工具链）：
 
 ```sh
+export JAVA_HOME="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
 .tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=editor vulkan=no accesskit=no angle=no custom_modules=$PWD/native/godot_modules -j8
 .tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=template_release vulkan=no accesskit=no angle=no custom_modules=$PWD/native/godot_modules -j8
 (cd jfx && JAVA_HOME=$PWD/../.tools/jdk-25/Contents/Home GRADLE_USER_HOME=$PWD/../.gradle-cache ./gradlew sdk -PCOMPILE_MEDIA=true -PCOMPILE_WEBKIT=false --no-daemon)
-./jfx/gradlew -p scripts/vfx-build stageRuntime
+.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=template_release library_type=shared_library extra_suffix=library disable_path_overrides=no vulkan=no accesskit=no angle=no custom_modules="$PWD/native/godot_modules" -j8
+sh scripts/build-vfx.sh
 ```
 
 mac 上 Media 由这一次 Gradle SDK 构建启用（AVFoundation 后端），没有单独的 Media 构建脚本；渲染器 `mobile` 走 Metal 4.0、`gl_compatibility` 走 OpenGL 4.1，未构建 Vulkan（未安装 MoltenVK）。
@@ -47,7 +50,9 @@ mac 上 Media 由这一次 Gradle SDK 构建启用（AVFoundation 后端），�
 ## 运行与常用验证
 
 ```powershell
-# 唯一路径：Viewport + safe；默认渲染器为 Vulkan/mobile，关闭窗口后退出
+# 首选直接启动本平台完整 Demo JAR；两个 run-vfx-demo 脚本默认也启动此 JAR
+java -jar artifacts/vfx/libs/vfx-demo.jar
+# 记录日志，使用 Viewport + safe 和默认 Vulkan/mobile 渲染器
 .\scripts\run-vfx-demo.ps1
 # 有界启动/关闭检查
 .\scripts\run-vfx-demo.ps1 -Smoke
@@ -74,6 +79,8 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 ./scripts/test-vfx-intro.sh --renderer mobile --all-pages
 ```
 
+Windows 场景测试用 classpath 加载本次发布的 Windows 平台 JAR，由同一 Java 进程加载 `godot.dll` 并运行夹具。准备好源码 Editor、Godot 共享库和启用 Media 的 SDK 后，运行 `.\scripts\build-vfx.ps1` 一并刷新发行包。Editor 用于导入/导出资源；`-Runtime` 使用单独的夹具项目目录。Windows 非 Robot 组也包含模块路径、Shadow 和 Demo JAR 消费验收。
+
 按改动范围选测试，详见 TESTS.md。GUI 和性能测试串行运行，保持测试窗口前台，不与构建或其他 GPU 重负载并行。默认 VFX/Media 基准为 Godot；显式 `-Backend d3d` 或 `-NativeD3D` 是原生 JavaFX 对照，不能当作 Godot 验收。
 
 ## 不应破坏的约束
@@ -82,8 +89,8 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 - Java 渲染线程通过有界命令队列传递数据，不能直接修改 Godot Node。不得以每帧整窗 CPU 位图上传替代 GPU 路径；图片、字形掩码、视频平面上传和显式测试读回是不同用途。
 - 资源必须覆盖创建、失败、停止、窗口关闭和销毁路径；已排队的绘制仍需使用原来的纹理版本。队列接受、渲染完成、物理显示是不同事件。
 - 对不支持的能力明确报错并记录，不能静默忽略。用户已放弃白边问题；不要重新把它列为验收阻塞项。
-- 剪贴板测试会操作系统共享状态，应遵守脚本的备份/恢复保护；不能为了跑通而清空用户剪贴板。Media 脚本曾被杀毒软件删除；先核对文件/执行结果，不要自动添加排除项或关闭防护。
-- Robot 类测试（真实移动鼠标/合成键盘输入的物理夹具，如 robot、external、file-dialog，以及 drag-drop/physical-drag/hover-flicker 的 `-Robot` 可选档）会抢占用户输入设备：尽量不新编写此类测试，优先用 Godot 合成输入或模块内测试钩子等免前台模式；运行任何操作真实鼠标/键盘的测试前必须先征得用户同意，因为用户需要停止使用电脑。
+- 剪贴板互操作测试直接读写系统剪贴板，覆盖已有内容，结束后保留测试写入的内容。直接运行，无需备份、恢复或预先复制纯文本。Media 脚本曾被杀毒软件删除；先核对文件/执行结果，不要自动添加排除项或关闭防护。
+- Robot 组包含真实鼠标/键盘输入、系统对话框、原生 IME 移动光标，以及会弹出 Windows 系统触摸键盘的 `test-virtual-keyboard.ps1 -Robot`。执行前须有用户授权；同一会话已明确授权时直接串行执行。非 Robot 组用 `scripts/run-windows-tests.ps1 -Group NonRobot` 选择，虚拟键盘只有 `-CompileOnly` 可以单独做免干扰编译检查。优先使用 Godot 合成输入或模块测试钩子。
 - 构建成功、PASS 标记、GPU 截图和物理设备验收各自证明不同范围。记录后端、参数、日志、图像和限制，不把短期资源稳定宣称为所有场景无泄漏。
 
 ## 文档地图
@@ -93,6 +100,7 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 | [README.md](README.md) | 项目入口、快速构建运行、当前结果摘要 |
 | [TESTS.md](TESTS.md) | 测试用途、前置条件、命令、判定方式 |
 | [architecture.md](docs/architecture.md) | 面向新读者的组件分工、画面和输入流程、线程及资源生命周期 |
+| [godot-library-spec.md](docs/godot-library-spec.md) | Windows 单 JAR 启动、Stage 窗口、GodotView 场景资源及跨平台边界 |
 | [acceptance-status.md](docs/acceptance-status.md) | 初始需求逐项证据、当前缺口、验收限制和交付位置 |
 | [build-windows.md](docs/build-windows.md) | Windows 工具链准备、源码构建、输出路径、Media 依赖 |
 | [build-macos.md](docs/build-macos.md) | macOS arm64 工具链准备、源码构建、输出路径、已知平台限制 |

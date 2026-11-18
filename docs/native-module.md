@@ -185,3 +185,9 @@ RenderingServer `frame_pre_draw` signal (`pre_draw_host_commands`, main thread
 in both render-thread modes), so commands produced in response to the current
 frame's input still affect that frame's presentation; see glass-godot.md for
 the input-side wake-up path.
+
+## Java 启动的 Godot 库
+
+使用 `scripts/build-windows.ps1 -Target godot-library` 将模块编入共享库。在 Windows 引擎线程上，库入口创建并启动 GodotInstance，将 JavaFXHost 挂到 SceneTree 根窗口，注册现有 JVM 的 JNI 方法并运行 iteration。默认的资源文件系统为空；可选的 JAR 场景包在内存中挂载，再由 GodotView 按路径加载。只有显式选择外部工程或主 PCK 才进入 Godot 的工程启动流程。EXE 入口由场景创建宿主并调用 start_jvm。[单 JAR 规格](godot-library-spec.md)
+
+macOS arm64 的共享库入口将同一启动和退出流程调度到 AppKit 主线程，在每帧处理系统窗口事件。构建 VFX Demo 时，`sh scripts/build-vfx.sh` 把本机的 dylib 随应用打入 JAR。[macOS 构建与待验证项](build-macos.md)

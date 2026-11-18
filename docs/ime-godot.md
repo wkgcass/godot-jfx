@@ -6,6 +6,11 @@
 > configurations or acceptance of the current build. See [tests](../TESTS.md)
 > for current commands.
 
+On 2026-11-18 the Windows IME fixture passed twice each on OpenGL and Vulkan
+with safe rendering at 200% scale. It converts the JavaFX button coordinates
+to the displayed child window's pixels before moving the pointer and injecting
+the click that ends composition. The foreground desktop is required for this
+Robot case. [Test classification and commands](../TESTS.md).
 
 Glass-Godot enables the Windows input method context of the corresponding Stage's
 existing Godot HWND when a JavaFX text control accepts input method events. IME

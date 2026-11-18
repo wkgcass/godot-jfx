@@ -269,38 +269,20 @@ ride the `public.html`/`public.rtf` types, file lists round-trip the verbatim
 `NSFilenamesPboardType` property list, and custom formats keep the
 `application/x-godot-custom-*` pasteboard types. HTML offset encoding uses the
 new `GodotHtmlCodec`, because the upstream WinHTMLCodec is excluded from
-non-Windows builds. `scripts/test-clipboard.sh`
-snapshots every pasteboard type as raw bytes through
-`tests/native/macos_clipboard_peer.mm` and restores them afterwards;
-restoration is refused when the pasteboard change count moved beyond the
-test's own writes, and on failure the snapshot directory is kept for manual
-recovery.
-
-`scripts/test-clipboard.ps1` captures supported text, file-list (CF_HDROP),
-image (CF_DIB/DIBV5) and known portable registered formats before any test write.
-Unknown private formats or unsupported native representations cause refusal
-before the test changes the clipboard. The complete snapshot is capped at
-256 MiB. It is saved to a temporary CLIXML backup under artifacts/native-tests;
-clipboard payloads are not printed in routine logs. The runner attempts guarded
-restoration in finally and deletes the backup only after byte verification.
-If ownership changed or restoration cannot be proved, the backup remains for
-recovery instead of overwriting another application's clipboard content. The
+non-Windows builds. The macOS script uses the native pasteboard peer and the
+Windows script uses a Windows Forms STA peer. Both run the two-way exchange
+directly on the system clipboard and leave the final test content in place. The
 probe verifies selected TextField Unicode copy/paste, empty/clear, rejected writes
 preserving existing data, JavaFX-to-Godot DisplayServer text, external-to-JavaFX
 paste, CF_HDROP path round-trip, CF_DIB pixel round-trip, ANSI-only URL read
 fallback and `application/x-godot-custom-*` round-trip. A .NET peer
 independently checks CF_HTML byte offsets/Chinese/emoji and
-RTF, then publishes all three formats for JavaFX to read. The peer and clipboard
-snapshot/restore share one STA thread; publication handshakes avoid racing OLE
+RTF, then publishes all three formats for JavaFX to read. Publication handshakes avoid racing OLE
 flush with repeated reads. Windows clipboard transients are retried within the
 same assertions: the peer re-reads a null `Clipboard.GetDataObject()`
 (documented while another process holds the clipboard) and the Godot scene
 re-reads `DisplayServer.clipboard_get()` for up to two seconds before failing.
-Historical Vulkan/safe and packaged Runtime runs passed with exact restoration
-of snapshotted formats. Later guarded interop runs also passed; the latest
-post-snapshot-change attempt refused an unknown Chromium private format before
-writing. That refusal leaves the latest complete interop rerun unverified,
-although offline encoding/ownership/guard tests passed.
+
 
 IME enablement, candidate positioning, ordered preedit, character commit,
 cancellation and bounded focus completion are now implemented. The TextField
@@ -757,15 +739,6 @@ the complete list is accepted. ANSI conversion writes into final string
 storage rather than a temporary wstring. Existing path-count/length limits
 remain; malformed clipboard data raises an error and malformed OLE file data
 is rejected as that format.
-
-The system clipboard test now keeps a disk snapshot before its first write and
-checks the clipboard sequence under the restoration lock. It refuses restoration
-if the sequence differs from its known publication checkpoint (or is unavailable),
-including changes with identical/absent text. Unknown private registered formats
-are refused before writes. Failed/unproven restoration retains the original
-CLIXML backup; only successful byte verification removes it. An early test
-failure can therefore leave restoration pending rather than overwrite content
-whose ownership is uncertain.
 
 OLE DataObject SetData replacements take precedence over initial source data,
 and enumeration lists each format once. A replaced medium is detached to a

@@ -48,25 +48,36 @@ Products are in `jfx/build/sdk`; native libraries are `.dylib` files under
 `lib/` (not `bin/` as on Windows). The host's `java.library.path` already
 branches per platform.
 
-## VFX Demo classes
+## Build the VFX Demo JAR
 
 ```sh
-./jfx/gradlew -p scripts/vfx-build stageRuntime
+export JAVA_HOME="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=template_release library_type=shared_library extra_suffix=library disable_path_overrides=no vulkan=no accesskit=no angle=no custom_modules="$PWD/native/godot_modules" -j8
+sh scripts/build-vfx.sh
 ```
 
-Products land in `artifacts/vfx` (classes, resources and dependencies), the
-same layout the Windows `build-vfx.ps1` produces.
+This packages the local Media-enabled SDK, Godot dylib, VFX resources and Intro
+pages in `artifacts/vfx/libs/vfx-demo.jar`. The loose classes, resources and
+dependencies under `artifacts/vfx` also serve the executable-host fixtures.
 
 ## Running the VFX Demo
 
 ```sh
-scripts/run-vfx-demo.sh                                  # interactive; mobile (Metal) + safe
+java -jar artifacts/vfx/libs/vfx-demo.jar               # preferred interactive launch
+scripts/run-vfx-demo.sh                                  # same JAR, logs to artifacts/logs
 scripts/run-vfx-demo.sh --smoke                          # bounded startup/close check
 scripts/run-vfx-demo.sh --renderer gl_compatibility      # OpenGL 4.1
 scripts/run-vfx-demo.sh --disable-vsync --max-fps 60     # CPU pacing instead of swapchain vsync
 ```
 
-`scripts/run-vfx-demo.sh` is the macOS equivalent of `run-vfx-demo.ps1`.
+`--executable-host` selects the existing Godot editor fixture explicitly.
+The new JAR path needs validation on macOS arm64, including Metal, OpenGL,
+AppKit thread ownership and clean window close. [Pending checks](../TESTS.md).
+
+Use the ordinary JDK launcher. On macOS JDK 25 it runs the Java entry point
+on a worker and services a Cocoa run loop on the first thread. The library
+schedules the Godot window and event loop on that first thread.
+[OpenJDK macOS launcher](https://github.com/openjdk/jdk25u/blob/master/src/java.base/macosx/native/libjli/java_md_macosx.m).
 Test entries are the same-named `scripts/test-*.sh` runners; see
 [TESTS.md](../TESTS.md) for the macOS section, prerequisites and the
 Windows-only entries that do not apply.
