@@ -69,11 +69,13 @@ struct UpcallState {
 		bridge = type;
 		callback = method;
 	}
-	void close() {
+	jclass close() {
 		std::lock_guard<std::mutex> lock(mutex);
+		jclass retained = bridge;
 		jvm = nullptr;
 		bridge = nullptr;
 		callback = nullptr;
+		return retained;
 	}
 };
 

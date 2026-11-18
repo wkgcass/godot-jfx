@@ -28,7 +28,11 @@ class TextureRect;
 class JavaFXHost : public JavaFXWindowSurface {
 	GDCLASS(JavaFXHost, JavaFXWindowSurface);
 	std::shared_ptr<godot_javafx::Runtime> runtime;
+#ifdef LIBGODOT_ENABLED
+	JavaVM *borrowed_vm = nullptr;
+#endif
 	std::thread worker;
+	void prepare_runtime(const String &startup);
 	uint64_t applied_sequence = 0;
 	bool reported_failure = false;
 	bool previous_auto_accept_quit = true;
@@ -183,6 +187,11 @@ protected:
 	void input(const Ref<InputEvent> &p_event) override;
 
 public:
+#ifdef LIBGODOT_ENABLED
+	static bool claim_library();
+	bool connect_jvm(JNIEnv *env, jclass bridge, const String &startup);
+	bool is_jvm_connected() const { return borrowed_vm != nullptr; }
+#endif
 	bool create_native_window(int64_t p_id, int64_t p_owner, const Rect2i &p_bounds, const String &p_title, int p_flags);
 	bool configure_native_window(int64_t p_id, const Rect2i &p_bounds, bool p_visible);
 	bool set_native_window_property(int64_t p_id, int p_property, int p_a, int p_b, const String &p_text);

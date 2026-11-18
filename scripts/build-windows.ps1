@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('godot-editor', 'godot-runtime', 'jfx')]
+    [ValidateSet('godot-editor', 'godot-runtime', 'godot-library', 'jfx')]
     [string]$Target = 'godot-editor',
     [string]$Jdk = $env:JAVA_HOME,
     [string]$VisualStudio = $(if ($env:VSINSTALLDIR) { $env:VSINSTALLDIR } else { Join-Path $env:ProgramFiles 'Microsoft Visual Studio/2022/Community' }),
@@ -11,6 +11,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $logs = Join-Path $root 'artifacts/logs'
 New-Item -ItemType Directory -Force $logs | Out-Null
+$WithJavaFXModule = $WithJavaFXModule -or $Target -eq 'godot-library'
 $suffix = if ($WithJavaFXModule) { '-javafx' } else { '' }
 $log = Join-Path $logs "$Target$suffix.log"
 $saved = @{}
@@ -33,6 +34,9 @@ try {
         $deps = Join-Path $root '.tools/localappdata/Godot/build_deps'
         $godotTarget = if ($Target -eq 'godot-editor') { 'editor' } else { 'template_release' }
         $moduleArgs = @()
+        if ($Target -eq 'godot-library') {
+            $moduleArgs += @('library_type=shared_library', 'disable_path_overrides=no', 'extra_suffix=library', 'windows_subsystem=console')
+        }
         if ($WithJavaFXModule) {
             if (!(Test-Path "$Jdk/include/jni.h")) { throw "Missing JDK JNI headers: $Jdk" }
             $env:JAVA_HOME = $Jdk

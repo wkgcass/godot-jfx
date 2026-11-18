@@ -8,6 +8,7 @@
 
 #include "core/io/file_access.h"
 #include "core/config/engine.h"
+#include "core/config/project_settings.h"
 #include "core/input/input.h"
 #include "core/input/input_event.h"
 #include "core/object/class_db.h"
@@ -43,6 +44,7 @@
 #include <jni.h>
 #include <atomic>
 #include <array>
+#include <shared_mutex>
 
 namespace godot_javafx {
 
@@ -125,7 +127,12 @@ struct Runtime {
 // HotSpot does not support creating another VM after destroying one. Explicitly
 // reject restart instead of leaving a stale native registration behind.
 static std::atomic<bool> jvm_started{ false };
-static Runtime *jni_runtime = nullptr; // Valid until DestroyJavaVM has returned.
+static Runtime *jni_runtime = nullptr;
+#if defined(LIBGODOT_ENABLED)
+static std::shared_mutex bridge_lifetime;
+static std::atomic<bool> bridge_open{ false };
+static std::atomic<bool> library_claimed{ false };
+#endif
 
 struct JniSample {
 	std::atomic<uint64_t> &elapsed;
@@ -750,6 +757,145 @@ static void *jvm_create_symbol(JvmLibrary p_library) { return dlsym(p_library, "
 static void jvm_unload(JvmLibrary p_library) { dlclose(p_library); }
 #endif
 
+// Library callers may outlive the SceneTree. Close admission before waiting
+// for outstanding JNI operations, after waking queue and readback waiters.
+#if defined(LIBGODOT_ENABLED)
+template <auto Method, bool TickWait> struct GuardedBridgeMethod;
+template <bool TickWait, typename Result, typename... Args, Result (JNICALL *Method)(JNIEnv *, jclass, Args...)>
+struct GuardedBridgeMethod<Method, TickWait> {
+    static Result JNICALL invoke(JNIEnv *env, jclass type, Args... args) {
+        std::shared_lock lock(bridge_lifetime);
+        if (!bridge_open.load()) {
+            if constexpr (TickWait) return -1;
+            throw_java(env, "java/lang/IllegalStateException", "Godot host is stopped");
+            return Result();
+        }
+        return Method(env, type, args...);
+    }
+};
+#endif
+
+template <auto Method, bool TickWait = false> static void *bridge_method() {
+#if defined(LIBGODOT_ENABLED)
+    return reinterpret_cast<void *>(&GuardedBridgeMethod<Method, TickWait>::invoke);
+#else
+    return reinterpret_cast<void *>(Method);
+#endif
+}
+
+static void register_bridge(std::shared_ptr<Runtime> runtime, JavaVM *vm, JNIEnv *env, jclass bridge) {
+	JNINativeMethod methods[] = {
+        { const_cast<char *>("dialogSubmit"), const_cast<char *>("(JILjava/lang/String;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;I)V"), bridge_method<&dialog_submit>() },
+        { const_cast<char *>("dialogPoll"), const_cast<char *>("()[Ljava/lang/String;"), bridge_method<&dialog_poll>() },
+        { const_cast<char *>("dialogCancel"), const_cast<char *>("()V"), bridge_method<&dialog_cancel>() },
+        { const_cast<char *>("robotMove"), const_cast<char *>("(II)V"), bridge_method<&platform_robot::move>() },
+        { const_cast<char *>("robotPosition"), const_cast<char *>("()[I"), bridge_method<&platform_robot::position>() },
+        { const_cast<char *>("robotCapture"), const_cast<char *>("(IIII)[I"), bridge_method<&platform_robot::capture>() },
+        { const_cast<char *>("clipboardWriteFormats"), const_cast<char *>("(Ljava/lang/String;[B[B)V"), bridge_method<&clipboard_write_formats>() },
+        { const_cast<char *>("clipboardWriteUrlFormats"), const_cast<char *>("(Ljava/lang/String;[B[BLjava/lang/String;)V"), bridge_method<&clipboard_write_url_formats>() },
+        { const_cast<char *>("clipboardReadUrl"), const_cast<char *>("()Ljava/lang/String;"), bridge_method<&clipboard_read_url>() },
+        { const_cast<char *>("clipboardReadRich"), const_cast<char *>("(I)[B"), bridge_method<&clipboard_read_rich>() },
+        { const_cast<char *>("clipboardWriteFull"), const_cast<char *>("(Ljava/lang/String;[B[BLjava/lang/String;[Ljava/lang/String;[III[Ljava/lang/String;[[B)V"), bridge_method<&clipboard_write_full>() },
+        { const_cast<char *>("clipboardReadFiles"), const_cast<char *>("()[Ljava/lang/String;"), bridge_method<&clipboard_read_files>() },
+        { const_cast<char *>("clipboardReadImage"), const_cast<char *>("()[I"), bridge_method<&clipboard_read_image>() },
+        { const_cast<char *>("clipboardReadCustom"), const_cast<char *>("(Ljava/lang/String;)[B"), bridge_method<&clipboard_read_custom>() },
+        { const_cast<char *>("clipboardCustomFormats"), const_cast<char *>("()[Ljava/lang/String;"), bridge_method<&clipboard_custom_formats>() },
+        { const_cast<char *>("clipboardFormats"), const_cast<char *>("()I"), bridge_method<&clipboard_formats>() },
+		{ const_cast<char *>("windowIcon"), const_cast<char *>("(JII[B)J"), bridge_method<&window_icon>() },
+		{ const_cast<char *>("customCursor"), const_cast<char *>("(IIII[B)I"), bridge_method<&custom_cursor>() },
+		{ const_cast<char *>("readPixels"), const_cast<char *>("(JJIIII)[I"), bridge_method<&read_pixels>() },
+		{ const_cast<char *>("nativeWindowCommand"), const_cast<char *>("(JJIIIIIIZLjava/lang/String;)J"), bridge_method<&native_window_command>() },
+		{ const_cast<char *>("nativeWindowInfo"), const_cast<char *>("(J)[J"), bridge_method<&native_window_info>() },
+		{ const_cast<char *>("nativeWindowAck"), const_cast<char *>("()J"), bridge_method<&native_window_ack>() },
+		{ const_cast<char *>("isShutdownDrained"), const_cast<char *>("()Z"), bridge_method<&is_shutdown_drained>() },
+		{ const_cast<char *>("submit"), const_cast<char *>("(Ljava/nio/ByteBuffer;I)Z"), bridge_method<&submit>() },
+		{ const_cast<char *>("awaitTick"), const_cast<char *>("(JI)J"), bridge_method<&await_tick, true>() },
+		{ const_cast<char *>("awaitFrameTick"), const_cast<char *>("(JI)J"), bridge_method<&await_frame_tick, true>() },
+		{ const_cast<char *>("awaitInputTick"), const_cast<char *>("(JI)J"), bridge_method<&await_input_tick, true>() },
+		{ const_cast<char *>("hostInfo"), const_cast<char *>("()[I"), bridge_method<&host_info>() },
+		{ const_cast<char *>("screenInfo"), const_cast<char *>("()[I"), bridge_method<&screen_info>() },
+		{ const_cast<char *>("hostCommand"), const_cast<char *>("(IIILjava/lang/String;)I"), bridge_method<&host_command>() },
+        { const_cast<char *>("pollInput"), const_cast<char *>("()[D"), bridge_method<&poll_input>() },
+		{ const_cast<char *>("pollWindowInputV2"), const_cast<char *>("()[D"), bridge_method<&poll_window_input>() },
+        { const_cast<char *>("clipboardReadText"), const_cast<char *>("()Ljava/lang/String;"), bridge_method<&clipboard_read_text>() },
+        { const_cast<char *>("dragStartExternal"), const_cast<char *>("(Ljava/lang/String;[B[BLjava/lang/String;[Ljava/lang/String;[Ljava/lang/String;[[B[B[BIIJ)V"), bridge_method<&drag_start_external>() }
+	};
+    if (!bridge || env->RegisterNatives(bridge, methods, sizeof(methods) / sizeof(methods[0])) != JNI_OK) {
+		if (env->ExceptionCheck()) { env->ExceptionDescribe(); env->ExceptionClear(); }
+		runtime->fail("Cannot register GodotBridge in the source-built JavaFX graphics module");
+	} else {
+		// OLE drag target callbacks on the Godot main thread re-enter Java through
+		// this one static method; keep a global reference for the VM lifetime.
+		jclass bridge_global = reinterpret_cast<jclass>(env->NewGlobalRef(bridge));
+		jmethodID drag_callback = bridge_global
+				? env->GetStaticMethodID(bridge, "dragTargetCallback", "(IJIIIILjava/lang/String;Ljava/lang/String;[B[BLjava/lang/String;Ljava/lang/String;[Ljava/lang/String;[[B)I")
+				: nullptr;
+		if (!bridge_global || !drag_callback) {
+			if (env->ExceptionCheck()) { env->ExceptionDescribe(); env->ExceptionClear(); }
+			if (bridge_global) env->DeleteGlobalRef(bridge_global);
+			runtime->fail("Cannot resolve the GodotBridge drag/drop target callback");
+		} else {
+			runtime->drag_upcall.publish(vm, bridge_global, drag_callback);
+		}
+	}
+    if (runtime->status.load() != RuntimeStatus::FAILED) {
+        jni_runtime = runtime.get();
+#if defined(LIBGODOT_ENABLED)
+        bridge_open.store(true);
+#endif
+    }
+}
+
+static void launch_application(std::shared_ptr<Runtime> runtime, JNIEnv *env, jclass bridge, const std::string &main_class) {
+	if (bridge && runtime->status.load() != RuntimeStatus::FAILED) {
+		jmethodID launch = env->GetStaticMethodID(bridge, "launch", "(Ljava/lang/String;)V");
+		jstring name = launch ? env->NewStringUTF(main_class.c_str()) : nullptr;
+		if (launch && name) {
+			runtime->status.store(RuntimeStatus::RUNNING);
+			runtime->java_launch_upcalls.fetch_add(1, std::memory_order_relaxed);
+			env->CallStaticVoidMethod(bridge, launch, name);
+		}
+		if (env->ExceptionCheck()) {
+			env->ExceptionDescribe();
+			env->ExceptionClear();
+			runtime->fail("Java application failed; see JVM exception in the host log");
+		}
+		if (name) env->DeleteLocalRef(name);
+	}
+}
+
+#if defined(WINDOWS_ENABLED) && defined(LIBGODOT_ENABLED)
+// Only the thread driving a scene fixture can lend its JVM to a scene-owned host.
+thread_local JNIEnv *scene_env = nullptr;
+
+static void run_scene_application(std::shared_ptr<Runtime> runtime, JavaVM *vm, std::string main_class) {
+	JNIEnv *env = nullptr;
+	JavaVMAttachArgs args{ JNI_VERSION_1_8, const_cast<char *>("main"), nullptr };
+	if (vm->AttachCurrentThread(reinterpret_cast<void **>(&env), &args) != JNI_OK) {
+		runtime->fail("Could not attach scene application thread");
+		return;
+	}
+	jclass bridge = env->FindClass("com/sun/javafx/tk/godot/GodotBridge");
+	register_bridge(runtime, vm, env, bridge);
+	launch_application(runtime, env, bridge, main_class);
+	if (runtime->status.load() == RuntimeStatus::FAILED) {
+		runtime->queue.stop();
+		runtime->native_window_transport.stop();
+	} else {
+		runtime->queue.finish();
+		runtime->native_window_transport.finish();
+	}
+	bridge_open.store(false);
+	if (jclass retained = runtime->drag_upcall.close()) env->DeleteGlobalRef(retained);
+	{
+		std::unique_lock lock(bridge_lifetime);
+		jni_runtime = nullptr;
+	}
+	vm->DetachCurrentThread();
+	if (runtime->status.load() != RuntimeStatus::FAILED) runtime->status.store(RuntimeStatus::FINISHED);
+}
+#endif
+
 static void run_jvm(std::shared_ptr<Runtime> runtime, String library,
 		std::vector<std::string> arguments, std::string main_class) {
 	// No Godot Node, RenderingServer, String or logging API is used on this
@@ -786,79 +932,12 @@ static void run_jvm(std::shared_ptr<Runtime> runtime, String library,
 		// installed process callbacks. The OS reclaims the library on exit.
 		return;
 	}
-	jni_runtime = runtime.get();
 	jclass bridge = env->FindClass("com/sun/javafx/tk/godot/GodotBridge");
-	JNINativeMethod methods[] = {
-        { const_cast<char *>("dialogSubmit"), const_cast<char *>("(JILjava/lang/String;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;I)V"), reinterpret_cast<void *>(&dialog_submit) },
-        { const_cast<char *>("dialogPoll"), const_cast<char *>("()[Ljava/lang/String;"), reinterpret_cast<void *>(&dialog_poll) },
-        { const_cast<char *>("dialogCancel"), const_cast<char *>("()V"), reinterpret_cast<void *>(&dialog_cancel) },
-        { const_cast<char *>("robotMove"), const_cast<char *>("(II)V"), reinterpret_cast<void *>(&platform_robot::move) },
-        { const_cast<char *>("robotPosition"), const_cast<char *>("()[I"), reinterpret_cast<void *>(&platform_robot::position) },
-        { const_cast<char *>("robotCapture"), const_cast<char *>("(IIII)[I"), reinterpret_cast<void *>(&platform_robot::capture) },
-        { const_cast<char *>("clipboardWriteFormats"), const_cast<char *>("(Ljava/lang/String;[B[B)V"), reinterpret_cast<void *>(&clipboard_write_formats) },
-        { const_cast<char *>("clipboardWriteUrlFormats"), const_cast<char *>("(Ljava/lang/String;[B[BLjava/lang/String;)V"), reinterpret_cast<void *>(&clipboard_write_url_formats) },
-        { const_cast<char *>("clipboardReadUrl"), const_cast<char *>("()Ljava/lang/String;"), reinterpret_cast<void *>(&clipboard_read_url) },
-        { const_cast<char *>("clipboardReadRich"), const_cast<char *>("(I)[B"), reinterpret_cast<void *>(&clipboard_read_rich) },
-        { const_cast<char *>("clipboardWriteFull"), const_cast<char *>("(Ljava/lang/String;[B[BLjava/lang/String;[Ljava/lang/String;[III[Ljava/lang/String;[[B)V"), reinterpret_cast<void *>(&clipboard_write_full) },
-        { const_cast<char *>("clipboardReadFiles"), const_cast<char *>("()[Ljava/lang/String;"), reinterpret_cast<void *>(&clipboard_read_files) },
-        { const_cast<char *>("clipboardReadImage"), const_cast<char *>("()[I"), reinterpret_cast<void *>(&clipboard_read_image) },
-        { const_cast<char *>("clipboardReadCustom"), const_cast<char *>("(Ljava/lang/String;)[B"), reinterpret_cast<void *>(&clipboard_read_custom) },
-        { const_cast<char *>("clipboardCustomFormats"), const_cast<char *>("()[Ljava/lang/String;"), reinterpret_cast<void *>(&clipboard_custom_formats) },
-        { const_cast<char *>("clipboardFormats"), const_cast<char *>("()I"), reinterpret_cast<void *>(&clipboard_formats) },
-		{ const_cast<char *>("windowIcon"), const_cast<char *>("(JII[B)J"), reinterpret_cast<void *>(&window_icon) },
-		{ const_cast<char *>("customCursor"), const_cast<char *>("(IIII[B)I"), reinterpret_cast<void *>(&custom_cursor) },
-		{ const_cast<char *>("readPixels"), const_cast<char *>("(JJIIII)[I"), reinterpret_cast<void *>(&read_pixels) },
-		{ const_cast<char *>("nativeWindowCommand"), const_cast<char *>("(JJIIIIIIZLjava/lang/String;)J"), reinterpret_cast<void *>(&native_window_command) },
-		{ const_cast<char *>("nativeWindowInfo"), const_cast<char *>("(J)[J"), reinterpret_cast<void *>(&native_window_info) },
-		{ const_cast<char *>("nativeWindowAck"), const_cast<char *>("()J"), reinterpret_cast<void *>(&native_window_ack) },
-		{ const_cast<char *>("isShutdownDrained"), const_cast<char *>("()Z"), reinterpret_cast<void *>(&is_shutdown_drained) },
-		{ const_cast<char *>("submit"), const_cast<char *>("(Ljava/nio/ByteBuffer;I)Z"), reinterpret_cast<void *>(&submit) },
-		{ const_cast<char *>("awaitTick"), const_cast<char *>("(JI)J"), reinterpret_cast<void *>(&await_tick) },
-		{ const_cast<char *>("awaitFrameTick"), const_cast<char *>("(JI)J"), reinterpret_cast<void *>(&await_frame_tick) },
-		{ const_cast<char *>("awaitInputTick"), const_cast<char *>("(JI)J"), reinterpret_cast<void *>(&await_input_tick) },
-		{ const_cast<char *>("hostInfo"), const_cast<char *>("()[I"), reinterpret_cast<void *>(&host_info) },
-		{ const_cast<char *>("screenInfo"), const_cast<char *>("()[I"), reinterpret_cast<void *>(&screen_info) },
-		{ const_cast<char *>("hostCommand"), const_cast<char *>("(IIILjava/lang/String;)I"), reinterpret_cast<void *>(&host_command) },
-        { const_cast<char *>("pollInput"), const_cast<char *>("()[D"), reinterpret_cast<void *>(&poll_input) },
-		{ const_cast<char *>("pollWindowInputV2"), const_cast<char *>("()[D"), reinterpret_cast<void *>(&poll_window_input) },
-        { const_cast<char *>("clipboardReadText"), const_cast<char *>("()Ljava/lang/String;"), reinterpret_cast<void *>(&clipboard_read_text) },
-        { const_cast<char *>("dragStartExternal"), const_cast<char *>("(Ljava/lang/String;[B[BLjava/lang/String;[Ljava/lang/String;[Ljava/lang/String;[[B[B[BIIJ)V"), reinterpret_cast<void *>(&drag_start_external) }
-	};
-    if (!bridge || env->RegisterNatives(bridge, methods, sizeof(methods) / sizeof(methods[0])) != JNI_OK) {
-		if (env->ExceptionCheck()) { env->ExceptionDescribe(); env->ExceptionClear(); }
-		runtime->fail("Cannot register GodotBridge in the source-built JavaFX graphics module");
-	} else {
-		// OLE drag target callbacks on the Godot main thread re-enter Java through
-		// this one static method; keep a global reference for the VM lifetime.
-		jclass bridge_global = reinterpret_cast<jclass>(env->NewGlobalRef(bridge));
-		jmethodID drag_callback = bridge_global
-				? env->GetStaticMethodID(bridge, "dragTargetCallback", "(IJIIIILjava/lang/String;Ljava/lang/String;[B[BLjava/lang/String;Ljava/lang/String;[Ljava/lang/String;[[B)I")
-				: nullptr;
-		if (!bridge_global || !drag_callback) {
-			if (env->ExceptionCheck()) { env->ExceptionDescribe(); env->ExceptionClear(); }
-			runtime->fail("Cannot resolve the GodotBridge drag/drop target callback");
-		} else {
-			runtime->drag_upcall.publish(vm, bridge_global, drag_callback);
-		}
-	}
-	if (bridge && runtime->status.load() != RuntimeStatus::FAILED) {
-		jmethodID launch = env->GetStaticMethodID(bridge, "launch", "(Ljava/lang/String;)V");
-		jstring name = launch ? env->NewStringUTF(main_class.c_str()) : nullptr;
-		if (launch && name) {
-			runtime->status.store(RuntimeStatus::RUNNING);
-			runtime->java_launch_upcalls.fetch_add(1, std::memory_order_relaxed);
-			env->CallStaticVoidMethod(bridge, launch, name);
-		}
-		if (env->ExceptionCheck()) {
-			env->ExceptionDescribe();
-			env->ExceptionClear();
-			runtime->fail("Java application failed; see JVM exception in the host log");
-		}
-		if (name) env->DeleteLocalRef(name);
-	}
+	register_bridge(runtime, vm, env, bridge);
+	launch_application(runtime, env, bridge, main_class);
 	// Wait for any admitted callback to finish, then reject all later entries.
-	// The global reference itself is reclaimed by VM destruction.
-	runtime->drag_upcall.close();
+	// Release the global reference while the VM is still available.
+	if (jclass retained = runtime->drag_upcall.close()) env->DeleteGlobalRef(retained);
 	if (bridge) env->DeleteLocalRef(bridge);
 	if (runtime->status.load() == RuntimeStatus::FAILED) runtime->queue.stop();
 	else runtime->queue.finish();
@@ -956,14 +1035,7 @@ Dictionary JavaFXHost::get_render_stats() const {
 	return stats;
 }
 
-bool JavaFXHost::start_jvm(const String &p_jdk, const String &p_sdk, const String &p_classpath, const String &p_main_class) {
-	ERR_FAIL_COND_V(!Thread::is_main_thread() || !is_inside_tree() || runtime, false);
-	ERR_FAIL_COND_V_MSG(!RenderingServer::get_singleton()->is_on_render_thread(), false,
-			"JavaFX hosting requires --render-thread safe; separate is unsupported.");
-	String library = godot_javafx::jvm_library_path(p_jdk);
-	ERR_FAIL_COND_V_MSG(!FileAccess::exists(library), false, "Installed JDK " + String(godot_javafx::jvm_library_name()) + " not found.");
-	ERR_FAIL_COND_V_MSG(!FileAccess::exists(p_sdk.path_join("lib/javafx.graphics.jar")), false, "Source-built JavaFX SDK not found.");
-	ERR_FAIL_COND_V_MSG(godot_javafx::jvm_started.exchange(true), false, "Only one JVM lifecycle is supported per Godot process.");
+void JavaFXHost::prepare_runtime(const String &startup) {
 	runtime = std::make_shared<godot_javafx::Runtime>();
 	profile_commands = OS::get_singleton()->get_environment("GODOT_JFX_PROFILE_COMMANDS") == "1";
 	gpu_timing_enabled = OS::get_singleton()->get_environment("GODOT_JFX_GPU_TIMING") == "1";
@@ -971,6 +1043,55 @@ bool JavaFXHost::start_jvm(const String &p_jdk, const String &p_sdk, const Strin
 	previous_auto_accept_quit = get_tree()->is_auto_accept_quit();
 	get_tree()->set_auto_accept_quit(false);
 	refresh_host_info();
+	previous_default_cursor_shape = int(Input::get_singleton()->get_default_cursor_shape());
+	default_cursor_state_saved = true;
+	startup_enabled = startup == "logo" || startup == "hidden";
+	startup_logo_enabled = startup == "logo";
+	set_process(true);
+	set_process_input(true);
+}
+
+#if defined(LIBGODOT_ENABLED)
+bool JavaFXHost::connect_jvm(JNIEnv *env, jclass bridge, const String &startup) {
+    ERR_FAIL_COND_V(!Thread::is_main_thread() || !is_inside_tree() || runtime, false);
+    ERR_FAIL_COND_V(!RenderingServer::get_singleton()->is_on_render_thread(), false);
+    JavaVM *vm = nullptr;
+    if (env->GetJavaVM(&vm) != JNI_OK) return false;
+    borrowed_vm = vm;
+    prepare_runtime(startup);
+    godot_javafx::register_bridge(runtime, vm, env, bridge);
+    if (runtime->status.load() == godot_javafx::RuntimeStatus::FAILED) return false;
+    runtime->status.store(godot_javafx::RuntimeStatus::RUNNING);
+    return true;
+}
+
+bool JavaFXHost::claim_library() {
+    return !godot_javafx::library_claimed.exchange(true);
+}
+#endif
+
+bool JavaFXHost::start_jvm(const String &p_jdk, const String &p_sdk, const String &p_classpath, const String &p_main_class) {
+	ERR_FAIL_COND_V(!Thread::is_main_thread() || !is_inside_tree() || runtime, false);
+	ERR_FAIL_COND_V_MSG(!RenderingServer::get_singleton()->is_on_render_thread(), false,
+			"JavaFX hosting requires --render-thread safe; separate is unsupported.");
+#if defined(WINDOWS_ENABLED) && defined(LIBGODOT_ENABLED)
+	if (JNIEnv *env = godot_javafx::scene_env) {
+		ERR_FAIL_COND_V(godot_javafx::jvm_started.exchange(true), false);
+		JavaVM *vm = nullptr;
+		ERR_FAIL_COND_V(env->GetJavaVM(&vm) != JNI_OK, false);
+		prepare_runtime(OS::get_singleton()->get_environment("GODOT_JFX_STARTUP"));
+		worker = std::thread(godot_javafx::run_scene_application, runtime, vm, std::string(p_main_class.utf8().get_data()));
+		return true;
+	}
+#endif
+#ifdef LIBGODOT_ENABLED
+    ERR_FAIL_COND_V_MSG(godot_javafx::library_claimed.load(), false, "The Java launcher already owns the JVM.");
+#endif
+	String library = godot_javafx::jvm_library_path(p_jdk);
+	ERR_FAIL_COND_V_MSG(!FileAccess::exists(library), false, "Installed JDK " + String(godot_javafx::jvm_library_name()) + " not found.");
+	ERR_FAIL_COND_V_MSG(!FileAccess::exists(p_sdk.path_join("lib/javafx.graphics.jar")), false, "Source-built JavaFX SDK not found.");
+	ERR_FAIL_COND_V_MSG(godot_javafx::jvm_started.exchange(true), false, "Only one JVM lifecycle is supported per Godot process.");
+	prepare_runtime(OS::get_singleton()->get_environment("GODOT_JFX_STARTUP"));
 	std::vector<std::string> options;
 	auto option = [&](const String &value) { options.emplace_back(value.utf8().get_data()); };
 	option("--module-path=" + p_sdk.path_join("lib"));
@@ -993,16 +1114,13 @@ bool JavaFXHost::start_jvm(const String &p_jdk, const String &p_sdk, const Strin
 	// to Win Glass or a different Prism pipeline and create another OS window.
 	option("-Dglass.platform=Godot");
 	option("-Dprism.order=godot");
-	previous_default_cursor_shape = int(Input::get_singleton()->get_default_cursor_shape());
-	default_cursor_state_saved = true;
-	const String startup = OS::get_singleton()->get_environment("GODOT_JFX_STARTUP");
-	startup_enabled = startup == "logo" || startup == "hidden";
-	startup_logo_enabled = startup == "logo";
+	option("-Djavafx.godot.host.sdk=" + p_sdk);
+	option("-Djavafx.godot.host.project=" + ProjectSettings::get_singleton()->globalize_path("res://"));
+	option("-Djavafx.godot.host.renderer=" + OS::get_singleton()->get_current_rendering_method());
+	option(String("-Djavafx.godot.host.startup=") + (startup_logo_enabled ? "LOGO" : startup_enabled ? "HIDDEN" : "NORMAL"));
 	worker = std::thread(godot_javafx::run_jvm, runtime,
 			library,
 			std::move(options), std::string(p_main_class.utf8().get_data()));
-	set_process(true);
-	set_process_input(true);
 	return true;
 }
 
@@ -2123,6 +2241,9 @@ void JavaFXHost::refresh_custom_cursor_info() {
 
 void JavaFXHost::stop_jvm() {
 	ERR_FAIL_COND(!Thread::is_main_thread());
+#ifdef LIBGODOT_ENABLED
+	if (borrowed_vm) godot_javafx::bridge_open.store(false);
+#endif
 	restore_vsync_pacing();
     if (runtime) runtime->dialogs.stop();
     if (runtime) {
@@ -2170,6 +2291,18 @@ void JavaFXHost::stop_jvm() {
 	while (!native_windows.empty()) destroy_native_window(native_windows.begin()->first);
 	if (runtime) runtime->native_window_transport.publish({}, native_window_sequence);
 	if (runtime) runtime->queue.stop();
+#ifdef LIBGODOT_ENABLED
+	if (borrowed_vm) {
+		// The library's platform thread remains attached throughout the engine loop.
+		JNIEnv *env = nullptr;
+		ERR_FAIL_COND(borrowed_vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_8) != JNI_OK);
+		if (jclass retained = runtime->drag_upcall.close()) env->DeleteGlobalRef(retained);
+		std::unique_lock lock(godot_javafx::bridge_lifetime);
+		godot_javafx::jni_runtime = nullptr;
+		runtime->status.store(godot_javafx::RuntimeStatus::FINISHED);
+		borrowed_vm = nullptr;
+	}
+#endif
 }
 
 void JavaFXHost::apply_readback() {
