@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile', [ValidateSet('cap','restore','override')][string]$Mode='cap')
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $savedJdk=$env:GODOT_JFX_JDK
 $savedFallback=$env:GODOT_JFX_VSYNC_FALLBACK
@@ -13,7 +14,7 @@ try {
     $env:GODOT_JFX_VSYNC_FALLBACK='1'
     $env:GODOT_JFX_TEST_PACING_MODE=$Mode
     $log="artifacts/logs/pacing-cap-$Renderer-$Mode.log"
-    & ./godot/bin/godot.windows.editor.x86_64.console.exe --path tests/godot res://pacing_cap.tscn --rendering-method $Renderer *> $log
+    Invoke-GodotFixture --path tests/godot res://pacing_cap.tscn --rendering-method $Renderer *> $log
     $code=$LASTEXITCODE
     $output=Get-Content $log -Raw
     if($code -ne 0 -or $output -notmatch '(?m)^PACING_CAP_PASS' -or $output -notmatch 'PACING_CAP_JAVA_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|Exception)' -or (($Mode -eq 'cap') -eq ($output -match 'JAVAFX_VSYNC_FALLBACK'))){throw "Pacing cap test failed: $log"}

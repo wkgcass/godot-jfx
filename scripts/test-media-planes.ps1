@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile')
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $savedJdk=$env:GODOT_JFX_JDK
@@ -9,7 +10,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Media planes compilation failed' }
     $env:GODOT_JFX_JDK=$Jdk
     $log=Join-Path $root "artifacts/logs/media-planes-$Renderer.log"
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://media_planes.tscn --rendering-method $Renderer --render-thread safe --quit-after 3000 *> $log
+    Invoke-GodotFixture --path tests/godot res://media_planes.tscn --rendering-method $Renderer --render-thread safe --quit-after 3000 *> $log
     $result=$LASTEXITCODE
     $output=Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'MEDIA_PLANES_PROBE_PASS' -or $output -notmatch 'GODOT_MEDIA_PLANES_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)') { throw "Media planes failed: $log" }

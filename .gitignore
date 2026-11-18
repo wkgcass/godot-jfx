@@ -1,6 +1,8 @@
 .tools/
 .gradle-cache/
 scripts/vfx-build/.gradle/
+tests/library/shadow/.gradle/
+tests/library/shadow/build/
 artifacts/
 tests/godot/.godot/
 __pycache__/

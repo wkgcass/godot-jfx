@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -16,17 +17,16 @@ try {
     if ($Runtime) {
         $fixture = Join-Path $root 'artifacts/runtime-effects'
         New-Item -ItemType Directory -Force $fixture | Out-Null
-        Copy-Item -LiteralPath (Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.console.exe'), (Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.exe') -Destination $fixture -Force
         Copy-Item -LiteralPath (Join-Path $root 'tests/godot/effects.tscn'), (Join-Path $root 'tests/godot/effects_test.gd') -Destination $fixture -Force
         $project = [IO.File]::ReadAllText((Join-Path $root 'tests/godot/project.godot')).Replace('res://main.tscn','res://effects.tscn')
         [IO.File]::WriteAllText((Join-Path $fixture 'project.godot'),$project)
         & .\godot\bin\godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if ($LASTEXITCODE -ne 0) { throw "Effects runtime import failed: $log.import" }
         Push-Location $fixture
-        try { & (Join-Path $fixture 'godot.windows.template_release.x86_64.console.exe') --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log }
+        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log }
         finally { Pop-Location }
     } else {
-        & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://effects.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
+        Invoke-GodotFixture --path tests/godot res://effects.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
     }
     $result = $LASTEXITCODE
     Add-Content -LiteralPath $log -Value "EFFECTS_NATIVE_EXIT_CODE $result"

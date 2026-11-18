@@ -10,6 +10,20 @@ func _ready() -> void:
 		push_error("Node shader JVM failed")
 		get_tree().quit(1)
 		return
+	var observed := await observe(host)
+	remove_child(host)
+	if not observed or host.get_owned_resource_count() != 0:
+		push_error("Node shader interaction or cleanup failed")
+		get_tree().quit(1)
+		return
+	host.free()
+	print("GODOT_NODE_SHADER_PASS")
+	get_tree().quit(0)
+
+
+
+# Library fixtures use the same GPU checks and synthetic button input.
+func observe(host, library_mode := false) -> bool:
 	var deadline := Time.get_ticks_msec()+40000
 	var checked := false
 	var updated := false
@@ -19,7 +33,7 @@ func _ready() -> void:
 		if host.get_runtime_status() == "failed" or Time.get_ticks_msec() > deadline:
 			push_error("Node shader failed/timed out: "+host.get_runtime_error())
 			get_tree().quit(1)
-			return
+			return false
 		if not checked and get_window().title == "Shader ready":
 			for frame in range(12):
 				await RenderingServer.frame_post_draw
@@ -44,7 +58,7 @@ func _ready() -> void:
 			if red.r < .95 or red.g > .05 or green.g < .95 or absf(green.r-.5) > .03 or outside.r < .95 or outside.b < .95 or blue.b < .95 or blue.r > .05 or absf(uv.r-.25) > .03 or absf(uv.g-.25) > .03 or glyph_pixels < 15 or peak > 180:
 				push_error("Node shader isolation/clip/opacity/UV/resource check failed")
 				get_tree().quit(1)
-				return
+				return false
 			image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/godot-node-shaders.png"))
 			checked = true
 			var motion := InputEventMouseMotion.new()
@@ -60,14 +74,6 @@ func _ready() -> void:
 			var color := pixel(get_viewport().get_texture().get_image(),50,50)
 			if color.b > .95 and color.r < .05:
 				updated = true
+				if library_mode: return true
 		await get_tree().process_frame
-	remove_child(host)
-	if not checked or not updated or host.get_owned_resource_count() != 0:
-		push_error("Node shader interaction or cleanup failed")
-		get_tree().quit(1)
-		return
-	host.free()
-	print("GODOT_NODE_SHADER_PASS")
-	get_tree().quit(0)
-
-
+	return checked and updated

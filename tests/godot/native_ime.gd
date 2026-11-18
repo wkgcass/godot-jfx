@@ -36,7 +36,9 @@ func _ready() -> void:
 		var title:String=window.title
 		if phase == 0 and info["ime_enabled"] and title == "IME ready":
 			var candidate:Vector2i=info["ime_position"]
-			if candidate.x<20 or candidate.x>300 or candidate.y<20 or candidate.y>90: continue
+			if candidate.x<20 or candidate.x>300 or candidate.y<20 or candidate.y>90:
+				await get_tree().process_frame
+				continue
 			host.update_window_ime_composition(2,"ni🙂",3); phase=1
 		elif phase == 1 and title == "IME preedit 1":
 			host.update_window_ime_composition(2,"你好🙂",2); phase=2
@@ -58,9 +60,12 @@ func _ready() -> void:
 			window.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/native-ime-before-click.png"))
 			# IME completion pumps real OS events. Keep the physical pointer over
 			# this target so a real WM_MOUSELEAVE cannot contradict injected clicks.
-			DisplayServer.warp_mouse(Vector2i(80,115))
+			# NativeImeProbe lays out its child Scene in 400 x 180 logical units.
+			# Godot's window-local events use pixels of this particular window.
+			var button_point := Vector2(80, 115) * Vector2(window.size) / Vector2(400, 180)
+			DisplayServer.warp_mouse(Vector2i(button_point.round()))
 			for pressed in [true,false]:
-				var click := InputEventMouseButton.new(); click.window_id=window.get_window_id(); click.position=Vector2(80,115); click.button_index=MOUSE_BUTTON_LEFT; click.pressed=pressed
+				var click := InputEventMouseButton.new(); click.window_id=window.get_window_id(); click.position=button_point; click.button_index=MOUSE_BUTTON_LEFT; click.pressed=pressed
 				Input.parse_input_event(click)
 			phase=7
 		if phase == 7 and title == "IME done" and not info["ime_enabled"]:

@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('gl_compatibility','mobile')][string]$Renderer='mobile',[ValidateSet('safe')][string]$RenderThread='safe',[ValidateRange(6,1000)][int]$Cycles=36,[ValidateRange(0,4096)][int]$HeapMiB=0)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $savedJdk=$env:GODOT_JFX_JDK
@@ -13,7 +14,7 @@ try {
     if($HeapMiB -gt 0) {$env:JAVA_TOOL_OPTIONS="$savedOptions -Xmx${HeapMiB}m"}
     $suffix="-$Cycles-heap$HeapMiB"
     $log="artifacts/logs/stage-churn-$Renderer-$RenderThread$suffix.log"
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://stage_churn.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+    Invoke-GodotFixture --path tests/godot res://stage_churn.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
     $output=Get-Content $log -Raw
     if($LASTEXITCODE -ne 0 -or $output -notmatch 'GODOT_STAGE_CHURN_PASS' -or $output -notmatch 'STAGE_CHURN_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|GodotHostStoppedException|uncaught:') {throw "Stage churn failed: $log"}
     $javaSamples=@([regex]::Matches($output,'STAGE_CHURN_JAVA cycle=(\d+) heap_used=(\d+) gc_count=(\d+) collected_stages=(\d+)') | ForEach-Object {

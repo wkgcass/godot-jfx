@@ -33,7 +33,7 @@ if [ "$TRANSFORM" -eq 1 ]; then
     "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
         -d artifacts/reference tests/reference/TransformClipReference.java || { echo "Transform clip reference compilation failed" >&2; exit 1; }
     CODE=0
-    "$JDK/bin/java" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
+    "$JDK/bin/java" -Dglass.platform=Mac --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
         --enable-native-access=javafx.graphics \
         -cp artifacts/reference TransformClipReference >artifacts/logs/transform-clip-mac-native.log 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ] || ! grep -q 'TRANSFORM_CLIP_REFERENCE_PASS' artifacts/logs/transform-clip-mac-native.log; then

@@ -50,6 +50,10 @@ func drag_steps(window_id: int, screen0: Vector2, step: Vector2, count: int) -> 
 	return screen0 + step * count
 
 func run_drag() -> void:
+	# The initial title is set before show. Read the mapped window's size
+	# when Java requests the gesture, after layout and native resize.
+	input_scale = Vector2(get_window().size) / Vector2(420, 320)
+	print("GD_WINDOW_RECT pos=", get_window().position, " size=", get_window().size)
 	var window_id := get_window().get_window_id()
 	var local := Vector2(210, 14) * input_scale
 	var screen0 := Vector2(get_window().position) + local
@@ -85,8 +89,6 @@ func _ready() -> void:
 			fail("Physical drag stage never appeared: " + host.get_runtime_error())
 			return
 		await get_tree().process_frame
-	print("GD_WINDOW_RECT pos=" + str(get_window().position) + " size=" + str(get_window().size))
-	input_scale = Vector2(get_window().size) / Vector2(420, 320)
 	while host.get_runtime_status() != "finished":
 		if host.get_runtime_status() == "failed" or Time.get_ticks_msec() > deadline:
 			fail("Physical drag run aborted: " + host.get_runtime_error())

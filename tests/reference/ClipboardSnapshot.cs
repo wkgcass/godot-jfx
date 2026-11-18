@@ -14,7 +14,6 @@ public static class ClipboardSnapshot {
     [DllImport("user32.dll")] static extern IntPtr SetClipboardData(uint format, IntPtr data);
     [DllImport("user32.dll")] static extern bool EmptyClipboard();
     [DllImport("user32.dll")] static extern uint GetClipboardSequenceNumber();
-    [DllImport("user32.dll")] static extern IntPtr GetClipboardOwner();
     [DllImport("kernel32.dll")] static extern UIntPtr GlobalSize(IntPtr data);
     [DllImport("kernel32.dll")] static extern IntPtr GlobalAlloc(uint flags, UIntPtr size);
     [DllImport("kernel32.dll")] static extern IntPtr GlobalLock(IntPtr data);
@@ -145,7 +144,7 @@ public static class ClipboardSnapshot {
         return format;
     }
     // Exact publication of pre-encoded blocks; nothing is synthesized or converted.
-    public static uint WriteRaw(Dictionary<uint,byte[]> blocks, IntPtr owner) {
+    public static void WriteRaw(Dictionary<uint,byte[]> blocks, IntPtr owner) {
         if(owner==IntPtr.Zero) throw new ArgumentException("Clipboard publication requires a window owner",nameof(owner));
         ValidateBlocks(blocks);
         var handles=new Dictionary<uint,IntPtr>();
@@ -165,18 +164,6 @@ public static class ClipboardSnapshot {
                     if(SetClipboardData(f,handles[f])==IntPtr.Zero) throw new Exception("Clipboard write publication failed");
                     handles[f]=IntPtr.Zero;
                 }
-            } finally { CloseClipboard(); }
-            // CloseClipboard may synthesize additional formats and advance the
-            // sequence. Sample after publication completes, but reacquire the
-            // lock and verify ownership before accepting that sequence: an
-            // external writer in the gap must never be mistaken for our write.
-            Open(owner);
-            try {
-                if(GetClipboardOwner()!=owner)
-                    throw new InvalidOperationException("Clipboard owner changed after publication; newer content preserved");
-                uint sequence=GetClipboardSequenceNumber();
-                if(sequence==0) throw new InvalidOperationException("Clipboard sequence unavailable after publication");
-                return sequence;
             } finally { CloseClipboard(); }
         } finally { foreach(var h in handles.Values) if(h!=IntPtr.Zero) GlobalFree(h); }
     }

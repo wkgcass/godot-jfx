@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe')
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -9,7 +10,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Blit probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
     $log = "artifacts/logs/blit-$Renderer-$RenderThread.log"
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://blit.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
+    Invoke-GodotFixture --path tests/godot res://blit.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'BLIT_PROBE_PASS' -or $output -notmatch 'GODOT_BLIT_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)') { throw "Blit test failed: $log" }

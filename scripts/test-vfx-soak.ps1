@@ -3,6 +3,7 @@ param([string]$Jdk=$env:JAVA_HOME,
     [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',
     [ValidateRange(1,20)][int]$Rounds=3,
     [ValidateRange(128,4096)][int]$HeapMiB=256)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $names=@('GODOT_JFX_JDK','GODOT_JFX_VFX_PAGES','GODOT_JFX_VFX_ROUNDS','GODOT_JFX_VFX_SOAK','GODOT_JFX_VFX_FREEZE','JAVA_TOOL_OPTIONS')
@@ -20,9 +21,9 @@ try {
     $stem="vfx-soak-$Renderer-$Rounds-heap$HeapMiB"
     $log=Join-Path $root "artifacts/logs/$stem.log"
     $err=Join-Path $root "artifacts/logs/$stem.stderr.log"
-    # The .console.exe is a tiny launcher. Sample the actual engine/JVM process.
-    $engine=Join-Path $root 'godot/bin/godot.windows.editor.x86_64.exe'
-    $process=Start-Process -FilePath $engine -ArgumentList @('--path','tests/godot','res://vfx_soak.tscn','--rendering-method',$Renderer,'--render-thread','safe') -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError $err -PassThru
+    # Sample the Java process that has loaded the engine DLL.
+    $engine=Join-Path $Jdk 'bin/java.exe'
+    $process=Start-GodotFixture -ArgumentList @('--path','tests/godot','res://vfx_soak.tscn','--rendering-method',$Renderer,'--render-thread','safe') -WorkingDirectory $root -Log $log -ErrorLog $err
     $samples=[Collections.Generic.List[object]]::new()
     $watch=[Diagnostics.Stopwatch]::StartNew()
     while(!$process.WaitForExit(1000)) {

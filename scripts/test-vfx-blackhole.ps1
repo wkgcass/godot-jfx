@@ -5,6 +5,7 @@ param(
     [ValidateSet('safe')][string]$RenderThread = 'safe',
     [switch]$NativeD3D
 )
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $saved = @{}
@@ -26,7 +27,7 @@ try {
         $nativeClassPath = "$classpath;artifacts/vfx/resources/main;artifacts/vfx/resources/test;artifacts/reference"
         & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing,javafx.media '-Dglass.platform=Win' '-Dprism.order=d3d' -cp $nativeClassPath VfxBlackholeProbe *> $log
     } else {
-        & ./godot/bin/godot.windows.editor.x86_64.console.exe --path tests/godot res://vfx_blackhole.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+        Invoke-GodotFixture --path tests/godot res://vfx_blackhole.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
     }
     $code = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw

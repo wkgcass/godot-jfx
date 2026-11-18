@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [switch]$AllPages, [ValidateSet('safe')][string]$RenderThread = 'safe', [int]$PageLimit = 0, [switch]$FreezeFusion)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -23,7 +24,7 @@ try {
     if ($PageLimit) { $coverage += "-$PageLimit" }
     if ($FreezeFusion) { $coverage += '-frozen' }
     $log = "artifacts/logs/vfx-intro-$Renderer-$RenderThread$coverage.log"
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://vfx_intro.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 30000 *> $log
+    Invoke-GodotFixture --path tests/godot res://vfx_intro.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 30000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'VFX_INTRO_SMOKE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\.[a-z].*Exception)') { throw "VFX Intro smoke failed. See $log" }

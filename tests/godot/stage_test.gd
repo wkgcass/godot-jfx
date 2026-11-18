@@ -125,6 +125,12 @@ func _ready() -> void:
 		push_error("Stage rendering or control interaction was incomplete")
 		get_tree().quit(1)
 		return
+	var launches: int = host.get_render_stats()["java_launch_upcalls"]
+	if launches != 1:
+		push_error("Expected one scene host launch, observed " + str(launches))
+		get_tree().quit(1)
+		return
+	print("STAGE_HOST_JAVA_LAUNCHES ", launches)
 	remove_child(host)
 	if host.get_owned_resource_count() != 0:
 		push_error("Stage host resources not released")

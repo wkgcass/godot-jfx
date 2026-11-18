@@ -5,6 +5,7 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][
 # the cursor). The user reproduces the defect by hand and closes the window;
 # this script then prints diagnostic timings and constant-luma sample runs.
 # -LogPath analyzes an existing log without starting the demo or changing settings.
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $existingLog = if ($LogPath) { (Resolve-Path -LiteralPath $LogPath).Path } else { $null }
@@ -29,7 +30,7 @@ try {
         $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
         $log = Join-Path $root "artifacts/logs/hover-manual-$stamp.log"
         Write-Output "Starting the VFX demo with hover instrumentation. Close its window when done. Log: $log"
-        & ./godot/bin/godot.windows.editor.x86_64.console.exe --path tests/godot res://vfx_demo.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+        Invoke-GodotFixture --path tests/godot res://vfx_demo.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
         $code = $LASTEXITCODE
     }
     $output = Get-Content -LiteralPath $log -Raw

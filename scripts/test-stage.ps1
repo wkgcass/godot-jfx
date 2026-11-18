@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility')
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -9,7 +10,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Stage probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
     $log = "artifacts/logs/stage-$Renderer.log"
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://stage.tscn --rendering-method $Renderer --quit-after 4000 *> $log
+    Invoke-GodotFixture --path tests/godot res://stage.tscn --rendering-method $Renderer --quit-after 4000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'GODOT_STAGE_PASS' -or $output -notmatch 'STAGE_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\.[a-z].*Exception)') { throw "Stage probe failed. See $log" }

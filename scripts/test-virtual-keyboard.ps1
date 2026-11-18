@@ -1,6 +1,10 @@
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [switch]$CompileOnly)
+param([string]$Jdk = $env:JAVA_HOME, [switch]$Robot, [switch]$CompileOnly)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
+if (!$CompileOnly -and !$Robot) {
+    throw 'This test opens the system touch keyboard. Pass -Robot to run it, or -CompileOnly to compile the probe.'
+}
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
 $log = Join-Path $root 'artifacts/logs/virtual-keyboard.log'
@@ -11,7 +15,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'VirtualKeyboardProbe compilation failed' }
     if ($CompileOnly) { Write-Output 'VirtualKeyboardProbe compilation passed; system keyboard not requested'; return }
     $env:GODOT_JFX_JDK = $Jdk
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://virtual_keyboard.tscn --quit-after 3000 *> $log
+    Invoke-GodotFixture --path tests/godot res://virtual_keyboard.tscn --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw
     if ($result -ne 0 -or $output -notmatch 'GODOT_VIRTUAL_KEYBOARD_PASS' -or $output -notmatch 'VIRTUAL_KEYBOARD_PASS:' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|Exception)') {

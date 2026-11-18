@@ -1,0 +1,312 @@
+"""Run JDK 25 child-process checks for the Windows Java-launched distribution."""
+import argparse
+import functools
+import hashlib
+import http.server
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import tempfile
+import threading
+import time
+from zipfile import ZipFile
+
+from windows_loaded_modules import module_paths
+
+
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = ROOT / "tests/library"
+REFERENCE = ROOT / "tests/reference"
+MODULES = "javafx.controls,javafx.fxml,javafx.media,javafx.swing"
+EXPORTS = [f"--add-exports={module}/{package}=ALL-UNNAMED" for module, package in [
+    ("javafx.graphics", "com.sun.javafx.tk.godot"), ("javafx.graphics", "com.sun.glass.ui"),
+    ("javafx.graphics", "com.sun.prism"), ("javafx.graphics", "com.sun.javafx.iio"),
+    ("javafx.graphics", "com.sun.javafx.iio.jpeg"), ("javafx.media", "com.sun.media.jfxmedia"),
+]]
+
+
+def command(args, log, **kwargs):
+    with log.open("wb") as stream:
+        result = subprocess.run([str(arg) for arg in args], stdout=stream, stderr=subprocess.STDOUT,
+                                timeout=kwargs.pop("timeout", 180), **kwargs)
+    if result.returncode:
+        raise RuntimeError(f"{args[0]} failed ({result.returncode}), see {log}")
+
+
+def sha256(file):
+    return hashlib.sha256(file.read_bytes()).hexdigest()
+
+
+class RepositoryHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+
+def resolve(runtime, work, maven):
+    consumer = work / "consumer"
+    consumer.mkdir(exist_ok=True)
+    shutil.copyfile(FIXTURES / "pom.xml", consumer / "pom.xml")
+    # Serve the staged repository on loopback. The consumer's empty local cache
+    # and the runtime can be on different drives or inside Unicode directories.
+    handler = functools.partial(RepositoryHandler, directory=str(runtime / "repository"))
+    with http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            command([maven, "-B", "-U", "-f", consumer / "pom.xml",
+                     f"-Dmaven.repo.local={work / 'maven-cache'}",
+                     f"-Dgodot.repository=http://127.0.0.1:{server.server_port}/",
+                     f"-Dgodot.version={(runtime / 'version.txt').read_text().strip()}",
+                     "org.apache.maven.plugins:maven-dependency-plugin:3.8.1:copy-dependencies",
+                     f"-DoutputDirectory={consumer / 'modules'}"], work / "maven.log", timeout=300)
+        finally:
+            server.shutdown()
+    inventory = json.loads((runtime / "module-inventory.json").read_text())
+    # Maven also resolves the ordinary graphics and media JARs transitively.
+    # Select the platform variant of each module for the runtime module path.
+    for module in ("graphics", "media"):
+        classifier, = (consumer / "modules").glob(f"javafx-{module}-*-win.jar")
+        plain = classifier.with_name(classifier.name.replace("-win.jar", ".jar"))
+        if sha256(plain) != inventory[f"javafx.{module}"]["sha256"]:
+            raise AssertionError(f"Unexpected transitive module: {plain}")
+        plain.unlink()
+    hashes = {jar.name: sha256(jar) for jar in (consumer / "modules").glob("*.jar")}
+    if len(hashes) != 6 or set(hashes.values()) != {m.get("windowsClassifierSha256", m["sha256"]) for m in inventory.values()}:
+        raise AssertionError("Resolved jars differ from the six staged modules")
+    graphics = next((consumer / "modules").glob("javafx-graphics-*.jar"))
+    with ZipFile(graphics) as jar:
+        if not any(p.endswith(".gdshader") for p in jar.namelist()):
+            raise AssertionError("Missing Godot shaders in Maven graphics jar")
+    controls = next((consumer / "modules").glob("javafx-controls-*.jar"))
+    with ZipFile(controls) as jar:
+        for ext in (".bss", ".css", ".png", ".properties"):
+            if not any(p.endswith(ext) for p in jar.namelist()):
+                raise AssertionError(f"Missing {ext} in Maven controls jar")
+    return hashes
+
+
+class Suite:
+    def __init__(self, runtime, work, jdk, hashes):
+        self.runtime, self.work, self.jdk, self.hashes = runtime, work, jdk, hashes
+        self.modules = work / "consumer/modules"
+        self.classes = work / "classes"
+        self.cwd = work / "separate working directory"
+        self.cwd.mkdir(exist_ok=True)
+        self.results = []
+        self.failed = []
+        self.env = {k: v for k, v in os.environ.items()
+                    if not k.startswith("GODOT_JFX_") and k not in ("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS")}
+        self.env["PATH"] = os.pathsep.join([str(jdk / "bin"), os.path.join(os.environ["SystemRoot"], "System32")])
+
+    def compile(self):
+        self.classes.mkdir(exist_ok=True)
+        args = [self.jdk / "bin/javac", "--module-path", self.modules, "--add-modules", MODULES,
+                "-encoding", "UTF-8", "-d", self.classes]
+        # This first compile uses only exported public APIs.
+        command([*args, FIXTURES / "DirectApplication.java", FIXTURES / "ApplicationWithMain.java"], self.work / "public-compile.log")
+        command([self.jdk / "bin/javac", "--module-path", self.modules, "-d", self.work / "example.fx",
+                 *sorted((FIXTURES / "modular").rglob("*.java"))], self.work / "modular-compile.log")
+        command([*args, *EXPORTS, "-cp", self.classes, FIXTURES / "LibraryLifecycle.java", FIXTURES / "BackendProbe.java",
+                 REFERENCE / "EffectsProbe.java", REFERENCE / "NodeShaderProbe.java", REFERENCE / "MediaVideoProbe.java"],
+                self.work / "fixtures-compile.log")
+        command([self.jdk / "bin/javap", "--module-path", self.modules, "--module", "javafx.graphics", "-public",
+                 "javafx.application.GodotRuntime", "javafx.application.GodotRuntime$Options"], self.work / "public-api.log")
+        command([self.jdk / "bin/java", "-version"], self.work / "jdk.log")
+
+    def child(self, name, *args, **kwargs):
+        try:
+            self.check_child(name, *args, **kwargs)
+        except (AssertionError, RuntimeError, subprocess.TimeoutExpired) as error:
+            self.failed.append(name)
+            self.results.append({"case": name, "error": str(error)})
+            print(f"FAIL {name}: {error}", flush=True)
+        (self.work / "results.json").write_text(json.dumps(self.results, indent=2), encoding="utf-8")
+
+    def check_child(self, name, target, *args, properties=None, expected=(), code=0, loaded=(), env=None,
+                    engines=1, expected_loops=None):
+        props = {"javafx.cachedir": self.work / "native-cache", "javafx.godot.verbose": "true",
+                 **(properties or {})}
+        argv = [self.jdk / "bin/java", "--module-path", self.modules, "--add-modules", MODULES, *EXPORTS,
+                "--enable-native-access=javafx.graphics,javafx.media", "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8",
+                *(f"-D{k}={v}" for k, v in props.items() if v is not None), "-cp", self.classes, target, *args]
+        output = self.work / (name + ".log")
+        paths = set()
+        snapshots = {}
+        capture = (env or {}).get("GODOT_JFX_MEDIA_CAPTURE")
+        previous_capture = Path(capture).stat().st_mtime_ns if capture and Path(capture).exists() else None
+        start = time.monotonic()
+        image_sampled = False
+        with output.open("wb") as log, subprocess.Popen([str(x) for x in argv], cwd=self.cwd, stdin=subprocess.PIPE,
+                stdout=log, stderr=subprocess.STDOUT, env=self.env | (env or {})) as proc:
+            while proc.poll() is None:
+                if loaded:
+                    current = module_paths(proc)
+                    paths.update(current)
+                    if name == "early-image" and not image_sampled and b"EARLY_IMAGE_PASS" in output.read_bytes():
+                        paths.update(module_paths(proc))
+                        proc.stdin.write(b"1")
+                        proc.stdin.flush()
+                        image_sampled = True
+                    if "startup" not in snapshots and any(p.name.lower() == loaded[0] for p in current):
+                        snapshots["startup"] = sorted(map(str, current))
+                    if capture and "decodedFrame" not in snapshots and Path(capture).exists() and Path(capture).stat().st_mtime_ns != previous_capture:
+                        snapshots["decodedFrame"] = sorted(map(str, current))
+                if time.monotonic() - start > 80:
+                    try:
+                        command([self.jdk / "bin/jcmd", str(proc.pid), "Thread.print"], self.work / (name + "-threads.log"), timeout=8)
+                    finally:
+                        proc.kill()
+                        proc.wait()
+                    raise RuntimeError(f"{name} timed out, see {output}")
+                time.sleep(.05)
+        log = output.read_text(encoding="utf-8", errors="replace")
+        count = log.count("GODOT_LIBRARY_INSTANCE_CREATED")
+        loops = log.count("GODOT_LIBRARY_LOOP renderer=")
+        errors = re.findall(r"(?m)^(?:Exception in thread|.* uncaught:|SCRIPT ERROR:|SHADER ERROR:|ERROR:|FATAL ERROR).*", log)
+        if (proc.returncode != code or count != engines or loops != (engines if expected_loops is None else expected_loops)
+                or any(s not in log for s in expected) or (code in (0, 37) and errors)):
+            raise AssertionError(f"{name}: exit {proc.returncode}, engines {count}, loops {loops}, see {output}")
+        if loaded and engines == 0 and any(path.name.lower() == "godot.dll" for path in paths):
+            raise AssertionError(f"{name}: loaded the engine before Godot startup")
+        for filename in loaded:
+            actual = {p.resolve() for p in paths if p.name.lower() == filename}
+            if len(actual) != 1:
+                raise AssertionError(f"{name}: expected one loaded {filename}, saw {actual}")
+            wanted, = actual
+            if not wanted.is_relative_to(self.work / "native-cache"):
+                raise AssertionError(f"{name}: loaded native outside the classifier cache: {wanted}")
+            module = "media" if filename in ("jfxmedia.dll", "fxplugins.dll", "gstreamer-lite.dll", "glib-lite.dll") else "graphics"
+            classifier, = self.modules.glob(f"javafx-{module}-*-win.jar")
+            with ZipFile(classifier) as jar:
+                if sha256(wanted) != hashlib.sha256(jar.read(filename)).hexdigest():
+                    raise AssertionError(f"{filename} differs from {classifier}")
+            if capture and str(wanted).casefold() not in {p.casefold() for p in snapshots.get("decodedFrame", [])}:
+                raise AssertionError(f"{name}: {filename} absent after decoded frame")
+        self.results.append({"case": name, "exit": proc.returncode, "seconds": round(time.monotonic()-start, 2),
+                             "engines": count, "loops": loops, "command": list(map(str, argv)), "jarHashes": self.hashes,
+                             "jdk": (self.work / "jdk.log").read_text().strip(), "moduleSnapshots": snapshots,
+                             "renderers": re.findall(r"GODOT_LIBRARY_LOOP renderer=(\w+)", log),
+                             "loadedModules": sorted(map(str, paths)), "log": str(output)})
+        print(f"PASS {name}", flush=True)
+
+    def project(self, name, script=None, parent_script=None, duplicate=False):
+        # Two levels below work so the existing pixel observers share reference images.
+        project = self.work / "projects" / name
+        shutil.copytree(FIXTURES / "project", project, dirs_exist_ok=True)
+        scene = '[gd_scene format=3]\n[node name="Main" type="Node"]\n'
+        if script:
+            shutil.copyfile(FIXTURES / script, project / script)
+            if parent_script:
+                shutil.copyfile(ROOT / "tests/godot" / parent_script, project / parent_script)
+            scene = f'[gd_scene load_steps=2 format=3]\n[ext_resource type="Script" path="res://{script}" id="1"]\n[node name="Main" type="Node2D"]\nscript = ExtResource("1")\n'
+        elif duplicate:
+            scene += '[node name="OtherHost" type="JavaFXHost" parent="."]\n'
+        (project / "main.tscn").write_text(scene)
+        editor = ROOT / "godot/bin/godot.windows.editor.x86_64.console.exe"
+        command([editor, "--headless", "--path", project, "--editor", "--import"], project / "import.log")
+        return project
+
+    def checks(self, group):
+        if group == "launch":
+            for case in ("init", "concurrent", "race", "explicit", "auto", "startup", "exit"):
+                marker = {"init": "HOST_READY", "concurrent": "HOST_READY", "race": "HOST_READY", "explicit": "APPLICATION_STOP",
+                          "auto": "APPLICATION_STOP", "startup": "PLATFORM_RESHOW_PASS", "exit": "EXPLICIT_EXIT"}[case]
+                self.child(case, "LibraryLifecycle", case, expected=[marker], code=37 if case == "exit" else 0)
+            self.child("direct", "DirectApplication", expected=["APPLICATION_INIT", "APPLICATION_START", "APPLICATION_STOP"],
+                       loaded=["godot.dll", "javafx_font.dll"])
+            self.child("application-main", "ApplicationWithMain", expected=["APPLICATION_MAIN", "APPLICATION_STOP"])
+            self.child("opengl", "LibraryLifecycle", "opengl", expected=["GODOT_LIBRARY_LOOP renderer=gl_compatibility",
+                       "HOST_READY", "APPLICATION_STOP"])
+            self.child("exit-fx", "LibraryLifecycle", "exit-fx", expected=["EXPLICIT_FX_EXIT"], code=37)
+            self.child("modular", "--module-path", os.pathsep.join(map(str, [self.modules, self.work / "example.fx"])),
+                       "--module", "example.fx/example.fx.ModularApplication", expected=["APPLICATION_MODULE_PASS example.fx"])
+        elif group == "failures":
+            for case in ("missing", "architecture", "project", "invalid-pack", "attach"):
+                runtime = self.work / ("failure-" + case)
+                (runtime / "bin").mkdir(exist_ok=True, parents=True)
+                if case == "architecture":
+                    shutil.copyfile(Path(os.environ["SystemRoot"]) / "SysWOW64/version.dll", runtime / "bin/godot.dll")
+                elif case == "attach":
+                    self.pack(self.project("duplicate", duplicate=True), runtime / "project.pck")
+                elif case == "invalid-pack":
+                    (runtime / "project.pck").write_bytes(b"invalid resource pack")
+                marker = {"missing": "godot.dll", "architecture": "godot.dll", "project": "project:",
+                          "invalid-pack": "create:", "attach": "attach:"}[case]
+                self.child("failure-" + case, "LibraryLifecycle", "failure", properties={
+                           "javafx.godot.runtime": runtime if case in ("missing", "architecture") else None,
+                           "javafx.godot.project": runtime / "project.pck" if case in ("project", "invalid-pack", "attach") else None},
+                           expected=["EXPECTED_FAILURE", marker], code=31, engines=int(case == "attach"), expected_loops=0)
+            self.child("early-image", "BackendProbe", "image", expected=["EARLY_IMAGE_PASS"], engines=0, loaded=["javafx_iio.dll"])
+            native = self.work / "native-control"
+            (native / "bin").mkdir(parents=True, exist_ok=True)
+            for dll in (self.runtime / "bin").glob("*.dll"):
+                if dll.name not in ("godot.dll", "glib-lite.dll"):
+                    shutil.copyfile(dll, native / "bin" / dll.name)
+            self.child("missing-media-dependency", "BackendProbe", "media", properties={"javafx.godot.runtime": native},
+                       expected=["glib-lite.dll", "UnsatisfiedLinkError"], code=1, engines=0)
+            self.child("native-d3d", "BackendProbe", "d3d", properties={"prism.order": "d3d",
+                       "javafx.godot.runtime": native}, engines=0,
+                       expected=["NATIVE_CONTROL_PASS"], loaded=["glass.dll", "prism_d3d.dll"])
+        elif group == "render":
+            refs = self.work / "artifacts/reference"
+            refs.mkdir(exist_ok=True, parents=True)
+            project = self.project("独立 工程𠮷", "interaction.gd")
+            pack = self.work / "窗口 𠮷.pck"
+            self.pack(project, pack)
+            self.child("direct-input", "DirectApplication", properties={"test.input": "true", "javafx.godot.project": pack},
+                       expected=["APPLICATION_INIT", "APPLICATION_START", "APPLICATION_INPUT_PASS",
+                       "LIBRARY_VIEW_STAGE_PASS renderer=mobile", "APPLICATION_STOP"], loaded=["godot.dll"],
+                       env={"GODOT_LIBRARY_CAPTURE": str(refs / "direct-input.png")})
+            for case, source in (("directory", project), ("pck", pack)):
+                # The explicit launcher selects the project before Application.launch.
+                self.child("unicode-" + case, "LibraryLifecycle", "explicit", properties={"test.project": source,
+                           "javafx.godot.runtime": None, "test.input": "true"}, expected=["NATIVE_CWD", "APPLICATION_INPUT_PASS",
+                           "LIBRARY_VIEW_STAGE_PASS renderer=mobile", "APPLICATION_STOP"],
+                           env={"GODOT_LIBRARY_CAPTURE": str(refs / (case + ".png"))})
+            self.child("effects-reference", "EffectsProbe", properties={"prism.order": "d3d",
+                       "effects.reference": refs / "d3d-effects.png"}, expected=["EFFECTS_REFERENCE_PASS"], engines=0)
+            for name, probe, parent, marker in [
+                ("shader", "NodeShaderProbe", "node_shader_test.gd", "LIBRARY_SHADER_PIXELS_PASS"),
+                ("effects", "EffectsProbe", "effects_test.gd", "LIBRARY_EFFECT_PIXELS_PASS"),
+            ]:
+                project = self.project(name, name + "_observer.gd", parent)
+                self.child(name, "ProbeLauncher", probe, properties={"test.project": project}, expected=[marker])
+            video = ROOT / "artifacts/reference/media-oracle-sample.mp4"
+            if sha256(video) != "a6b3928991253a7828052612c8b6cec25f5de3648a361f92e5c2ece9a37d7d34":
+                raise ValueError("Unexpected Media reference checksum")
+            self.child("media", "MediaVideoProbe", expected=["MEDIA_VIDEO_CONTROLS_PASS", "MEDIA_VIDEO_PROBE_PASS"],
+                       env={"GODOT_JFX_MEDIA_FILE": str(video), "GODOT_JFX_MEDIA_CAPTURE": str(refs / "media.png")},
+                       loaded=["godot.dll", "jfxmedia.dll", "fxplugins.dll", "gstreamer-lite.dll", "glib-lite.dll"])
+
+    @staticmethod
+    def pack(project, output):
+        command([ROOT / "godot/bin/godot.windows.editor.x86_64.console.exe", "--headless", "--path", project,
+                 "--export-pack", "JavaFX resources", output], project / "pack.log")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--runtime", required=True, type=Path)
+    parser.add_argument("--work", type=Path)
+    parser.add_argument("--maven", default=shutil.which("mvn") or str(ROOT / ".tools/apache-maven-3.9.9/bin/mvn.cmd"))
+    parser.add_argument("--group", choices=["prepare", "launch", "failures", "render", "all"], default="all")
+    args = parser.parse_args()
+    runtime = args.runtime.resolve()
+    work = args.work.resolve() if args.work else Path(tempfile.mkdtemp(prefix="Godot 验收 ")).resolve()
+    work.mkdir(parents=True, exist_ok=True)
+    print(f"Evidence: {work}", flush=True)
+    hashes = resolve(runtime, work, args.maven)
+    suite = Suite(runtime, work, Path(os.environ["JAVA_HOME"]), hashes)
+    suite.compile()
+    command([suite.jdk / "bin/javac", "--module-path", suite.modules, "--add-modules", MODULES, "-cp", suite.classes,
+             "-d", suite.classes, FIXTURES / "ProbeLauncher.java"], work / "observer-compile.log")
+    for group in (["launch", "failures", "render"] if args.group == "all" else [args.group]):
+        suite.checks(group)
+    if suite.failed:
+        raise SystemExit("Failed cases: " + ", ".join(suite.failed))
+
+
+if __name__ == "__main__":
+    main()

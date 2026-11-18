@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('safe')][string]$RenderThread='safe',[switch]$Host120)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $savedJdk=$env:GODOT_JFX_JDK
@@ -16,13 +17,15 @@ try {
     $project=[IO.File]::ReadAllText((Join-Path (Get-Location) 'tests/godot/project.godot')).Replace('res://main.tscn','res://vfx_frame_benchmark.tscn')
     $project += "`n[debug]`nsettings/profiler/max_timestamp_query_elements=8192`n"
     [IO.File]::WriteAllText((Join-Path $fixture 'project.godot'),$project)
+    & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$fixture/import.log"
+    if ($LASTEXITCODE) { throw "GPU profile fixture import failed: $fixture/import.log" }
     $env:JAVA_TOOL_OPTIONS="$savedOptions $($exports -join ' ')"
     $env:GODOT_JFX_JDK=$Jdk
     $env:GODOT_JFX_PROFILE_COMMANDS='1'
     $suffix=if($Host120){'-host120'}else{''}
     $log="artifacts/logs/vfx-gpu-profile-$RenderThread$suffix.log"
     $hostArgs=if($Host120){@('--disable-vsync','--max-fps','120')}else{@()}
-    & ./godot/bin/godot.windows.editor.x86_64.console.exe --path $fixture --rendering-method mobile --render-thread $RenderThread --gpu-profile @hostArgs *> $log
+    Invoke-GodotFixture --path $fixture --rendering-method mobile --render-thread $RenderThread --gpu-profile @hostArgs *> $log
     $code=$LASTEXITCODE
     $output=Get-Content $log -Raw
     if($code -ne 0 -or $output -notmatch 'GODOT_VFX_FRAME_BENCHMARK_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)') {throw "GPU profiling failed (native exit $code): $log"}

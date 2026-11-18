@@ -31,8 +31,8 @@ func _ready() -> void:
 	var deadline:=Time.get_ticks_msec()+35000
 	while host.get_runtime_status()!="finished":
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
-			push_error("Cancellation failed/timed out phase=%d: %s" % [phase,host.get_runtime_error()]); get_tree().quit(1); return
-		await RenderingServer.frame_post_draw
+			push_error("Cancellation failed/timed out phase=%d title=%s root_focus=%s: %s" % [phase,get_window().title,get_window().has_focus(),host.get_runtime_error()]); get_tree().quit(1); return
+		await get_tree().process_frame
 		var title:=get_window().title
 		if phase==0 and title=="Cancel ready" and host.get_completed_presentations()>0 and get_window().has_focus():
 			mouse(true,Vector2(50,40)); phase=1

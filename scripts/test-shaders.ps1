@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([ValidateSet('gl_compatibility', 'mobile')][string]$Renderer = 'gl_compatibility')
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $log = Join-Path $root "artifacts/logs/godot-shaders-$Renderer.log"
@@ -28,7 +29,7 @@ try {
             }
         }
     } finally { $sdk.Dispose() }
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://shaders.tscn --rendering-method $Renderer --quit-after 3000 *> $log
+    Invoke-GodotFixture --path tests/godot res://shaders.tscn --rendering-method $Renderer --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw
     if ($result -ne 0 -or $output -notmatch 'GODOT_SHADER_PASS count=' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:)') {

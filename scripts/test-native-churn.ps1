@@ -3,13 +3,14 @@ param([ValidateSet('Idle','SubViewport','Window','JavaFXNativeWindow')][string]$
       [ValidateSet('gl_compatibility','mobile')][string]$Renderer='gl_compatibility',
       [ValidateSet('safe')][string]$RenderThread='safe',
       [ValidateRange(-1,2147483647)][long]$StaticRangeLimitBytes=-1)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $savedKind=$env:GODOT_JFX_NATIVE_CHURN_KIND
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
     $env:GODOT_JFX_NATIVE_CHURN_KIND=$Kind
     $log="artifacts/logs/native-churn-$Kind-$Renderer-$RenderThread.log"
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://native_churn.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 12000 *> $log
+    Invoke-GodotFixture --path tests/godot res://native_churn.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 12000 *> $log
     $result=$LASTEXITCODE
     $output=Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'NATIVE_CHURN_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:)') { throw "Native churn failed: $log" }

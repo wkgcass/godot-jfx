@@ -4,6 +4,7 @@ param(
     [string]$Renderer = 'gl_compatibility',
     [switch]$CachePressure
 )
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $savedPressure=$env:GODOT_JFX_MESH_CACHE_PRESSURE
 $savedMeshCache=$env:GODOT_JFX_MESH_CACHE
@@ -17,7 +18,7 @@ try {
     if($CachePressure){$env:GODOT_JFX_MESH_CACHE='1'}
     # Frame limit prevents an unhandled GDScript error from hanging the test.
     # Exit zero alone is insufficient: an explicit PASS is required below.
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://mesh_transform_probe.tscn --rendering-method $Renderer --quit-after 300 *> $log
+    Invoke-GodotFixture --path tests/godot res://mesh_transform_probe.tscn --rendering-method $Renderer --quit-after 300 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw
     if ($CachePressure -and ($output -notmatch 'SHARED_TARGET_MESH_CACHE_PASS' -or $output -notmatch 'SHARED_TARGET_MESH_RELEASE_PASS')) { throw "Shared target cache check missing: $log" }

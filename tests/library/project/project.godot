@@ -1,0 +1,13 @@
+config_version=5
+
+[application]
+config/name="Godot JavaFX"
+run/main_scene="res://main.tscn"
+
+[display]
+window/per_pixel_transparency/allowed=true
+window/size/viewport_width=720
+window/size/viewport_height=400
+
+[rendering]
+renderer/rendering_method="mobile"

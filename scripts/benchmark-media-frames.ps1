@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d','safe')][string]$Backend='safe',[ValidateSet(1,2)][int]$Rate=1,[ValidateRange(0,20)][int]$Sample=0,[switch]$ClockSkew,[switch]$Native60,[switch]$NoVSync,[switch]$FramePhases,[switch]$Runtime)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $savedJdk=$env:GODOT_JFX_JDK;$savedMedia=$env:GODOT_JFX_MEDIA_FILE;$savedOptions=$env:JAVA_TOOL_OPTIONS
@@ -10,7 +11,7 @@ $savedPhases=$env:GODOT_JFX_MEDIA_FRAME_PHASES
 Push-Location $root
 try {
     if($Runtime -and $Backend -eq 'd3d'){throw 'Runtime requires a Godot backend'}
-    $backendName=if($Backend -eq 'd3d'){'Native JavaFX / Windows Glass / D3D (comparison only)'}elseif($Runtime){"Godot Runtime / Glass-Godot / Prism-Godot / Vulkan / $Backend"}else{"Godot Editor / Glass-Godot / Prism-Godot / Vulkan / $Backend"}
+    $backendName=if($Backend -eq 'd3d'){'Native JavaFX / Windows Glass / D3D (comparison only)'}elseif($Runtime){"Godot DLL (isolated project) / Glass-Godot / Prism-Godot / Vulkan / $Backend"}else{"Godot DLL / Glass-Godot / Prism-Godot / Vulkan / $Backend"}
     Write-Output "Media frame backend: $backendName"
     $env:GODOT_JFX_MEDIA_FRAME_PHASES=if($FramePhases){'1'}else{'0'}
     $env:GODOT_JFX_MEDIA_RATE="$Rate"
@@ -45,16 +46,16 @@ try {
         if($Runtime){
             $fixture=Join-Path $root 'artifacts/runtime-media-frames'
             New-Item -ItemType Directory -Force $fixture | Out-Null
-            Copy-Item -LiteralPath (Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.console.exe'),(Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.exe'),(Join-Path $root 'tests/godot/media_frame_benchmark.gd'),(Join-Path $root 'tests/godot/media_frame_benchmark.tscn') -Destination $fixture -Force
+            Copy-Item -LiteralPath (Join-Path $root 'tests/godot/media_frame_benchmark.gd'),(Join-Path $root 'tests/godot/media_frame_benchmark.tscn') -Destination $fixture -Force
             $project=[IO.File]::ReadAllText((Join-Path $root 'tests/godot/project.godot')).Replace('res://main.tscn','res://media_frame_benchmark.tscn')
             [IO.File]::WriteAllText((Join-Path $fixture 'project.godot'),$project)
             & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
             if($LASTEXITCODE -ne 0){throw "Media benchmark Runtime import failed: $log.import"}
             Push-Location $fixture
-            try { & (Join-Path $fixture 'godot.windows.template_release.x86_64.console.exe') --rendering-method mobile --render-thread $Backend @hostArgs *> $log }
+            try { Invoke-GodotFixture --rendering-method mobile --render-thread $Backend @hostArgs *> $log }
             finally {Pop-Location}
         }else{
-            & ./godot/bin/godot.windows.editor.x86_64.console.exe --path tests/godot res://media_frame_benchmark.tscn --rendering-method mobile --render-thread $Backend @hostArgs *> $log
+            Invoke-GodotFixture --path tests/godot res://media_frame_benchmark.tscn --rendering-method mobile --render-thread $Backend @hostArgs *> $log
         }
     }
     $code=$LASTEXITCODE;$output=Get-Content $log -Raw

@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Transform, [switch]$Runtime)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -23,7 +24,6 @@ try {
     if($Runtime){
         $fixture=Join-Path $root 'artifacts/runtime-godot-view'
         New-Item -ItemType Directory -Force $fixture | Out-Null
-        Copy-Item -LiteralPath (Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.console.exe'),(Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.exe') -Destination $fixture -Force
         foreach($file in @('godot_view.tscn','godot_view_test.gd','embedded_scene.tscn','embedded_scene.gd')){
             Copy-Item -LiteralPath (Join-Path $root "tests/godot/$file") -Destination $fixture -Force
         }
@@ -32,10 +32,10 @@ try {
         & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if($LASTEXITCODE -ne 0){throw "GodotView runtime import failed: $log.import"}
         Push-Location $fixture
-        try { & (Join-Path $fixture 'godot.windows.template_release.x86_64.console.exe') --rendering-method $Renderer --render-thread $RenderThread --quit-after 4000 *> $log }
+        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread $RenderThread --quit-after 4000 *> $log }
         finally { Pop-Location }
     }else{
-        & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://godot_view.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 4000 *> $log
+        Invoke-GodotFixture --path tests/godot res://godot_view.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 4000 *> $log
     }
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

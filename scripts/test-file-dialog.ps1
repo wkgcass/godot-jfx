@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [switch]$StopHost)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -26,21 +27,19 @@ try {
     if($Runtime) {
         $fixture=Join-Path $root 'artifacts/runtime-file-dialog'
         New-Item -ItemType Directory -Force $fixture | Out-Null
-        Copy-Item -LiteralPath (Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.console.exe'),(Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.exe'),(Join-Path $root 'tests/godot/file_dialog.gd'),(Join-Path $root 'tests/godot/file_dialog.tscn') -Destination $fixture -Force
+        Copy-Item -LiteralPath (Join-Path $root 'tests/godot/file_dialog.gd'),(Join-Path $root 'tests/godot/file_dialog.tscn') -Destination $fixture -Force
         $project=[IO.File]::ReadAllText((Join-Path $root 'tests/godot/project.godot')).Replace('res://main.tscn','res://file_dialog.tscn')
         [IO.File]::WriteAllText((Join-Path $fixture 'project.godot'),$project)
         & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if($LASTEXITCODE -ne 0) { throw "File dialog runtime import failed: $log.import" }
-        $engine=Join-Path $fixture 'godot.windows.template_release.x86_64.exe'
         $directory=$fixture
         $arguments=@('--rendering-method',$Renderer,'--render-thread',$RenderThread)
     } else {
-        $engine=Join-Path $root 'godot/bin/godot.windows.editor.x86_64.exe'
         $directory=$root
         $arguments=@('--path','tests/godot','res://file_dialog.tscn','--rendering-method',$Renderer,'--render-thread',$RenderThread)
     }
     $err="$log.stderr"
-    $process=Start-Process -FilePath $engine -ArgumentList $arguments -WorkingDirectory $directory -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError $err -PassThru
+    $process=Start-GodotFixture -ArgumentList $arguments -WorkingDirectory $directory -Log $log -ErrorLog $err
     $watch=[Diagnostics.Stopwatch]::StartNew()
     while(!$process.WaitForExit(250)) {
         if($driver.IsFaulted) { $null=$driver.GetAwaiter().GetResult() }

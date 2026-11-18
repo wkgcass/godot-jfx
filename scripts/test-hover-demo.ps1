@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Robot, [switch]$CompileOnly)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 if (!$CompileOnly -and !$Robot) { throw 'This test moves the real mouse. Obtain user consent, then pass -Robot; use -CompileOnly for compilation.' }
 $root = Split-Path $PSScriptRoot -Parent
@@ -16,7 +17,7 @@ try {
     $env:GODOT_JFX_HOVER_DEMO_ROBOT = '1'
     $env:GODOT_JFX_JDK = $Jdk
     $log = "artifacts/logs/hover-demo-$Renderer-$RenderThread.log"
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://hover_demo.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+    Invoke-GodotFixture --path tests/godot res://hover_demo.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
     $code = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($code -ne 0 -or $output -notmatch 'HOVER_DEMO_PASS' -or $output -notmatch 'HOVER_DEMO_PIXEL_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|uncaught:') { throw "Hover demo probe failed. See $log" }

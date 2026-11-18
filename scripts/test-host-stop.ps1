@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $savedJdk = $env:GODOT_JFX_JDK
@@ -12,16 +13,16 @@ try {
     if ($Runtime) {
         $fixture = Join-Path (Get-Location) 'artifacts/runtime-host-stop'
         New-Item -ItemType Directory -Force $fixture | Out-Null
-        Copy-Item -LiteralPath 'godot/bin/godot.windows.template_release.x86_64.console.exe', 'godot/bin/godot.windows.template_release.x86_64.exe', 'tests/godot/host_stop.gd', 'tests/godot/host_stop.tscn' -Destination $fixture -Force
+        Copy-Item -LiteralPath 'tests/godot/host_stop.gd', 'tests/godot/host_stop.tscn' -Destination $fixture -Force
         $project = [IO.File]::ReadAllText((Join-Path (Get-Location) 'tests/godot/project.godot')).Replace('res://main.tscn','res://host_stop.tscn')
         [IO.File]::WriteAllText((Join-Path $fixture 'project.godot'),$project)
         & .\godot\bin\godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if ($LASTEXITCODE -ne 0) { throw "Host stop runtime import failed: $log.import" }
         Push-Location $fixture
-        try { & .\godot.windows.template_release.x86_64.console.exe --rendering-method $Renderer --render-thread $RenderThread *> $log }
+        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread $RenderThread *> $log }
         finally { Pop-Location }
     } else {
-        & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://host_stop.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+        Invoke-GodotFixture --path tests/godot res://host_stop.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
     }
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

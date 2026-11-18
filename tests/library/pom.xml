@@ -1,0 +1,23 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>example</groupId>
+  <artifactId>godot-library-consumer</artifactId>
+  <version>1</version>
+  <properties>
+    <godot.version>28-godot.3</godot.version>
+  </properties>
+  <repositories>
+    <repository>
+      <id>godot-runtime</id>
+      <url>${godot.repository}</url>
+    </repository>
+  </repositories>
+  <dependencies>
+    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-controls</artifactId><version>${godot.version}</version></dependency>
+    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-media</artifactId><version>${godot.version}</version></dependency>
+    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-swing</artifactId><version>${godot.version}</version></dependency>
+    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-fxml</artifactId><version>${godot.version}</version></dependency>
+    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-graphics</artifactId><version>${godot.version}</version><classifier>win</classifier></dependency>
+    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-media</artifactId><version>${godot.version}</version><classifier>win</classifier></dependency>
+  </dependencies>
+</project>

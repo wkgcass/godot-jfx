@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Robot)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -14,7 +15,7 @@ try {
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_HOVER_ROBOT = if($Robot){'1'}else{'0'}
     $log = "artifacts/logs/hover-flicker-$Renderer-$RenderThread$(if($Robot){'-robot'}else{''}).log"
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://hover_flicker.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+    Invoke-GodotFixture --path tests/godot res://hover_flicker.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
     $code = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($code -ne 0 -or $output -notmatch 'HOVER_PIXEL_STATS' -or $output -notmatch 'HOVER_FLICKER_PASS' -or $output -notmatch 'HOVER_FUSION_PIXEL_PASS' -or $output -notmatch 'HOVER_RESOURCE_CLEANUP_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|uncaught:') { throw "Hover flicker probe failed. See $log" }

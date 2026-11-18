@@ -18,25 +18,45 @@ public final class DragDropProbe {
     static final AtomicReference<Throwable> failure = new AtomicReference<>();
     static final DataFormat CUSTOM = new DataFormat("application/x-godot-dnd-test");
     static Stage root, child;
+    static int pressedCase = -1;
     static javafx.scene.robot.Robot robot;
     static double oldMouseX, oldMouseY;
     static void startRobotDriver() {
         robot = new javafx.scene.robot.Robot();
         oldMouseX=robot.getMouseX(); oldMouseY=robot.getMouseY();
         new javafx.animation.AnimationTimer() {
-            int phase; long next;
+            int phase, reported = -1; long next;
             @Override public void handle(long now) {
                 if (now<next) return; next=now+250_000_000L;
                 if (test==7 || failure.get()!=null) { stop(); return; }
+                if (reported != phase) {
+                    System.out.println("DRAG_ROBOT case="+test+" phase="+phase+" cursor="+robot.getMouseX()+","+robot.getMouseY()
+                            +" root="+root.getX()+","+root.getY()+" focused="+root.isFocused()+" title="+root.getTitle());
+                    reported = phase;
+                }
+                if (phase==-1 && root.isFocused()) phase=0;
                 if (phase==0 && root.getTitle().equals("Drag ready "+test)) {
+                    if (!root.isFocused()) {
+                        // The owned Stage can take focus when first shown. Activate
+                        // the source on empty scene space before pressing on it.
+                        phase=-1;
+                        robot.mouseMove(root.getX()+165,root.getY()+130);
+                        robot.mouseClick(MouseButton.PRIMARY);
+                        return;
+                    }
                     phase=1;
+                    pressedCase=-1;
                     robot.mouseRelease(MouseButton.PRIMARY);
                     robot.mouseMove(root.getX()+40,root.getY()+40);
-                    robot.mousePress(MouseButton.PRIMARY);
                 } else if (phase==1) {
-                    phase=2; robot.mouseMove(root.getX()+80,root.getY()+40);
-                } else if (phase==2 && root.getTitle().equals("Drag active "+test)) {
-                    phase=3;
+                    phase=2; robot.mousePress(MouseButton.PRIMARY);
+                } else if (phase==2 && pressedCase==test) {
+                    // Move only after the source received this gesture's press.
+                    phase=3; robot.mouseMove(root.getX()+60,root.getY()+40);
+                } else if (phase==3) {
+                    phase=4; robot.mouseMove(root.getX()+80,root.getY()+40);
+                } else if (phase==4 && root.getTitle().equals("Drag active "+test)) {
+                    phase=5;
                     if (test==4) {
                         robot.keyPress(KeyCode.ESCAPE); robot.keyRelease(KeyCode.ESCAPE);
                         robot.mouseRelease(MouseButton.PRIMARY); phase=0;
@@ -45,7 +65,7 @@ public final class DragDropProbe {
                         robot.mouseMove(target.getX()+(target==child ? 40 : 240),target.getY()+40);
                         if (test>=5) phase=0;
                     }
-                } else if (phase==3) {
+                } else if (phase==5) {
                     phase=0; robot.mouseRelease(MouseButton.PRIMARY);
                 }
             }
@@ -77,7 +97,10 @@ public final class DragDropProbe {
                     ++drops; e.setDropCompleted(true); e.consume();
                 });
             }
-            source.setOnMousePressed(e -> System.out.println("DRAG_PRESS " + e.getX() + "," + e.getY()));
+            source.setOnMousePressed(e -> {
+                if (e.getButton()==MouseButton.PRIMARY) pressedCase=test;
+                System.out.println("DRAG_PRESS " + e.getX() + "," + e.getY());
+            });
             source.setOnMouseDragged(e -> System.out.println("DRAG_MOTION " + e.getX() + "," + e.getY()));
             source.setOnDragDetected(e -> {
                 System.out.println("DRAG_DETECTED case="+test);

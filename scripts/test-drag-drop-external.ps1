@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [string]$VisualStudio=$(if ($env:VSINSTALLDIR) { $env:VSINSTALLDIR } else { Join-Path $env:ProgramFiles 'Microsoft Visual Studio/2022/Community' }))
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -59,16 +60,16 @@ try {
     if ($Runtime) {
         $fixture = Join-Path $root 'artifacts/runtime-dnd-external'
         New-Item -ItemType Directory -Force $fixture | Out-Null
-        Copy-Item -LiteralPath (Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.console.exe'),(Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.exe'),(Join-Path $root 'tests/godot/drag_drop_external.gd'),(Join-Path $root 'tests/godot/drag_drop_external.tscn') -Destination $fixture -Force
+        Copy-Item -LiteralPath (Join-Path $root 'tests/godot/drag_drop_external.gd'),(Join-Path $root 'tests/godot/drag_drop_external.tscn') -Destination $fixture -Force
         $project = [IO.File]::ReadAllText((Join-Path $root 'tests/godot/project.godot')).Replace('res://main.tscn','res://drag_drop_external.tscn')
         [IO.File]::WriteAllText((Join-Path $fixture 'project.godot'),$project)
         & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if ($LASTEXITCODE -ne 0) { throw "External drag runtime import failed: $log.import" }
         Push-Location $fixture
-        try { & (Join-Path $fixture 'godot.windows.template_release.x86_64.console.exe') --rendering-method $Renderer --render-thread $RenderThread --quit-after 30000 *> $log }
+        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread $RenderThread --quit-after 30000 *> $log }
         finally { Pop-Location }
     } else {
-        & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://drag_drop_external.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 30000 *> $log
+        Invoke-GodotFixture --path tests/godot res://drag_drop_external.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 30000 *> $log
     }
     $result = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw

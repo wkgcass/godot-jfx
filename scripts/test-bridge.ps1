@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [switch]$StopFromHost, [switch]$Encoded, [switch]$Textures, [switch]$PrismTextures, [switch]$ShaderStates, [switch]$PrismContext,
     [ValidateSet('gl_compatibility', 'mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread='safe')
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -31,7 +32,7 @@ try {
     $env:GODOT_JFX_TEST_CONTEXT = if ($PrismContext) { '1' } else { '0' }
     $env:GODOT_JFX_TEST_SHADER_STATES = if ($ShaderStates) { '1' } else { '0' }
     $env:GODOT_JFX_TEST_PRISM_TEXTURES = if ($PrismTextures) { '1' } else { '0' }
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://bridge.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
+    Invoke-GodotFixture --path tests/godot res://bridge.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw
     if ($result -ne 0 -or $output -notmatch 'M2_BRIDGE_PASS' -or $output -notmatch 'BRIDGE_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|Exception)') {

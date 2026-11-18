@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Timeout)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -13,7 +14,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'OleInjectProbe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_OLE_TIMEOUT = if($Timeout){'1'}else{'0'}
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://ole_inject.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
+    Invoke-GodotFixture --path tests/godot res://ole_inject.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw
     if($Timeout -and $output -notmatch 'OLE_TIMEOUT_CANCEL_PASS'){throw "OLE timeout checks failed: $log"}

@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[switch]$Runtime,[switch]$NativeD3D)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $savedCapture=$env:GODOT_JFX_MEDIA_CAPTURE;$savedJdk=$env:GODOT_JFX_JDK;$savedFile=$env:GODOT_JFX_MEDIA_FILE
@@ -23,16 +24,16 @@ try {
     }elseif($Runtime){
         $fixture=Join-Path $root 'artifacts/runtime-media-video'
         New-Item -ItemType Directory -Force $fixture | Out-Null
-        Copy-Item -LiteralPath (Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.console.exe'),(Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.exe'),(Join-Path $root 'tests/godot/media_video.gd'),(Join-Path $root 'tests/godot/media_video.tscn') -Destination $fixture -Force
+        Copy-Item -LiteralPath (Join-Path $root 'tests/godot/media_video.gd'),(Join-Path $root 'tests/godot/media_video.tscn') -Destination $fixture -Force
         $project=[IO.File]::ReadAllText((Join-Path $root 'tests/godot/project.godot')).Replace('res://main.tscn','res://media_video.tscn')
         [IO.File]::WriteAllText((Join-Path $fixture 'project.godot'),$project)
         & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if($LASTEXITCODE -ne 0){throw "Media video runtime import failed: $log.import"}
         Push-Location $fixture
-        try { & (Join-Path $fixture 'godot.windows.template_release.x86_64.console.exe') --rendering-method $Renderer --render-thread safe *> $log }
+        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread safe *> $log }
         finally {Pop-Location}
     }else{
-        & ./godot/bin/godot.windows.editor.x86_64.console.exe --path tests/godot res://media_video.tscn --rendering-method $Renderer --render-thread safe *> $log
+        Invoke-GodotFixture --path tests/godot res://media_video.tscn --rendering-method $Renderer --render-thread safe *> $log
     }
     $code=$LASTEXITCODE;$output=Get-Content $log -Raw
     if($code -ne 0 -or $output -notmatch 'MEDIA_VIDEO_PROBE_PASS' -or $output -notmatch 'MEDIA_VIDEO_CONTROLS_PASS' -or (!$NativeD3D -and $output -notmatch 'GODOT_MEDIA_VIDEO_PASS') -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)|uncaught:'){throw "Media video failed: $log"}

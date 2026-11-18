@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[switch]$Runtime,[ValidateRange(24,240)][int]$Cycles=24,[switch]$NativeD3D,[ValidateSet(0,30,60)][int]$SettleSeconds=0,[switch]$HandleTypes,[switch]$AudioOnly,[switch]$Providers)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $savedJdk=$env:GODOT_JFX_JDK
@@ -14,7 +15,7 @@ Push-Location $root
 try {
     if($Providers){$HandleTypes=$true}
     if($NativeD3D -and $Runtime){throw 'Choose native D3D or Godot Runtime'}
-    $backend=if($NativeD3D){'Native JavaFX / Windows Glass / D3D (comparison only)'}elseif($Runtime){"Godot Runtime / Glass-Godot / Prism-Godot / $Renderer"}else{"Godot Editor / Glass-Godot / Prism-Godot / $Renderer"}
+    $backend=if($NativeD3D){'Native JavaFX / Windows Glass / D3D (comparison only)'}elseif($Runtime){"Godot DLL (isolated project) / Glass-Godot / Prism-Godot / $Renderer"}else{"Godot DLL / Glass-Godot / Prism-Godot / $Renderer"}
     Write-Output "Media churn backend: $backend"
     if($AudioOnly){
         $videoFile=Join-Path $root 'artifacts/reference/media-churn-silence.wav'
@@ -49,16 +50,16 @@ try {
     }elseif($Runtime){
         $fixture=Join-Path $root 'artifacts/runtime-media-churn'
         New-Item -ItemType Directory -Force $fixture | Out-Null
-        Copy-Item -LiteralPath (Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.console.exe'),(Join-Path $root 'godot/bin/godot.windows.template_release.x86_64.exe'),(Join-Path $root 'tests/godot/media_churn.gd'),(Join-Path $root 'tests/godot/media_churn.tscn') -Destination $fixture -Force
+        Copy-Item -LiteralPath (Join-Path $root 'tests/godot/media_churn.gd'),(Join-Path $root 'tests/godot/media_churn.tscn') -Destination $fixture -Force
         $project=[IO.File]::ReadAllText((Join-Path $root 'tests/godot/project.godot')).Replace('res://main.tscn','res://media_churn.tscn')
         [IO.File]::WriteAllText((Join-Path $fixture 'project.godot'),$project)
         & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if($LASTEXITCODE -ne 0){throw "Media churn runtime import failed: $log.import"}
         Push-Location $fixture
-        try { & (Join-Path $fixture 'godot.windows.template_release.x86_64.console.exe') --rendering-method $Renderer --render-thread safe *> $log }
+        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread safe *> $log }
         finally {Pop-Location}
     }else{
-        & ./godot/bin/godot.windows.editor.x86_64.console.exe --path tests/godot res://media_churn.tscn --rendering-method $Renderer --render-thread safe *> $log
+        Invoke-GodotFixture --path tests/godot res://media_churn.tscn --rendering-method $Renderer --render-thread safe *> $log
     }
     $code=$LASTEXITCODE
     $output=Get-Content $log -Raw

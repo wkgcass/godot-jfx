@@ -1,0 +1,38 @@
+plugins {
+    id 'application'
+    id 'com.gradleup.shadow' version '9.3.1'
+}
+
+repositories {
+    maven { url = uri(providers.gradleProperty('repository').get()) }
+}
+def fx = 'org.godotjfx:javafx-'
+def version = providers.gradleProperty('javafxVersion').get()
+def withMedia = providers.gradleProperty('withMedia').isPresent()
+dependencies {
+    implementation "${fx}controls:${version}"
+    runtimeOnly "${fx}graphics:${version}:win"
+    if (withMedia) {
+        implementation "${fx}media:${version}:win"
+        implementation "${fx}swing:${version}"
+    }
+}
+application { mainClass = withMedia ? 'MediaMain' : 'ShadowMain' }
+tasks.compileJava {
+    source files('../DirectApplication.java')
+    if (withMedia) source files('src/media/java/MediaMain.java', '../../reference/MediaVideoProbe.java')
+}
+tasks.shadowJar {
+    manifest { attributes 'Enable-Native-Access': 'ALL-UNNAMED' }
+    filesMatching('META-INF/services/**') { duplicatesStrategy = DuplicatesStrategy.INCLUDE }
+    mergeServiceFiles()
+}
+def scenePack = providers.gradleProperty('scenePack')
+if (scenePack.isPresent()) {
+    tasks.processResources {
+        from(scenePack.get()) {
+            into 'META-INF/godot-jfx'
+            rename { 'scenes.pck' }
+        }
+    }
+}

@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe')
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -9,7 +10,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Nested menu probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
     $log = "artifacts/logs/nested-menu-$Renderer-$RenderThread.log"
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://nested_menu.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 10000 *> $log
+    Invoke-GodotFixture --path tests/godot res://nested_menu.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 10000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'GODOT_NESTED_MENU_PASS' -or $output -notmatch 'NESTED_MENU_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)') { throw "Nested menu test failed: $log" }

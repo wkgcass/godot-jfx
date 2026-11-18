@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[ValidateSet('safe')][string]$RenderThread='safe')
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $saved=@{}
@@ -44,7 +45,7 @@ public static class StartupWindows {
         $env:GODOT_JFX_STARTUP_CANCEL=$(if($case.EndsWith('-cancel')){'1'}else{'0'})
         $env:GODOT_JFX_STARTUP=$mode
         $prefix="artifacts/logs/startup-$case-$Renderer-$RenderThread"
-        $process=Start-Process ./godot/bin/godot.windows.editor.x86_64.exe -ArgumentList @('--path','tests/godot','res://startup.tscn','--rendering-method',$Renderer,'--render-thread',$RenderThread) -PassThru -WindowStyle Hidden -RedirectStandardOutput "$prefix.log" -RedirectStandardError "$prefix.err.log"
+        $process=Start-GodotFixture -WorkingDirectory (Get-Location).Path -ArgumentList @('--path','tests/godot','res://startup.tscn','--rendering-method',$Renderer,'--render-thread',$RenderThread) -Log "$prefix.log" -ErrorLog "$prefix.err.log"
         $watch=[Diagnostics.Stopwatch]::StartNew()
         $visible=$false
         try {

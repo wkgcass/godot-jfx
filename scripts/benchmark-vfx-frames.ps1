@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('d3d','safe')][string]$Backend='safe', [switch]$Host120, [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile', [ValidateSet(0,60,120,240)][int]$MailboxFps=0, [switch]$Trace)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $savedJdk=$env:GODOT_JFX_JDK
@@ -8,7 +9,7 @@ $savedTrace=$env:GODOT_JFX_BENCHMARK_TRACE
 $savedCommands=$env:GODOT_JFX_PROFILE_COMMANDS
 $savedOptions=$env:JAVA_TOOL_OPTIONS
 try {
-    $backendName=if($Backend -eq 'd3d'){'Native JavaFX / Windows Glass / D3D (comparison only)'}else{"Godot Editor / Glass-Godot / Prism-Godot / $Renderer / $Backend"}
+    $backendName=if($Backend -eq 'd3d'){'Native JavaFX / Windows Glass / D3D (comparison only)'}else{"Godot DLL / Glass-Godot / Prism-Godot / $Renderer / $Backend"}
     Write-Output "VFX frame backend: $backendName"
     $exports=@('--add-exports=javafx.graphics/com.sun.prism=ALL-UNNAMED','--add-exports=javafx.graphics/com.sun.glass.ui=ALL-UNNAMED')
     $env:GODOT_JFX_BENCHMARK_TRACE=if ($Trace) {'1'} else {'0'}
@@ -31,7 +32,7 @@ try {
         $env:GODOT_JFX_JDK=$Jdk
         $hostArgs=if ($Host120) { @('--disable-vsync','--max-fps','120') } else { @() }
         if ($MailboxFps) { $hostArgs=@('--max-fps',"$MailboxFps") }
-        & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://vfx_frame_benchmark.tscn --rendering-method $Renderer --render-thread $Backend @hostArgs *> $log
+        Invoke-GodotFixture --path tests/godot res://vfx_frame_benchmark.tscn --rendering-method $Renderer --render-thread $Backend @hostArgs *> $log
     }
     $code=$LASTEXITCODE
     $output=Get-Content $log -Raw

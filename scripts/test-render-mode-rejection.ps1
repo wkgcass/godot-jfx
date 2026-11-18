@@ -1,10 +1,11 @@
 [CmdletBinding()]
 param()
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
     $log = 'artifacts/logs/render-mode-rejection.log'
-    & ./godot/bin/godot.windows.editor.x86_64.console.exe --path tests/godot --script res://render_mode_rejection.gd --rendering-method gl_compatibility --render-thread separate *> $log
+    Invoke-GodotFixture --path tests/godot --script res://render_mode_rejection.gd --rendering-method gl_compatibility --render-thread separate *> $log
     $code = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw
     $expected = 'JavaFX hosting requires --render-thread safe; separate is unsupported.'

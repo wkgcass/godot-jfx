@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe')
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -15,7 +16,7 @@ try {
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_EDGE_OUTPUT = Join-Path $root "artifacts/reference/composite-edges-$Renderer-$RenderThread.txt"
     $log = "artifacts/logs/composite-edges-$Renderer-$RenderThread.log"
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://composite_edges.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
+    Invoke-GodotFixture --path tests/godot res://composite_edges.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'GODOT_COMPOSITE_EDGES_PASS' -or $output -notmatch 'COMPOSITE_EDGE_PROBE_PASS GodotPipeline' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)') { throw "Edge probe failed: $log" }

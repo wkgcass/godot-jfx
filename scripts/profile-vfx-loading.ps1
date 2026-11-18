@@ -4,6 +4,7 @@ param(
     [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile',
     [ValidateSet('safe')][string]$RenderThread = 'safe'
 )
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $saved = @{}
 foreach ($name in @('GODOT_JFX_JDK','GODOT_JFX_PROFILE_COMMANDS')) {
@@ -17,7 +18,7 @@ try {
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_PROFILE_COMMANDS = '1'
     $log = "artifacts/logs/vfx-loading-perf-$Renderer-$RenderThread.log"
-    & ./godot/bin/godot.windows.editor.x86_64.console.exe --path tests/godot res://vfx_loading_perf.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+    Invoke-GodotFixture --path tests/godot res://vfx_loading_perf.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
     $code = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw
     if ($code -ne 0 -or $output -notmatch 'VFX_LOADING_PERF_PASS' -or $output -notmatch 'GODOT_VFX_LOADING_PERF_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)|uncaught:|AssertionError') {

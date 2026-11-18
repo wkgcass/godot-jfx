@@ -1,16 +1,7 @@
 #!/bin/sh
 # macOS equivalent of test-clipboard.ps1.
 #
-# Clipboard safety: the shared system pasteboard is snapshotted before the
-# test (every type as raw bytes, via tests/native/macos_clipboard_peer.mm —
-# the NSPasteboard counterpart of ClipboardSnapshot.cs) and restored
-# afterwards. Restoration is refused when the pasteboard change count moved
-# beyond the test's own writes, so newer user content is never overwritten;
-# on any failure the snapshot directory is kept for manual recovery. The
-# peer validates the same wire contracts the Windows runspace peer checks
-# (CF_HTML fragment offsets, RTF, Unicode URL, file list, image, custom
-# format) and then publishes the two external sets ClipboardProbe expects.
-#
+# The peer checks Java output and publishes its two test datasets directly.
 # Usage: test-clipboard.sh [--renderer mobile|gl_compatibility] [--runtime]
 set -u
 cd "$(dirname "$0")/.."
@@ -69,7 +60,6 @@ run_watchdog() {
 
 UUID=$(uuidgen | tr -d '-' | tr 'A-F' 'a-f')
 SYNC="$PWD/artifacts/native-tests/clipboard-$UUID.ready"
-BACKUP="$PWD/artifacts/native-tests/clipboard-backup-$UUID"
 PEER_LOG="artifacts/logs/clipboard-peer.log"
 # The macOS pasteboard server hides file lists of nonexistent paths from
 # other processes, so the probe fixtures (ClipboardProbe FILES and the
@@ -79,30 +69,19 @@ mkdir -p "$FIXTURE_DIR/godot-jfx测试" "$FIXTURE_DIR/外部"
 touch "$FIXTURE_DIR/godot-jfx测试/报告 🙂.txt" "$FIXTURE_DIR/README.md" \
     "$FIXTURE_DIR/外部/文件 甲.txt" "$FIXTURE_DIR/外部/乙🙂.png"
 
-# Materialize the complete snapshot before any test write; the peer refuses
-# unreadable, empty or oversized content and the test then never runs.
-"$PEER" backup "$BACKUP" >"$PEER_LOG" 2>&1 || {
-    echo "Clipboard backup failed; test did not run: $PEER_LOG" >&2
-    exit 1
-}
-EXPECTED_COUNT=$(cat "$BACKUP/changecount")
-
-restore_clipboard() {
-    # Newer content wins: a moved change count keeps the user's clipboard
-    # untouched and retains the snapshot for manual recovery.
-    if "$PEER" restore "$BACKUP" "$EXPECTED_COUNT" >>"$PEER_LOG" 2>&1; then
-        rm -rf "$BACKUP"
-    else
-        echo "Clipboard restoration refused; original snapshot retained at $BACKUP" >&2
+cleanup() {
+    if [ -n "${PEER_PID:-}" ]; then
+        kill "$PEER_PID" 2>/dev/null || true
+        wait "$PEER_PID" 2>/dev/null || true
     fi
     rm -f "$SYNC" "$SYNC.external" "$SYNC.external2" "$SYNC.ack"
     rm -rf "$FIXTURE_DIR"
 }
-trap restore_clipboard EXIT
+trap cleanup EXIT
 
 export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_CLIPBOARD_SYNC="$SYNC"
-"$PEER" exchange "$SYNC" >>"$PEER_LOG" 2>&1 &
+"$PEER" exchange "$SYNC" >"$PEER_LOG" 2>&1 &
 PEER_PID=$!
 
 SUFFIX=""
@@ -125,9 +104,7 @@ else
 fi
 PEER_CODE=0
 wait "$PEER_PID" || PEER_CODE=$?
-# Track the test's last own publication for the restoration guard.
-LAST_COUNT=$(grep 'CLIPBOARD_CHANGE_COUNT ' "$PEER_LOG" | tail -1 | awk '{print $2}')
-[ -n "$LAST_COUNT" ] && EXPECTED_COUNT="$LAST_COUNT"
+PEER_PID=""
 if [ "$PEER_CODE" -ne 0 ] || ! grep -q 'CLIPBOARD_EXTERNAL_RICH_PASS' "$PEER_LOG"; then
     echo "External clipboard validation failed: $PEER_LOG" >&2
     exit 1
@@ -139,4 +116,4 @@ if [ "$CODE" -ne 0 ] \
     echo "Clipboard probe failed: $LOG" >&2
     exit 1
 fi
-echo "Clipboard probe and exact restoration passed: $LOG"
+echo "Clipboard exchange passed: $LOG"

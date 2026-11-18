@@ -3,6 +3,7 @@ param(
     [ValidateSet('gl_compatibility', 'mobile')]
     [string]$Renderer = 'gl_compatibility'
 )
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $log = Join-Path $root "artifacts/logs/m1-$Renderer.log"
@@ -12,7 +13,7 @@ Push-Location $root
 try {
     # Frame limit prevents an unhandled GDScript error from hanging the test.
     # Exit zero alone is insufficient: an explicit PASS is required below.
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot --rendering-method $Renderer --quit-after 300 *> $log
+    Invoke-GodotFixture --path tests/godot --rendering-method $Renderer --quit-after 300 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw
     if ($result -ne 0 -or $output -notmatch 'M1_RESULT PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:)') {

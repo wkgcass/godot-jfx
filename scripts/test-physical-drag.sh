@@ -37,6 +37,7 @@ export GODOT_JFX_JDK="$JDK"
 # Synthetic mode injects the gesture host-side and never touches the OS cursor;
 # --robot switches the probe to the real Glass Robot.
 export GODOT_JFX_PHYSICAL_DRAG_ROBOT="$ROBOT"
+export GODOT_JFX_PHYSICAL_DRAG_CAPTURE="$PWD/artifacts/reference/physical-drag-desktop.png"
 SUFFIX=""
 [ "$ROBOT" = "1" ] && SUFFIX="-robot"
 LOG="artifacts/logs/physical_drag-$RENDERER-$RENDER_THREAD$SUFFIX.log"

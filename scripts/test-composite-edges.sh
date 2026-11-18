@@ -38,7 +38,7 @@ REFERENCE="$PWD/artifacts/reference/composite-edges-mac-native.txt"
 REFLOG="artifacts/logs/composite-edges-mac-native.log"
 CODE=0
 # shellcheck disable=SC2086
-"$JDK/bin/java" --module-path jfx/build/sdk/lib --add-modules javafx.graphics $EXPORTS \
+"$JDK/bin/java" -Dglass.platform=Mac --module-path jfx/build/sdk/lib --add-modules javafx.graphics $EXPORTS \
     "-Dedges.output=$REFERENCE" -cp artifacts/reference CompositeEdgeProbe >"$REFLOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'COMPOSITE_EDGE_PROBE_PASS ' "$REFLOG" \

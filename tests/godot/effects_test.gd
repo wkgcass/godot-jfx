@@ -7,18 +7,42 @@ func _ready() -> void:
 		push_error("Effects JVM startup failed")
 		get_tree().quit(1)
 		return
+	var failed := not await compare_pixels(host)
+	# The probe exits normally after its observation ticks. Keep render queues
+	# alive until JavaFX has closed its windows and disposed their targets.
+	var deadline := Time.get_ticks_msec()+30000
+	while host.get_runtime_status()!="finished":
+		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
+			push_error("Effect probe did not exit normally: "+host.get_runtime_error()); get_tree().quit(1); return
+		await get_tree().process_frame
+	for frame in range(120):
+		if host.get_window_count()==0 and host.get_native_window_count()==0 and not host.is_composition_pending(): break
+		await RenderingServer.frame_post_draw
+	if host.get_window_count()!=0 or host.get_native_window_count()!=0 or host.is_composition_pending(): failed=true
+	remove_child(host)
+	if host.get_owned_resource_count() != 0:
+		failed = true
+	host.free()
+	if failed:
+		push_error("Effect comparison failed; inspect per-effect metrics and captures")
+		get_tree().quit(1)
+	else:
+		print("GODOT_EFFECTS_PASS")
+		get_tree().quit(0)
+
+func compare_pixels(host) -> bool:
 	var deadline := Time.get_ticks_msec()+30000
 	while get_window().title != "Effects ready" or host.get_applied_sequence() < 1:
 		if host.get_runtime_status() == "failed" or Time.get_ticks_msec() > deadline:
 			push_error("Effects startup timeout/failure: " + host.get_runtime_error())
 			get_tree().quit(1)
-			return
+			return false
 		await get_tree().process_frame
 	# A larger effect graph can need more than a fixed number of host frames.
 	# Wait for its completed window publication, not an intermediate clear.
 	while host.get_window_content_size(1)==Vector2i() or host.is_composition_pending():
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
-			push_error("Effect window publication did not complete"); get_tree().quit(1); return
+			push_error("Effect window publication did not complete"); get_tree().quit(1); return false
 		await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var actual := get_viewport().get_texture().get_image()
@@ -27,7 +51,7 @@ func _ready() -> void:
 	if actual.get_size() != expected.get_size():
 		push_error("Effect reference dimensions differ")
 		get_tree().quit(1)
-		return
+		return false
 	var names := ["None","GaussianBlur","BoxBlur","DropShadow","InnerShadow","Glow","Bloom","ColorAdjust","Reflection","MotionBlur","Lighting","Blend","DisplacementMap","DisplacementMapWrap","SepiaTone","Shadow","PerspectiveTransform","ImageInput","ColorInput","ChainedBlurSepiaShadow"]
 	var failed := false
 	for mode in ["SRC_OVER","SRC_ATOP","ADD","MULTIPLY","SCREEN","OVERLAY","DARKEN","LIGHTEN","COLOR_DODGE","COLOR_BURN","HARD_LIGHT","SOFT_LIGHT","DIFFERENCE","EXCLUSION","RED","GREEN","BLUE"]:
@@ -51,24 +75,4 @@ func _ready() -> void:
 		print("EFFECT_COMPARE ",names[tile]," mean=",mean," bad=",bad)
 		if mean > 0.01 or float(bad)/count > 0.01:
 			failed = true
-	# The probe exits normally after its observation ticks. Keep render queues
-	# alive until JavaFX has closed its windows and disposed their targets.
-	deadline=Time.get_ticks_msec()+30000
-	while host.get_runtime_status()!="finished":
-		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
-			push_error("Effect probe did not exit normally: "+host.get_runtime_error()); get_tree().quit(1); return
-		await get_tree().process_frame
-	for frame in range(120):
-		if host.get_window_count()==0 and host.get_native_window_count()==0 and not host.is_composition_pending(): break
-		await RenderingServer.frame_post_draw
-	if host.get_window_count()!=0 or host.get_native_window_count()!=0 or host.is_composition_pending(): failed=true
-	remove_child(host)
-	if host.get_owned_resource_count() != 0:
-		failed = true
-	host.free()
-	if failed:
-		push_error("Effect comparison failed; inspect per-effect metrics and captures")
-		get_tree().quit(1)
-	else:
-		print("GODOT_EFFECTS_PASS")
-		get_tree().quit(0)
+	return not failed

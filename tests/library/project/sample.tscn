@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[node name="Sample" type="Node2D"]
+
+[node name="Square" type="Polygon2D" parent="."]
+polygon = PackedVector2Array(4, 4, 48, 4, 48, 48, 4, 48)
+color = Color(0, 1, 0, 1)

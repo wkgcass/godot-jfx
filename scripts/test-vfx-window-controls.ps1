@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $savedJdk = $env:GODOT_JFX_JDK
@@ -13,16 +14,16 @@ try {
     if ($Runtime) {
         $fixture = Join-Path (Get-Location) 'artifacts/runtime-vfx-window-controls'
         New-Item -ItemType Directory -Force $fixture | Out-Null
-        Copy-Item -LiteralPath 'godot/bin/godot.windows.template_release.x86_64.console.exe', 'godot/bin/godot.windows.template_release.x86_64.exe', 'tests/godot/vfx_window_controls.gd', 'tests/godot/vfx_window_controls.tscn' -Destination $fixture -Force
+        Copy-Item -LiteralPath 'tests/godot/vfx_window_controls.gd', 'tests/godot/vfx_window_controls.tscn' -Destination $fixture -Force
         $project = [IO.File]::ReadAllText((Join-Path (Get-Location) 'tests/godot/project.godot')).Replace('res://main.tscn','res://vfx_window_controls.tscn')
         [IO.File]::WriteAllText((Join-Path $fixture 'project.godot'),$project)
         & .\godot\bin\godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if ($LASTEXITCODE -ne 0) { throw "VFX controls runtime import failed: $log.import" }
         Push-Location $fixture
-        try { & .\godot.windows.template_release.x86_64.console.exe --rendering-method $Renderer --render-thread $RenderThread *> $log }
+        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread $RenderThread *> $log }
         finally { Pop-Location }
     } else {
-        & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://vfx_window_controls.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+        Invoke-GodotFixture --path tests/godot res://vfx_window_controls.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
     }
     $output = Get-Content $log -Raw
     if ($LASTEXITCODE -ne 0 -or $output -notmatch 'GODOT_VFX_WINDOW_CONTROLS_PASS' -or $output -notmatch 'VFX_WINDOW_CONTROLS_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|GodotHostStoppedException|uncaught:') { throw "VFX controls failed: $log" }

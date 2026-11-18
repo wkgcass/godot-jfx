@@ -34,7 +34,7 @@ mkdir -p artifacts/reference artifacts/logs
     -encoding UTF-8 -d artifacts/reference tests/reference/EffectsProbe.java || { echo "Effects probe compilation failed" >&2; exit 1; }
 
 CODE=0
-"$JDK/bin/java" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
+"$JDK/bin/java" -Dglass.platform=Mac --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
     -Deffects.reference=artifacts/reference/d3d-effects.png \
     -cp artifacts/reference EffectsProbe >artifacts/logs/effects-mac-native.log 2>&1 || CODE=$?

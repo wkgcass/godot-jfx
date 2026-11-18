@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$BatchBoundary, [switch]$ViewportState)
+. "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
@@ -21,7 +22,7 @@ try {
     if($BatchBoundary){$env:JAVA_TOOL_OPTIONS="$savedJvm --add-opens=javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED"}
     $env:GODOT_JFX_JDK = $Jdk
     $log = "artifacts/logs/queued-texture-update-$Renderer-$RenderThread$(if($BatchBoundary){'-boundary'})$(if($ViewportState){'-viewport-state'}).log"
-    & .\godot\bin\godot.windows.editor.x86_64.console.exe --path tests/godot res://queued_texture_update.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 10000 *> $log
+    Invoke-GodotFixture --path tests/godot res://queued_texture_update.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 10000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($output -notmatch 'PARTIAL_TEXTURE_UPDATE_PASS') { throw 'Partial texture update check incomplete' }

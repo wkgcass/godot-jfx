@@ -173,7 +173,7 @@ public final class PhysicalDragProbe extends Application {
             var shot = new javafx.scene.image.WritableImage(700, 560);
             fx(() -> { robot.getScreenCapture(shot, 150, 150, 700, 560, false); return null; });
             javax.imageio.ImageIO.write(javafx.embed.swing.SwingFXUtils.fromFXImage(shot, null), "png",
-                    new java.io.File("../../artifacts/reference/physical-drag-desktop.png"));
+                    new java.io.File(System.getenv("GODOT_JFX_PHYSICAL_DRAG_CAPTURE")));
             phase = "drag";
             fx(() -> { robotPressed = true; robot.mousePress(javafx.scene.input.MouseButton.PRIMARY); return null; });
             Thread.sleep(300);
