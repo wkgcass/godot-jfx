@@ -6,12 +6,8 @@ func write_motion_report(samples:Array,passed:bool) -> void:
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost");add_child(host)
-	var base:=ProjectSettings.globalize_path("res://../../artifacts/vfx")
-	var entries:=PackedStringArray([base+"/classes/java/main",base+"/classes/java/test",base+"/resources/main",base+"/resources/test",ProjectSettings.globalize_path("res://../../artifacts/reference")])
-	for file in DirAccess.get_files_at(base+"/dependencies"):
-		if file.ends_with(".jar"): entries.append(base+"/dependencies/"+file)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),"VfxAnimationProbe"):
-		push_error("Animation JVM start failed");get_tree().quit(1);return
+	if not host.run_fixture_probe("VfxAnimationProbe"):
+		push_error("Animation Java probe start failed");get_tree().quit(1);return
 	var timing_only:=OS.get_environment("GODOT_JFX_ANIMATION_TIMING_ONLY")=="1"
 	var step:=0
 	var motion_origin:=Vector2.INF

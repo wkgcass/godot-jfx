@@ -15,8 +15,7 @@ while [ $# -gt 0 ]; do
 done
 case "$RENDERER" in mobile|gl_compatibility) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -57,7 +56,7 @@ run_watchdog() {
 export GODOT_JFX_JDK="$JDK"
 LOG="artifacts/logs/media-planes-$RENDERER.log"
 CODE=0
-run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://media_planes.tscn \
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://media_planes.tscn \
     --rendering-method "$RENDERER" --render-thread safe --quit-after 3000 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'MEDIA_PLANES_PROBE_PASS' "$LOG" \

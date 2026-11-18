@@ -24,14 +24,13 @@ case "$KIND" in Idle|SubViewport|Window|JavaFXNativeWindow) ;; *) echo "invalid 
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 PY="$(command -v python3)" || { echo "python3 not found" >&2; exit 1; }
 mkdir -p artifacts/logs artifacts/reference
 
 LOG="artifacts/logs/native-churn-$KIND-$RENDERER-$RENDER_THREAD.log"
 GODOT_JFX_NATIVE_CHURN_KIND="$KIND" \
-    "$GODOT" --path tests/godot res://native_churn.tscn \
+    python3 "$FIXTURE_LAUNCHER" --path tests/godot res://native_churn.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 12000 > "$LOG" 2>&1
 CODE=$?
 if [ "$CODE" -ne 0 ] \

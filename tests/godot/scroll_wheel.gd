@@ -5,8 +5,8 @@ var host: Node
 func _ready() -> void:
 	host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), ProjectSettings.globalize_path("res://../../jfx/build/sdk"), ProjectSettings.globalize_path("res://../../artifacts/reference"), "ScrollWheelProbe"):
-		fail("Scroll wheel JVM rejected")
+	if not host.run_fixture_probe("ScrollWheelProbe"):
+		fail("Scroll wheel probe rejected")
 		return
 	var deadline := Time.get_ticks_msec() + 60000
 	while get_window().title != "ScrollWheel ready" or host.get_completed_presentations() == 0:

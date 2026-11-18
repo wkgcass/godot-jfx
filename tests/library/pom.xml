@@ -4,7 +4,7 @@
   <artifactId>godot-library-consumer</artifactId>
   <version>1</version>
   <properties>
-    <godot.version>28-godot.3</godot.version>
+    <godot.version>28-godot.4</godot.version>
   </properties>
   <repositories>
     <repository>

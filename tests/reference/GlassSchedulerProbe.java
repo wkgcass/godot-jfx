@@ -28,7 +28,7 @@ public final class GlassSchedulerProbe {
             require(Application.GetApplication().getClass().getName().endsWith("godot.GodotApplication"), "Wrong Glass backend");
             Application.invokeAndWait(() -> {
                 require(Application.isEventThread(), "Dispatch lost Glass thread identity");
-                require(Thread.currentThread() != bootstrap, "User code ran on JVM bootstrap thread");
+                require(Thread.currentThread() != bootstrap, "User code ran on the fixture thread");
                 require(Thread.currentThread().getName().equals("JavaFX Application Thread"), "Wrong event-thread name");
                 require(Screen.getMainScreen().getPlatformWidth() == GodotBridge.screenInfo()[3], "Screen did not use primary monitor dimensions");
             });

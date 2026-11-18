@@ -8,9 +8,6 @@ func _ready() -> void:
 	var host = ClassDB.instantiate("JavaFXHost")
 	host.position = Vector2(32, 32)
 	add_child(host)
-	var jdk := OS.get_environment("GODOT_JFX_JDK")
-	var sdk := ProjectSettings.globalize_path("res://../../jfx/build/sdk")
-	var classes := ProjectSettings.globalize_path("res://../../artifacts/reference")
 	var stop_from_host := OS.get_environment("GODOT_JFX_TEST_STOP") == "1"
 	var main_class := "BridgeStopProbe" if stop_from_host else "BridgeProbe"
 	var encoded := OS.get_environment("GODOT_JFX_TEST_ENCODED") == "1"
@@ -30,8 +27,8 @@ func _ready() -> void:
 	if prism_textures:
 		main_class = "PrismTextureProbe"
 		expected_sequence = 2
-	if not host.start_jvm(jdk, sdk, classes, main_class):
-		push_error("JVM startup was rejected")
+	if not host.run_fixture_probe(main_class):
+		push_error("Java probe startup was rejected")
 		get_tree().quit(1)
 		return
 	var deadline := Time.get_ticks_msec() + 30000
@@ -42,7 +39,7 @@ func _ready() -> void:
 		while host.get_backpressure_count() == 0:
 			if Time.get_ticks_msec() > deadline or host.get_runtime_status() == "failed":
 				push_error("Encoder did not reach the native backpressure path")
-				host.stop_jvm()
+				host.stop_host()
 				get_tree().quit(1)
 				return
 			await get_tree().process_frame
@@ -51,14 +48,14 @@ func _ready() -> void:
 	var frames_after_submit := 0
 	while host.get_runtime_status() != "finished":
 		if host.get_runtime_status() == "failed" or Time.get_ticks_msec() > deadline:
-			push_error("JVM failed or timed out: " + host.get_runtime_error())
-			host.stop_jvm()
+			push_error("probe failed or timed out: " + host.get_runtime_error())
+			host.stop_host()
 			get_tree().quit(1)
 			return
 		if stop_from_host and host.get_applied_sequence() == expected_sequence:
 			frames_after_submit += 1
 			if frames_after_submit == 20:
-				host.stop_jvm()
+				host.stop_host()
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
@@ -160,5 +157,5 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	host.free()
-	print("M2_BRIDGE_PASS: JVM finished, Java buffer copied, commands applied on Godot main thread")
+	print("M2_BRIDGE_PASS: probe finished, Java buffer copied, commands applied on Godot main thread")
 	get_tree().quit(0)

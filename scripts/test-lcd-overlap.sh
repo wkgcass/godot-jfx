@@ -16,8 +16,7 @@ while [ $# -gt 0 ]; do
 done
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -29,7 +28,7 @@ for mode in 0 1; do
     export GODOT_JFX_LCD_SCREEN="$mode"
     LOG="artifacts/logs/lcd-overlap-$RENDER_THREAD-$mode.log"
     CODE=0
-    "$GODOT" --path tests/godot res://lcd_overlap.tscn \
+    python3 "$FIXTURE_LAUNCHER" --path tests/godot res://lcd_overlap.tscn \
         --rendering-method mobile --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ] \
         || ! grep -q 'LCD_OVERLAP_JAVA_PASS' "$LOG" \

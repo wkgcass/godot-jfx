@@ -16,8 +16,8 @@ func _ready() -> void:
 	pointer_saved=true
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"NativeImeProbe"):
-		push_error("IME JVM startup failed")
+	if not host.run_fixture_probe("NativeImeProbe"):
+		push_error("IME Java probe startup failed")
 		get_tree().quit(1)
 		return
 	var phase := 0

@@ -3,13 +3,13 @@ extends Node2D
 func _ready() -> void:
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), ProjectSettings.globalize_path("res://../../jfx/build/sdk"), ProjectSettings.globalize_path("res://../../artifacts/reference"), "CompositeProbe"):
-		fail("Composite JVM rejected")
+	if not host.run_fixture_probe("CompositeProbe"):
+		fail("Composite probe rejected")
 		return
 	var deadline := Time.get_ticks_msec() + 30000
 	while host.get_runtime_status() != "finished":
 		if host.get_runtime_status() == "failed" or Time.get_ticks_msec() > deadline:
-			fail("Composite JVM failed: " + host.get_runtime_error())
+			fail("Composite probe failed: " + host.get_runtime_error())
 			return
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw

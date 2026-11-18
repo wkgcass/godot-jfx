@@ -14,8 +14,8 @@ func pan(delta: Vector2) -> void:
 func _ready() -> void:
 	host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), ProjectSettings.globalize_path("res://../../jfx/build/sdk"), ProjectSettings.globalize_path("res://../../artifacts/reference"), "PanScrollProbe"):
-		fail("Pan scroll JVM rejected")
+	if not host.run_fixture_probe("PanScrollProbe"):
+		fail("Pan scroll probe rejected")
 		return
 	var deadline := Time.get_ticks_msec() + 120000
 	while true:

@@ -11,8 +11,8 @@ func pixels_match(image:Image,width:int,height:int) -> bool:
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost"); add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"RenderScaleProbe"):
-		fail("Scale JVM rejected"); return
+	if not host.run_fixture_probe("RenderScaleProbe"):
+		fail("Scale probe rejected"); return
 	var primary_sizes:=[Vector2i(320,240),Vector2i(640,480),Vector2i(640,480),Vector2i(240,300),Vector2i(320,240),Vector2i(320,240)]
 	var child_sizes:=[Vector2i(288,192),Vector2i(288,192),Vector2i(432,384),Vector2i(432,384),Vector2i(576,144),Vector2i(288,192)]
 	var step:=0; var deadline:=Time.get_ticks_msec()+90000

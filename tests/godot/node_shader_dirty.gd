@@ -9,8 +9,8 @@ func white(color: Color) -> bool:
 func _ready() -> void:
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), ProjectSettings.globalize_path("res://../../jfx/build/sdk"), ProjectSettings.globalize_path("res://../../artifacts/reference"), "NodeShaderDirtyProbe"):
-		push_error("Dirty shader JVM startup failed")
+	if not host.run_fixture_probe("NodeShaderDirtyProbe"):
+		push_error("Dirty shader Java probe startup failed")
 		get_tree().quit(1)
 		return
 	var deadline := Time.get_ticks_msec() + 20000

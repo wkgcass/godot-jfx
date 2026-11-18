@@ -2,12 +2,8 @@ extends Node2D
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost");add_child(host)
-	var base:=ProjectSettings.globalize_path("res://../../artifacts/vfx")
-	var entries:=PackedStringArray([base+"/classes/java/main",base+"/classes/java/test",base+"/resources/main",base+"/resources/test"])
-	for file in DirAccess.get_files_at(base+"/dependencies"):
-		if file.ends_with(".jar"):entries.append(base+"/dependencies/"+file)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),"io.vproxy.vfx.intro.IntroMain"):
-		push_error("VFX JVM startup failed");get_tree().quit(1);return
+	if not host.run_fixture_probe("io.vproxy.vfx.intro.IntroMain"):
+		push_error("VFX Java probe startup failed");get_tree().quit(1);return
 	var smoke:=OS.get_environment("GODOT_JFX_DEMO_SMOKE")=="1"
 	# Per-frame luma sampling under the OS cursor (HOVER_SAMPLE=1): correlated
 	# with the Java-side HOVER_TAP event stream in this log, it shows whether

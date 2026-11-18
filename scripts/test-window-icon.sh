@@ -1,6 +1,6 @@
 #!/bin/sh
-# macOS equivalent of test-window-icon.ps1 (editor mode only; the -Runtime
-# template_release fixture variant is Windows-specific and not ported).
+# macOS equivalent of test-window-icon.ps1 (standard scene fixture only; the -Runtime
+# isolated project variant is Windows-specific and not ported).
 #
 # SKIPPED on macOS: NSWindow has no per-window icon concept (the dock icon is
 # per-application, set via NSApplication), so the host reports
@@ -27,8 +27,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -40,7 +39,7 @@ mkdir -p artifacts/reference artifacts/logs
 export GODOT_JFX_JDK="$JDK"
 LOG="artifacts/logs/window-icon-$RENDERER-$RENDER_THREAD.log"
 CODE=0
-"$GODOT" --path tests/godot res://window_icon.tscn \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot res://window_icon.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'WINDOW_ICON_PROBE_PASS' "$LOG" \

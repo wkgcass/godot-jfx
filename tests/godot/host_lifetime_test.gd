@@ -13,8 +13,8 @@ func matches(a: Color,b: Color) -> bool:
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost"); add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"HostLifetimeProbe"):
-		push_error("Lifetime JVM start failed"); get_tree().quit(1); return
+	if not host.run_fixture_probe("HostLifetimeProbe"):
+		push_error("Lifetime Java probe start failed"); get_tree().quit(1); return
 	var phase:=0
 	var deadline:=Time.get_ticks_msec()+35000
 	var diagnostic:=Time.get_ticks_msec()+3000
@@ -56,7 +56,7 @@ func _ready() -> void:
 			image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/host-lifetime-survivor.png"))
 			third_image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/host-lifetime-third.png"))
 			click(Vector2(40,30),third); phase=4
-	# JVM completion precedes consumption of the final queued layer removals.
+	# Probe completion precedes consumption of the final queued layer removals.
 	for frame in range(120):
 		if host.get_window_count()==0 and host.get_native_window_count()==0 and not host.is_composition_pending(): break
 		await RenderingServer.frame_post_draw

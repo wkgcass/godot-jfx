@@ -8,8 +8,8 @@ func click(window:Window) -> void:
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost");add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"StageChurnProbe"):
-		push_error("Stage churn JVM failed");get_tree().quit(1);return
+	if not host.run_fixture_probe("StageChurnProbe"):
+		push_error("Stage churn probe failed");get_tree().quit(1);return
 	var cycle:=0
 	var cycles:=OS.get_environment("GODOT_JFX_CHURN_CYCLES").to_int()
 	if cycles==0: cycles=36

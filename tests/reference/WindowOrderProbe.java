@@ -5,6 +5,8 @@ import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -12,8 +14,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class WindowOrderProbe {
     private static Stage main,a,b,child;
     private static long tick;
-    private static void waitFrames(int count) {
-        for(int i=0;i<count;++i) { tick=GodotBridge.awaitTick(tick,1000); if(tick<0) throw new AssertionError("Order host stopped"); }
+    private static void waitForTick() {
+        tick = GodotBridge.awaitTick(tick, 1000);
+        if (tick < 0) throw new AssertionError("Order host stopped");
     }
     private static void onFx(Runnable action) throws Exception {
         var done=new CountDownLatch(1); var failure=new AtomicReference<Throwable>();
@@ -27,8 +30,12 @@ public final class WindowOrderProbe {
         stage.setX(main.getX()+x); stage.setY(main.getY()+y); stage.show(); return stage;
     }
     private static void phase(int index,Runnable action) throws Exception {
-        onFx(() -> { main.setTitle("Transition"); action.run(); });
-        waitFrames(45); onFx(() -> main.setTitle("Order "+index)); waitFrames(20);
+        // The scene saves this capture only after verifying the actual native
+        // Z-order and viewport pixel. An older run must not acknowledge this one.
+        Path capture = Path.of("artifacts", "reference", "window-order-" + index + ".png");
+        Files.deleteIfExists(capture);
+        onFx(() -> { action.run(); main.setTitle("Order " + index); });
+        while (!Files.exists(capture)) waitForTick();
     }
     public static void main(String[] args) throws Exception {
         var ready=new CountDownLatch(1);
@@ -47,7 +54,7 @@ public final class WindowOrderProbe {
         phase(7,() -> a.toFront());
         phase(8,() -> child.close());
         phase(9,() -> a.close());
-        onFx(() -> { main.setTitle("Transition"); main.close(); }); waitFrames(60);
+        onFx(() -> { main.setTitle("Transition"); main.close(); });
         Platform.exit(); System.out.println("WINDOW_ORDER_PROBE_PASS");
     }
 }

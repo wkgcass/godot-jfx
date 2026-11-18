@@ -27,8 +27,7 @@ if [ "$BATCH" -eq 1 ] && [ "$VIEWPORT" -eq 1 ]; then
     exit 2
 fi
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -52,7 +51,7 @@ SUFFIX=""
 [ "$VIEWPORT" -eq 1 ] && SUFFIX="$SUFFIX-viewport-state"
 LOG="artifacts/logs/queued-texture-update-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
-"$GODOT" --path tests/godot res://queued_texture_update.tscn \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot res://queued_texture_update.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 10000 >"$LOG" 2>&1 || CODE=$?
 if ! grep -q 'PARTIAL_TEXTURE_UPDATE_PASS' "$LOG"; then
     echo "Partial texture update check incomplete: $LOG" >&2

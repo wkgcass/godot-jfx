@@ -2,7 +2,7 @@
 import argparse
 import json
 import statistics
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 
 def distribution(values):
@@ -14,7 +14,7 @@ def analyze(report):
     java = report["java_samples"]
     process = report["process_samples"]
     executable = report.get("sampled_executable", "")
-    process_valid = bool(executable) and not executable.lower().endswith(".console.exe")
+    process_valid = PureWindowsPath(executable).name.lower() in {"java", "java.exe"}
     rounds = sorted({s["round"] for s in samples if s["round"] > 0})
     result = {
         "navigation_and_cleanup_passed": report["navigation_and_cleanup_passed"],

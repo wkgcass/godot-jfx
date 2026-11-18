@@ -23,8 +23,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -62,7 +61,7 @@ SUFFIX=""
 [ "$ROBOT" = "1" ] && SUFFIX="-robot"
 LOG="artifacts/logs/hover-flicker-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
-run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://hover_flicker.tscn \
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://hover_flicker.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'HOVER_PIXEL_STATS' "$LOG" \

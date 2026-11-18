@@ -3,8 +3,8 @@ extends Node2D
 func _ready() -> void:
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), ProjectSettings.globalize_path("res://../../jfx/build/sdk"), ProjectSettings.globalize_path("res://../../artifacts/reference"), "StageProbe"):
-		push_error("Stage JVM startup failed")
+	if not host.run_fixture_probe("StageProbe"):
+		push_error("Stage Java probe startup failed")
 		get_tree().quit(1)
 		return
 	var deadline := Time.get_ticks_msec() + 40000
@@ -18,7 +18,7 @@ func _ready() -> void:
 	while host.get_runtime_status() != "finished":
 		if host.get_runtime_status() == "failed" or Time.get_ticks_msec() > deadline:
 			push_error("Stage probe failed/timed out: " + host.get_runtime_error())
-			host.stop_jvm()
+			host.stop_host()
 			get_tree().quit(1)
 			return
 		peak_resources = maxi(peak_resources, host.get_owned_resource_count())
@@ -125,12 +125,12 @@ func _ready() -> void:
 		push_error("Stage rendering or control interaction was incomplete")
 		get_tree().quit(1)
 		return
-	var launches: int = host.get_render_stats()["java_launch_upcalls"]
+	var launches: int = host.get_render_stats()["fixture_probe_calls"]
 	if launches != 1:
-		push_error("Expected one scene host launch, observed " + str(launches))
+		push_error("Expected one probe invocation, observed " + str(launches))
 		get_tree().quit(1)
 		return
-	print("STAGE_HOST_JAVA_LAUNCHES ", launches)
+	print("STAGE_FIXTURE_PROBE_CALLS ", launches)
 	remove_child(host)
 	if host.get_owned_resource_count() != 0:
 		push_error("Stage host resources not released")

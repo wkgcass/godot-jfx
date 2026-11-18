@@ -20,8 +20,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -59,7 +58,7 @@ SUFFIX=""
 [ "$FAILURE" -eq 1 ] && SUFFIX="-failure"
 LOG="artifacts/logs/vfx-dialog-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
-run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://vfx_dialog.tscn \
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://vfx_dialog.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 20000 || CODE=$?
 if [ "$FAILURE" -eq 1 ]; then
     UNEXPECTED=$(grep -E '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\.[a-z].*(Exception|Error))|RejectedExecutionException|RenderJob.run: internal exception|Suppressed:|Caused by:' "$LOG" \

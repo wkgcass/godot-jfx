@@ -15,8 +15,7 @@ while [ $# -gt 0 ]; do
 done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -27,7 +26,7 @@ mkdir -p artifacts/reference artifacts/logs
 export GODOT_JFX_JDK="$JDK"
 LOG="artifacts/logs/stage-$RENDERER.log"
 CODE=0
-"$GODOT" --path tests/godot res://stage.tscn \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot res://stage.tscn \
     --rendering-method "$RENDERER" --quit-after 4000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_STAGE_PASS' "$LOG" \

@@ -26,8 +26,7 @@ case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $REND
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 [ "$SWEEPS" -ge 3 ] && [ "$SWEEPS" -le 30 ] || { echo "invalid sweeps: $SWEEPS" >&2; exit 2; }
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -67,7 +66,7 @@ SWEEP_SUFFIX=""
 [ "$SWEEPS" -ne 3 ] && SWEEP_SUFFIX="-sweeps$SWEEPS"
 LOG="artifacts/logs/vfx-table-scroll-$RENDERER-$RENDER_THREAD$SWEEP_SUFFIX.log"
 CODE=0
-run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://vfx_table_scroll.tscn \
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://vfx_table_scroll.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_VFX_TABLE_SCROLL_PASS' "$LOG" \

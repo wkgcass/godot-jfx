@@ -3,8 +3,8 @@ extends Node
 func _ready() -> void:
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"ClipboardProbe"):
-		push_error("Clipboard JVM startup failed")
+	if not host.run_fixture_probe("ClipboardProbe"):
+		push_error("Clipboard Java probe startup failed")
 		get_tree().quit(1)
 		return
 	var deadline := Time.get_ticks_msec()+30000

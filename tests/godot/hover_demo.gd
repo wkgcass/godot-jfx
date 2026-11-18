@@ -6,12 +6,8 @@ extends Node2D
 func _ready() -> void:
 	var host = ClassDB.instantiate("JavaFXHost"); add_child(host)
 	await get_tree().process_frame
-	var base := ProjectSettings.globalize_path("res://../../artifacts/vfx")
-	var entries := PackedStringArray([base+"/classes/java/main",base+"/classes/java/test",base+"/resources/main",base+"/resources/test",ProjectSettings.globalize_path("res://../../artifacts/reference")])
-	for file in DirAccess.get_files_at(base+"/dependencies"):
-		if file.ends_with(".jar"): entries.append(base+"/dependencies/"+file)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),"HoverDemoProbe"):
-		push_error("Hover demo JVM failed"); get_tree().quit(1); return
+	if not host.run_fixture_probe("HoverDemoProbe"):
+		push_error("Hover demo probe failed"); get_tree().quit(1); return
 	var deadline := Time.get_ticks_msec() + 200000
 	var hold := 0
 	var hold_bright := 0

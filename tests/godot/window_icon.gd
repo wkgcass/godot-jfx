@@ -16,8 +16,8 @@ func matches(info:Dictionary, color:int) -> bool:
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost");add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"WindowIconProbe"):
-		fail("Icon JVM failed");return
+	if not host.run_fixture_probe("WindowIconProbe"):
+		fail("Icon probe failed");return
 	var root_colors:=[0xffff0000,0xff00ff00,0xff00ff00,0xff00ff00,-1,-1,0x80000080]
 	var child_colors:=[0xff0000ff,0xff0000ff,-1,0xffffff00,0xffffff00,0xffff00ff,0xffff00ff]
 	var step:=0;var deadline:=Time.get_ticks_msec()+45000

@@ -43,7 +43,7 @@ public final class VfxDemoMain {
         if (System.getProperty("jnativehook.lib.locator") == null && System.getProperty("jnativehook.lib.path") == null) {
             System.setProperty("jnativehook.lib.locator", DemoHookLibrary.class.getName());
         }
-        GodotRuntime.init(new GodotRuntime.Options(null, null, renderer, startup));
+        GodotRuntime.init(new GodotRuntime.Options(null, renderer, startup));
         if (smoke) {
             Theme.setTheme(new IntroTheme());
             Application.launch(SmokeIntro.class);

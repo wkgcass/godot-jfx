@@ -7,8 +7,8 @@ func matches(window, expected: Color) -> bool:
 func _ready() -> void:
 	get_window().size=Vector2i(260,180); get_window().position=Vector2i(30,60)
 	var host=ClassDB.instantiate("JavaFXHost"); add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"NativeWindowPixelsProbe"):
-		push_error("Native pixels JVM start failed"); get_tree().quit(1); return
+	if not host.run_fixture_probe("NativeWindowPixelsProbe"):
+		push_error("Native pixels Java probe start failed"); get_tree().quit(1); return
 	var step:=0
 	var deadline:=Time.get_ticks_msec()+30000
 	while host.get_runtime_status()!="finished":

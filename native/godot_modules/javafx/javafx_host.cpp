@@ -6,9 +6,7 @@
 #include "frame_protocol.h"
 #include "native_window_transport.h"
 
-#include "core/io/file_access.h"
 #include "core/config/engine.h"
-#include "core/config/project_settings.h"
 #include "core/input/input.h"
 #include "core/input/input_event.h"
 #include "core/object/class_db.h"
@@ -38,7 +36,6 @@
 #include "macos_tabtip.h"
 #include "macos_custom_format.h"
 #include "javafx_host_macos.h"
-#include <dlfcn.h>
 #endif
 
 #include <jni.h>
@@ -86,7 +83,7 @@ struct ReadbackRequest {
 struct Runtime {
     platform_dialogs::Service dialogs;
     OsNativeWindow clipboard_owner = nullptr; // Set before the JVM thread starts; immutable.
-    // The worker closes admission and waits for in-flight OLE calls before VM destruction.
+    // Close admission and wait for in-flight native drag callbacks before detaching.
     platform_dnd::UpcallState drag_upcall;
     std::mutex dnd_mutex;
     std::unique_ptr<platform_dnd::SourceData> dnd_pending;
@@ -94,7 +91,7 @@ struct Runtime {
 	NativeWindowTransport native_window_transport;
 	std::atomic<uint64_t> completed_render_sequence{0};
 	std::atomic<uint64_t> submit_calls{0}, submit_us{0}, tick_wait_calls{0}, tick_wait_us{0};
-	std::atomic<uint64_t> metadata_jni_calls{0}, metadata_jni_us{0}, java_launch_upcalls{0};
+	std::atomic<uint64_t> metadata_jni_calls{0}, metadata_jni_us{0}, fixture_probe_calls{0};
 	std::mutex readback_mutex;
 	std::condition_variable readback_changed;
 	std::shared_ptr<ReadbackRequest> readback;
@@ -124,15 +121,11 @@ struct Runtime {
 	}
 };
 
-// HotSpot does not support creating another VM after destroying one. Explicitly
-// reject restart instead of leaving a stale native registration behind.
-static std::atomic<bool> jvm_started{ false };
+static std::atomic<bool> probe_started{ false };
 static Runtime *jni_runtime = nullptr;
-#if defined(LIBGODOT_ENABLED)
 static std::shared_mutex bridge_lifetime;
 static std::atomic<bool> bridge_open{ false };
 static std::atomic<bool> library_claimed{ false };
-#endif
 
 struct JniSample {
 	std::atomic<uint64_t> &elapsed;
@@ -725,41 +718,8 @@ static void JNICALL drag_start_external(JNIEnv *env, jclass, jstring text, jbyte
     throw_java(env, "java/lang/OutOfMemoryError", "External drag allocation failed");
 }
 
-// JVM library loading, one implementation per host platform. HotSpot stays
-// mapped until process exit in both cases (see the end of run_jvm).
-#if defined(WINDOWS_ENABLED)
-using JvmLibrary = HMODULE;
-static String jvm_library_path(const String &p_jdk) { return p_jdk.path_join("bin/server/jvm.dll"); }
-static const char *jvm_library_name() { return "jvm.dll"; }
-// Source-built JavaFX SDK native directory: bin on Windows, lib elsewhere.
-static String sdk_library_path(const String &p_sdk) { return p_sdk.path_join("bin"); }
-static JvmLibrary jvm_load(const String &p_path, std::string &r_error) {
-	HMODULE module = LoadLibraryExW(reinterpret_cast<LPCWSTR>(p_path.utf16().get_data()), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
-	if (!module) r_error = "Cannot load installed jvm.dll, Windows error " + std::to_string(GetLastError());
-	return module;
-}
-static void *jvm_create_symbol(JvmLibrary p_library) { return reinterpret_cast<void *>(GetProcAddress(p_library, "JNI_CreateJavaVM")); }
-static void jvm_unload(JvmLibrary p_library) { FreeLibrary(p_library); }
-#elif defined(MACOS_ENABLED)
-using JvmLibrary = void *;
-static String jvm_library_path(const String &p_jdk) { return p_jdk.path_join("lib/server/libjvm.dylib"); }
-static const char *jvm_library_name() { return "libjvm.dylib"; }
-static String sdk_library_path(const String &p_sdk) { return p_sdk.path_join("lib"); }
-static JvmLibrary jvm_load(const String &p_path, std::string &r_error) {
-	void *handle = dlopen(p_path.utf8().get_data(), RTLD_NOW | RTLD_LOCAL);
-	if (!handle) {
-		const char *error = dlerror();
-		r_error = "Cannot load installed libjvm.dylib: " + std::string(error ? error : "unknown dlopen error");
-	}
-	return handle;
-}
-static void *jvm_create_symbol(JvmLibrary p_library) { return dlsym(p_library, "JNI_CreateJavaVM"); }
-static void jvm_unload(JvmLibrary p_library) { dlclose(p_library); }
-#endif
-
 // Library callers may outlive the SceneTree. Close admission before waiting
 // for outstanding JNI operations, after waking queue and readback waiters.
-#if defined(LIBGODOT_ENABLED)
 template <auto Method, bool TickWait> struct GuardedBridgeMethod;
 template <bool TickWait, typename Result, typename... Args, Result (JNICALL *Method)(JNIEnv *, jclass, Args...)>
 struct GuardedBridgeMethod<Method, TickWait> {
@@ -773,14 +733,9 @@ struct GuardedBridgeMethod<Method, TickWait> {
         return Method(env, type, args...);
     }
 };
-#endif
 
 template <auto Method, bool TickWait = false> static void *bridge_method() {
-#if defined(LIBGODOT_ENABLED)
     return reinterpret_cast<void *>(&GuardedBridgeMethod<Method, TickWait>::invoke);
-#else
-    return reinterpret_cast<void *>(Method);
-#endif
 }
 
 static void register_bridge(std::shared_ptr<Runtime> runtime, JavaVM *vm, JNIEnv *env, jclass bridge) {
@@ -840,20 +795,19 @@ static void register_bridge(std::shared_ptr<Runtime> runtime, JavaVM *vm, JNIEnv
 	}
     if (runtime->status.load() != RuntimeStatus::FAILED) {
         jni_runtime = runtime.get();
-#if defined(LIBGODOT_ENABLED)
         bridge_open.store(true);
-#endif
     }
 }
 
-static void launch_application(std::shared_ptr<Runtime> runtime, JNIEnv *env, jclass bridge, const std::string &main_class) {
-	if (bridge && runtime->status.load() != RuntimeStatus::FAILED) {
-		jmethodID launch = env->GetStaticMethodID(bridge, "launch", "(Ljava/lang/String;)V");
+static void invoke_fixture_probe(std::shared_ptr<Runtime> runtime, JNIEnv *env, const std::string &main_class) {
+	if (runtime->status.load() != RuntimeStatus::FAILED) {
+		jclass fixture = env->FindClass("com/sun/javafx/tk/godot/GodotSceneFixture");
+		jmethodID launch = fixture ? env->GetStaticMethodID(fixture, "runProbe", "(Ljava/lang/String;)V") : nullptr;
 		jstring name = launch ? env->NewStringUTF(main_class.c_str()) : nullptr;
 		if (launch && name) {
 			runtime->status.store(RuntimeStatus::RUNNING);
-			runtime->java_launch_upcalls.fetch_add(1, std::memory_order_relaxed);
-			env->CallStaticVoidMethod(bridge, launch, name);
+			runtime->fixture_probe_calls.fetch_add(1, std::memory_order_relaxed);
+			env->CallStaticVoidMethod(fixture, launch, name);
 		}
 		if (env->ExceptionCheck()) {
 			env->ExceptionDescribe();
@@ -864,7 +818,6 @@ static void launch_application(std::shared_ptr<Runtime> runtime, JNIEnv *env, jc
 	}
 }
 
-#if defined(WINDOWS_ENABLED) && defined(LIBGODOT_ENABLED)
 // Only the thread driving a scene fixture can lend its JVM to a scene-owned host.
 thread_local JNIEnv *scene_env = nullptr;
 
@@ -877,7 +830,7 @@ static void run_scene_application(std::shared_ptr<Runtime> runtime, JavaVM *vm, 
 	}
 	jclass bridge = env->FindClass("com/sun/javafx/tk/godot/GodotBridge");
 	register_bridge(runtime, vm, env, bridge);
-	launch_application(runtime, env, bridge, main_class);
+	invoke_fixture_probe(runtime, env, main_class);
 	if (runtime->status.load() == RuntimeStatus::FAILED) {
 		runtime->queue.stop();
 		runtime->native_window_transport.stop();
@@ -894,62 +847,6 @@ static void run_scene_application(std::shared_ptr<Runtime> runtime, JavaVM *vm, 
 	vm->DetachCurrentThread();
 	if (runtime->status.load() != RuntimeStatus::FAILED) runtime->status.store(RuntimeStatus::FINISHED);
 }
-#endif
-
-static void run_jvm(std::shared_ptr<Runtime> runtime, String library,
-		std::vector<std::string> arguments, std::string main_class) {
-	// No Godot Node, RenderingServer, String or logging API is used on this
-	// worker or in JNI callbacks. Only the main-thread node consumes commands.
-	std::string load_error;
-	JvmLibrary module = jvm_load(library, load_error);
-	if (!module) {
-		runtime->fail(load_error);
-		return;
-	}
-	using CreateVM = jint(JNICALL *)(JavaVM **, void **, void *);
-	auto create_vm = reinterpret_cast<CreateVM>(jvm_create_symbol(module));
-	if (!create_vm) {
-		runtime->fail(std::string("JNI_CreateJavaVM was not exported by ") + jvm_library_name());
-		jvm_unload(module);
-		return;
-	}
-	std::vector<JavaVMOption> options(arguments.size());
-	for (size_t i = 0; i < arguments.size(); ++i) {
-		options[i].optionString = arguments[i].data();
-		options[i].extraInfo = nullptr;
-	}
-	JavaVMInitArgs init{};
-	init.version = JNI_VERSION_1_8;
-	init.nOptions = static_cast<jint>(options.size());
-	init.options = options.data();
-	init.ignoreUnrecognized = JNI_FALSE;
-	JavaVM *vm = nullptr;
-	JNIEnv *env = nullptr;
-	jint result = create_vm(&vm, reinterpret_cast<void **>(&env), &init);
-	if (result != JNI_OK) {
-		runtime->fail("JNI_CreateJavaVM failed with " + std::to_string(result));
-		// Do not unload HotSpot after a failed initialization: it may have
-		// installed process callbacks. The OS reclaims the library on exit.
-		return;
-	}
-	jclass bridge = env->FindClass("com/sun/javafx/tk/godot/GodotBridge");
-	register_bridge(runtime, vm, env, bridge);
-	launch_application(runtime, env, bridge, main_class);
-	// Wait for any admitted callback to finish, then reject all later entries.
-	// Release the global reference while the VM is still available.
-	if (jclass retained = runtime->drag_upcall.close()) env->DeleteGlobalRef(retained);
-	if (bridge) env->DeleteLocalRef(bridge);
-	if (runtime->status.load() == RuntimeStatus::FAILED) runtime->queue.stop();
-	else runtime->queue.finish();
-	if (runtime->status.load() == RuntimeStatus::FAILED) runtime->native_window_transport.stop();
-	else runtime->native_window_transport.finish();
-	jint destroyed = vm->DestroyJavaVM(); // Worker only; never blocks Godot main thread.
-	if (destroyed != JNI_OK) runtime->fail("DestroyJavaVM failed with " + std::to_string(destroyed));
-	jni_runtime = nullptr;
-	auto previous_status = runtime->status.load();
-	while (previous_status != RuntimeStatus::FAILED && !runtime->status.compare_exchange_weak(previous_status, RuntimeStatus::FINISHED)) {}
-	// Keep the JVM library mapped until process exit, including its TLS callbacks.
-}
 
 } // namespace godot_javafx
 
@@ -964,8 +861,8 @@ void JavaFXHost::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_window_input_enabled", "id"), &JavaFXHost::is_window_input_enabled);
 	ClassDB::bind_method(D_METHOD("is_window_visible", "id"), &JavaFXHost::is_window_visible);
 	ClassDB::bind_method(D_METHOD("is_window_above", "id", "other"), &JavaFXHost::is_window_above);
-	ClassDB::bind_method(D_METHOD("start_jvm", "jdk", "sdk", "classpath", "main_class"), &JavaFXHost::start_jvm);
-	ClassDB::bind_method(D_METHOD("stop_jvm"), &JavaFXHost::stop_jvm);
+	ClassDB::bind_method(D_METHOD("run_fixture_probe", "main_class"), &JavaFXHost::run_fixture_probe);
+	ClassDB::bind_method(D_METHOD("stop_host"), &JavaFXHost::stop_host);
 	ClassDB::bind_method(D_METHOD("get_runtime_status"), &JavaFXHost::get_runtime_status);
 	ClassDB::bind_method(D_METHOD("is_ime_active"), &JavaFXHost::is_ime_active);
 	ClassDB::bind_method(D_METHOD("update_ime_composition", "text", "caret"), &JavaFXHost::update_ime_composition);
@@ -1030,7 +927,7 @@ Dictionary JavaFXHost::get_render_stats() const {
 		stats["jni_tick_wait_us"] = runtime->tick_wait_us.load(); // Wall wait across threads, not CPU cost.
 		stats["jni_metadata_calls"] = runtime->metadata_jni_calls.load();
 		stats["jni_metadata_us"] = runtime->metadata_jni_us.load();
-		stats["java_launch_upcalls"] = runtime->java_launch_upcalls.load();
+		stats["fixture_probe_calls"] = runtime->fixture_probe_calls.load();
 	}
 	return stats;
 }
@@ -1051,7 +948,6 @@ void JavaFXHost::prepare_runtime(const String &startup) {
 	set_process_input(true);
 }
 
-#if defined(LIBGODOT_ENABLED)
 bool JavaFXHost::connect_jvm(JNIEnv *env, jclass bridge, const String &startup) {
     ERR_FAIL_COND_V(!Thread::is_main_thread() || !is_inside_tree() || runtime, false);
     ERR_FAIL_COND_V(!RenderingServer::get_singleton()->is_on_render_thread(), false);
@@ -1068,59 +964,18 @@ bool JavaFXHost::connect_jvm(JNIEnv *env, jclass bridge, const String &startup) 
 bool JavaFXHost::claim_library() {
     return !godot_javafx::library_claimed.exchange(true);
 }
-#endif
 
-bool JavaFXHost::start_jvm(const String &p_jdk, const String &p_sdk, const String &p_classpath, const String &p_main_class) {
+bool JavaFXHost::run_fixture_probe(const String &p_main_class) {
 	ERR_FAIL_COND_V(!Thread::is_main_thread() || !is_inside_tree() || runtime, false);
 	ERR_FAIL_COND_V_MSG(!RenderingServer::get_singleton()->is_on_render_thread(), false,
 			"JavaFX hosting requires --render-thread safe; separate is unsupported.");
-#if defined(WINDOWS_ENABLED) && defined(LIBGODOT_ENABLED)
-	if (JNIEnv *env = godot_javafx::scene_env) {
-		ERR_FAIL_COND_V(godot_javafx::jvm_started.exchange(true), false);
-		JavaVM *vm = nullptr;
-		ERR_FAIL_COND_V(env->GetJavaVM(&vm) != JNI_OK, false);
-		prepare_runtime(OS::get_singleton()->get_environment("GODOT_JFX_STARTUP"));
-		worker = std::thread(godot_javafx::run_scene_application, runtime, vm, std::string(p_main_class.utf8().get_data()));
-		return true;
-	}
-#endif
-#ifdef LIBGODOT_ENABLED
-    ERR_FAIL_COND_V_MSG(godot_javafx::library_claimed.load(), false, "The Java launcher already owns the JVM.");
-#endif
-	String library = godot_javafx::jvm_library_path(p_jdk);
-	ERR_FAIL_COND_V_MSG(!FileAccess::exists(library), false, "Installed JDK " + String(godot_javafx::jvm_library_name()) + " not found.");
-	ERR_FAIL_COND_V_MSG(!FileAccess::exists(p_sdk.path_join("lib/javafx.graphics.jar")), false, "Source-built JavaFX SDK not found.");
-	ERR_FAIL_COND_V_MSG(godot_javafx::jvm_started.exchange(true), false, "Only one JVM lifecycle is supported per Godot process.");
+	JNIEnv *env = godot_javafx::scene_env;
+	ERR_FAIL_NULL_V_MSG(env, false, "A probe requires the Java scene fixture launcher.");
+	ERR_FAIL_COND_V(godot_javafx::probe_started.exchange(true), false);
+	JavaVM *vm = nullptr;
+	ERR_FAIL_COND_V(env->GetJavaVM(&vm) != JNI_OK, false);
 	prepare_runtime(OS::get_singleton()->get_environment("GODOT_JFX_STARTUP"));
-	std::vector<std::string> options;
-	auto option = [&](const String &value) { options.emplace_back(value.utf8().get_data()); };
-	option("--module-path=" + p_sdk.path_join("lib"));
-	option("--add-modules=javafx.controls,javafx.fxml,javafx.swing,javafx.media");
-	option("--add-exports=javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED");
-	option("--add-exports=javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED");
-	option("--add-exports=javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED");
-	option("--add-exports=javafx.graphics/com.sun.glass.ui=ALL-UNNAMED");
-	option("--add-exports=javafx.graphics/com.sun.glass.ui.godot=ALL-UNNAMED");
-	option("--add-exports=javafx.graphics/com.sun.prism=ALL-UNNAMED");
-	option("--add-exports=javafx.graphics/com.sun.prism.impl=ALL-UNNAMED");
-	option("--add-exports=javafx.graphics/com.sun.prism.impl.ps=ALL-UNNAMED");
-	option("--add-exports=javafx.graphics/com.sun.prism.godot=ALL-UNNAMED");
-	option("--add-exports=javafx.graphics/com.sun.prism.paint=ALL-UNNAMED");
-	option("--add-exports=javafx.graphics/com.sun.javafx.geom=ALL-UNNAMED");
-	option("--enable-native-access=javafx.graphics,javafx.media");
-	option("-Djava.class.path=" + p_classpath);
-	option("-Djava.library.path=" + godot_javafx::sdk_library_path(p_sdk));
-	// Fail explicitly until the Godot backends are available. Never fall back
-	// to Win Glass or a different Prism pipeline and create another OS window.
-	option("-Dglass.platform=Godot");
-	option("-Dprism.order=godot");
-	option("-Djavafx.godot.host.sdk=" + p_sdk);
-	option("-Djavafx.godot.host.project=" + ProjectSettings::get_singleton()->globalize_path("res://"));
-	option("-Djavafx.godot.host.renderer=" + OS::get_singleton()->get_current_rendering_method());
-	option(String("-Djavafx.godot.host.startup=") + (startup_logo_enabled ? "LOGO" : startup_enabled ? "HIDDEN" : "NORMAL"));
-	worker = std::thread(godot_javafx::run_jvm, runtime,
-			library,
-			std::move(options), std::string(p_main_class.utf8().get_data()));
+	worker = std::thread(godot_javafx::run_scene_application, runtime, vm, std::string(p_main_class.utf8().get_data()));
 	return true;
 }
 
@@ -1768,7 +1623,7 @@ void JavaFXHost::_notification(int p_what) {
 		completing_presentation = false;
 		active_target.unref(); target_parameters.clear(); target_instance_params.clear();
 		if (runtime) get_tree()->set_auto_accept_quit(previous_auto_accept_quit);
-		stop_jvm();
+		stop_host();
 	}
 	if (p_what == MainLoop::NOTIFICATION_OS_IME_UPDATE && runtime) {
 		auto *display = DisplayServer::get_singleton();
@@ -2239,11 +2094,9 @@ void JavaFXHost::refresh_custom_cursor_info() {
 #endif
 }
 
-void JavaFXHost::stop_jvm() {
+void JavaFXHost::stop_host() {
 	ERR_FAIL_COND(!Thread::is_main_thread());
-#ifdef LIBGODOT_ENABLED
 	if (borrowed_vm) godot_javafx::bridge_open.store(false);
-#endif
 	restore_vsync_pacing();
     if (runtime) runtime->dialogs.stop();
     if (runtime) {
@@ -2291,7 +2144,6 @@ void JavaFXHost::stop_jvm() {
 	while (!native_windows.empty()) destroy_native_window(native_windows.begin()->first);
 	if (runtime) runtime->native_window_transport.publish({}, native_window_sequence);
 	if (runtime) runtime->queue.stop();
-#ifdef LIBGODOT_ENABLED
 	if (borrowed_vm) {
 		// The library's platform thread remains attached throughout the engine loop.
 		JNIEnv *env = nullptr;
@@ -2302,7 +2154,6 @@ void JavaFXHost::stop_jvm() {
 		runtime->status.store(godot_javafx::RuntimeStatus::FINISHED);
 		borrowed_vm = nullptr;
 	}
-#endif
 }
 
 void JavaFXHost::apply_readback() {
@@ -2654,10 +2505,10 @@ int64_t JavaFXHost::get_backpressure_count() const {
 }
 
 JavaFXHost::~JavaFXHost() {
-	stop_jvm();
+	stop_host();
 	if (worker.joinable()) {
 		// Never wait for Java application threads on the Godot main thread.
-		// The worker retains Runtime until VM destruction, even after the node
+		// The fixture worker retains Runtime until the probe returns, even after the node
 		// is removed. A finished worker can be joined without a Java callback.
 		if (runtime->status.load() == godot_javafx::RuntimeStatus::FINISHED) worker.join();
 		else worker.detach();

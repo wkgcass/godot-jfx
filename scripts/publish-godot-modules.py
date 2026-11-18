@@ -37,19 +37,25 @@ def write_pom(path, artifact, version, dependencies):
     ET.ElementTree(pom).write(path, encoding="utf-8", xml_declaration=True)
 
 
-def publish(jfx, output, version, jar_tool, classifier):
+def publish(jfx, output, version, jar_tool, classifier, engine_file):
     modules = output / "modules"
     modules.mkdir(exist_ok=True, parents=True)
     inventory = {}
     windows = classifier == "win"
-    media_names = ("fxplugins", "glib-lite", "gstreamer-lite", "jfxmedia", "jfxmedia_avf")
+    media_names = ["fxplugins", "glib-lite", "gstreamer-lite", "jfxmedia"]
+    if not windows:
+        media_names.append("jfxmedia_avf")
     media_libs = {name + ".dll" if windows else "lib" + name + ".dylib" for name in media_names}
     # Select only this SDK's inputs, even when staging into an existing directory.
     native_dir, pattern, engine = ("bin", "*.dll", "godot.dll") if windows else ("lib", "*.dylib", "libgodot.dylib")
-    natives = sorted([output / native_dir / engine, *(jfx / "build/sdk" / native_dir).glob(pattern)])
+    natives = {file.name: file for file in (jfx / "build/sdk" / native_dir).glob(pattern)}
+    missing = media_libs.difference(natives)
+    if missing:
+        raise FileNotFoundError(f"Incomplete Media SDK for {classifier}: {sorted(missing)}")
+    natives[engine] = engine_file
     build_id = hashlib.sha256()
-    for file in natives:
-        build_id.update(file.name.encode("ascii") + b"\0" + hashlib.sha256(file.read_bytes()).digest())
+    for name, file in sorted(natives.items()):
+        build_id.update(name.encode("ascii") + b"\0" + hashlib.sha256(file.read_bytes()).digest())
     for name, dependencies in MODULES.items():
         module = "javafx." + name
         artifact = "javafx-" + name
@@ -107,9 +113,9 @@ def publish(jfx, output, version, jar_tool, classifier):
             platform = Path(str(prefix) + "-" + classifier + ".jar")
             shutil.copyfile(target, platform)
             with ZipFile(platform, "a", compression=ZIP_DEFLATED) as archive:
-                for library in natives:
-                    if (library.name in media_libs) == (name == "media"):
-                        archive.write(library, library.name)
+                for filename, library in sorted(natives.items()):
+                    if (filename in media_libs) == (name == "media"):
+                        archive.write(library, filename)
                 if name == "graphics":
                     archive.writestr("META-INF/godot-jfx/natives.id", build_id.hexdigest())
                     for legal in ("COPYRIGHT.txt", "LICENSE.txt", "LICENSE"):
@@ -130,6 +136,7 @@ if __name__ == "__main__":
     parser.add_argument("output", type=Path)
     parser.add_argument("version")
     parser.add_argument("jar_tool", type=Path)
+    parser.add_argument("--engine", type=Path, required=True)
     parser.add_argument("--classifier", choices=("win", "mac-aarch64"), default="win")
     args = parser.parse_args()
-    publish(Path(__file__).resolve().parents[1] / "jfx", args.output, args.version, args.jar_tool, args.classifier)
+    publish(Path(__file__).resolve().parents[1] / "jfx", args.output, args.version, args.jar_tool, args.classifier, args.engine)

@@ -7,8 +7,8 @@ func _ready() -> void:
 	var resizing := OS.get_environment("GODOT_JFX_SCENE_RESIZE") == "1"
 	var first_id := 0
 	var resize_preserved := false
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"SceneTextureProbe"):
-		push_error("Scene texture JVM start failed")
+	if not host.run_fixture_probe("SceneTextureProbe"):
+		push_error("Scene texture Java probe start failed")
 		get_tree().quit(1)
 		return
 	var deadline := Time.get_ticks_msec()+20000
@@ -60,7 +60,7 @@ func _ready() -> void:
 			push_error("Retired scene nodes were not released after clear")
 			get_tree().quit(1)
 			return
-	host.stop_jvm()
+	host.stop_host()
 	remove_child(host)
 	if host.get_owned_resource_count() != 0:
 		push_error("Scene texture host resources leaked")

@@ -5,8 +5,8 @@ var host: Node
 func _ready() -> void:
 	host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), ProjectSettings.globalize_path("res://../../jfx/build/sdk"), ProjectSettings.globalize_path("res://../../artifacts/reference"), "ResizeCursorProbe"):
-		fail("Resize cursor JVM rejected")
+	if not host.run_fixture_probe("ResizeCursorProbe"):
+		fail("Resize cursor probe rejected")
 		return
 	var deadline := Time.get_ticks_msec() + 40000
 	while get_window().title != "ResizeCursor ready" or host.get_completed_presentations() == 0:

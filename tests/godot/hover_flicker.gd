@@ -31,12 +31,8 @@ func sample_luma(image: Image, bx: int, by: int, bw: int, bh: int) -> float:
 func _ready() -> void:
 	var host = ClassDB.instantiate("JavaFXHost"); add_child(host)
 	await get_tree().process_frame
-	var base := ProjectSettings.globalize_path("res://../../artifacts/vfx")
-	var entries := PackedStringArray([base+"/classes/java/main",base+"/classes/java/test",base+"/resources/main",base+"/resources/test",ProjectSettings.globalize_path("res://../../artifacts/reference")])
-	for file in DirAccess.get_files_at(base+"/dependencies"):
-		if file.ends_with(".jar"): entries.append(base+"/dependencies/"+file)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),"HoverFlickerProbe"):
-		push_error("Hover flicker JVM failed"); get_tree().quit(1); return
+	if not host.run_fixture_probe("HoverFlickerProbe"):
+		push_error("Hover flicker probe failed"); get_tree().quit(1); return
 	var hold_frames := 0
 	var flicker_frames := 0
 	var settle := 8 # hover repaint landing at a hold boundary is legal

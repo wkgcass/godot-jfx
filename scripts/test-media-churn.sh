@@ -1,7 +1,7 @@
 #!/bin/sh
 # macOS equivalent of test-media-churn.ps1. The -NativeD3D comparison and the
 # -HandleTypes/-Providers handle-census modes depend on Windows process APIs
-# and are not ported; the Godot editor churn keeps the same checks. Process
+# and are not ported; the packaged-engine churn test keeps the same checks. Process
 # samples come from the probe's own proc_pid_rusage/proc_pidinfo metrics.
 # Usage: test-media-churn.sh [--renderer mobile|gl_compatibility] [--cycles 24..240]
 #        [--settle-seconds 0|30|60] [--audio-only]
@@ -29,12 +29,11 @@ case "$RENDERER" in mobile|gl_compatibility) ;; *) echo "invalid renderer: $REND
 [ "$CYCLES" -ge 24 ] && [ "$CYCLES" -le 240 ] || { echo "invalid cycles: $CYCLES" >&2; exit 2; }
 case "$SETTLE" in 0|30|60) ;; *) echo "invalid settle seconds: $SETTLE" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
-echo "Media churn backend: Godot Editor / Glass-Godot / Prism-Godot / $RENDERER"
+echo "Media churn backend: Java / Glass-Godot / Prism-Godot / $RENDERER"
 if [ "$AUDIO_ONLY" -eq 1 ]; then
     VIDEO="artifacts/reference/media-churn-silence.wav"
     python3 -c 'import wave,sys; w=wave.open(sys.argv[1],"wb"); w.setparams((1,2,44100,0,"NONE","not compressed")); w.writeframes(bytes(44100*2*2)); w.close()' "$PWD/$VIDEO" \
@@ -92,7 +91,7 @@ export GODOT_JFX_MEDIA_AUDIO_ONLY="$AUDIO_ONLY"
 
 # The Godot fixture owns its timeout (30s + 6s/cycle + settle) and shutdown.
 CODE=0
-run_watchdog "$LOG" $((60 + CYCLES * 7 + SETTLE + 60)) "$GODOT" --path tests/godot res://media_churn.tscn \
+run_watchdog "$LOG" $((60 + CYCLES * 7 + SETTLE + 60)) python3 "$FIXTURE_LAUNCHER" --path tests/godot res://media_churn.tscn \
     --rendering-method "$RENDERER" --render-thread safe || CODE=$?
 
 EXPECTED_IDLE=$((1 + SETTLE / 10))

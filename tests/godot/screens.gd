@@ -2,8 +2,8 @@ extends Node2D
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost"); add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"ScreensProbe"):
-		push_error("Screen JVM start failed"); get_tree().quit(1); return
+	if not host.run_fixture_probe("ScreensProbe"):
+		push_error("Screen Java probe start failed"); get_tree().quit(1); return
 	var step:=0
 	var deadline:=Time.get_ticks_msec()+35000
 	while host.get_runtime_status()!="finished":

@@ -88,8 +88,8 @@ def resolve(runtime, work, maven):
 
 
 class Suite:
-    def __init__(self, runtime, work, jdk, hashes):
-        self.runtime, self.work, self.jdk, self.hashes = runtime, work, jdk, hashes
+    def __init__(self, work, jdk, hashes):
+        self.work, self.jdk, self.hashes = work, jdk, hashes
         self.modules = work / "consumer/modules"
         self.classes = work / "classes"
         self.cwd = work / "separate working directory"
@@ -125,10 +125,10 @@ class Suite:
         (self.work / "results.json").write_text(json.dumps(self.results, indent=2), encoding="utf-8")
 
     def check_child(self, name, target, *args, properties=None, expected=(), code=0, loaded=(), env=None,
-                    engines=1, expected_loops=None):
+                    engines=1, expected_loops=None, module_path=None):
         props = {"javafx.cachedir": self.work / "native-cache", "javafx.godot.verbose": "true",
                  **(properties or {})}
-        argv = [self.jdk / "bin/java", "--module-path", self.modules, "--add-modules", MODULES, *EXPORTS,
+        argv = [self.jdk / "bin/java", "--module-path", module_path or self.modules, "--add-modules", MODULES, *EXPORTS,
                 "--enable-native-access=javafx.graphics,javafx.media", "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8",
                 *(f"-D{k}={v}" for k, v in props.items() if v is not None), "-cp", self.classes, target, *args]
         output = self.work / (name + ".log")
@@ -208,6 +208,21 @@ class Suite:
         command([editor, "--headless", "--path", project, "--editor", "--import"], project / "import.log")
         return project
 
+    def damaged_classifier(self, directory, module, entry, replacement=None):
+        # Keep one module per name and alter only the resource under test.
+        directory.mkdir(exist_ok=True, parents=True)
+        source, = self.modules.glob(f"javafx-{module}-*-win.jar")
+        target = directory / source.name
+        with ZipFile(source) as original, ZipFile(target, "w") as damaged:
+            if entry not in original.namelist():
+                raise AssertionError(f"Missing test input {entry} in {source}")
+            for info in original.infolist():
+                if info.filename != entry:
+                    damaged.writestr(info, original.read(info))
+                elif replacement is not None:
+                    damaged.writestr(info, replacement)
+        return os.pathsep.join(str(target if jar == source else jar) for jar in self.modules.glob("*.jar"))
+
     def checks(self, group):
         if group == "launch":
             for case in ("init", "concurrent", "race", "explicit", "auto", "startup", "exit"):
@@ -225,29 +240,26 @@ class Suite:
         elif group == "failures":
             for case in ("missing", "architecture", "project", "invalid-pack", "attach"):
                 runtime = self.work / ("failure-" + case)
-                (runtime / "bin").mkdir(exist_ok=True, parents=True)
-                if case == "architecture":
-                    shutil.copyfile(Path(os.environ["SystemRoot"]) / "SysWOW64/version.dll", runtime / "bin/godot.dll")
+                runtime.mkdir(exist_ok=True, parents=True)
+                module_path = None
+                if case in ("missing", "architecture"):
+                    wrong_arch = (Path(os.environ["SystemRoot"]) / "SysWOW64/version.dll").read_bytes() if case == "architecture" else None
+                    module_path = self.damaged_classifier(runtime, "graphics", "godot.dll", wrong_arch)
                 elif case == "attach":
                     self.pack(self.project("duplicate", duplicate=True), runtime / "project.pck")
                 elif case == "invalid-pack":
                     (runtime / "project.pck").write_bytes(b"invalid resource pack")
                 marker = {"missing": "godot.dll", "architecture": "godot.dll", "project": "project:",
                           "invalid-pack": "create:", "attach": "attach:"}[case]
-                self.child("failure-" + case, "LibraryLifecycle", "failure", properties={
-                           "javafx.godot.runtime": runtime if case in ("missing", "architecture") else None,
+                self.child("failure-" + case, "LibraryLifecycle", "failure", module_path=module_path, properties={
+                           "javafx.cachedir": runtime / "cache",
                            "javafx.godot.project": runtime / "project.pck" if case in ("project", "invalid-pack", "attach") else None},
                            expected=["EXPECTED_FAILURE", marker], code=31, engines=int(case == "attach"), expected_loops=0)
             self.child("early-image", "BackendProbe", "image", expected=["EARLY_IMAGE_PASS"], engines=0, loaded=["javafx_iio.dll"])
-            native = self.work / "native-control"
-            (native / "bin").mkdir(parents=True, exist_ok=True)
-            for dll in (self.runtime / "bin").glob("*.dll"):
-                if dll.name not in ("godot.dll", "glib-lite.dll"):
-                    shutil.copyfile(dll, native / "bin" / dll.name)
-            self.child("missing-media-dependency", "BackendProbe", "media", properties={"javafx.godot.runtime": native},
+            damaged = self.damaged_classifier(self.work / "missing-media", "media", "glib-lite.dll")
+            self.child("missing-media-dependency", "BackendProbe", "media", module_path=damaged,
                        expected=["glib-lite.dll", "UnsatisfiedLinkError"], code=1, engines=0)
-            self.child("native-d3d", "BackendProbe", "d3d", properties={"prism.order": "d3d",
-                       "javafx.godot.runtime": native}, engines=0,
+            self.child("native-d3d", "BackendProbe", "d3d", properties={"prism.order": "d3d"}, engines=0,
                        expected=["NATIVE_CONTROL_PASS"], loaded=["glass.dll", "prism_d3d.dll"])
         elif group == "render":
             refs = self.work / "artifacts/reference"
@@ -262,7 +274,7 @@ class Suite:
             for case, source in (("directory", project), ("pck", pack)):
                 # The explicit launcher selects the project before Application.launch.
                 self.child("unicode-" + case, "LibraryLifecycle", "explicit", properties={"test.project": source,
-                           "javafx.godot.runtime": None, "test.input": "true"}, expected=["NATIVE_CWD", "APPLICATION_INPUT_PASS",
+                           "test.input": "true"}, expected=["NATIVE_CWD", "APPLICATION_INPUT_PASS",
                            "LIBRARY_VIEW_STAGE_PASS renderer=mobile", "APPLICATION_STOP"],
                            env={"GODOT_LIBRARY_CAPTURE": str(refs / (case + ".png"))})
             self.child("effects-reference", "EffectsProbe", properties={"prism.order": "d3d",
@@ -298,7 +310,7 @@ def main():
     work.mkdir(parents=True, exist_ok=True)
     print(f"Evidence: {work}", flush=True)
     hashes = resolve(runtime, work, args.maven)
-    suite = Suite(runtime, work, Path(os.environ["JAVA_HOME"]), hashes)
+    suite = Suite(work, Path(os.environ["JAVA_HOME"]), hashes)
     suite.compile()
     command([suite.jdk / "bin/javac", "--module-path", suite.modules, "--add-modules", MODULES, "-cp", suite.classes,
              "-d", suite.classes, FIXTURES / "ProbeLauncher.java"], work / "observer-compile.log")

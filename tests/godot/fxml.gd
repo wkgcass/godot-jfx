@@ -11,8 +11,8 @@ func key(code:int,unicode:int,ctrl:bool=false) -> void:
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost");add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"FXMLProbe"):
-		push_error("FXML JVM start failed");get_tree().quit(1);return
+	if not host.run_fixture_probe("FXMLProbe"):
+		push_error("FXML Java probe start failed");get_tree().quit(1);return
 	var step:=0
 	var deadline:=Time.get_ticks_msec()+90000
 	while host.get_runtime_status()!="finished":

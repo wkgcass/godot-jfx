@@ -20,15 +20,9 @@ func _ready() -> void:
 	FileAccess.open(folder+"/run.json",FileAccess.WRITE).store_string(JSON.stringify({"status":"running","pages":pages}))
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	var base := ProjectSettings.globalize_path("res://../../artifacts/vfx")
-	var entries := PackedStringArray([base+"/classes/java/main",base+"/classes/java/test",base+"/resources/main",base+"/resources/test"])
-	entries.append(ProjectSettings.globalize_path("res://../../artifacts/reference"))
-	for file in DirAccess.get_files_at(base+"/dependencies"):
-		if file.ends_with(".jar"):
-			entries.append(base+"/dependencies/"+file)
 	var entry := "VfxNavigationProbe" if OS.get_environment("GODOT_JFX_VFX_PAGES").to_int() > 2 else "io.vproxy.vfx.intro.IntroMain"
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),entry):
-		push_error("VFX JVM startup failed")
+	if not host.run_fixture_probe(entry):
+		push_error("VFX Java probe startup failed")
 		get_tree().quit(1)
 		return
 	var deadline := Time.get_ticks_msec()+30000

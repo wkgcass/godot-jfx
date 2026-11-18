@@ -11,8 +11,8 @@ func _ready() -> void:
 	var baseline_resources := -1
 	var baseline_texture_bytes := 0.0
 	var baseline_static_bytes := 0
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), ProjectSettings.globalize_path("res://../../jfx/build/sdk"), ProjectSettings.globalize_path("res://../../artifacts/reference"), probe):
-		fail("Readback JVM rejected")
+	if not host.run_fixture_probe(probe):
+		fail("Readback probe rejected")
 		return
 	var deadline := Time.get_ticks_msec() + (180000 if stress else 30000)
 	if stop_read:
@@ -21,11 +21,11 @@ func _ready() -> void:
 				fail("Readback request did not become pending")
 				return
 			await get_tree().process_frame
-		host.stop_jvm()
+		host.stop_host()
 		print("READBACK_STOP_OBSERVED_PENDING_REQUEST")
 	while host.get_runtime_status() != "finished":
 		if host.get_runtime_status() == "failed" or Time.get_ticks_msec() > deadline:
-			fail("Readback JVM failed: " + host.get_runtime_error())
+			fail("Readback probe failed: " + host.get_runtime_error())
 			return
 		await get_tree().process_frame
 		if stress and get_window().title == "SnapshotStress "+str(checkpoint):

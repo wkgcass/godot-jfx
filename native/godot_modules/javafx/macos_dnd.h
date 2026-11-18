@@ -66,7 +66,7 @@ struct SourceData {
 };
 
 // Published together after JNI registration. The worker closes this gate before
-// DestroyJavaVM; the mutex covers the whole upcall, including GetEnv/attachment
+// bridge teardown; the mutex covers the whole upcall, including GetEnv/attachment
 // and detachment. Clearing an atomic class pointer alone leaves an entry race.
 struct UpcallState {
 	std::mutex mutex;
@@ -131,7 +131,7 @@ inline jint call_target(const Upcall &upcall, jint kind, int64_t id, jint sx, ji
 	bool attached = false;
 	if (env_result == JNI_EDETACHED) {
 		if (jvm->AttachCurrentThread(reinterpret_cast<void **>(&env), nullptr) != JNI_OK) return 0;
-		attached = true; // Balance the attach: DestroyJavaVM waits for attached threads.
+		attached = true; // Detach only threads attached by this callback.
 	} else if (env_result != JNI_OK) return 0;
 	jstring mime_arg = nullptr, text_arg = nullptr, url_arg = nullptr, files_arg = nullptr;
 	jbyteArray html_arg = nullptr, rtf_arg = nullptr;

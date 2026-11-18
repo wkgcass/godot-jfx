@@ -1,8 +1,8 @@
 extends Node2D
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost"); add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"RobotProbe"):
-		push_error("Robot JVM failed"); get_tree().quit(1); return
+	if not host.run_fixture_probe("RobotProbe"):
+		push_error("Robot probe failed"); get_tree().quit(1); return
 	var deadline:=Time.get_ticks_msec()+35000
 	while host.get_runtime_status()!="finished":
 		await RenderingServer.frame_post_draw

@@ -224,7 +224,7 @@ public:
 				}
 			}
 		}
-		// stop() normally runs on the Godot main thread (stop_jvm), where the
+		// stop() normally runs on the Godot main thread (stop_host), where the
 		// Cocoa abort is safe; the destructor's later call finds panel cleared.
 		if (target) {
 			panel_abort(target);

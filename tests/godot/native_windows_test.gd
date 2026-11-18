@@ -95,14 +95,14 @@ func _ready() -> void:
 	get_viewport().push_input(motion, true)
 	if Input.get_current_cursor_shape() != Input.CURSOR_CROSS:
 		host.free()
-		fail("Host without JVM changed application default cursor"); return
+		fail("Unbound host changed application default cursor"); return
 	if host.get_native_window_count()!=0: fail("Host exit retained window registry"); return
 	Input.set_default_cursor_shape(Input.CURSOR_IBEAM)
 	host.free()
 	get_viewport().push_input(motion, true)
 	if Input.get_current_cursor_shape() != Input.CURSOR_IBEAM:
 		fail("Host destruction changed application default cursor"); return
-	print("NATIVE_NO_JVM_CURSOR_PASS")
+	print("NATIVE_UNBOUND_HOST_CURSOR_PASS")
 	for frame in range(3): await RenderingServer.frame_post_draw
 	if DisplayServer.get_window_list().size()!=baseline: fail("Native windows leaked on deletion"); return
 	print("NATIVE_WINDOWS_PASS: independent OS windows/viewports, outside-host placement, GPU replacement, resize/hide/show, cleanup")

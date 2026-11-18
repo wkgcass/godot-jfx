@@ -20,8 +20,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 PY=".tools/pyenv/bin/python3"
 [ -x "$PY" ] || PY="python3"
@@ -51,7 +50,7 @@ export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_EDGE_OUTPUT="$PWD/artifacts/reference/composite-edges-$RENDERER-$RENDER_THREAD.txt"
 LOG="artifacts/logs/composite-edges-$RENDERER-$RENDER_THREAD.log"
 CODE=0
-"$GODOT" --path tests/godot res://composite_edges.tscn \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot res://composite_edges.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_COMPOSITE_EDGES_PASS' "$LOG" \

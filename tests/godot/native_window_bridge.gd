@@ -2,7 +2,7 @@ extends Node2D
 func _ready() -> void:
 	get_window().size=Vector2i(260,180); get_window().position=Vector2i(30,60)
 	var host=ClassDB.instantiate("JavaFXHost"); add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"NativeWindowBridgeProbe"):
+	if not host.run_fixture_probe("NativeWindowBridgeProbe"):
 		push_error("Native bridge start failed"); get_tree().quit(1); return
 	var seen:={}
 	var default_maximum:=Vector2i.ZERO

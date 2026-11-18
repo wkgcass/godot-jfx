@@ -20,8 +20,8 @@ func matches(a: Color, b: Color) -> bool:
 func _ready() -> void:
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"LogicalWindowProbe"):
-		push_error("Logical JVM failed to start")
+	if not host.run_fixture_probe("LogicalWindowProbe"):
+		push_error("Logical probe failed to start")
 		get_tree().quit(1)
 		return
 	var deadline := Time.get_ticks_msec()+40000

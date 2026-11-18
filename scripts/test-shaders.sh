@@ -14,8 +14,7 @@ while [ $# -gt 0 ]; do
 done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 PY=".tools/pyenv/bin/python3"
 [ -x "$PY" ] || PY="python3"
 mkdir -p artifacts/logs artifacts/reference
@@ -54,7 +53,7 @@ EOF
 
 LOG="artifacts/logs/godot-shaders-$RENDERER.log"
 CODE=0
-"$GODOT" --path tests/godot res://shaders.tscn \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot res://shaders.tscn \
     --rendering-method "$RENDERER" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_SHADER_PASS count=' "$LOG" \

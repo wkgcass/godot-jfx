@@ -3,12 +3,8 @@ extends Node2D
 func _ready() -> void:
 	print("VFX_TRANSITION_DISPLAY ",JSON.stringify({"refresh_hz":DisplayServer.screen_get_refresh_rate(),"vsync":DisplayServer.window_get_vsync_mode(),"max_fps":Engine.max_fps,"low_processor_mode":OS.low_processor_usage_mode}))
 	var host=ClassDB.instantiate("JavaFXHost");add_child(host)
-	var base:=ProjectSettings.globalize_path("res://../../artifacts/vfx")
-	var entries:=PackedStringArray([base+"/classes/java/main",base+"/classes/java/test",base+"/resources/main",base+"/resources/test",ProjectSettings.globalize_path("res://../../artifacts/reference")])
-	for file in DirAccess.get_files_at(base+"/dependencies"):
-		if file.ends_with(".jar"): entries.append(base+"/dependencies/"+file)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),"VfxTransitionProbe"):
-		push_error("Transition benchmark JVM start failed");get_tree().quit(1);return
+	if not host.run_fixture_probe("VfxTransitionProbe"):
+		push_error("Transition benchmark Java probe start failed");get_tree().quit(1);return
 	var baseline:Dictionary={}
 	var start_us:int
 	var reported:=false

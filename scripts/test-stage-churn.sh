@@ -26,8 +26,7 @@ case "$HEAP_MIB" in ''|*[!0-9]*) echo "invalid heap mib: $HEAP_MIB" >&2; exit 2 
 if [ "$CYCLES" -lt 6 ] || [ "$CYCLES" -gt 1000 ]; then echo "invalid cycles: $CYCLES" >&2; exit 2; fi
 if [ "$HEAP_MIB" -gt 4096 ]; then echo "invalid heap mib: $HEAP_MIB" >&2; exit 2; fi
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -44,7 +43,7 @@ fi
 SUFFIX="-$CYCLES-heap$HEAP_MIB"
 LOG="artifacts/logs/stage-churn-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
-"$GODOT" --path tests/godot res://stage_churn.tscn \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot res://stage_churn.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_STAGE_CHURN_PASS' "$LOG" \

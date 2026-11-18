@@ -23,9 +23,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-TEMPLATE="./godot/bin/godot.macos.template_release.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -48,20 +46,19 @@ SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
 LOG="$PWD/artifacts/logs/effects-$RENDERER$SUFFIX.log"
 if [ "$RUNTIME" -eq 1 ]; then
-    [ -x "$TEMPLATE" ] || { echo "Godot template not found: $TEMPLATE" >&2; exit 1; }
     FIXTURE="$PWD/artifacts/runtime-effects"
     mkdir -p "$FIXTURE"
-    cp "$TEMPLATE" tests/godot/effects.tscn tests/godot/effects_test.gd "$FIXTURE/"
+    cp tests/godot/effects.tscn tests/godot/effects_test.gd "$FIXTURE/"
     sed 's|res://main.tscn|res://effects.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
     CODE=0
-    "$GODOT" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Effects runtime import failed: $LOG.import" >&2; exit 1; fi
     CODE=0
-    (cd "$FIXTURE" && "./godot.macos.template_release.arm64" \
+    (cd "$FIXTURE" && python3 "$FIXTURE_LAUNCHER" \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1) || CODE=$?
 else
     CODE=0
-    "$GODOT" --path tests/godot res://effects.tscn \
+    python3 "$FIXTURE_LAUNCHER" --path tests/godot res://effects.tscn \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
 fi
 echo "EFFECTS_NATIVE_EXIT_CODE $CODE" >>"$LOG"

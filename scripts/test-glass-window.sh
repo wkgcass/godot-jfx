@@ -14,9 +14,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-TEMPLATE="./godot/bin/godot.macos.template_release.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -51,21 +49,17 @@ export GODOT_JFX_JDK="$JDK"
 LOG="$PWD/artifacts/logs/m2-glass-window.log"
 CODE=0
 if [ "$RUNTIME" -eq 1 ]; then
-    [ -x "$TEMPLATE" ] || { echo "Godot template not found: $TEMPLATE" >&2; exit 1; }
     LOG="$PWD/artifacts/logs/m2-glass-window-runtime.log"
-    # Release templates load the project beside the executable. The fixture
-    # stays two levels below the repo root so res://../../ still resolves to
-    # the JFX SDK and the compiled probe classes.
     FIXTURE="$PWD/artifacts/runtime-window"
     mkdir -p "$FIXTURE"
-    cp "$TEMPLATE" tests/godot/window.tscn tests/godot/window_test.gd "$FIXTURE/"
+    cp tests/godot/window.tscn tests/godot/window_test.gd "$FIXTURE/"
     sed 's|res://main.tscn|res://window.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
-    "$GODOT" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Runtime fixture import failed. See $LOG.import" >&2; exit 1; fi
-    (cd "$FIXTURE" && run_watchdog "$LOG" 240 "./godot.macos.template_release.arm64" \
+    (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" \
         --quit-after 3000) || CODE=$?
 else
-    run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://window.tscn \
+    run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://window.tscn \
         --quit-after 3000 || CODE=$?
 fi
 if [ "$CODE" -ne 0 ] \

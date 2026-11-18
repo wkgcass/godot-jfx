@@ -18,8 +18,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -31,7 +30,7 @@ mkdir -p artifacts/reference artifacts/logs
 export GODOT_JFX_JDK="$JDK"
 LOG="artifacts/logs/popups-$RENDERER-$RENDER_THREAD.log"
 CODE=0
-"$GODOT" --path tests/godot res://popups.tscn \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot res://popups.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 10000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_POPUPS_PASS' "$LOG" \

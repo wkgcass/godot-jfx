@@ -20,8 +20,8 @@ func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost");add_child(host)
 	if not ProjectSettings.get_setting("display/window/per_pixel_transparency/allowed",false):
 		push_error("Host per-pixel transparency disabled");get_tree().quit(1);return
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"TransparentStageProbe"):
-		push_error("Transparent JVM failed");get_tree().quit(1);return
+	if not host.run_fixture_probe("TransparentStageProbe"):
+		push_error("Transparent probe failed");get_tree().quit(1);return
 	var seen:={};var deadline:=Time.get_ticks_msec()+60000
 	while host.get_runtime_status()!="finished":
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:

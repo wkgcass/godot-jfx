@@ -4,8 +4,8 @@ func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color.WHITE)
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), ProjectSettings.globalize_path("res://../../jfx/build/sdk"), ProjectSettings.globalize_path("res://../../artifacts/reference"), "WindowResizeProbe"):
-		push_error("Resize JVM start failed")
+	if not host.run_fixture_probe("WindowResizeProbe"):
+		push_error("Resize Java probe start failed")
 		get_tree().quit(1)
 		return
 	var deadline := Time.get_ticks_msec() + 40000

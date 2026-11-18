@@ -6,9 +6,11 @@ $root=Split-Path $PSScriptRoot -Parent
 $savedCapture=$env:GODOT_JFX_MEDIA_CAPTURE;$savedJdk=$env:GODOT_JFX_JDK;$savedFile=$env:GODOT_JFX_MEDIA_FILE
 Push-Location $root
 try {
-    if($Runtime -and $NativeD3D){throw 'Choose either Godot Runtime or native D3D'}
-    foreach($library in @('jfxmedia.dll','glib-lite.dll','gstreamer-lite.dll','fxplugins.dll')){
-        if(!(Test-Path "jfx/build/sdk/bin/$library")){throw "Build source Media SDK first; missing $library"}
+    if($Runtime -and $NativeD3D){throw 'The isolated Godot project requires the Godot backend'}
+    if ($NativeD3D) {
+        foreach($library in @('jfxmedia.dll','glib-lite.dll','gstreamer-lite.dll','fxplugins.dll')){
+            if(!(Test-Path "jfx/build/sdk/bin/$library")){throw "Build source Media SDK first; missing $library"}
+        }
     }
     $videoFile=Join-Path $root 'artifacts/reference/media-oracle-sample.mp4'
     if(!(Test-Path $videoFile)){Invoke-WebRequest -Uri 'https://download.oracle.com/otndocs/products/javafx/oow2010-2.mp4' -OutFile $videoFile}

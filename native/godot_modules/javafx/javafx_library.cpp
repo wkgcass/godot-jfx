@@ -66,12 +66,11 @@ GDExtensionBool extension_init(GDExtensionInterfaceGetProcAddress, GDExtensionCl
 }
 }
 
-#ifdef WINDOWS_ENABLED
 namespace godot_javafx { extern thread_local JNIEnv *scene_env; }
 
 // Scene-driven integration fixtures use the packaged engine and existing JVM.
 // GDScript owns the host node, the application entry and the final exit code.
-extern "C" JNIEXPORT jint JNICALL Java_GodotSceneFixture_run(JNIEnv *env, jclass, jstring library, jobjectArray arguments) {
+extern "C" JNIEXPORT jint JNICALL Java_com_sun_javafx_tk_godot_GodotSceneFixture_run(JNIEnv *env, jclass, jstring library, jobjectArray arguments) {
 	if (!claim_engine()) {
 		fail(env, "The process already claimed a Godot instance");
 		return 1;
@@ -91,14 +90,17 @@ extern "C" JNIEXPORT jint JNICALL Java_GodotSceneFixture_run(JNIEnv *env, jclass
 	godot_javafx::scene_env = env;
 	int code = 1;
 	if (instance->start()) {
+#ifdef MACOS_ENABLED
+		while (!javafx_macos_iteration(instance)) {}
+#else
 		while (!instance->iteration()) {}
+#endif
 		code = OS::get_singleton()->get_exit_code();
 	}
 	libgodot_destroy_godot_instance(instance);
 	godot_javafx::scene_env = nullptr;
 	return code;
 }
-#endif
 
 extern "C" JNIEXPORT void JNICALL Java_com_sun_javafx_tk_godot_LibraryGodotEngine_requestStop(JNIEnv *, jclass) {
 	stopping.store(true);
@@ -188,7 +190,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_sun_javafx_tk_godot_LibraryGodotEngin
 				}
 			}
 		}
-		if (auto *live = ObjectDB::get_instance<JavaFXHost>(id)) live->stop_jvm();
+		if (auto *live = ObjectDB::get_instance<JavaFXHost>(id)) live->stop_host();
 	}
 	libgodot_destroy_godot_instance(instance);
 	FileAccessMemory::cleanup();

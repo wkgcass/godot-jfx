@@ -29,13 +29,9 @@ if [ "$RUNTIME" -eq 1 ]; then
     exit 2
 fi
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
-for library in libjfxmedia.dylib libglib-lite.dylib libgstreamer-lite.dylib libfxplugins.dylib; do
-    [ -f "jfx/build/sdk/lib/$library" ] || { echo "Build source Media SDK first; missing $library" >&2; exit 1; }
-done
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media \
     -d artifacts/reference tests/reference/MediaAudioProbe.java \
@@ -114,7 +110,7 @@ for kind in $CODECS; do
     LOG="artifacts/logs/media-audio-$RENDERER$codec_tag.log"
     CODE=0
     GODOT_JFX_MEDIA_FILE="$media_file" GODOT_JFX_MEDIA_EXPECT_MS=2000 GODOT_JFX_MEDIA_TOLERANCE_MS=$tolerance \
-        run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://media_audio.tscn \
+        run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://media_audio.tscn \
         --rendering-method "$RENDERER" --render-thread safe || CODE=$?
     if [ "$CODE" -ne 0 ] \
         || ! grep -q 'MEDIA_AUDIO_PROBE_PASS' "$LOG" \

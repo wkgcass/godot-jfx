@@ -5,8 +5,8 @@ var host: Node
 func _ready() -> void:
 	host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), ProjectSettings.globalize_path("res://../../jfx/build/sdk"), ProjectSettings.globalize_path("res://../../artifacts/reference"), "WindowDragProbe"):
-		fail("Window drag JVM rejected")
+	if not host.run_fixture_probe("WindowDragProbe"):
+		fail("Window drag probe rejected")
 		return
 	var deadline := Time.get_ticks_msec() + 90000
 	while get_window().title != "WindowDrag ready" or host.get_completed_presentations() == 0:
@@ -69,7 +69,7 @@ func _ready() -> void:
 		worst = maxi(worst, lag)
 	print("DRAG_LAG_AVG " + str(total / float(lags.size())))
 	print("DRAG_LAG_MAX " + str(worst))
-	# Click the content area so the probe completes and the JVM shuts down.
+	# Click the content area so the probe completes and releases its windows.
 	for pressed in [true, false]:
 		var click := InputEventMouseButton.new()
 		click.window_id = window_id

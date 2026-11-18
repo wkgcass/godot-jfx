@@ -33,8 +33,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -57,7 +56,7 @@ CODE=0
     export GODOT_JFX_DIALOG_HOOK=1
     export GODOT_JFX_DIALOG_STOP="$STOP_HOST"
     if [ "$STOP_HOST" = 1 ]; then export GODOT_JFX_DIALOG_READY="$READY_PATH"; fi
-    "$GODOT" --path tests/godot res://file_dialog.tscn \
+    python3 "$FIXTURE_LAUNCHER" --path tests/godot res://file_dialog.tscn \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" >"$LOG" 2>&1
 ) || CODE=$?
 rm -f "$READY_PATH"

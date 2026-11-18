@@ -69,7 +69,9 @@ def build(work, runtime, name, pack=None):
         if not required <= names or any(n.endswith((".jar", "project.godot", "project.pck")) for n in names):
             raise AssertionError(f"Invalid flat jar: {jar}")
         for dll in (entry for entry in required if entry.endswith(".dll")):
-            if hashlib.sha256(archive.read(dll)).digest() != hashlib.sha256((runtime / "bin" / dll).read_bytes()).digest():
+            source = (ROOT / "godot/bin/godot.windows.template_release.x86_64.library.dll" if dll == "godot.dll"
+                      else ROOT / "jfx/build/sdk/bin" / dll)
+            if hashlib.sha256(archive.read(dll)).digest() != hashlib.sha256(source.read_bytes()).digest():
                 raise AssertionError(f"{jar} contains a different build of {dll}")
         packs = {n for n in names if n.endswith(".pck")}
         if packs != ({"META-INF/godot-jfx/scenes.pck"} if pack else set()):

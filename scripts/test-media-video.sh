@@ -1,6 +1,6 @@
 #!/bin/sh
 # macOS equivalent of test-media-video.ps1. The -NativeD3D and -Runtime modes
-# are Windows-only and are not ported; the Godot editor path keeps the same
+# are Windows-only and are not ported; the scene fixture keeps the same
 # checks.
 # Usage: test-media-video.sh [--renderer mobile|gl_compatibility]
 set -eu
@@ -18,13 +18,9 @@ while [ $# -gt 0 ]; do
 done
 case "$RENDERER" in mobile|gl_compatibility) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
-for library in libjfxmedia.dylib libglib-lite.dylib libgstreamer-lite.dylib libfxplugins.dylib; do
-    [ -f "jfx/build/sdk/lib/$library" ] || { echo "Build source Media SDK first; missing $library" >&2; exit 1; }
-done
 
 VIDEO="artifacts/reference/media-oracle-sample.mp4"
 if [ ! -f "$VIDEO" ]; then
@@ -64,7 +60,7 @@ export GODOT_JFX_MEDIA_FILE="$PWD/$VIDEO"
 export GODOT_JFX_MEDIA_CAPTURE="$PWD/artifacts/reference/media-video-$RENDERER.png"
 LOG="artifacts/logs/media-video-$RENDERER.log"
 CODE=0
-run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://media_video.tscn \
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://media_video.tscn \
     --rendering-method "$RENDERER" --render-thread safe || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'MEDIA_VIDEO_PROBE_PASS' "$LOG" \

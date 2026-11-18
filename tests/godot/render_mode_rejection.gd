@@ -6,8 +6,8 @@ func _initialize() -> void:
 func check_mode() -> void:
     var host = ClassDB.instantiate("JavaFXHost")
     root.add_child(host)
-    if host.start_jvm("", "", "", ""):
-        push_error("Separate rendering unexpectedly started the JVM")
+    if host.run_fixture_probe(""):
+        push_error("Separate rendering unexpectedly admitted a probe")
         quit(1)
         return
     root.remove_child(host)

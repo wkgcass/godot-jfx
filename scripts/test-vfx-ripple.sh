@@ -19,8 +19,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 [ -d artifacts/vfx/classes/java/main ] || { echo "VFX artifacts missing: artifacts/vfx" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
@@ -57,7 +56,7 @@ CASE_NAME="$RENDERER-$RENDER_THREAD"
 export GODOT_JFX_RIPPLE_OUTPUT="$PWD/artifacts/reference/vfx-ripple-$CASE_NAME"
 LOG="artifacts/logs/vfx-ripple-$CASE_NAME.log"
 CODE=0
-run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://vfx_ripple.tscn \
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://vfx_ripple.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'VFX_RIPPLE_PROBE_PASS' "$LOG" \

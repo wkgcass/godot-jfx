@@ -3,13 +3,12 @@
 set -u
 cd "$(dirname "$0")/.."
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 mkdir -p artifacts/logs
 
 LOG="artifacts/logs/render-mode-rejection.log"
 CODE=0
-"$GODOT" --path tests/godot --script res://render_mode_rejection.gd \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot --script res://render_mode_rejection.gd \
     --rendering-method gl_compatibility --render-thread separate >"$LOG" 2>&1 || CODE=$?
 EXPECTED='JavaFX hosting requires --render-thread safe; separate is unsupported.'
 if [ "$CODE" -ne 0 ] \

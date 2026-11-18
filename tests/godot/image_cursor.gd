@@ -2,8 +2,8 @@ extends Node2D
 func _ready() -> void:
 	var original_mouse_mode:=DisplayServer.mouse_get_mode()
 	var host=ClassDB.instantiate("JavaFXHost"); add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"ImageCursorProbe"):
-		fail("Cursor JVM rejected"); return
+	if not host.run_fixture_probe("ImageCursorProbe"):
+		fail("Cursor probe rejected"); return
 	var step:=0
 	var moved:=-1
 	var deadline:=Time.get_ticks_msec()+40000

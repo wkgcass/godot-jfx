@@ -24,8 +24,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -46,7 +45,7 @@ CODE=0
 # when the window server declines to vsync this session the main loop runs
 # unthrottled and 3600 iterations elapse in a few seconds, killing the test
 # mid-gesture. Keep the frame budget well above the worst-case duration.
-"$GODOT" --path tests/godot res://physical_drag.tscn \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot res://physical_drag.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 60000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'PHYSICAL_DRAG_PROBE_PASS' "$LOG" \

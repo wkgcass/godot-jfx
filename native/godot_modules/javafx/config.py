@@ -1,4 +1,6 @@
 def can_build(env, platform):
+    if env["library_type"] != "shared_library":
+        return False
     if platform == "windows":
         return env["arch"] == "x86_64"
     if platform == "macos":

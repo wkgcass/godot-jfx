@@ -18,8 +18,7 @@ done
 case "$RENDERER" in mobile|gl_compatibility) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$MODE" in cap|restore|override) ;; *) echo "invalid mode: $MODE" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -52,7 +51,7 @@ export GODOT_JFX_VSYNC_FALLBACK="1"
 export GODOT_JFX_TEST_PACING_MODE="$MODE"
 LOG="artifacts/logs/pacing-cap-$RENDERER-$MODE.log"
 CODE=0
-run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://pacing_cap.tscn \
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://pacing_cap.tscn \
     --rendering-method "$RENDERER" || CODE=$?
 # The vsync-fallback banner must be absent exactly in cap mode.
 FALLBACK_SEEN=0

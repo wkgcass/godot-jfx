@@ -32,9 +32,7 @@ if [ "$SNAPSHOT" -eq 1 ] && [ "$STOP" -eq 1 ]; then
     exit 2
 fi
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-TEMPLATE="./godot/bin/godot.macos.template_release.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -62,20 +60,19 @@ SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="$SUFFIX-runtime"
 LOG="$PWD/artifacts/logs/readback-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 if [ "$RUNTIME" -eq 1 ]; then
-    [ -x "$TEMPLATE" ] || { echo "Godot template not found: $TEMPLATE" >&2; exit 1; }
     FIXTURE="$PWD/artifacts/runtime-readback"
     mkdir -p "$FIXTURE"
-    cp "$TEMPLATE" tests/godot/readback.tscn tests/godot/readback.gd "$FIXTURE/"
+    cp tests/godot/readback.tscn tests/godot/readback.gd "$FIXTURE/"
     sed 's|res://main.tscn|res://readback.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
     CODE=0
-    "$GODOT" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Readback runtime fixture import failed: $LOG.import" >&2; exit 1; fi
     CODE=0
-    (cd "$FIXTURE" && "./godot.macos.template_release.arm64" \
+    (cd "$FIXTURE" && python3 "$FIXTURE_LAUNCHER" \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1) || CODE=$?
 else
     CODE=0
-    "$GODOT" --path tests/godot res://readback.tscn \
+    python3 "$FIXTURE_LAUNCHER" --path tests/godot res://readback.tscn \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
 fi
 if [ "$STOP" -eq 1 ] && ! grep -q 'READBACK_STOP_OBSERVED_PENDING_REQUEST' "$LOG"; then

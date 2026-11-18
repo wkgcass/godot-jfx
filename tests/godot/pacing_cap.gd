@@ -9,7 +9,7 @@ func _ready() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	var started: bool = host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), ProjectSettings.globalize_path("res://../../jfx/build/sdk"), ProjectSettings.globalize_path("res://../../artifacts/reference"), "PacingCapProbe")
+	var started: bool = host.run_fixture_probe("PacingCapProbe")
 	var deadline := Time.get_ticks_msec() + 20000
 	while started and host.get_runtime_status() not in ["finished", "failed"] and Time.get_ticks_msec() < deadline:
 		if mode != "cap" and not fallback_seen:

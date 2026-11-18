@@ -29,8 +29,8 @@ func gesture(cycle: int, pressed: bool, window) -> void:
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost"); add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"InputLifecycleProbe"):
-		push_error("Lifecycle JVM start failed"); get_tree().quit(1); return
+	if not host.run_fixture_probe("InputLifecycleProbe"):
+		push_error("Lifecycle Java probe start failed"); get_tree().quit(1); return
 	var cycle:=0
 	var phase:=0
 	var deadline:=Time.get_ticks_msec()+35000

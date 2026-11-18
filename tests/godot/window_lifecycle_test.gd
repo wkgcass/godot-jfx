@@ -4,8 +4,8 @@ func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color.WHITE)
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"WindowLifecycleProbe"):
-		push_error("Lifecycle JVM start failed")
+	if not host.run_fixture_probe("WindowLifecycleProbe"):
+		push_error("Lifecycle Java probe start failed")
 		get_tree().quit(1)
 		return
 	var seen := {}

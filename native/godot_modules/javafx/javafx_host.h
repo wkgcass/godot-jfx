@@ -28,9 +28,7 @@ class TextureRect;
 class JavaFXHost : public JavaFXWindowSurface {
 	GDCLASS(JavaFXHost, JavaFXWindowSurface);
 	std::shared_ptr<godot_javafx::Runtime> runtime;
-#ifdef LIBGODOT_ENABLED
 	JavaVM *borrowed_vm = nullptr;
-#endif
 	std::thread worker;
 	void prepare_runtime(const String &startup);
 	uint64_t applied_sequence = 0;
@@ -187,11 +185,9 @@ protected:
 	void input(const Ref<InputEvent> &p_event) override;
 
 public:
-#ifdef LIBGODOT_ENABLED
 	static bool claim_library();
 	bool connect_jvm(JNIEnv *env, jclass bridge, const String &startup);
 	bool is_jvm_connected() const { return borrowed_vm != nullptr; }
-#endif
 	bool create_native_window(int64_t p_id, int64_t p_owner, const Rect2i &p_bounds, const String &p_title, int p_flags);
 	bool configure_native_window(int64_t p_id, const Rect2i &p_bounds, bool p_visible);
 	bool set_native_window_property(int64_t p_id, int p_property, int p_a, int p_b, const String &p_text);
@@ -202,8 +198,8 @@ public:
 	bool is_window_input_enabled(int64_t p_id) const;
 	bool is_window_visible(int64_t p_id) const;
 	bool is_window_above(int64_t p_id, int64_t p_other) const;
-	bool start_jvm(const String &p_jdk, const String &p_sdk, const String &p_classpath, const String &p_main_class);
-	void stop_jvm();
+	bool run_fixture_probe(const String &p_main_class);
+	void stop_host();
 	String get_runtime_status() const;
 	String get_runtime_error() const;
 	int64_t get_applied_sequence() const { return applied_sequence; }

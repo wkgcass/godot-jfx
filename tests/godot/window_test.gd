@@ -1,13 +1,11 @@
 extends Node2D
 
 func _ready() -> void:
-	print("WINDOWS_BEFORE_JVM ", DisplayServer.get_window_list())
+	print("WINDOWS_BEFORE_PROBE ", DisplayServer.get_window_list())
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	var sdk := ProjectSettings.globalize_path("res://../../jfx/build/sdk")
-	var classes := ProjectSettings.globalize_path("res://../../artifacts/reference")
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), sdk, classes, "GlassWindowProbe"):
-		push_error("Window probe JVM failed to start")
+	if not host.run_fixture_probe("GlassWindowProbe"):
+		push_error("Window probe probe failed to start")
 		get_tree().quit(1)
 		return
 	var checked := false
@@ -16,7 +14,7 @@ func _ready() -> void:
 	while host.get_runtime_status() != "finished":
 		if host.get_runtime_status() == "failed" or Time.get_ticks_msec() > deadline:
 			push_error("Window probe failed: " + host.get_runtime_error())
-			host.stop_jvm()
+			host.stop_host()
 			get_tree().quit(1)
 			return
 		if not checked and get_window().title == "Godot Glass 主窗口 🧪" and get_window().size == Vector2i(800, 480):
@@ -24,7 +22,7 @@ func _ready() -> void:
 			var image := get_viewport().get_texture().get_image()
 			var pixel := image.get_pixel(40, 40)
 			if DisplayServer.get_window_list().size() != 1 or not get_window().get_flag(Window.FLAG_RESIZE_DISABLED):
-				print("WINDOWS_AFTER_JVM ", DisplayServer.get_window_list())
+				print("WINDOWS_AFTER_PROBE ", DisplayServer.get_window_list())
 				for id in DisplayServer.get_window_list():
 					print("WINDOW_DETAIL ", id, " ", DisplayServer.window_get_size(id), " ", DisplayServer.window_get_position(id))
 				push_error("Window state differs: count=" + str(DisplayServer.get_window_list().size()) + " resize_disabled=" + str(get_window().get_flag(Window.FLAG_RESIZE_DISABLED)))

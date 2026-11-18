@@ -55,9 +55,6 @@ function New-AudioFixture([string]$Kind) {
 }
 try {
     New-Item -ItemType Directory -Force artifacts/reference,artifacts/logs | Out-Null
-    foreach($library in @('jfxmedia.dll','glib-lite.dll','gstreamer-lite.dll','fxplugins.dll')){
-        if(!(Test-Path "jfx/build/sdk/bin/$library")){throw "Build source Media SDK first; missing $library"}
-    }
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media -d artifacts/reference tests/reference/MediaAudioProbe.java
     if($LASTEXITCODE -ne 0){throw 'Media audio probe compilation failed'}
     $codecs=if($Codec -eq 'all'){@('wav','mp3','aiff')}else{@($Codec)}

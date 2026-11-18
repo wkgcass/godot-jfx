@@ -20,9 +20,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-TEMPLATE="./godot/bin/godot.macos.template_release.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -57,18 +55,17 @@ SUFFIX=""
 LOG="$PWD/artifacts/logs/host-lifetime-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
 if [ "$RUNTIME" -eq 1 ]; then
-    [ -x "$TEMPLATE" ] || { echo "Godot template not found: $TEMPLATE" >&2; exit 1; }
-    # Release templates load their adjacent project, without --path overrides.
+    # Import this isolated project before passing its directory to the library.
     FIXTURE="$PWD/artifacts/runtime-host-lifetime"
     mkdir -p "$FIXTURE"
-    cp "$TEMPLATE" tests/godot/host_lifetime.tscn tests/godot/host_lifetime_test.gd "$FIXTURE/"
+    cp tests/godot/host_lifetime.tscn tests/godot/host_lifetime_test.gd "$FIXTURE/"
     sed 's|res://main.tscn|res://host_lifetime.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
-    "$GODOT" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Runtime fixture import failed: $LOG.import" >&2; exit 1; fi
-    (cd "$FIXTURE" && run_watchdog "$LOG" 240 "./godot.macos.template_release.arm64" \
+    (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 10000) || CODE=$?
 else
-    run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://host_lifetime.tscn \
+    run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://host_lifetime.tscn \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 10000 || CODE=$?
 fi
 if [ "$CODE" -ne 0 ] \

@@ -6,8 +6,8 @@ func pixel(image:Image, x:int, y:int) -> Color:
 func _ready() -> void:
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"NodeShaderProbe"):
-		push_error("Node shader JVM failed")
+	if not host.run_fixture_probe("NodeShaderProbe"):
+		push_error("Node shader probe failed")
 		get_tree().quit(1)
 		return
 	var observed := await observe(host)

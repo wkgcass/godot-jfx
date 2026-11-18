@@ -7,8 +7,8 @@ func fail(message: String) -> void:
 func _ready() -> void:
     var host = ClassDB.instantiate("JavaFXHost")
     add_child(host)
-    if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), ProjectSettings.globalize_path("res://../../jfx/build/sdk"), ProjectSettings.globalize_path("res://../../artifacts/reference"), "StartupProbe"):
-        fail("JVM startup failed")
+    if not host.run_fixture_probe("StartupProbe"):
+        fail("Java probe startup failed")
         return
     var started := Time.get_ticks_msec()
     var logo := OS.get_environment("GODOT_JFX_STARTUP") == "logo"

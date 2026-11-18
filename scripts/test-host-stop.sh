@@ -20,9 +20,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-TEMPLATE="./godot/bin/godot.macos.template_release.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -63,17 +61,16 @@ SUFFIX=""
 LOG="$PWD/artifacts/logs/host-stop-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
 if [ "$RUNTIME" -eq 1 ]; then
-    [ -x "$TEMPLATE" ] || { echo "Godot template not found: $TEMPLATE" >&2; exit 1; }
     FIXTURE="$PWD/artifacts/runtime-host-stop"
     mkdir -p "$FIXTURE"
-    cp "$TEMPLATE" tests/godot/host_stop.gd tests/godot/host_stop.tscn "$FIXTURE/"
+    cp tests/godot/host_stop.gd tests/godot/host_stop.tscn "$FIXTURE/"
     sed 's|res://main.tscn|res://host_stop.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
-    "$GODOT" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Host stop runtime import failed: $LOG.import" >&2; exit 1; fi
-    (cd "$FIXTURE" && run_watchdog "$LOG" 240 "./godot.macos.template_release.arm64" \
+    (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD") || CODE=$?
 else
-    run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://host_stop.tscn \
+    run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://host_stop.tscn \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?
 fi
 # Covers native/Glass destruction, JVM completion and renderer/pool cleanup,

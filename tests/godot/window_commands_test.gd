@@ -15,8 +15,8 @@ func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color.WHITE)
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"), ProjectSettings.globalize_path("res://../../jfx/build/sdk"), ProjectSettings.globalize_path("res://../../artifacts/reference"), "WindowCommandsProbe"):
-		push_error("Window command JVM start failed")
+	if not host.run_fixture_probe("WindowCommandsProbe"):
+		push_error("Window command Java probe start failed")
 		get_tree().quit(1)
 		return
 	var checked := [false, false, false, false, false, false, false, false]
@@ -59,7 +59,7 @@ func _ready() -> void:
 		push_error("Missing window validation or retained layers/native windows")
 		get_tree().quit(1)
 		return
-	host.stop_jvm()
+	host.stop_host()
 	remove_child(host)
 	if host.get_owned_resource_count() != 0:
 		push_error("Window host leaked GPU resources")

@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 Push-Location $root
 try {
-    $target = if ($Runtime) { 'template_release' } else { 'editor' }
+    $target = if ($Runtime) { 'isolated' } else { 'scene' }
     $projectPath = Join-Path $root 'tests/godot'
     if ($Runtime) {
         $projectPath = Join-Path $root 'artifacts/runtime-thread-shutdown'

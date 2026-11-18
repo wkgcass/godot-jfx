@@ -11,8 +11,8 @@ func mouse(window, point:Vector2, kind:int) -> void:
 	Input.flush_buffered_events()
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost"); add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"DragDropProbe"):
-		push_error("Drag JVM failed"); get_tree().quit(1); return
+	if not host.run_fixture_probe("DragDropProbe"):
+		push_error("Drag probe failed"); get_tree().quit(1); return
 	var robot_mode:=OS.get_environment("GODOT_JFX_ROBOT_DRAG")=="1"
 	var test:=0
 	var phase:=0

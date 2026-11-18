@@ -27,5 +27,6 @@ if env["platform"] == "windows" and env["library_type"] == "shared_library" and 
 if env["platform"] == "macos":
     env_javafx.add_source_files(env.modules_sources, "*.mm")
     if env["library_type"] == "shared_library":
+        env.Append(LINKFLAGS=["-Wl,-u,_Java_com_sun_javafx_tk_godot_GodotSceneFixture_run", "-Wl,-u,_Java_com_sun_javafx_tk_godot_GodotSceneFixture_runOnAppKitThread"])
         for symbol in ("run", "mountScenePack", "requestStop", "runOnAppKitThread"):
             env.Append(LINKFLAGS=["-Wl,-u,_Java_com_sun_javafx_tk_godot_LibraryGodotEngine_" + symbol])

@@ -20,7 +20,7 @@ public final class LibraryLifecycle {
     }
 
     private static GodotRuntime.Options options(String renderer) {
-        return new GodotRuntime.Options(null,
+        return new GodotRuntime.Options(
                 System.getProperty("test.project") == null ? null : Path.of(System.getProperty("test.project")),
                 renderer, GodotRuntime.StartupWindow.HIDDEN);
     }
@@ -72,7 +72,7 @@ public final class LibraryLifecycle {
             case "auto" -> Application.launch(DirectApplication.class);
             case "opengl" -> {
                 var opts = options("gl_compatibility");
-                GodotRuntime.init(new GodotRuntime.Options(opts.runtimeDirectory(), opts.project(),
+                GodotRuntime.init(new GodotRuntime.Options(opts.project(),
                         opts.renderer(), GodotRuntime.StartupWindow.NORMAL));
                 GodotRuntime.init();
                 checkHost();

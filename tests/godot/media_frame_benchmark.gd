@@ -26,7 +26,7 @@ func _ready() -> void:
 		set_process(false)
 	print("MEDIA_FRAME_DISPLAY ",JSON.stringify({"max_fps":Engine.max_fps,"low_processor":OS.low_processor_usage_mode,"vsync":DisplayServer.window_get_vsync_mode()}))
 	var host=ClassDB.instantiate("JavaFXHost");add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"MediaFrameBenchmark"):
+	if not host.run_fixture_probe("MediaFrameBenchmark"):
 		push_error("Media benchmark startup failed");get_tree().quit(1);return
 	var baseline:Dictionary={}
 	var started:=0

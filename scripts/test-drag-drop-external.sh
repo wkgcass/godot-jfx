@@ -25,8 +25,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs artifacts/native-tests
 
@@ -104,7 +103,7 @@ export GODOT_JFX_HELPER_X=940 GODOT_JFX_HELPER_Y=400
 export GODOT_JFX_HELPER_SRC_X=1300 GODOT_JFX_HELPER_SRC_Y=400
 LOG="artifacts/logs/drag-drop-external-$RENDERER-$RENDER_THREAD.log"
 CODE=0
-run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://drag_drop_external.tscn \
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://drag_drop_external.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 30000 || CODE=$?
 
 if [ "$CODE" -ne 0 ] \

@@ -6,8 +6,8 @@ func differs(a: Color, b: Color) -> bool:
 func _ready() -> void:
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"WindowCompositionProbe"):
-		push_error("Composition JVM start failed")
+	if not host.run_fixture_probe("WindowCompositionProbe"):
+		push_error("Composition Java probe start failed")
 		get_tree().quit(1)
 		return
 	var seen := {}

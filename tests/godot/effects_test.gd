@@ -3,8 +3,8 @@ extends Node2D
 func _ready() -> void:
 	var host = ClassDB.instantiate("JavaFXHost")
 	add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"EffectsProbe"):
-		push_error("Effects JVM startup failed")
+	if not host.run_fixture_probe("EffectsProbe"):
+		push_error("Effects Java probe startup failed")
 		get_tree().quit(1)
 		return
 	var failed := not await compare_pixels(host)

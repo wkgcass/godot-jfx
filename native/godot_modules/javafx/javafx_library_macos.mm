@@ -12,7 +12,7 @@ bool javafx_macos_iteration(GodotInstance *instance) {
 
 // The JDK launcher parks the first thread in a CFRunLoop. Execute the
 // Godot pump there without holding the main dispatch queue during iteration.
-extern "C" JNIEXPORT void JNICALL Java_com_sun_javafx_tk_godot_LibraryGodotEngine_runOnAppKitThread(JNIEnv *env, jclass, jobject loop) {
+static void run_on_appkit_thread(JNIEnv *env, jobject loop) {
 	// A second Java class loader may have loaded a different copy of the dylib.
 	NSProcessInfo *process = [NSProcessInfo processInfo];
 	const void *claim = reinterpret_cast<const void *>(sel_registerName("godotJavaFXEngineClaim"));
@@ -30,6 +30,10 @@ extern "C" JNIEXPORT void JNICALL Java_com_sun_javafx_tk_godot_LibraryGodotEngin
 	}
 	jmethodID run = env->GetMethodID(env->GetObjectClass(loop), "run", "()V");
 	if (!run) return;
+	if ([NSThread isMainThread]) {
+		env->CallVoidMethod(loop, run);
+		return;
+	}
 	jobject callback = env->NewGlobalRef(loop);
 	if (!callback) return;
 	dispatch_semaphore_t done = dispatch_semaphore_create(0);
@@ -65,5 +69,13 @@ extern "C" JNIEXPORT void JNICALL Java_com_sun_javafx_tk_godot_LibraryGodotEngin
 		env->Throw(failure);
 		env->DeleteGlobalRef(failure);
 	}
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_sun_javafx_tk_godot_LibraryGodotEngine_runOnAppKitThread(JNIEnv *env, jclass, jobject loop) {
+	run_on_appkit_thread(env, loop);
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_sun_javafx_tk_godot_GodotSceneFixture_runOnAppKitThread(JNIEnv *env, jclass, jobject loop) {
+	run_on_appkit_thread(env, loop);
 }
 #endif

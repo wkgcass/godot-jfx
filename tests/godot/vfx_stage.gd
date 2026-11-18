@@ -30,12 +30,8 @@ func abort_fixture(host, window:Window, message:String) -> void:
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost"); add_child(host)
-	var base:=ProjectSettings.globalize_path("res://../../artifacts/vfx")
-	var entries:=PackedStringArray([base+"/classes/java/main",base+"/classes/java/test",base+"/resources/main",base+"/resources/test",ProjectSettings.globalize_path("res://../../artifacts/reference")])
-	for file in DirAccess.get_files_at(base+"/dependencies"):
-		if file.ends_with(".jar"): entries.append(base+"/dependencies/"+file)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),(";" if OS.has_feature("windows") else ":").join(entries),"VfxStageProbe"):
-		push_error("VFX Stage JVM start failed"); get_tree().quit(1); return
+	if not host.run_fixture_probe("VfxStageProbe"):
+		push_error("VFX Stage Java probe start failed"); get_tree().quit(1); return
 	var step:=0
 	var drag_checked:={}
 	var deadline:=Time.get_ticks_msec()+180000

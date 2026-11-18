@@ -13,7 +13,7 @@
 #include "servers/rendering/rendering_server.h"
 
 // Un-hide a window kept hidden while the JavaFX runtime starts up (see the
-// GODOT_JFX_STARTUP handling in each DisplayServer backend).
+// --javafx-startup handling in each DisplayServer backend).
 static void release_startup_window(DisplayServerEnums::WindowID p_window) {
 #if defined(WINDOWS_ENABLED)
 	static_cast<DisplayServerWindows *>(DisplayServer::get_singleton())->release_javafx_startup_window(p_window);

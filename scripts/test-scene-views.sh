@@ -14,12 +14,11 @@ while [ $# -gt 0 ]; do
 done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 mkdir -p artifacts/logs artifacts/reference
 
 LOG="artifacts/logs/scene-views-$RENDERER.log"
-"$GODOT" --path tests/godot res://scene_views.tscn \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot res://scene_views.tscn \
     --rendering-method "$RENDERER" --quit-after 3000 > "$LOG" 2>&1
 CODE=$?
 if [ "$CODE" -ne 0 ] \

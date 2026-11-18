@@ -44,8 +44,7 @@ SUFFIX=""
 [ "$PRISM_CONTEXT" -eq 1 ] && SUFFIX="$SUFFIX-context"
 [ "$RENDERER" != "gl_compatibility" ] && SUFFIX="$SUFFIX-$RENDERER"
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -73,7 +72,7 @@ export GODOT_JFX_TEST_PRISM_TEXTURES="$PRISM_TEXTURES"
 
 LOG="artifacts/logs/m2-bridge$SUFFIX.log"
 CODE=0
-"$GODOT" --path tests/godot res://bridge.tscn \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot res://bridge.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'M2_BRIDGE_PASS' "$LOG" \

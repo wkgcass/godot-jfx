@@ -24,9 +24,7 @@ case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $REND
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 case "$PROBE" in FailureShutdownProbe|FailureApplicationProbe) ;; *) echo "invalid probe: $PROBE" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-TEMPLATE="./godot/bin/godot.macos.template_release.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -63,17 +61,16 @@ SUFFIX=""
 LOG="$PWD/artifacts/logs/failure-shutdown-$PROBE-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
 if [ "$RUNTIME" -eq 1 ]; then
-    [ -x "$TEMPLATE" ] || { echo "Godot template not found: $TEMPLATE" >&2; exit 1; }
     FIXTURE="$PWD/artifacts/runtime-failure-shutdown"
     mkdir -p "$FIXTURE"
-    cp "$TEMPLATE" tests/godot/failure_shutdown.tscn tests/godot/failure_shutdown.gd "$FIXTURE/"
+    cp tests/godot/failure_shutdown.tscn tests/godot/failure_shutdown.gd "$FIXTURE/"
     sed 's|res://main.tscn|res://failure_shutdown.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
-    "$GODOT" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Failure runtime fixture import failed: $LOG.import" >&2; exit 1; fi
-    (cd "$FIXTURE" && run_watchdog "$LOG" 240 "./godot.macos.template_release.arm64" \
+    (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 4000) || CODE=$?
 else
-    run_watchdog "$LOG" 240 "$GODOT" --path tests/godot res://failure_shutdown.tscn \
+    run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://failure_shutdown.tscn \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 4000 || CODE=$?
 fi
 # Injected-failure diagnostics are expected verbatim; any other error line fails.

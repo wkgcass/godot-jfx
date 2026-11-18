@@ -2,8 +2,8 @@ extends Node
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost");add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"MediaChurnProbe"):
-		fail("Media churn JVM startup failed");return
+	if not host.run_fixture_probe("MediaChurnProbe"):
+		fail("Media churn Java probe startup failed");return
 	var cycles:=OS.get_environment("GODOT_JFX_MEDIA_CYCLES").to_int()
 	if cycles<24 or cycles>240: fail("Invalid media cycle count");return
 	var deadline:=Time.get_ticks_msec()+30000+cycles*6000

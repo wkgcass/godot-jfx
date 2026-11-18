@@ -2,8 +2,8 @@ extends Node
 
 func _ready() -> void:
 	var host=ClassDB.instantiate("JavaFXHost");add_child(host)
-	if not host.start_jvm(OS.get_environment("GODOT_JFX_JDK"),ProjectSettings.globalize_path("res://../../jfx/build/sdk"),ProjectSettings.globalize_path("res://../../artifacts/reference"),"MediaVideoProbe"):
-		push_error("Media JVM startup failed");get_tree().quit(1);return
+	if not host.run_fixture_probe("MediaVideoProbe"):
+		push_error("Media Java probe startup failed");get_tree().quit(1);return
 	var deadline:=Time.get_ticks_msec()+40000
 	while host.get_runtime_status()!="finished":
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:

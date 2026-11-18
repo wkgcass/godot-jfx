@@ -18,8 +18,7 @@ while [ $# -gt 0 ]; do
 done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -33,7 +32,7 @@ SUFFIX=""
 if [ "$SPACED_CLICK" = "1" ]; then SUFFIX="-spaced"; fi
 LOG="artifacts/logs/ime-$RENDERER$SUFFIX.log"
 CODE=0
-"$GODOT" --path tests/godot res://ime.tscn \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot res://ime.tscn \
     --rendering-method "$RENDERER" --quit-after 4000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_IME_PASS' "$LOG" \

@@ -24,8 +24,7 @@ case "$RENDERER" in mobile|gl_compatibility) ;; *) echo "invalid renderer: $REND
 [ "$ROUNDS" -ge 1 ] && [ "$ROUNDS" -le 20 ] || { echo "invalid rounds: $ROUNDS" >&2; exit 2; }
 [ "$HEAP" -ge 128 ] && [ "$HEAP" -le 4096 ] || { echo "invalid heap MiB: $HEAP" >&2; exit 2; }
 
-GODOT="$PWD/godot/bin/godot.macos.editor.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -48,7 +47,7 @@ LOG="artifacts/logs/$STEM.log"
 ERR="artifacts/logs/$STEM.stderr.log"
 TIMEOUT=$((120 + ROUNDS * PAGES * 8))
 
-"$GODOT" --path tests/godot res://vfx_soak.tscn \
+python3 "$FIXTURE_LAUNCHER" --path tests/godot res://vfx_soak.tscn \
     --rendering-method "$RENDERER" --render-thread safe >"$LOG" 2>"$ERR" &
 PID=$!
 SAMPLES=""
@@ -95,7 +94,7 @@ java = [{"page": int(p), "heap_used": int(h), "gc_count": int(g)} for p, h, g in
 passed = (code == 0 and "VFX_SOAK_PASS" in output and len(native) == expected and len(java) == expected
           and not re.search(r"(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)|OutOfMemoryError|uncaught:", output))
 report = {"navigation_and_cleanup_passed": passed, "memory_acceptance": "requires trend analysis",
-          "sampled_process_id": pid, "sampled_executable": "godot.macos.editor.arm64",
+          "sampled_process_id": pid, "sampled_executable": "java",
           "rounds": rounds, "pages": pages, "forced_gc": False, "heap_limit_mib": heap_mib,
           "process_samples": json.loads("[" + samples_raw + "]") if samples_raw else [],
           "native_samples": native, "java_samples": java}

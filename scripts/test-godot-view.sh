@@ -23,9 +23,7 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
-GODOT="./godot/bin/godot.macos.editor.arm64"
-TEMPLATE="./godot/bin/godot.macos.template_release.arm64"
-[ -x "$GODOT" ] || { echo "Godot binary not found: $GODOT" >&2; exit 1; }
+FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference artifacts/logs
 
@@ -53,23 +51,21 @@ SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="$SUFFIX-runtime"
 LOG="$PWD/artifacts/logs/godot-view-$RENDERER$SUFFIX.log"
 if [ "$RUNTIME" -eq 1 ]; then
-    [ -x "$TEMPLATE" ] || { echo "Godot template not found: $TEMPLATE" >&2; exit 1; }
     FIXTURE="$PWD/artifacts/runtime-godot-view"
     mkdir -p "$FIXTURE"
-    cp "$TEMPLATE" "$FIXTURE/"
     for file in godot_view.tscn godot_view_test.gd embedded_scene.tscn embedded_scene.gd; do
         cp "tests/godot/$file" "$FIXTURE/"
     done
     sed 's|res://main.tscn|res://godot_view.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
     CODE=0
-    "$GODOT" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "GodotView runtime import failed: $LOG.import" >&2; exit 1; fi
     CODE=0
-    (cd "$FIXTURE" && "./godot.macos.template_release.arm64" \
+    (cd "$FIXTURE" && python3 "$FIXTURE_LAUNCHER" \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 4000 >"$LOG" 2>&1) || CODE=$?
 else
     CODE=0
-    "$GODOT" --path tests/godot res://godot_view.tscn \
+    python3 "$FIXTURE_LAUNCHER" --path tests/godot res://godot_view.tscn \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 4000 >"$LOG" 2>&1 || CODE=$?
 fi
 if [ "$CODE" -ne 0 ] \

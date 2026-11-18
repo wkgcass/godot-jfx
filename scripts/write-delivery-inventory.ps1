@@ -15,7 +15,6 @@ foreach ($relative in @('.', 'godot', 'jfx', 'vfx')) {
 }
 $artifacts=@()
 foreach ($relative in @('godot/bin/godot.windows.editor.x86_64.exe',
-    'godot/bin/godot.windows.template_release.x86_64.exe',
     'godot/bin/godot.windows.template_release.x86_64.library.dll',
     'artifacts/vfx/libs/vfx-demo.jar',
     'jfx/build/sdk/lib/javafx.graphics.jar','jfx/build/sdk/lib/javafx.controls.jar',
