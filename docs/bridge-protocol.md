@@ -1,4 +1,4 @@
-# JVM host and batch bridge (M2 foundation)
+# JNI bridge and batch protocol
 
 Java 从平台 JAR 加载引擎库。引擎线程从当前 JNI 调用取得 JavaVM 和应用传入的桥接类，完成注册和屏幕快照后向 Java 发布 READY。停止宿主会关闭 JNI 请求入口、唤醒队列和读回等待者，待已进入的调用返回后释放回调的全局引用。库模式的生命周期到进程退出结束。
 
@@ -234,7 +234,7 @@ idle submissions — far beyond the three queued frames — so a reference can
 never outlive its registration. A `GeometryLedger` projected alongside the
 texture ledger at admission enforces the handshake per queued frame: a
 reference must name a live handle, a handle registers at most once, and a
-retirement removes exactly one. The mesh store is cleared with the JVM.
+retirement removes exactly one. The host clears its mesh store during cleanup.
 Opt out entirely with `GODOT_JFX_MESH_CACHE=0` / `GODOT_JFX_SLOT_REUSE=0`
 for content-cache and draw-slot diagnostics. The host counts applied
 uploads and references as `quads_uploaded` / `quads_referenced` in

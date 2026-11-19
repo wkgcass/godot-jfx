@@ -590,7 +590,7 @@ public:
 		return stopped ? -1 : static_cast<int64_t>(input_tick);
 	}
 
-	// Normal JVM completion closes admission and wakes waiters, but the host
+	// Normal probe return closes admission and wakes waiters, but the host
 	// still consumes accepted disposal/removal commands. Explicit host stop
 	// remains a cancellation and drops pending work below.
 	void finish() {

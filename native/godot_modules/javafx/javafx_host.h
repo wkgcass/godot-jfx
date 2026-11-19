@@ -76,7 +76,7 @@ class JavaFXHost : public JavaFXWindowSurface {
 	std::map<int64_t, uint32_t> held_buttons;
 	// Frame-protocol geometry deduplication: handle -> resident mesh. Filled
 	// when a QUADS command tags fresh content, read by QUADS_REF, retired by
-	// GEOMETRY_FREE. Main-thread only; cleared when the JVM stops.
+	// GEOMETRY_FREE. Main-thread only; cleared during host cleanup.
 	HashMap<uint64_t, Ref<ArrayMesh>> geometry_meshes;
 
 	// One-shot VSync pacing health check. Some Windows display states pace FIFO

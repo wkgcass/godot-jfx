@@ -118,10 +118,11 @@ and WebKit disabled. The source-built SDK now contains `jfxmedia.dll`,
 prebuilt Media DLL substitutes for these sources. See build-windows.md for tool
 path conversion, linker selection and dependency-scan details.
 
-Godot's JVM root modules include javafx.media. Native access is enabled for
-javafx.graphics and javafx.media. Playback is handled by the JavaFX MediaPlayer
-and its source-built native media pipeline; UI/event work retains the existing
-Glass/JavaFX thread model.
+For module-path launches, the Java application resolves `javafx.media` and enables
+native access for `javafx.graphics` and `javafx.media`. The Demo Shadow JAR bundles
+the platform Media libraries and declares native access in its manifest.
+JavaFX MediaPlayer handles playback through the source-built native media
+pipeline. Glass and JavaFX continue to handle UI events on their existing threads.
 
 ## Verified audio workload
 

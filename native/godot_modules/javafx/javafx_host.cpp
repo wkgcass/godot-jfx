@@ -82,7 +82,7 @@ struct ReadbackRequest {
 
 struct Runtime {
     platform_dialogs::Service dialogs;
-    OsNativeWindow clipboard_owner = nullptr; // Set before the JVM thread starts; immutable.
+    OsNativeWindow clipboard_owner = nullptr; // Set before registering the JNI bridge; immutable.
     // Close admission and wait for in-flight native drag callbacks before detaching.
     platform_dnd::UpcallState drag_upcall;
     std::mutex dnd_mutex;
@@ -1822,7 +1822,7 @@ void JavaFXHost::check_vsync_pacing(uint64_t p_now_us) {
 		return;
 	}
 	const uint64_t elapsed = p_now_us - vsync_probe_begin_us;
-	// Skip JVM/render bring-up, then sample two seconds of frame intervals.
+	// Skip application and renderer startup, then sample two seconds of frame intervals.
 	if (elapsed < 2000000) { vsync_probe_prev_us = p_now_us; return; }
 	if (elapsed <= 4000000) {
 		vsync_probe_sum_us += p_now_us - vsync_probe_prev_us;
@@ -2267,7 +2267,7 @@ void JavaFXHost::refresh_drag_delegates() {
 		if (current.count(it->first)) { ++it; continue; }
 		it = drag_targets.erase(it);
 	}
-	// A closed gate means the JVM is leaving; OLE upcalls must stop.
+	// Closing the bridge disables OLE upcalls into Java.
 	godot_javafx::windows_dnd::Upcall upcall{ &runtime->drag_upcall };
 	auto *display = static_cast<DisplayServerWindows *>(DisplayServer::get_singleton());
 	if (!upcall) {
@@ -2303,7 +2303,7 @@ void JavaFXHost::refresh_drag_delegates() {
 		if (current.count(it->first)) { ++it; continue; }
 		it = drag_targets.erase(it);
 	}
-	// A closed gate means the JVM is leaving; Cocoa upcalls must stop.
+	// Closing the bridge disables Cocoa upcalls into Java.
 	godot_javafx::macos_dnd::Upcall upcall{ &runtime->drag_upcall };
 	if (!upcall) {
 		for (const auto &entry : drag_targets) {

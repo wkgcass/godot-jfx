@@ -5,6 +5,10 @@ func _ready() -> void:
 		push_error("JavaFXHost is missing")
 		get_tree().quit(1)
 		return
+	if ClassDB.class_has_method("JavaFXHost", "start_jvm"):
+		push_error("The packaged host still exposes the legacy JVM launcher")
+		get_tree().quit(1)
+		return
 	var host = ClassDB.instantiate("JavaFXHost")
 	host.position = Vector2(32, 32)
 	add_child(host)

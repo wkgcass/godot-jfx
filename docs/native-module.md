@@ -57,7 +57,7 @@ Its readback is for verification only. It writes
 `M1_RESULT PASS` and return zero without renderer errors.
 
 The M1 surface fixture alone does not prove Prism or per-node shader integration.
-The current JavaFXHost adds JVM/command transport (see bridge-protocol.md), with
+JavaFXHost registers the JNI bridge in the application JVM and consumes its command queue (see bridge-protocol.md), with
 Glass scheduling/input and Prism graphics/font/effect integration described in
 their subsystem documents.
 The original M1 upload_rgba helper still allows one image; the host command

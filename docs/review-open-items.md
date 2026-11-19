@@ -885,7 +885,7 @@ pacing-cap-mobile.log、pacing-cap-gl_compatibility.log。头文件最后仅调�
 后续恢复缺失亦已复现：受控 40 ms 主线程延迟触发回退后，Java 结束仍遗留
 60 FPS/VSync 关闭（review-pacing-restore-before.log）。现保存实际安装的 FPS，
 正常结束、失败通知和 stop_host 都调用幂等恢复；只有当前值仍等于宿主设置时
-才撤销，应用后来设置的不同值保留。一个进程仅允许一个 JVM 生命周期。
+才撤销，应用后来设置的不同值保留。当前实现每个 Java 进程允许创建一个 Godot 引擎实例。
 
 引擎构建通过；mobile cap/restore/override 与 GL restore 均通过，
 override 证明 47 FPS 保留，restore 同时检查 Java 结束后及节点移除后状态。

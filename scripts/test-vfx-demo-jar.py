@@ -90,6 +90,9 @@ def main():
     source = ROOT / "artifacts/vfx/libs/vfx-demo.jar"
     with ZipFile(source) as archive:
         entries = set(archive.namelist())
+        for name in entries:
+            if name.rsplit("/", 1)[-1].lower() in {"jvm.dll", "libjvm.dylib", "libjvm.so"}:
+                raise AssertionError(f"Demo bundles a JVM library: {name}")
         intro = Path("io/vproxy/vfx/intro")
         for page in (ROOT / "vfx/src/test/java" / intro).glob("*.java"):
             if (intro / (page.stem + ".class")).as_posix() not in entries:

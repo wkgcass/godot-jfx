@@ -55,8 +55,8 @@ now distinguishes finish (reject new submissions, wake waiters, retain accepted
 commands for consumption) from stop (cancel pending commands). Normal probe return
 uses finish after the Java renderer joins. Failure/explicit host stop still cancels.
 Native protocol tests cover ordered draining and rejected late submission; the
-encoded host-stop regression passes. A bounded post-JVM drain checks final layer
-removal, rather than assuming JVM completion is a GPU fence.
+encoded host-stop regression passes. After the probe returns, the host drains
+accepted commands within a deadline and checks final layer removal.
 
 ## Held-input cancellation
 

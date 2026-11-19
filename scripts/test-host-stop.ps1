@@ -27,7 +27,7 @@ try {
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'HOST_STOP_NATIVE_WINDOWS_PASS' -or $output -notmatch 'HOST_STOP_APPLICATION_RETURNED' -or $output -notmatch 'HOST_STOP_GLASS_PEERS_CLOSED' -or $output -notmatch 'HOST_STOP_PIPELINE_DISPOSED pool_bytes=0' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error)|RenderJob.run: internal exception|QuantumRenderer-\d+ uncaught:)|GodotHostStoppedException') { throw "Host stop native-window test failed: $log" }
-    # Covers native/Glass destruction, JVM completion and renderer/pool cleanup,
+    # Covers native/Glass destruction, application return and renderer/pool cleanup,
     # and rejects leaked cancellation exceptions as well as ordinary failures.
     Write-Output "Host stop native-window test passed: $log"
 } finally { $env:GODOT_JFX_JDK = $savedJdk; Pop-Location }

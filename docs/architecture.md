@@ -41,7 +41,7 @@ flowchart TD
     Input --> Glass
 ```
 
-运行 `java -jar app.jar` 时，JavaFX 从应用 JAR 加载 Godot 引擎库。引擎在当前 Java 进程中创建管理窗口和绘制的节点 `JavaFXHost`。
+运行 `java -jar app.jar` 时，已安装的标准 JDK 25 启动 JVM，执行应用的 Java 入口。JavaFX 从应用 JAR 加载 Godot 引擎库。引擎在同一个 Java 进程中创建管理窗口和绘制的节点 `JavaFXHost`。
 
 Godot 负责主循环、系统窗口、设备输入以及 GPU 工作。JavaFX 继续负责按钮怎么布局、文字怎么排版、CSS 怎么解释、事件回调执行在哪个 Java 线程。我们没有重写 JavaFX 的上层控件，也没有把原始 VFX 业务代码改成 Godot UI。
 
@@ -129,7 +129,8 @@ JavaFX 宿主只保留 Viewport＋safe：通过 Godot 视口生成纹理，并�
 
 | 要理解或修改的部分 | 入口 |
 | --- | --- |
-| JVM 启动、宿主生命周期 | `native/godot_modules/javafx/javafx_host.*` |
+| JavaFX 加载和启动 Godot 引擎 | `jfx/modules/javafx.graphics/src/main/java/com/sun/javafx/tk/godot/LibraryGodotEngine.java`、`native/godot_modules/javafx/javafx_library.cpp` |
+| 宿主节点连接现有 JVM、释放桥接资源 | `native/godot_modules/javafx/javafx_host.cpp` |
 | 原生窗口注册与操作 | `native/godot_modules/javafx/javafx_host_windows.cpp`（Windows）、`javafx_host_macos.mm`（macOS）、`javafx_native_window.*` |
 | 命令和资源合法性 | `native/godot_modules/javafx/frame_protocol.h`、Java `GodotRenderCommands` |
 | 原生纹理、离屏绘制、窗口合成 | `javafx_render_surface.*`、`javafx_render_target.*`、`javafx_window_surface.*` |

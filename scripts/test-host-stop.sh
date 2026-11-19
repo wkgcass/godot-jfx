@@ -73,7 +73,7 @@ else
     run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://host_stop.tscn \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?
 fi
-# Covers native/Glass destruction, JVM completion and renderer/pool cleanup,
+# Covers native/Glass destruction, application return and renderer/pool cleanup,
 # and rejects leaked cancellation exceptions as well as ordinary failures.
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'HOST_STOP_NATIVE_WINDOWS_PASS' "$LOG" \

@@ -21,7 +21,7 @@ macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。带 `--re
 
 Windows 场景入口和性能脚本由 JDK 直接启动测试进程，classpath 包含本次 Maven 发布的 Windows graphics、media 平台 JAR、其余 JavaFX 模块和应用观察器。`GodotSceneFixture` 调用 JavaFX 原生库加载器，核对进程中加载的引擎文件与 JAR 中 `godot.dll` 的 SHA-256，并输出 PID 和库路径。场景夹具继续选择 Java 观察器并检查窗口、像素和资源回收，二者共用该 JVM。普通应用启动与退出另外由模块路径和 Shadow 用例覆盖。源码 Editor 只用于预先导入或导出资源。独立 C++/Java 单元测试、刻意破坏依赖的负向测试和显式 D3D 对照保留各自的被测对象。
 
-完整 VFX Demo 构建后，用 `python scripts/test-vfx-demo-jar.py` 检查 Intro 类和资源，并在只含该 JAR 的临时目录启动。Windows 使用普通交互入口，连续观察可见的 VFX Intro 窗口至少 20 秒，出现系统替代窗口即失败。读取该 Java 进程实际映射的模块，核对引擎 DLL 的构建缓存路径和 JAR 内资源哈希。随后向原窗口投递最大化和还原命令，每次均验证窗口状态发生预期变化，最后发送原生关闭消息。macOS 使用 `--smoke` 验证 Stage、菜单和关闭事件，并从该 Java PID 的映射文件核对 dylib 的缓存路径和 SHA-256。两端均检查退出状态和目录内仅余原始 JAR。普通交互启动用 `java -jar artifacts/vfx/libs/vfx-demo.jar`。
+完整 VFX Demo 构建后，用 `python scripts/test-vfx-demo-jar.py` 检查 Intro 类和资源，拒绝含 JVM 动态库的 JAR，并用已安装的 JDK 25 在只含该 JAR 的临时目录启动。Windows 使用普通交互入口，连续观察可见的 VFX Intro 窗口至少 20 秒，出现系统替代窗口即失败。读取该 Java 进程实际映射的模块，核对引擎 DLL 的构建缓存路径和 JAR 内资源哈希。随后向原窗口投递最大化和还原命令，每次均验证窗口状态发生预期变化，最后发送原生关闭消息。macOS 使用 `--smoke` 验证 Stage、菜单和关闭事件，并从该 Java PID 的映射文件核对 dylib 的缓存路径和 SHA-256。两端均检查退出状态和目录内仅余原始 JAR。普通交互启动用 `java -jar artifacts/vfx/libs/vfx-demo.jar`。
 
 从仓库根目录构建并准备发行包后，使用 JDK 25、Python 和 Maven 3.9 运行下列命令。首次解析 Maven 插件需要联网。消费工程从本机回环地址读取本次发行的 Maven 仓库，Java 子进程的 PATH 只包含 JDK 和 Windows 系统目录。
 
@@ -308,13 +308,13 @@ touch keyboard 警告。2026-11-10 当前产物运行返回关闭请求 HRESULT
 | --- | --- | --- | --- |
 | `.\scripts\test-protocol.cmd` | 批次解码、资源事务、队列背压与并发。前置：MSVC/Windows SDK；无需启动 JVM/GPU。 | 原生断言及 FRAME_PROTOCOL_PASS，包含 10000 并发帧；输入时钟与帧/队列时钟隔离、输入 tick 合并、超时不产生 tick、stop/finish 后输入等待返回终止状态。 | 无 |
 | `.\scripts\test-m1.ps1 -Renderer mobile` | Godot 自定义模块基础绘制与资源。前置：G；无 Java 探针。 | GPU 像素、清空命令后保留可复用几何、退出场景树后资源和几何缓存归零（含 100 次创建/销毁），以及 M1 完成标记。 | `-Renderer` |
-| `.\scripts\test-bridge.ps1 -Renderer mobile` | JVM/JNI、批量命令和纹理通路。前置：G+J；各模式分开运行。 | Java 与宿主双侧断言；Encoded 模式必须实际观察到背压。 | `-Jdk`、`-Renderer`、`-RenderThread` |
+| `.\scripts\test-bridge.ps1 -Renderer mobile` | JVM/JNI、批量命令和纹理通路。前置：G+J；各模式分开运行。 | 检查宿主没有注册旧的 JVM 创建方法，再运行 Java 与宿主双侧断言；Encoded 模式必须实际观察到背压。 | `-Jdk`、`-Renderer`、`-RenderThread` |
 | `.\scripts\test-glass-scheduler.ps1` | Glass 事件线程、队列与调度。前置：G+J。 | 线程/执行顺序等探针断言及双侧 PASS；Glass 退出后保持宿主运行，检查输入和帧接收线程均在 2.5 秒内结束，并检查运行时拖入回调已注册、退出后静态引用已解除。独立队列取消夹具在异常路径也停止循环、释放闩锁并等待测试线程退出。 | `-Jdk` |
 | `.\scripts\test-glass-window.ps1` | Glass 基础窗口适配。前置：G+J。 | 窗口状态和宿主/Java 完成断言。 | `-Jdk`、`-Runtime` |
 | `.\scripts\test-pulse-stop.ps1` | Pulse 停止竞争与关闭后的通知。前置：J；脚本在 artifacts 编译模块补丁。 | 停止语义的 Java 断言；不是 GPU 测试。 | `-Jdk` |
 | `.\scripts\test-timer-cadence.ps1` | 定时器节奏与时间计算。前置：J。 | Java 时序断言；不是显示 FPS 测试。 | `-Jdk` |
 | `.\scripts\test-host-stop.ps1 -Renderer mobile` | 宿主主动停止时窗口、渲染任务和等待者清理。前置：G+J。 | 窗口 peer 关闭、Application 返回、pipeline pool_bytes=0，无未处理异常。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-host-lifetime.ps1 -Renderer mobile` | 宿主节点与 JVM 生命周期。前置：G+J。 | 生命周期及释放断言、双侧 PASS。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-host-lifetime.ps1 -Renderer mobile` | 宿主节点与 Java 探针的生命周期。前置：G+J。 | 生命周期及释放断言、双侧 PASS。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
 | `.\scripts\test-failure-shutdown.ps1 -Renderer mobile` | 注入异常后退出、嵌套事件循环解锁。前置：G+J；预期故障测试。 | 必须观察指定异常和内外层循环返回；脚本排除非预期错误。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
 | `.\scripts\test-render-thread-shutdown.ps1` | Godot 渲染线程停止和退出。前置：G；可测试 Runtime。 | 脚本逐个运行线程模式，检查退出状态和日志。 | `-Runtime` |
 | `.\scripts\test-input-cancel.ps1 -Renderer mobile` | 失焦时取消按键、按钮、触摸保持状态。前置：G+J；按独立原生窗口 ID 和 DPI 缩放后的局部坐标注入，等待焦点就绪。首轮失焦后故意不补发原窗口鼠标释放，检查焦点返回时移动不带旧按钮位；仅在按下前注入定位移动，松开前不额外注入拖动；不操作真实鼠标/键盘。 | 取消/释放事件、无意外拖动、后续点击仍可激活及资源释放断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |

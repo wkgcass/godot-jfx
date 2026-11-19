@@ -248,9 +248,11 @@ VFX main module and all test sources without changing VFX business code. Maven
 Central supplies VFX's declared third-party dependencies; no binary JavaFX SDK
 is downloaded or substituted. The upstream JavaFX 11 / Gradle 7 build is preserved.
 
-Outputs are artifacts/vfx/classes/java/{main,test}, resources/{main,test} and
-dependencies. The Godot host runs the original io.vproxy.vfx.intro.IntroMain
-entry point on the classpath, with JavaFX modules from the local SDK. Logs are
+The build writes compiled classes, resources and dependencies under `artifacts/vfx/`.
+For interactive use, `java -jar artifacts/vfx/libs/vfx-demo.jar` runs
+`VfxDemoMain`, which initializes the packaged engine and calls the original
+`io.vproxy.vfx.intro.IntroMain`. The scene tests use the published platform
+JARs and compiled observers on the Java classpath. Logs are
 artifacts/logs/vfx-build.log and vfx-intro-<renderer>.log. Captures are
 artifacts/reference/vfx-intro-<renderer>.png and vfx-intro-next-<renderer>.png.
 
@@ -312,7 +314,7 @@ No physical mouse or keyboard input was synthesized.
 
 ## Startup window
 
-`run-vfx-demo.ps1` hides engine/JVM startup and displays the Godot logo inside
+`run-vfx-demo.ps1` launches the Demo JAR. The engine displays the Godot logo inside
 the first JavaFX window for at least one second, until the first frame is ready.
 Use `-NoGodotLogo` to reveal the prepared application directly. Subsequent
 windows do not repeat the logo. See [startup behavior and tests](startup-window.md).

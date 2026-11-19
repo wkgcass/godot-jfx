@@ -2,6 +2,8 @@
 
 本文件保存历史实施与验证记录。每条记录中的“当前”“下一步”“未实现”仅指当时阶段；旧 RD/separate 命令不再适用于当前版本。当前实现见 [架构](architecture.md)，证据与限制见 [验收状态](acceptance-status.md)，可运行命令见 [TESTS.md](../TESTS.md)。
 
+下文涉及 Godot 创建或销毁 JVM 的记录来自已移除的早期实现。现行应用与场景测试均由标准 JDK 启动，JavaFX 从平台 JAR 加载 Godot 共享库。[交付规格](godot-library-spec.md)
+
 ## 2026-11-13 — Viewport＋safe 收敛与残留清理
 
 - 删除自定义 RD-direct 后端、翻译器、编译/运行开关、JNI 能力查询和专用探针，以及 separate 专用通知、纹理代理和 Windows 线程适配。保留 Godot 自身渲染器、RenderingDevice、区域上传及资源回收修复。
