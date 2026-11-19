@@ -39,7 +39,7 @@ export JAVA_HOME="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
 sh scripts/build-vfx.sh
 ```
 
-mac 上 Media 由这一次 Gradle SDK 构建启用（AVFoundation 后端），没有单独的 Media 构建脚本；渲染器 `mobile` 走 Metal 4.0、`gl_compatibility` 走 OpenGL 4.1，未构建 Vulkan（未安装 MoltenVK）。
+mac 上 Media 由这一次 Gradle SDK 构建启用（AVFoundation 后端），没有单独的 Media 构建脚本；渲染器 `mobile` 使用 Metal（本机 M1 的发行库报告 Metal 3.1）、`gl_compatibility` 走 OpenGL 4.1，未构建 Vulkan（未安装 MoltenVK）。
 
 顺序执行原生构建；构建前关闭正在使用相应产物 的测试或 Demo，避免链接/复制冲突。JavaFX 模块编入共享库，Editor 负责导入与导出资源。默认 JFX 构建不能代替 Media 构建；Media 步骤显式启用 Media 并关闭 WebKit。不使用预编译 Godot/JavaFX SDK 替代本仓库源码产物；JVM 使用已安装版本，不需要自行构建。
 
@@ -98,7 +98,7 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 | [README.md](README.md) | 项目入口、快速构建运行、当前结果摘要 |
 | [TESTS.md](TESTS.md) | 测试用途、前置条件、命令、判定方式 |
 | [architecture.md](docs/architecture.md) | 面向新读者的组件分工、画面和输入流程、线程及资源生命周期 |
-| [godot-library-spec.md](docs/godot-library-spec.md) | Windows 单 JAR 启动、Stage 窗口、GodotView 场景资源及跨平台边界 |
+| [godot-library-spec.md](docs/godot-library-spec.md) | Windows 与 macOS 单 JAR 启动、Stage 窗口、GodotView 场景资源及跨平台边界 |
 | [acceptance-status.md](docs/acceptance-status.md) | 初始需求逐项证据、当前缺口、验收限制和交付位置 |
 | [build-windows.md](docs/build-windows.md) | Windows 工具链准备、源码构建、输出路径、Media 依赖 |
 | [build-macos.md](docs/build-macos.md) | macOS arm64 工具链准备、源码构建、输出路径、已知平台限制 |

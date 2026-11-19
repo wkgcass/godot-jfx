@@ -45,7 +45,12 @@ Vulkan separate-thread probes. Per-window IME routing passes composition/commit/
 cancel tests; physical IME candidate UI and DPI remain to verify. See progress.md
 for test scope and failure notes.
 
-Native Stage ordering now uses main-thread HWND_TOP/HWND_BOTTOM commands for
+On macOS, AppKit keeps owned Stages together. To raise a child within that
+group, the host reattaches it above its owner. To lower it, the host brings
+its same-level siblings forward in their existing order. The host observes
+the visible window numbers in Window Server order to check the result.
+
+On Windows, native Stage ordering uses main-thread HWND_TOP/HWND_BOTTOM commands for
 toFront/toBack, including the primary Stage. Raising no longer substitutes a
 focus request. NativeOrderProbe checks actual HWND order across seventeen phases
 with two unowned Stages and a two-level owned chain, including leaf and owner hide/reshow,

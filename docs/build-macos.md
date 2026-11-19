@@ -24,7 +24,7 @@ The test fixtures use the source-built editor for headless asset import and scen
 .tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=editor vulkan=no accesskit=no angle=no -j8
 ```
 
-Renderer mapping on macOS: `mobile` renders through Metal 4.0 and
+Renderer mapping on macOS: `mobile` uses the Metal driver and
 `gl_compatibility` through OpenGL 4.1. Vulkan is not built (`vulkan=no`;
 MoltenVK is not installed).
 
@@ -63,8 +63,9 @@ scripts/run-vfx-demo.sh --renderer gl_compatibility      # OpenGL 4.1
 scripts/run-vfx-demo.sh --disable-vsync --max-fps 60     # CPU pacing instead of swapchain vsync
 ```
 
-The new JAR path needs validation on macOS arm64, including Metal, OpenGL,
-AppKit thread ownership and clean window close. [Pending checks](../TESTS.md).
+The distribution tests exercise the module path, standalone Shadow consumers,
+and the VFX Demo in a directory containing only its JAR. The module-path
+consumer uses Maven (`mvn` on PATH or `.tools/apache-maven-3.9.9/bin/mvn`).
 
 Use the ordinary JDK launcher. On macOS JDK 25 it runs the Java entry point
 on a worker and services a Cocoa run loop on the first thread. The library
@@ -88,4 +89,8 @@ Windows-only entries that do not apply.
 - macOS has no per-window icon (the Dock icon belongs to NSApplication) and
   no Windows-style touch keyboard; the host reports both explicitly instead
   of silently ignoring requests.
-- Run the packaged-engine Robot fixtures serially on an idle desktop with user authorization. Record arm64 results in the cross-platform checklist in TESTS.md.
+- Run `python3 scripts/run-macos-tests.py --group NonRobot` for the scene and
+  distribution tests, then `--group Robot` on an idle desktop with Accessibility
+  and Screen Recording permission. Both default to Metal and OpenGL. Use
+  `--list` to inspect the commands. Each invocation writes its own CSV and logs
+  beneath `artifacts/logs`.

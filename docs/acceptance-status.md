@@ -1,15 +1,15 @@
 # Acceptance status
 
-Last checked on Windows on 2026-11-19. This page describes the supported configuration and
+Last checked on Windows x64 and macOS arm64 on 2026-11-19. This page describes the supported configuration and
 validation limits. Earlier implementation rounds and removed-mode measurements
 are historical evidence in [progress](progress.md) and Git history; current
 commands are in [TESTS.md](../TESTS.md).
 
 ## Supported configuration
 
-Windows x64 has verified JAR builds. macOS arm64 verification of the packaged library is pending.
+Windows x64 and macOS arm64 have source-built platform JARs. See the platform sections below for execution evidence.
 JavaFX hosting uses **Viewport + safe**, with Godot `mobile` (Vulkan on the
-validated Windows configuration, Metal 4.0 on macOS) or `gl_compatibility`
+validated Windows configuration, Metal 3.1 in the packaged macOS library on M1) or `gl_compatibility`
 (OpenGL). The custom
 RD-direct backend, translator, build/runtime switches and dedicated probes are
 removed, as are separate-thread host adaptations. Godot's own RenderingDevice
@@ -102,8 +102,7 @@ and exited with code 0. The directory still contained only the JAR after exit.
 
 The PowerShell JAR launcher passed smoke on Vulkan/mobile and OpenGL, and the
 shell JAR launcher passed on Windows under Git Bash. The module-path and Shadow consumer cases also passed. Interactive and
-smoke logs are in `artifacts/logs/vfx-demo-jar/`. macOS arm64 build, AppKit,
-Metal and OpenGL checks are pending in [TESTS.md](../TESTS.md).
+smoke logs are in `artifacts/logs/vfx-demo-jar/`.
 
 An interactive launch exposed a gap in the original smoke check. Windows
 replaced the Intro with a “Not responding” ghost window even though the real
@@ -133,8 +132,56 @@ All 27 module-path checks passed against the same engine and six Maven-resolved 
 
 ## macOS arm64 verification scope
 
-The macOS port reuses the same Viewport + safe hosting; `mobile` renders
-through Metal 4.0 and `gl_compatibility` through OpenGL 4.1. Vulkan is not
+On 2026-11-19 the standalone VFX Intro JAR ran from a separate directory on
+macOS 26.6.2, Apple M1, Temurin 25.0.5+8. The original Java PID mapped the
+embedded `libgodot.dylib`. Real clicks opened the menu, selected the VStage
+page, and closed the window. The application exited with code 0 and left only
+the JAR in its directory. Captures and the observed Java PID, engine path, and
+JAR hash are in `artifacts/reference/vfx-portable/`.
+
+The macOS publication is `28-godot.4:mac-aarch64`. It was built and tested
+before the changes were committed. Root revision `b7a5cd4` records the tested
+source and fixtures, including Godot `25d1e624eb`, OpenJFX `c77a14c8`,
+and VFX `4a92c505`. The source-built engine SHA-256 is
+`41f67447e40ef9a5e35e51a814e4067c2d2089eca0730ffbdedb4c541bc7fd58`.
+The isolated consumer tests inspected the native cache in the Java process,
+including the decoded frame's AVFoundation library. All 27 module-path cases
+and nine Shadow cases passed. They cover explicit and implicit startup,
+independent Stages, Unicode paths, scene packs, invalid dependencies, native
+Mac Glass cold/warm/concurrent caches, and Media controls. Logs and PID/module
+observations are in `artifacts/logs/macos-nonrobot-accepted/`.
+
+With this final build, the serial NonRobot run passed 263 of 264 entries.
+The remaining entry, the per-window icon test, reported its macOS platform
+skip. All 16 Robot entries passed on the same build. Together the groups
+exercised all 107 macOS shell test entry points. The desktop had a single
+1920×1080, 60 Hz display at scale 1. The results include both renderers, the
+real cross-application drag, pointer and keyboard input, native IME, hover
+pixels, and table dragging. Commands, exit codes, and individual logs are
+indexed in `artifacts/logs/macos-nonrobot-accepted/results.csv` and
+`artifacts/logs/macos-robot-accepted/results.csv`. The distributed VFX JAR
+SHA-256 is `387f19e378029017b48a928c9f9860c8ad6ceabb839ae31f6c2216d84888ef4d`.
+
+Both renderers produced 35 GPU captures at 1280×800. The page reports are
+`artifacts/reference/vfx-pages-mobile/run.json` and
+`artifacts/reference/vfx-pages-gl_compatibility/run.json`. The 70 images are also collected in
+`artifacts/logs/macos-nonrobot-accepted/vfx-pages-*.jpg`. Each renderer
+completed three round trips through the 35 pages with a 256 MiB Java heap.
+Each recorded 205 Java samples and 205 native samples and released all
+host-owned resources on exit. While the application was open, the round-end
+resource counts rose from 7,953 to 9,286 on Metal and from 7,770 to 10,107 on
+OpenGL. Longer-running memory stability remains unverified. The per-round
+observations are in `artifacts/reference/vfx-soak-*-3-heap256.analysis.json`.
+
+Both renderers passed all ten owned-window stacking and pixel checks, all
+six composition phases, and seventeen native ordering phases. Each passed
+three consecutive 36-cycle Stage churn tests; see
+`artifacts/logs/macos-window-order/` and `artifacts/logs/macos-stage-repeats/`.
+The source editor also completed a headless import with a new, empty editor
+cache (`artifacts/logs/macos-cold-import.log`).
+
+The macOS port uses Viewport + safe hosting. The packaged `mobile` renderer
+reports Metal 3.1 on this M1. The compatibility renderer uses OpenGL 4.1. Vulkan is not
 built (MoltenVK is not installed). Toolchain and build commands are in
 [build-macos.md](build-macos.md); test entries are the same-named
 `scripts/test-*.sh` runners with the macOS differences listed in
@@ -150,8 +197,8 @@ built (MoltenVK is not installed). Toolchain and build commands are in
 - The macOS file-dialog fixture answers the same submit/poll/cancel contract
   through a module test hook (`GODOT_JFX_DIALOG_HOOK=1`); panel appearance,
   sheet attachment and physical keyboard interaction are unverified.
-  Physical cross-process dragging is likewise unverified; the ole-inject
-  fixture feeds payloads through a private NSPasteboard.
+  The Cocoa helper and Robot verified physical cross-process drags on both
+  renderers. The separate ole-inject fixture uses a private NSPasteboard.
 - Media runs the AVFoundation backend; the macOS runners reject the unported
   `--runtime`/`--native-d3d`/process-census modes explicitly (exit 2), which
   marks the mode as unavailable rather than failed.

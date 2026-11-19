@@ -317,7 +317,7 @@ the first JavaFX window for at least one second, until the first frame is ready.
 Use `-NoGodotLogo` to reveal the prepared application directly. Subsequent
 windows do not repeat the logo. See [startup behavior and tests](startup-window.md).
 
-## macOS arm64 notes (2026-11-16)
+## macOS arm64
 
 The macOS runners are `scripts/test-vfx-*.sh` with `--renderer/--render-thread`
 arguments matching the PowerShell switches. The interactive launcher is
@@ -330,6 +330,14 @@ maximize, so `tests/reference/VfxWindowControlsProbe.java` reads
 `VStage.isMaximized()` and `tests/godot/vfx_window_controls.gd` expects a
 windowed native window matching screen bounds minus 24pt on macOS; the Windows
 assertions are unchanged. `tests/godot/vfx_table.gd` sends Cmd(Meta)+A for
-select-all on macOS, mirroring the existing `fxml.gd` mapping. The table-scroll
-and hover-flicker runners only drive the synthetic input modes; the robot
-modes are not ported.
+select-all on macOS, mirroring the existing `fxml.gd` mapping. The Robot group also runs table scrolling with
+`GODOT_JFX_DRAG_MODE=robot`, `test-hover-flicker.sh --robot`, and the
+Intro hover probe with real mouse input.
+
+On the Apple M1 the packaged JAR ran with JDK 25 in an otherwise empty
+directory. Desktop captures from the normal interactive launch show the welcome
+page, the open menu and the selected VStage page in
+`artifacts/reference/vfx-portable/{homepage,menu,selection}.png`. Both
+`scripts/run-vfx-demo.sh --smoke` and its OpenGL variant closed cleanly.
+The isolated JAR test also checked the Java process's mapped Godot dylib
+against the SHA-256 of its JAR entry.

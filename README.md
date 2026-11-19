@@ -38,7 +38,7 @@ java -jar artifacts/vfx/libs/vfx-demo.jar
 Both `scripts/run-vfx-demo.ps1` and `scripts/run-vfx-demo.sh` launch this JAR
 by default. Add `-Smoke` on Windows or `--smoke` on macOS for a bounded run.
 Build the Windows x64 JAR on Windows and the macOS arm64 JAR on macOS.
-Windows execution is verified; macOS JAR validation is tracked in [TESTS.md](TESTS.md).
+The standalone Intro JAR has been launched on both platforms. See [acceptance status](docs/acceptance-status.md).
 
 Use PowerShell at this directory (macOS uses the shell equivalents in
 [macOS source builds](docs/build-macos.md)). The scripts use JDK 25 from `JAVA_HOME`
@@ -67,7 +67,7 @@ the normal launcher remains interactive until the Demo is closed.
 
 ## Implementation and delivery map
 
-On Windows x64, a JavaFX application can ship as a single Shadow JAR and start with `java -jar app.jar` on JDK 25. The application's Stage controls the window. A regular application needs no Godot project. An application that embeds a custom GodotView scene can include its resource pack in the same JAR. Build the source SDK and publish its platform artifacts for the application build. [Single-JAR specification](docs/godot-library-spec.md) · [Windows build instructions](docs/build-windows.md#java-launched-library).
+On Windows x64 and macOS arm64, a JavaFX application can ship as a single Shadow JAR and start with `java -jar app.jar` on JDK 25. The application's Stage controls the window. A regular application needs no Godot project. An application that embeds a custom GodotView scene can include its resource pack in the same JAR. Build the source SDK and publish its platform artifacts for the application build. [Single-JAR specification](docs/godot-library-spec.md) · [Windows build instructions](docs/build-windows.md#java-launched-library).
 
 | Area | Source / documentation |
 | --- | --- |
