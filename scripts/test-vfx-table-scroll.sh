@@ -1,7 +1,6 @@
 #!/bin/sh
-# macOS equivalent of test-vfx-table-scroll.ps1. Only the default direct drag
-# mode is exercised; the GODOT_JFX_DRAG_MODE=robot physical mode is not run
-# here (it seizes the input devices and requires explicit user consent).
+# macOS equivalent of test-vfx-table-scroll.ps1. The default uses direct drag;
+# the Robot suite sets GODOT_JFX_DRAG_MODE=robot to exercise real input.
 # Usage: test-vfx-table-scroll.sh [--renderer mobile|gl_compatibility] [--render-thread safe]
 #        [--profile] [--sweeps 3..30]
 set -eu

@@ -1,6 +1,6 @@
 #!/bin/sh
 # macOS equivalent of test-window-composition.ps1.
-# The shared fixture exercises independent native Stage windows; macOS validation is pending.
+# The shared fixture verifies independent native Stage windows.
 # Usage: test-window-composition.sh [--renderer gl_compatibility|mobile] [--render-thread safe]
 set -eu
 cd "$(dirname "$0")/.."

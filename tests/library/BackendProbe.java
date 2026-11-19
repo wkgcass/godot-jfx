@@ -14,14 +14,15 @@ import java.util.concurrent.TimeUnit;
 public final class BackendProbe {
     public static void main(String[] args) throws Exception {
         switch (args[0]) {
-            case "d3d" -> {
+            case "d3d", "mtl" -> {
                 var observed = new CompletableFuture<String>();
                 Platform.startup(() -> observed.complete(PlatformFactory.getPlatformFactory().getClass().getName()
                         + " " + GraphicsPipeline.getPipeline().getClass().getName()));
                 try {
                     String backend = observed.get(10, TimeUnit.SECONDS);
-                    if (GodotRuntime.PRISM_GODOT_ENABLED || !backend.contains("WinPlatformFactory")
-                            || !backend.contains("D3DPipeline")) throw new AssertionError(backend);
+                    boolean mac = args[0].equals("mtl");
+                    if (GodotRuntime.PRISM_GODOT_ENABLED || !backend.contains(mac ? "MacPlatformFactory" : "WinPlatformFactory")
+                            || !backend.contains(mac ? "MTLPipeline" : "D3DPipeline")) throw new AssertionError(backend);
                     System.out.println("NATIVE_CONTROL_PASS " + backend);
                 } finally { Platform.exit(); }
             }
@@ -39,7 +40,7 @@ public final class BackendProbe {
                 } finally { loader.dispose(); }
                 if (GodotRuntime.PRISM_GODOT_ENABLED) throw new AssertionError("Early image load started Prism");
                 System.out.println("EARLY_IMAGE_PASS");
-                // Keep the process alive until the parent inspects Windows' loaded-module list.
+                // Keep the process alive until the parent inspects the loaded libraries.
                 if (System.in.read() != '1') throw new AssertionError("Missing DLL observation");
             }
             default -> throw new IllegalArgumentException(args[0]);

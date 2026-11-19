@@ -13,8 +13,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class LibraryLifecycle {
     private static String nativeWorkingDirectory() throws Exception {
-        var process = new ProcessBuilder(System.getenv("ComSpec"), "/d", "/u", "/c", "cd").start();
-        String path = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_16LE).strip();
+        boolean windows = System.getProperty("os.name").startsWith("Windows");
+        var command = windows ? new ProcessBuilder(System.getenv("ComSpec"), "/d", "/u", "/c", "cd")
+                              : new ProcessBuilder("/bin/pwd", "-P");
+        var process = command.start();
+        String path = new String(process.getInputStream().readAllBytes(), windows ? StandardCharsets.UTF_16LE : StandardCharsets.UTF_8).strip();
         if (process.waitFor() != 0 || path.isBlank()) throw new AssertionError("Cannot read native working directory");
         return path;
     }

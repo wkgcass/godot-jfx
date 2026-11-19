@@ -33,7 +33,9 @@ func _ready() -> void:
 			push_error("Logical windows failed/timed out: "+host.get_runtime_error())
 			get_tree().quit(1)
 			return
-		await RenderingServer.frame_post_draw
+		# Closing the final Stage stops viewport drawing on macOS. Keep
+		# observing the probe and its deadline while the engine is still running.
+		await get_tree().process_frame
 		var title := get_window().title
 		var scale := DisplayServer.screen_get_scale(get_window().current_screen)
 		var child: Window = null
@@ -43,7 +45,7 @@ func _ready() -> void:
 		if state == 0 and title == "Logical ready" and child != null:
 			var root_image := get_viewport().get_texture().get_image()
 			var child_image := child.get_texture().get_image()
-			if not matches(child_image.get_pixelv(Vector2i(Vector2(20,65)*scale)),Color.BLUE): continue
+			if not matches(child_image.get_pixelv(Vector2i(Vector2(20,65)*DisplayServer.screen_get_scale(child.current_screen))),Color.BLUE): continue
 			if child.is_embedded() or host.get_surface_size() != Vector2i(Vector2(240,160)*scale) or not matches(root_image.get_pixelv(Vector2i(Vector2(230,140)*scale)),Color.RED):
 				push_error("Secondary Stage changed primary surface");get_tree().quit(1);return
 			child_image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/logical-windows-initial.png"))
@@ -64,7 +66,7 @@ func _ready() -> void:
 			else:
 				if child == null or child.is_embedded() or DisplayServer.get_window_list().size()!=2: continue
 				if child.position-get_window().position != Vector2i(Vector2(30,60)*scale): continue
-				var pixel := child.get_texture().get_image().get_pixelv(Vector2i(Vector2(10,65)*scale))
+				var pixel := child.get_texture().get_image().get_pixelv(Vector2i(Vector2(10,65)*DisplayServer.screen_get_scale(child.current_screen)))
 				if last_observed!=title:
 					print("NATIVE_STAGE_OBSERVED ",title," ",pixel)
 					last_observed=title

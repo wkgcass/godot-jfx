@@ -23,10 +23,12 @@ func _ready() -> void:
 	if not host.run_fixture_probe("TransparentStageProbe"):
 		push_error("Transparent probe failed");get_tree().quit(1);return
 	var seen:={};var deadline:=Time.get_ticks_msec()+60000
+	# Hidden windows stop drawing on macOS. Observe startup/close on scene
+	# frames and reserve draw fences for the visible pixel checks below.
 	while host.get_runtime_status()!="finished":
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
 			push_error("Transparent runtime failed: "+host.get_runtime_error());get_tree().quit(1);return
-		await RenderingServer.frame_post_draw
+		await get_tree().process_frame
 		var title:=get_window().title
 		if not title.begins_with("Transparent ") or host.is_composition_pending():continue
 		var phase:=title.get_slice(" ",1).to_int()
@@ -39,7 +41,7 @@ func _ready() -> void:
 		seen[phase]=true
 	for frame in range(120):
 		if host.get_window_count()==0 and host.get_native_window_count()==0 and not host.is_composition_pending():break
-		await RenderingServer.frame_post_draw
+		await get_tree().process_frame
 	if seen.size()!=4 or host.get_window_count()!=0 or host.get_native_window_count()!=0 or host.is_composition_pending():
 		push_error("Transparent coverage/drain incomplete");get_tree().quit(1);return
 	remove_child(host)

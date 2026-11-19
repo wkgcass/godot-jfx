@@ -5,6 +5,7 @@
   <version>1</version>
   <properties>
     <godot.version>28-godot.4</godot.version>
+    <godot.platform>win</godot.platform>
   </properties>
   <repositories>
     <repository>
@@ -17,7 +18,7 @@
     <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-media</artifactId><version>${godot.version}</version></dependency>
     <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-swing</artifactId><version>${godot.version}</version></dependency>
     <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-fxml</artifactId><version>${godot.version}</version></dependency>
-    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-graphics</artifactId><version>${godot.version}</version><classifier>win</classifier></dependency>
-    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-media</artifactId><version>${godot.version}</version><classifier>win</classifier></dependency>
+    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-graphics</artifactId><version>${godot.version}</version><classifier>${godot.platform}</classifier></dependency>
+    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-media</artifactId><version>${godot.version}</version><classifier>${godot.platform}</classifier></dependency>
   </dependencies>
 </project>

@@ -127,6 +127,7 @@ public final class HoverDemoProbe extends IntroFXMain {
         for (int cycle = 0; cycle < 8; cycle++) {
             final int current = cycle;
             var b = fx(() -> {
+                stage.setTitle("HoverDemo moving");
                 var bounds = target.localToScreen(target.getBoundsInLocal());
                 require(bounds != null, "LoadingStage button is not on screen");
                 return bounds;
@@ -142,12 +143,14 @@ public final class HoverDemoProbe extends IntroFXMain {
                 return null;
             });
             Thread.sleep(2500);
-            fx(() -> { stage.setTitle("HoverDemo GAP " + current); return null; });
+            fx(() -> { stage.setTitle("HoverDemo moving"); return null; });
             for (int glide = 0; glide <= 30; glide++) {
-                move(b.getMinX()+b.getWidth()/2, b.getMinY()+b.getHeight()/2+glide*2.0);
+                move(b.getMinX()+b.getWidth()/2, b.getMinY()+b.getHeight()/2+glide*(60+b.getHeight()/2)/30.0);
                 Thread.sleep(8);
             }
-            fx(() -> { robot.mouseMove(stage.getX()-80, stage.getY()-80); lastMoveAt=System.nanoTime(); return null; });
+            // Measure the resting gap only after the pointer has crossed
+            // the button and reached the empty area below it.
+            fx(() -> { stage.setTitle("HoverDemo GAP " + current); return null; });
             Thread.sleep(1200);
         }
         fx(() -> {

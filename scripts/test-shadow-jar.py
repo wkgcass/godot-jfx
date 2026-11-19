@@ -1,5 +1,6 @@
 """Build an independent Shadow consumer and run the single distributable with JDK 25."""
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -11,7 +12,8 @@ import tempfile
 import time
 from zipfile import ZipFile
 
-from windows_loaded_modules import module_paths
+from library_test_platform import (CLASSIFIER, EDITOR, ENGINE, MEDIA_LIBRARIES, SDK_NATIVES,
+                                   WINDOWS, library, module_paths, system_path)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,18 +40,17 @@ def export_scene(work):
     (project / "main.tscn").write_text('[gd_scene format=3]\n'
             '[ext_resource type="Script" path="res://main.gd" id="1"]\n'
             '[node name="Main" type="Node"]\nscript = ExtResource("1")\n')
-    editor = ROOT / "godot/bin/godot.windows.editor.x86_64.console.exe"
     pack = work / "resources.pck"
-    execute([editor, "--headless", "--path", project, "--editor", "--import"], work / "import.log")
-    execute([editor, "--headless", "--path", project, "--export-pack", "JavaFX resources", pack], work / "pack.log")
+    execute([EDITOR, "--headless", "--path", project, "--editor", "--import"], work / "import.log")
+    execute([EDITOR, "--headless", "--path", project, "--export-pack", "JavaFX resources", pack], work / "pack.log")
     return pack
 
 
 def build(work, runtime, name, pack=None):
     project = work / "tests/library/shadow"
     version = (runtime / "version.txt").read_text().strip()
-    args = [ROOT / "jfx/gradlew.bat", "-p", project, "shadowJar", "--no-daemon", "--refresh-dependencies",
-            f"-Prepository={runtime / 'repository'}", f"-PjavafxVersion={version}"]
+    args = [ROOT / "jfx" / ("gradlew.bat" if WINDOWS else "gradlew"), "-p", project, "shadowJar", "--no-daemon", "--refresh-dependencies",
+            f"-Prepository={runtime / 'repository'}", f"-PjavafxVersion={version}", f"-Pplatform={CLASSIFIER}"]
     if pack:
         args.append(f"-PscenePack={pack}")
     if name == "media":
@@ -61,33 +62,33 @@ def build(work, runtime, name, pack=None):
     shutil.copyfile(next((project / "build/libs").glob("*-all.jar")), jar)
     with ZipFile(jar) as archive:
         names = set(archive.namelist())
-        required = {"godot.dll", "javafx_font.dll", "META-INF/godot-jfx/natives.id"}
+        required = {library("godot"), library("javafx_font"), "META-INF/godot-jfx/natives.id"}
         if name == "media":
-            required.update(("jfxmedia.dll", "fxplugins.dll"))
-        elif "jfxmedia.dll" in names:
+            required.update(MEDIA_LIBRARIES)
+        elif library("jfxmedia") in names:
             raise AssertionError(f"Controls-only build unexpectedly includes Media: {jar}")
         if not required <= names or any(n.endswith((".jar", "project.godot", "project.pck")) for n in names):
             raise AssertionError(f"Invalid flat jar: {jar}")
-        for dll in (entry for entry in required if entry.endswith(".dll")):
-            source = (ROOT / "godot/bin/godot.windows.template_release.x86_64.library.dll" if dll == "godot.dll"
-                      else ROOT / "jfx/build/sdk/bin" / dll)
-            if hashlib.sha256(archive.read(dll)).digest() != hashlib.sha256(source.read_bytes()).digest():
-                raise AssertionError(f"{jar} contains a different build of {dll}")
+        for filename in required - {"META-INF/godot-jfx/natives.id"}:
+            source = ENGINE if filename == library("godot") else SDK_NATIVES / filename
+            if hashlib.sha256(archive.read(filename)).digest() != hashlib.sha256(source.read_bytes()).digest():
+                raise AssertionError(f"{jar} contains a different build of {filename}")
         packs = {n for n in names if n.endswith(".pck")}
         if packs != ({"META-INF/godot-jfx/scenes.pck"} if pack else set()):
             raise AssertionError(f"Unexpected resource packs: {packs}")
     return jar
 
 
-def launch(work, jar, name, args, markers, extra_env=None, expected_error=None):
+def launch(work, jar, name, args, markers, extra_env=None, expected_error=None, native_cache=None):
     # The application receives no JFX flags, extra class path or runtime directory.
     jdk = Path(os.environ["JAVA_HOME"])
     env = {k: v for k, v in os.environ.items() if not k.startswith("GODOT_")
            and k not in ("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "CLASSPATH")}
-    env["PATH"] = os.pathsep.join(map(str, [jdk / "bin", Path(os.environ["SystemRoot"]) / "System32"]))
+    env["PATH"] = system_path(jdk)
     log = work / (name + ".log")
     loaded = set()
-    with log.open("wb") as stream, subprocess.Popen([jdk / "bin/java", "-jar", jar.name, *args],
+    jvm_options = ["-Dglass.platform=Mac", f"-Djavafx.cachedir={native_cache}"] if native_cache else []
+    with log.open("wb") as stream, subprocess.Popen([jdk / "bin/java", *jvm_options, "-jar", jar.name, *args],
             cwd=jar.parent, env=env | (extra_env or {}), stdout=stream, stderr=subprocess.STDOUT) as proc:
         deadline = time.monotonic() + 55
         while proc.poll() is None:
@@ -105,19 +106,26 @@ def launch(work, jar, name, args, markers, extra_env=None, expected_error=None):
     if proc.returncode or any(x not in output for x in [f"APPLICATION_PID={proc.pid}", *markers]) or re.search(
             r"(?m)^(ERROR:|SHADER ERROR:|SCRIPT ERROR:|Exception in thread)", output):
         raise AssertionError(f"{name} failed, see {log}")
-    required = {"godot.dll"}
-    if name == "media":
-        required.update(("jfxmedia.dll", "glib-lite.dll", "gstreamer-lite.dll", "fxplugins.dll"))
+    required = {library("godot")}
+    if native_cache:
+        if any(path.name == library("godot") for path in loaded):
+            raise AssertionError(f"{name}: native Mac Glass loaded the Godot engine")
+        required = {library("glass"), *MEDIA_LIBRARIES}
+    elif name == "media":
+        required.update(MEDIA_LIBRARIES)
     else:
-        required.add("javafx_font.dll")
+        required.add(library("javafx_font"))
     with ZipFile(jar) as archive:
         build_id = archive.read("META-INF/godot-jfx/natives.id").decode("ascii")
-        for dll in required:
-            paths = [path for path in loaded if path.name.lower() == dll]
-            if len(paths) != 1 or build_id not in paths[0].parts:
-                raise AssertionError(f"{name}: expected {dll} in the build's native cache, got {paths}")
-            if hashlib.sha256(paths[0].read_bytes()).digest() != hashlib.sha256(archive.read(dll)).digest():
-                raise AssertionError(f"{name}: loaded {dll} differs from JAR resource")
+        for filename in required:
+            paths = [path for path in loaded if path.name.lower() == filename]
+            if len(paths) != 1:
+                raise AssertionError(f"{name}: expected one mapped {filename}, saw {paths}")
+            cached = paths[0].parent == native_cache if native_cache else build_id in paths[0].parts
+            if not cached:
+                raise AssertionError(f"{name}: expected {filename} in the build's native cache, got {paths}")
+            if hashlib.sha256(paths[0].read_bytes()).digest() != hashlib.sha256(archive.read(filename)).digest():
+                raise AssertionError(f"{name}: loaded {filename} differs from JAR resource")
     (work / (name + "-modules.json")).write_text(json.dumps(sorted(map(str, loaded)), indent=2))
     print(f"PASS {name}", flush=True)
 
@@ -127,7 +135,7 @@ def main():
     parser.add_argument("--runtime", type=Path, required=True)
     parser.add_argument("--work", type=Path)
     args = parser.parse_args()
-    work = args.work.resolve() if args.work else Path(tempfile.mkdtemp(prefix="JavaFX Shadow "))
+    work = args.work.resolve() if args.work else Path(tempfile.mkdtemp(prefix="JavaFX Shadow ")).resolve()
     work.mkdir(parents=True, exist_ok=True)
     print(f"Evidence: {work}", flush=True)
     project = work / "tests/library/shadow"
@@ -147,6 +155,20 @@ def main():
     launch(work, jar, "media", [], ["MEDIA_VIDEO_CONTROLS_PASS", "MEDIA_VIDEO_PROBE_PASS"], {
         "GODOT_JFX_MEDIA_FILE": str(ROOT / "artifacts/reference/media-oracle-sample.mp4"),
         "GODOT_JFX_MEDIA_CAPTURE": str(work / "media.png")})
+    if not WINDOWS:
+        # Native Glass uses OpenJFX's ordinary library cache. Exercise its
+        # first extraction, reuse and two JVMs extracting into one empty cache.
+        def native_media(case, cache):
+            launch(work, jar, case, [], ["MEDIA_VIDEO_CONTROLS_PASS", "MEDIA_VIDEO_PROBE_PASS"], {
+                "GODOT_JFX_MEDIA_FILE": str(ROOT / "artifacts/reference/media-oracle-sample.mp4"),
+                "GODOT_JFX_MEDIA_CAPTURE": str(work / (case + ".png"))}, native_cache=work / cache)
+
+        native_media("native-cold", "native-cache")
+        native_media("native-warm", "native-cache")
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            checks = [pool.submit(native_media, f"native-concurrent-{i}", "shared-cache") for i in (1, 2)]
+            for check in checks:
+                check.result()
     jar = build(work, runtime, "scenes", export_scene(work))
     launch(work, jar, "bundled-view", ["view"], ["LIBRARY_VIEW_STAGE_PASS", "APPLICATION_INPUT_PASS", "APPLICATION_STOP"],
            {"GODOT_LIBRARY_CAPTURE": str(work / "view.png")})

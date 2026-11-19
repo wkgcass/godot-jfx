@@ -9,13 +9,25 @@ import tempfile
 import time
 from zipfile import ZipFile
 
+from library_test_platform import library, module_paths
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def check_engine(process, jar):
+    engines = [path for path in module_paths(process) if path.name.lower() == library("godot")]
+    with ZipFile(jar) as archive:
+        build = archive.read("META-INF/godot-jfx/natives.id").decode("ascii").strip()
+        if len(engines) != 1 or build not in engines[0].parts:
+            raise AssertionError(f"VFX Intro loaded an unexpected engine: {engines}")
+        if hashlib.sha256(engines[0].read_bytes()).digest() != hashlib.sha256(archive.read(library("godot"))).digest():
+            raise AssertionError(f"VFX Intro loaded a different engine from {jar}")
+    print(f"VFX Intro engine pid={process.pid} path={engines[0]}", flush=True)
+
+
 def check_windows_intro(process, deadline, jar):
     import ctypes
-    from windows_loaded_modules import module_paths
     from ctypes import wintypes
 
     user32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -52,14 +64,7 @@ def check_windows_intro(process, deadline, jar):
             if first_seen is None:
                 first_seen = time.monotonic()
             if time.monotonic() - first_seen >= 20:
-                engines = [path for path in module_paths(process) if path.name.lower() == "godot.dll"]
-                with ZipFile(jar) as archive:
-                    build = archive.read("META-INF/godot-jfx/natives.id").decode("ascii").strip()
-                    if len(engines) != 1 or build not in engines[0].parts:
-                        raise AssertionError(f"VFX Intro loaded an unexpected engine: {engines}")
-                    if hashlib.sha256(engines[0].read_bytes()).digest() != hashlib.sha256(archive.read("godot.dll")).digest():
-                        raise AssertionError(f"VFX Intro loaded a different DLL from {jar}")
-                print(f"VFX Intro engine pid={process.pid} path={engines[0]}", flush=True)
+                check_engine(process, jar)
                 # Exercise queued native messages after idle. Disabling ghosting
                 # alone cannot make a blocked window process these commands.
                 was_zoomed = bool(user32.IsZoomed(intro))
@@ -115,6 +120,14 @@ def main():
             try:
                 if os.name == "nt":
                     check_windows_intro(run, deadline, jar)
+                else:
+                    while run.poll() is None and time.monotonic() < deadline:
+                        if any(path.name == library("godot") for path in module_paths(run)):
+                            check_engine(run, jar)
+                            break
+                        time.sleep(.1)
+                    else:
+                        raise AssertionError(f"VFX Intro did not load the packaged engine, see {log}")
                 run.wait(timeout=max(0, deadline - time.monotonic()))
             finally:
                 if run.poll() is None:

@@ -3,6 +3,9 @@ config_version=5
 [application]
 config/name="Godot JavaFX M1 rendering validation"
 run/main_scene="res://main.tscn"
+; The fixture JVM and the release engine share stdout. Flush each native
+; record so a stdio buffer boundary cannot split it around a Java log line.
+run/flush_stdout_on_print=true
 
 [display]
 window/per_pixel_transparency/allowed=true

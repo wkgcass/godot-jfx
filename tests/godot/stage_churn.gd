@@ -18,10 +18,12 @@ func _ready() -> void:
 	var baseline_texture:=0.0
 	var sample_count:=0
 	var deadline:=Time.get_ticks_msec()+maxi(240000,cycles*3000)
+	# Hidden windows stop drawing on macOS. Observe startup/close on scene
+	# frames and reserve draw fences for the visible pixel checks below.
 	while host.get_runtime_status()!="finished":
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
 			push_error("Stage churn failed cycle=%d open=%s: %s"%[cycle,want_open,host.get_runtime_error()]);get_tree().quit(1);return
-		await RenderingServer.frame_post_draw
+		await get_tree().process_frame
 		var prefix:="StageChurn %s %d"%["open" if want_open else "closed",cycle]
 		var title:=get_window().title
 		if title!=prefix and not title.begins_with(prefix+" "): continue
@@ -60,7 +62,7 @@ func _ready() -> void:
 			click(get_window());want_open=true
 	for frame in range(120):
 		if host.get_window_count()==0 and host.get_native_window_count()==0 and not host.is_composition_pending(): break
-		await RenderingServer.frame_post_draw
+		await get_tree().process_frame
 	if cycle!=cycles or sample_count!=cycles+1 or host.get_window_count()!=0 or host.get_native_window_count()!=0 or host.is_composition_pending():
 		push_error("Stage churn coverage/drain incomplete");get_tree().quit(1);return
 	remove_child(host)

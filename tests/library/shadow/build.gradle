@@ -8,12 +8,14 @@ repositories {
 }
 def fx = 'org.godotjfx:javafx-'
 def version = providers.gradleProperty('javafxVersion').get()
+def platform = providers.gradleProperty('platform').getOrElse(
+        System.getProperty('os.name') == 'Mac OS X' ? 'mac-aarch64' : 'win')
 def withMedia = providers.gradleProperty('withMedia').isPresent()
 dependencies {
     implementation "${fx}controls:${version}"
-    runtimeOnly "${fx}graphics:${version}:win"
+    runtimeOnly "${fx}graphics:${version}:${platform}"
     if (withMedia) {
-        implementation "${fx}media:${version}:win"
+        implementation "${fx}media:${version}:${platform}"
         implementation "${fx}swing:${version}"
     }
 }

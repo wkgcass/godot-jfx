@@ -1,4 +1,4 @@
-"""Run JDK 25 child-process checks for the Windows Java-launched distribution."""
+"""Run JDK 25 child-process checks for the Java-launched distribution."""
 import argparse
 import functools
 import hashlib
@@ -14,7 +14,7 @@ import threading
 import time
 from zipfile import ZipFile
 
-from windows_loaded_modules import module_paths
+from library_test_platform import CLASSIFIER, EDITOR, MEDIA_LIBRARIES, WINDOWS, library, module_paths, system_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,6 +57,7 @@ def resolve(runtime, work, maven):
         try:
             command([maven, "-B", "-U", "-f", consumer / "pom.xml",
                      f"-Dmaven.repo.local={work / 'maven-cache'}",
+                     f"-Dgodot.platform={CLASSIFIER}",
                      f"-Dgodot.repository=http://127.0.0.1:{server.server_port}/",
                      f"-Dgodot.version={(runtime / 'version.txt').read_text().strip()}",
                      "org.apache.maven.plugins:maven-dependency-plugin:3.8.1:copy-dependencies",
@@ -67,13 +68,14 @@ def resolve(runtime, work, maven):
     # Maven also resolves the ordinary graphics and media JARs transitively.
     # Select the platform variant of each module for the runtime module path.
     for module in ("graphics", "media"):
-        classifier, = (consumer / "modules").glob(f"javafx-{module}-*-win.jar")
-        plain = classifier.with_name(classifier.name.replace("-win.jar", ".jar"))
+        classifier, = (consumer / "modules").glob(f"javafx-{module}-*-{CLASSIFIER}.jar")
+        plain = classifier.with_name(classifier.name.replace(f"-{CLASSIFIER}.jar", ".jar"))
         if sha256(plain) != inventory[f"javafx.{module}"]["sha256"]:
             raise AssertionError(f"Unexpected transitive module: {plain}")
         plain.unlink()
     hashes = {jar.name: sha256(jar) for jar in (consumer / "modules").glob("*.jar")}
-    if len(hashes) != 6 or set(hashes.values()) != {m.get("windowsClassifierSha256", m["sha256"]) for m in inventory.values()}:
+    platform_hash = "windowsClassifierSha256" if WINDOWS else "macArm64ClassifierSha256"
+    if len(hashes) != 6 or set(hashes.values()) != {m.get(platform_hash, m["sha256"]) for m in inventory.values()}:
         raise AssertionError("Resolved jars differ from the six staged modules")
     graphics = next((consumer / "modules").glob("javafx-graphics-*.jar"))
     with ZipFile(graphics) as jar:
@@ -98,7 +100,7 @@ class Suite:
         self.failed = []
         self.env = {k: v for k, v in os.environ.items()
                     if not k.startswith("GODOT_JFX_") and k not in ("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS")}
-        self.env["PATH"] = os.pathsep.join([str(jdk / "bin"), os.path.join(os.environ["SystemRoot"], "System32")])
+        self.env["PATH"] = system_path(jdk)
 
     def compile(self):
         self.classes.mkdir(exist_ok=True)
@@ -168,7 +170,7 @@ class Suite:
         if (proc.returncode != code or count != engines or loops != (engines if expected_loops is None else expected_loops)
                 or any(s not in log for s in expected) or (code in (0, 37) and errors)):
             raise AssertionError(f"{name}: exit {proc.returncode}, engines {count}, loops {loops}, see {output}")
-        if loaded and engines == 0 and any(path.name.lower() == "godot.dll" for path in paths):
+        if loaded and engines == 0 and any(path.name.lower() == library("godot") for path in paths):
             raise AssertionError(f"{name}: loaded the engine before Godot startup")
         for filename in loaded:
             actual = {p.resolve() for p in paths if p.name.lower() == filename}
@@ -177,8 +179,8 @@ class Suite:
             wanted, = actual
             if not wanted.is_relative_to(self.work / "native-cache"):
                 raise AssertionError(f"{name}: loaded native outside the classifier cache: {wanted}")
-            module = "media" if filename in ("jfxmedia.dll", "fxplugins.dll", "gstreamer-lite.dll", "glib-lite.dll") else "graphics"
-            classifier, = self.modules.glob(f"javafx-{module}-*-win.jar")
+            module = "media" if filename in MEDIA_LIBRARIES else "graphics"
+            classifier, = self.modules.glob(f"javafx-{module}-*-{CLASSIFIER}.jar")
             with ZipFile(classifier) as jar:
                 if sha256(wanted) != hashlib.sha256(jar.read(filename)).hexdigest():
                     raise AssertionError(f"{filename} differs from {classifier}")
@@ -204,14 +206,13 @@ class Suite:
         elif duplicate:
             scene += '[node name="OtherHost" type="JavaFXHost" parent="."]\n'
         (project / "main.tscn").write_text(scene)
-        editor = ROOT / "godot/bin/godot.windows.editor.x86_64.console.exe"
-        command([editor, "--headless", "--path", project, "--editor", "--import"], project / "import.log")
+        command([EDITOR, "--headless", "--path", project, "--editor", "--import"], project / "import.log")
         return project
 
     def damaged_classifier(self, directory, module, entry, replacement=None):
         # Keep one module per name and alter only the resource under test.
         directory.mkdir(exist_ok=True, parents=True)
-        source, = self.modules.glob(f"javafx-{module}-*-win.jar")
+        source, = self.modules.glob(f"javafx-{module}-*-{CLASSIFIER}.jar")
         target = directory / source.name
         with ZipFile(source) as original, ZipFile(target, "w") as damaged:
             if entry not in original.namelist():
@@ -230,7 +231,7 @@ class Suite:
                           "auto": "APPLICATION_STOP", "startup": "PLATFORM_RESHOW_PASS", "exit": "EXPLICIT_EXIT"}[case]
                 self.child(case, "LibraryLifecycle", case, expected=[marker], code=37 if case == "exit" else 0)
             self.child("direct", "DirectApplication", expected=["APPLICATION_INIT", "APPLICATION_START", "APPLICATION_STOP"],
-                       loaded=["godot.dll", "javafx_font.dll"])
+                       loaded=[library("godot"), library("javafx_font")])
             self.child("application-main", "ApplicationWithMain", expected=["APPLICATION_MAIN", "APPLICATION_STOP"])
             self.child("opengl", "LibraryLifecycle", "opengl", expected=["GODOT_LIBRARY_LOOP renderer=gl_compatibility",
                        "HOST_READY", "APPLICATION_STOP"])
@@ -243,24 +244,33 @@ class Suite:
                 runtime.mkdir(exist_ok=True, parents=True)
                 module_path = None
                 if case in ("missing", "architecture"):
-                    wrong_arch = (Path(os.environ["SystemRoot"]) / "SysWOW64/version.dll").read_bytes() if case == "architecture" else None
-                    module_path = self.damaged_classifier(runtime, "graphics", "godot.dll", wrong_arch)
+                    wrong_arch = None
+                    if case == "architecture":
+                        if WINDOWS:
+                            wrong_arch = (Path(os.environ["SystemRoot"]) / "SysWOW64/version.dll").read_bytes()
+                        else:
+                            output = runtime / "intel.dylib"
+                            command(["clang", "-arch", "x86_64", "-dynamiclib", "-x", "c", "/dev/null", "-o", output],
+                                    runtime / "clang.log")
+                            wrong_arch = output.read_bytes()
+                    module_path = self.damaged_classifier(runtime, "graphics", library("godot"), wrong_arch)
                 elif case == "attach":
                     self.pack(self.project("duplicate", duplicate=True), runtime / "project.pck")
                 elif case == "invalid-pack":
                     (runtime / "project.pck").write_bytes(b"invalid resource pack")
-                marker = {"missing": "godot.dll", "architecture": "godot.dll", "project": "project:",
+                marker = {"missing": library("godot"), "architecture": library("godot"), "project": "project:",
                           "invalid-pack": "create:", "attach": "attach:"}[case]
                 self.child("failure-" + case, "LibraryLifecycle", "failure", module_path=module_path, properties={
                            "javafx.cachedir": runtime / "cache",
                            "javafx.godot.project": runtime / "project.pck" if case in ("project", "invalid-pack", "attach") else None},
                            expected=["EXPECTED_FAILURE", marker], code=31, engines=int(case == "attach"), expected_loops=0)
-            self.child("early-image", "BackendProbe", "image", expected=["EARLY_IMAGE_PASS"], engines=0, loaded=["javafx_iio.dll"])
-            damaged = self.damaged_classifier(self.work / "missing-media", "media", "glib-lite.dll")
+            self.child("early-image", "BackendProbe", "image", expected=["EARLY_IMAGE_PASS"], engines=0, loaded=[library("javafx_iio")])
+            damaged = self.damaged_classifier(self.work / "missing-media", "media", library("glib-lite"))
             self.child("missing-media-dependency", "BackendProbe", "media", module_path=damaged,
-                       expected=["glib-lite.dll", "UnsatisfiedLinkError"], code=1, engines=0)
-            self.child("native-d3d", "BackendProbe", "d3d", properties={"prism.order": "d3d"}, engines=0,
-                       expected=["NATIVE_CONTROL_PASS"], loaded=["glass.dll", "prism_d3d.dll"])
+                       expected=[library("glib-lite"), "UnsatisfiedLinkError"], code=1, engines=0)
+            backend = "d3d" if WINDOWS else "mtl"
+            self.child("native-" + backend, "BackendProbe", backend, properties={"prism.order": backend}, engines=0,
+                       expected=["NATIVE_CONTROL_PASS"], loaded=[library("glass"), library("prism_" + backend)])
         elif group == "render":
             refs = self.work / "artifacts/reference"
             refs.mkdir(exist_ok=True, parents=True)
@@ -269,7 +279,7 @@ class Suite:
             self.pack(project, pack)
             self.child("direct-input", "DirectApplication", properties={"test.input": "true", "javafx.godot.project": pack},
                        expected=["APPLICATION_INIT", "APPLICATION_START", "APPLICATION_INPUT_PASS",
-                       "LIBRARY_VIEW_STAGE_PASS renderer=mobile", "APPLICATION_STOP"], loaded=["godot.dll"],
+                       "LIBRARY_VIEW_STAGE_PASS renderer=mobile", "APPLICATION_STOP"], loaded=[library("godot")],
                        env={"GODOT_LIBRARY_CAPTURE": str(refs / "direct-input.png")})
             for case, source in (("directory", project), ("pck", pack)):
                 # The explicit launcher selects the project before Application.launch.
@@ -277,7 +287,7 @@ class Suite:
                            "test.input": "true"}, expected=["NATIVE_CWD", "APPLICATION_INPUT_PASS",
                            "LIBRARY_VIEW_STAGE_PASS renderer=mobile", "APPLICATION_STOP"],
                            env={"GODOT_LIBRARY_CAPTURE": str(refs / (case + ".png"))})
-            self.child("effects-reference", "EffectsProbe", properties={"prism.order": "d3d",
+            self.child("effects-reference", "EffectsProbe", properties={**({"prism.order": "d3d"} if WINDOWS else {"glass.platform": "Mac"}),
                        "effects.reference": refs / "d3d-effects.png"}, expected=["EFFECTS_REFERENCE_PASS"], engines=0)
             for name, probe, parent, marker in [
                 ("shader", "NodeShaderProbe", "node_shader_test.gd", "LIBRARY_SHADER_PIXELS_PASS"),
@@ -290,11 +300,11 @@ class Suite:
                 raise ValueError("Unexpected Media reference checksum")
             self.child("media", "MediaVideoProbe", expected=["MEDIA_VIDEO_CONTROLS_PASS", "MEDIA_VIDEO_PROBE_PASS"],
                        env={"GODOT_JFX_MEDIA_FILE": str(video), "GODOT_JFX_MEDIA_CAPTURE": str(refs / "media.png")},
-                       loaded=["godot.dll", "jfxmedia.dll", "fxplugins.dll", "gstreamer-lite.dll", "glib-lite.dll"])
+                       loaded=[library("godot"), *MEDIA_LIBRARIES])
 
     @staticmethod
     def pack(project, output):
-        command([ROOT / "godot/bin/godot.windows.editor.x86_64.console.exe", "--headless", "--path", project,
+        command([EDITOR, "--headless", "--path", project,
                  "--export-pack", "JavaFX resources", output], project / "pack.log")
 
 
@@ -302,7 +312,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runtime", required=True, type=Path)
     parser.add_argument("--work", type=Path)
-    parser.add_argument("--maven", default=shutil.which("mvn") or str(ROOT / ".tools/apache-maven-3.9.9/bin/mvn.cmd"))
+    parser.add_argument("--maven", default=shutil.which("mvn") or str(ROOT / ".tools/apache-maven-3.9.9/bin" / ("mvn.cmd" if WINDOWS else "mvn")))
     parser.add_argument("--group", choices=["prepare", "launch", "failures", "render", "all"], default="all")
     args = parser.parse_args()
     runtime = args.runtime.resolve()
