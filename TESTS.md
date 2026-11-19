@@ -12,7 +12,6 @@ macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。带 `--re
 
 | 目标平台与待验证内容 | 验证入口与参数 | 通过条件及已知限制 |
 | --- | --- | --- |
-| Windows x64，跨平台退出及夹具回归 | 使用当前源码重建 Editor、SDK、发布 JAR，串行执行 `run-windows-tests.ps1 -Group NonRobot` 和获授权的 `-Group Robot` | 检查首次无头导入、动画回调内退出、迁移后的逻辑窗口及悬停像素断言。新版本的 module path、Shadow 和 Demo JAR 入口也应通过。 |
 | macOS arm64，Retina 与混合缩放多屏下的共享窗口夹具 | 在 Retina 单屏和不同缩放双屏环境运行 `test-logical-windows.sh`、`test-window-order.sh`、`test-window-composition.sh`，将主窗口置于屏幕交界附近，覆盖子窗口落在另一屏的情况；记录各窗口所在屏幕、缩放和位置 | 核对窗口尺寸、相对位置、输入坐标与 GPU 像素。当前部分断言用主窗口屏幕缩放计算子窗口采样点，可能误判；如需修正，应依据各窗口实际坐标与渲染尺寸。缺少对应显示器环境时保留该范围的待办。 |
 | macOS arm64，独立 IME 窗口的点击坐标 | 获得 Robot 授权后，在 Retina 屏运行 `./scripts/test-native-ime.sh --renderer mobile` 和 `--renderer gl_compatibility` | 从已显示的子窗口尺寸换算点击位置，焦点离开输入框后取消预编辑，按钮动作完成，根文本与资源清理断言通过，并恢复光标。 |
 

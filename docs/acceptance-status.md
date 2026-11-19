@@ -28,6 +28,48 @@ reflection/virtual callbacks and resource-lifetime fixes are retained.
 
 ## Validation evidence
 
+### Windows x64 after the macOS adaptation (2026-11-19)
+
+Windows x64 ran root revision `751bac7` with Godot `25d1e624eb`,
+OpenJFX `c77a14c8`, VFX `4a92c505` and Temurin 25.0.3+9. The Editor,
+engine DLL, Media-enabled SDK and VFX Demo JAR were rebuilt from clean source
+revisions. The Windows graphics classifier and Demo JAR contained the rebuilt
+DLL (SHA-256 `ad23bcbf443a3a19c5a748c63553c102138f3023e8b3d033ce4f270a223b780a`)
+and the same `QuantumToolkit.class` as the SDK.
+
+`scripts/run-windows-tests.ps1 -Group NonRobot` passed 106 of 108 entries
+on the first run. Both `test-startup` and `test-blit` stopped before JavaFX
+startup when Windows denied the rename that publishes the imported fixture
+directory (WinError 5). The next scene fixture published the cache. Both
+failed entries then passed with their original arguments, giving all 108
+entries a passing result. Three additional runs of the same fixture helper,
+each with a fresh project cache, also published successfully. The cause of
+the initial rename denials remains undetermined.
+
+The rebuilt Editor imported a project with empty project and Editor caches
+and exported its PCK. The packaged runtime passed animation-callback exit,
+logical window input and pixels at 2× scale, owned-window ordering, transparent
+Stages and 36 Stage churn cycles. All 27 module-path cases, five Shadow cases
+and the isolated interactive VFX JAR passed. The Vulkan VFX soak completed
+three round trips through 35 pages and released all host-owned resources at
+exit.
+
+Build logs, `results.csv`, `reruns/results.csv`, cold-import logs and
+`reruns/fresh-fixtures.json` are under
+`artifacts/logs/macos-merge-751bac7-nonrobot-20261119-152552/`.
+
+On the same Windows build, `scripts/run-windows-tests.ps1 -Group Robot` ran
+all ten entries serially with their default renderers. All ten passed on
+the first run. In eight real-pointer cycles, the Vulkan VFX hover probe
+recorded eight entries and zero flickers. All 880 settled frames over the
+button met the bright-pixel threshold and all 310 settled frames over the
+gap met the dark-pixel threshold. The touch keyboard probe verified Java
+calls, host ticks and cleanup. Windows denied the dismiss request
+(`0x80070005`), so system keyboard visibility and dismissal remain unverified.
+The run directory `artifacts/logs/macos-merge-751bac7-robot-20261119-162436/`
+contains `results.csv`, the per-entry logs, `hover-demo-mobile-safe.log` and
+`virtual-keyboard.log`.
+
 ### Packaged-library-only host on Windows x64 (2026-11-18–19)
 
 The Windows source build produced the shared Godot library and Media-enabled
