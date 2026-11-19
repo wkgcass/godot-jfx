@@ -1,5 +1,7 @@
 # JNI bridge and batch protocol
 
+各 JNI downcall 和 upcall 的参数、返回值及平台差异见[基线以来的跨语言调用清单](bridge-call-inventory.md)。
+
 Java 从平台 JAR 加载引擎库。引擎线程从当前 JNI 调用取得 JavaVM 和应用传入的桥接类，完成注册和屏幕快照后向 Java 发布 READY。停止宿主会关闭 JNI 请求入口、唤醒队列和读回等待者，待已进入的调用返回后释放回调的全局引用。库模式的生命周期到进程退出结束。
 
 > Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
