@@ -8,7 +8,10 @@ func _ready() -> void:
 	var deadline:=Time.get_ticks_msec()+30000
 	while host.get_runtime_status()!="finished":
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
-			push_error("Order failed/timed out: "+host.get_runtime_error()); get_tree().quit(1); return
+			push_error("Window order failed at %s: captured=%s children=%s surface=%s a_above_root=%s a_above_b=%s error=%s" % [
+				get_window().title, seen.keys(), host.get_native_window_count(), host.get_surface_size(),
+				host.is_window_above(2, 0), host.is_window_above(2, 3), host.get_runtime_error()])
+			get_tree().quit(1); return
 		await get_tree().process_frame
 		var title:=get_window().title
 		if not title.begins_with("Order "): continue

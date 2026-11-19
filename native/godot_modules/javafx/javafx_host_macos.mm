@@ -292,8 +292,24 @@ void JavaFXHost::restack_window(Window *p_window, bool p_front) {
 	if (!p_window || !p_window->is_visible()) return;
 	NSWindow *handle = macos_window_handle(p_window->get_window_id());
 	ERR_FAIL_COND(!handle);
-	// Match Glass restack semantics without moving/resizing or activating a peer.
+	// AppKit orders an attached family as a group. Within the family, the
+	// last child attached above the owner is the frontmost at its level.
 	[handle orderWindow:(p_front ? NSWindowAbove : NSWindowBelow) relativeTo:0];
+	NSWindow *parent = [handle parentWindow];
+	if (!parent || [[parent childWindows] count] < 2) return;
+	if (p_front) {
+		[parent removeChildWindow:handle];
+		[parent addChildWindow:handle ordered:NSWindowAbove];
+	} else {
+		// Leave the target above its owner. Bring its same-level siblings
+		// forward in their existing back-to-front order.
+		for (NSNumber *number in [[NSWindow windowNumbersWithOptions:0] reverseObjectEnumerator]) {
+			NSWindow *peer = [NSApp windowWithWindowNumber:number.integerValue];
+			if (peer == handle || peer.parentWindow != parent || peer.level != handle.level || peer.isSheet) continue;
+			[parent removeChildWindow:peer];
+			[parent addChildWindow:peer ordered:NSWindowAbove];
+		}
+	}
 }
 
 bool JavaFXHost::is_window_above(int64_t p_id, int64_t p_other) const {
@@ -304,12 +320,10 @@ bool JavaFXHost::is_window_above(int64_t p_id, int64_t p_other) const {
 	NSWindow *first_handle = macos_window_handle(first->get_window_id());
 	NSWindow *second_handle = macos_window_handle(second->get_window_id());
 	if (!first_handle || !second_handle) return false;
-	// orderedWindows is front-to-back and only lists on-screen windows.
-	for (NSWindow *current in [NSApp orderedWindows]) {
-		if (current == first_handle) return true;
-		if (current == second_handle) return false;
-	}
-	return false;
+	NSArray<NSNumber *> *visible = [NSWindow windowNumbersWithOptions:0];
+	NSUInteger first_index = [visible indexOfObject:@(first_handle.windowNumber)];
+	NSUInteger second_index = [visible indexOfObject:@(second_handle.windowNumber)];
+	return visible && second_index != NSNotFound && first_index < second_index;
 }
 
 bool JavaFXHost::is_window_visible(int64_t p_id) const {
