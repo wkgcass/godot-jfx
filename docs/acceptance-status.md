@@ -5,6 +5,8 @@ validation limits. Earlier implementation rounds and removed-mode measurements
 are historical evidence in [progress](progress.md) and Git history; current
 commands are in [TESTS.md](../TESTS.md).
 
+Paths under `artifacts/` identify files in the workspace used for each run. A fresh checkout contains the results summarized here. To inspect the original screenshots or logs, obtain the archive for that run. Running the tests locally produces evidence for your checkout.
+
 ## Supported configuration
 
 Windows x64 and macOS arm64 have source-built platform JARs. See the platform sections below for execution evidence.
@@ -27,6 +29,33 @@ referenced textures retain immutable revisions. Active protocol diagnostics,
 reflection/virtual callbacks and resource-lifetime fixes are retained.
 
 ## Validation evidence
+
+### Maven coordinate migration on Windows x64 (2026-11-19)
+
+With the packaging changes on top of root revision `77d13fc`, the existing
+source-built Windows SDK and engine were packaged as six `io.vproxy:godot-jfx-*`
+modules at version `1.0.0-7be59b46-73d8b63b`. All six POMs and the two
+`win` classifiers were checked. All 27 module-path cases and five independent
+Shadow consumer cases passed. Gradle resolved the new coordinates alongside
+`io.vproxy:commons` and rebuilt the VFX Demo JAR. Evidence is under
+`artifacts/logs/maven-coordinates-modules/`, `maven-coordinates-shadow/`
+and `maven-coordinates-demo.log` in the same log directory. macOS arm64
+verification of the new coordinates is tracked in [TESTS.md](../TESTS.md).
+
+The Windows Maven Local installation of this version contained six POMs and
+eight JARs matching staging. The scroll-settings, screen-layout and render-command
+probes passed using the six resolved local modules. The shared scene launcher
+passed its four startup cases, FXML and Media video on Vulkan/mobile. In the
+same checkout, the module-path release test downloaded all eight JARs from the
+staging repository into a fresh cache and passed all 27 cases. All five Shadow
+cases also passed using the staged repository. The install log
+is `artifacts/logs/maven-local-install.log` and the test logs are under
+`artifacts/logs/maven-local-windows-20261119-213913/`.
+
+After pinning the development-test repository to this checkout's `.m2/repository`,
+Windows reinstalled all six POMs and eight JARs there and compared their contents
+with staging. The three probes and four Vulkan/mobile startup cases passed with
+the new paths. Logs are in `artifacts/logs/project-m2-20261119-220827/`.
 
 ### Windows x64 after the macOS adaptation (2026-11-19)
 
@@ -181,7 +210,7 @@ page, and closed the window. The application exited with code 0 and left only
 the JAR in its directory. Captures and the observed Java PID, engine path, and
 JAR hash are in `artifacts/reference/vfx-portable/`.
 
-The macOS publication is `28-godot.4:mac-aarch64`. It was built and tested
+The macOS publication tested in that run was `28-godot.4:mac-aarch64`. It was built and tested
 before the changes were committed. Root revision `b7a5cd4` records the tested
 source and fixtures, including Godot `25d1e624eb`, OpenJFX `c77a14c8`,
 and VFX `4a92c505`. The source-built engine SHA-256 is

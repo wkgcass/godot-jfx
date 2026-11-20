@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Visual triage, not a pass/fail oracle (Demo data includes time and randomness)."""
 import argparse
 import json

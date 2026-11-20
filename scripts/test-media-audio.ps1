@@ -13,7 +13,7 @@ function New-AudioFixture([string]$Kind) {
     # fixture tool (Media Foundation encoder / hand-written AIFF container).
     if($Kind -eq 'wav'){
         $wave=Join-Path $root 'artifacts/reference/media-silence.wav'
-        & python -c 'import wave,sys; w=wave.open(sys.argv[1],"wb"); w.setparams((1,2,44100,0,"NONE","not compressed")); w.writeframes(bytes(44100*2*2)); w.close()' $wave
+        & python -c "import wave,sys; w=wave.open(sys.argv[1],'wb'); w.setparams((1,2,44100,0,'NONE','not compressed')); w.writeframes(bytes(44100*2*2)); w.close()" $wave
         if($LASTEXITCODE -ne 0){throw 'PCM fixture generation failed'}
         return $wave
     }

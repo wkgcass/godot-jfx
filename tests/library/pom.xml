@@ -4,21 +4,26 @@
   <artifactId>godot-library-consumer</artifactId>
   <version>1</version>
   <properties>
-    <godot.version>28-godot.4</godot.version>
     <godot.platform>win</godot.platform>
   </properties>
-  <repositories>
-    <repository>
-      <id>godot-runtime</id>
-      <url>${godot.repository}</url>
-    </repository>
-  </repositories>
+  <profiles>
+    <profile>
+      <id>staged-release</id>
+      <activation><property><name>godot.repository</name></property></activation>
+      <repositories>
+        <repository>
+          <id>godot-runtime</id>
+          <url>${godot.repository}</url>
+        </repository>
+      </repositories>
+    </profile>
+  </profiles>
   <dependencies>
-    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-controls</artifactId><version>${godot.version}</version></dependency>
-    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-media</artifactId><version>${godot.version}</version></dependency>
-    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-swing</artifactId><version>${godot.version}</version></dependency>
-    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-fxml</artifactId><version>${godot.version}</version></dependency>
-    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-graphics</artifactId><version>${godot.version}</version><classifier>${godot.platform}</classifier></dependency>
-    <dependency><groupId>org.godotjfx</groupId><artifactId>javafx-media</artifactId><version>${godot.version}</version><classifier>${godot.platform}</classifier></dependency>
+    <dependency><groupId>io.vproxy</groupId><artifactId>godot-jfx-controls</artifactId><version>${godot.version}</version></dependency>
+    <dependency><groupId>io.vproxy</groupId><artifactId>godot-jfx-media</artifactId><version>${godot.version}</version></dependency>
+    <dependency><groupId>io.vproxy</groupId><artifactId>godot-jfx-swing</artifactId><version>${godot.version}</version></dependency>
+    <dependency><groupId>io.vproxy</groupId><artifactId>godot-jfx-fxml</artifactId><version>${godot.version}</version></dependency>
+    <dependency><groupId>io.vproxy</groupId><artifactId>godot-jfx-graphics</artifactId><version>${godot.version}</version><classifier>${godot.platform}</classifier></dependency>
+    <dependency><groupId>io.vproxy</groupId><artifactId>godot-jfx-media</artifactId><version>${godot.version}</version><classifier>${godot.platform}</classifier></dependency>
   </dependencies>
 </project>

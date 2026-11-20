@@ -105,10 +105,10 @@ RGBA run is preserved with a `-rgba` suffix. Packaged Runtime passes its own
 
 ## Source build
 
-After the default JavaFX build configures MSVC, run:
+Build the JavaFX SDK with Media enabled:
 
 ```powershell
-.\scripts\build-jfx-media.ps1
+.\scripts\build-windows.ps1 -Target jfx
 ```
 
 The script uses the existing MSYS/UCRT64 toolchain and a workspace-built,
@@ -174,12 +174,27 @@ half-alpha output, read-only padded buffers, visible cropping and switching from
 four planes to three. The extended plane fixture also checks a packed
 INT_ARGB_PRE frame with 6x6 visible pixels, 8x8 encoded extent and 40-byte row
 stride, exact green edge pixels and balanced holds on invalid dimensions.
-Real MediaView playback uses the Oracle MP4 referenced by OpenJFX's HelloMedia
-sample; the runner downloads it on demand and verifies its
-SHA-256. Vulkan/safe, GL/safe and packaged Vulkan/safe pass ready dimensions,
+Environment setup downloads and verifies two MediaView inputs. The Oracle MP4
+referenced by OpenJFX's HelloMedia also serves the AAC and frame-rate tests.
+`Lk.mp4` is a silent 1920×1080, 30 FPS H.264 clip used for playback and
+resize regression. The playback checks on the Oracle sample have passed on
+Vulkan/safe, GL/safe and packaged Vulkan/safe. They cover ready dimensions,
 play/pause/resume, nonuniform decoded picture, resized/clipped half-opacity
 pixel checks and disposal with final host resources zero. GPU snapshot PNGs are
 in `artifacts/reference/media-video-*.png`; they are not OS desktop captures.
+
+The resize probe pauses playback and compares a 320×180 MediaView transformed
+to 200×120 with a MediaView fitted directly to 200×120. Both snapshots sample
+the same output pixel centers. It then clips the latter to 160×100, applies 50%
+opacity and checks every visible pixel against its opaque value blended with
+the magenta background. Pixels outside the clip must remain magenta.
+
+In the Windows Lk diagnosis, the old comparison used (100,65) in the original
+snapshot and (70,50) after resizing. Godot Vulkan and native D3D both returned
+RGB (222,166,236) at the original point and (126,67,142) at the resized opaque
+point on the same paused frame. The two ways to resize produced identical
+snapshots on both backends. In the clipped region, the largest blend error was
+one channel level on either backend.
 
 The video fixture additionally pauses/seeks to 1.2 seconds before the end, resumes,
 requires the end event, stops, waits for confirmed STOPPED and starts again. It

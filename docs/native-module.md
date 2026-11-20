@@ -191,4 +191,4 @@ the input-side wake-up path.
 
 使用 `scripts/build-windows.ps1 -Target godot-library` 将模块编入共享库。macOS 通过 SCons 的 `library_type=shared_library` 构建 dylib。Java 加载当前平台的原生库后，Windows 在专用引擎线程上运行，macOS 在 AppKit 主线程上运行。库入口创建并启动 GodotInstance，将 JavaFXHost 挂到 SceneTree 根窗口，注册现有 JVM 的 JNI 方法并运行 iteration。默认的资源文件系统为空；可选的 JAR 场景包在内存中挂载，再由 GodotView 按路径加载。只有显式选择外部工程或主 PCK 才进入 Godot 的工程启动流程。[单 JAR 规格](godot-library-spec.md)
 
-macOS arm64 的共享库入口将同一启动和退出流程调度到 AppKit 主线程，在每帧处理系统窗口事件。构建 VFX Demo 时，`sh scripts/build-vfx.sh` 把本机的 dylib 随应用打入 JAR。[macOS 构建与运行](build-macos.md)
+macOS arm64 的共享库入口将同一启动和退出流程调度到 AppKit 主线程，在每帧处理系统窗口事件。构建 VFX Demo 时，`./scripts/build-vfx.sh` 把本机的 dylib 随应用打入 JAR。[macOS 构建与运行](build-macos.md)

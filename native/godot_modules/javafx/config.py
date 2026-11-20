@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 def can_build(env, platform):
     if env["library_type"] != "shared_library":
         return False

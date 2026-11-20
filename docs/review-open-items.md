@@ -1,5 +1,7 @@
 # 实现审查状态与验证限制
 
+文中的 `artifacts/review-*.json`、修复前的探针和故障截图保存在当时的审查工作区。新检出可直接阅读下文的审查结论；核查原件需要取得对应归档。当前版本的复测入口见 [测试指南](../TESTS.md)。
+
 > Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
 > safe. Custom RD-direct and separate-thread host support have been removed.
 > Dated RD/separate measurements below are historical evidence, not runnable

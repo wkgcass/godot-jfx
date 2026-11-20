@@ -6,7 +6,7 @@ plugins {
 repositories {
     maven { url = uri(providers.gradleProperty('repository').get()) }
 }
-def fx = 'org.godotjfx:javafx-'
+def fx = 'io.vproxy:godot-jfx-'
 def version = providers.gradleProperty('javafxVersion').get()
 def platform = providers.gradleProperty('platform').getOrElse(
         System.getProperty('os.name') == 'Mac OS X' ? 'mac-aarch64' : 'win')

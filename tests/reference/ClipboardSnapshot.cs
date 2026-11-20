@@ -145,7 +145,7 @@ public static class ClipboardSnapshot {
     }
     // Exact publication of pre-encoded blocks; nothing is synthesized or converted.
     public static void WriteRaw(Dictionary<uint,byte[]> blocks, IntPtr owner) {
-        if(owner==IntPtr.Zero) throw new ArgumentException("Clipboard publication requires a window owner",nameof(owner));
+        if(owner==IntPtr.Zero) throw new ArgumentException("Clipboard publication requires a window owner","owner");
         ValidateBlocks(blocks);
         var handles=new Dictionary<uint,IntPtr>();
         try {
@@ -168,14 +168,15 @@ public static class ClipboardSnapshot {
         } finally { foreach(var h in handles.Values) if(h!=IntPtr.Zero) GlobalFree(h); }
     }
     public static void Restore(Dictionary<uint,byte[]> snapshot, IntPtr owner, uint expectedSequence) {
-        if(owner==IntPtr.Zero) throw new ArgumentException("Clipboard restoration requires a window owner",nameof(owner));
+        if(owner==IntPtr.Zero) throw new ArgumentException("Clipboard restoration requires a window owner","owner");
         ValidateBlocks(snapshot);
         var blocks=new Dictionary<uint,IntPtr>();
         try {
             foreach(var pair in snapshot) {
                 if(pair.Key>=0xC000) {
                     // Same session-global ID must come back for the captured name.
-                    if(!RegisteredNames.TryGetValue(pair.Key,out var name) || RegisterClipboardFormat(name)!=pair.Key)
+                    string name;
+                    if(!RegisteredNames.TryGetValue(pair.Key,out name) || RegisterClipboardFormat(name)!=pair.Key)
                         throw new Exception("Registered clipboard format "+pair.Key+" changed identity");
                 }
                 IntPtr h=GlobalAlloc(0x42,(UIntPtr)pair.Value.Length);
@@ -199,7 +200,8 @@ public static class ClipboardSnapshot {
         } finally { foreach(var h in blocks.Values) if(h!=IntPtr.Zero) GlobalFree(h); }
         var actual=Capture();
         foreach(var pair in snapshot) {
-            if(!actual.TryGetValue(pair.Key,out var bytes) || bytes.Length!=pair.Value.Length)
+            byte[] bytes;
+            if(!actual.TryGetValue(pair.Key,out bytes) || bytes.Length!=pair.Value.Length)
                 throw new Exception("Restored clipboard allocation differs");
             for(int i=0;i<bytes.Length;i++) if(bytes[i]!=pair.Value[i])
                 throw new Exception("Restored clipboard bytes differ");

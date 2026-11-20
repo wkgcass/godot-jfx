@@ -1,9 +1,12 @@
+#!/usr/bin/env python3
 """Launch a scene fixture with the published OpenJFX modules on the classpath."""
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+
+from maven_local import test_jars
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -16,15 +19,7 @@ def command(args, working_directory):
     if windows and not java_home:
         raise ValueError("Set JAVA_HOME to the source build JDK")
     jdk = Path(java_home or ROOT / ".tools/jdk-25/Contents/Home")
-    platform = "win" if windows else "mac-aarch64"
-    distribution = ROOT / "artifacts/godot-library"
-    version = (distribution / "version.txt").read_text().strip()
-    jars = []
-    for name in ("base", "graphics", "controls", "fxml", "media", "swing"):
-        artifact = "javafx-" + name
-        classifier = f"-{platform}" if name in ("graphics", "media") else ""
-        jar = distribution / "repository/org/godotjfx" / artifact / version / f"{artifact}-{version}{classifier}.jar"
-        jars.append(jar.resolve(strict=True))
+    jars = test_jars()
     classes = ROOT / "artifacts/reference"
     classes.mkdir(exist_ok=True, parents=True)
     source = ROOT / "tests/reference/GodotSceneFixture.java"

@@ -12,16 +12,26 @@ macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。带 `--re
 
 | 目标平台与待验证内容 | 验证入口与参数 | 通过条件及已知限制 |
 | --- | --- | --- |
+| macOS arm64，仓库内构建依赖 | 在新的工作区提供 Python 3.13，在未设置 `ANT_HOME` 的 shell 中连续两次运行 `./scripts/setup-env.py`。使用仓库的 JDK 运行 Ant 和 Maven 的版本命令，执行 `./.tools/pyenv/bin/scons --version`、`./.tools/pyenv/bin/python -c 'import zstandard, PIL'` 和 `./scripts/clean.py --target jfx` | 首次按父仓库记录的提交初始化缺少的 Godot、JFX、VFX 子模块，第二次保留已有子模块检出和本地修改。首次安装 Temurin 25、Ant 1.10.15、Maven 3.9.9、SCons 4.11.x 及两个 Python 包，第二次复用已有安装。版本与导入检查、JFX 清理均成功。 |
+| macOS arm64，项目清理 | 在临时构建工作区按 macOS 构建说明生成产物，运行场景测试及其 `--runtime` 模式，再依次运行 `./scripts/clean.py --dry-run` 和 `./scripts/clean.py` | 预览以仓库 Gradle wrapper 的 `--stop` 开始。实跑停止仓库 daemon，成功执行 `cleanAll --no-problems-report --no-daemon` 后删除 JFX 和 buildSrc 的 `.gradle/`，打包清理删除 VFX 构建和 Shadow 测试的 `.gradle/`。Godot 两个目标、`godot/bin`、四个状态文件、`godot/`、`scripts/` 和 `native/` 下的 `__pycache__/`、JFX SDK、`jfx/build/reports`、`jfx/buildSrc/build`、打包输出、生成的测试项目及源夹具的 `tests/godot/.godot/` 均已清理。缺少 Windows 的 `msvc_capture.log` 时清理也应成功。仓库 `.gradle-cache/`、`tests/godot`、工具、Maven 仓库和验收记录保留。 |
+| macOS arm64，Maven Local 开发测试 | 编好 Godot 共享库和带 Media 的 JFX SDK 后直接运行 `./scripts/maven_local.py install`，依次运行 `./scripts/test-scroll-settings.sh`、`./scripts/test-screen-layout.sh`、`./scripts/test-render-command-validation.sh` 和 `./scripts/test-startup.sh --renderer mobile` | 三个探针和启动场景均通过，`./scripts/maven_local.py module-path` 只列出本项目 `.m2/repository` 内六个模块，graphics 和 media 使用 mac-aarch64。 |
+| macOS arm64，新的 Maven 坐标与上游基线版本 | `./scripts/build-vfx.sh`，随后依次运行 `./scripts/test-godot-library.py --runtime artifacts/godot-library` 和 `./scripts/test-shadow-jar.py --runtime artifacts/godot-library` | 六个 `io.vproxy:godot-jfx-*` 构件的版本与根目录 `release.properties` 生成的版本一致，graphics 和 media 解析到 `mac-aarch64`，Demo 构建和两项消费测试通过。 |
 | macOS arm64，Retina 与混合缩放多屏下的共享窗口夹具 | 在 Retina 单屏和不同缩放双屏环境运行 `test-logical-windows.sh`、`test-window-order.sh`、`test-window-composition.sh`，将主窗口置于屏幕交界附近，覆盖子窗口落在另一屏的情况；记录各窗口所在屏幕、缩放和位置 | 核对窗口尺寸、相对位置、输入坐标与 GPU 像素。当前部分断言用主窗口屏幕缩放计算子窗口采样点，可能误判；如需修正，应依据各窗口实际坐标与渲染尺寸。缺少对应显示器环境时保留该范围的待办。 |
 | macOS arm64，独立 IME 窗口的点击坐标 | 获得 Robot 授权后，在 Retina 屏运行 `./scripts/test-native-ime.sh --renderer mobile` 和 `--renderer gl_compatibility` | 从已显示的子窗口尺寸换算点击位置，焦点离开输入框后取消预编辑，按钮动作完成，根文本与资源清理断言通过，并恢复光标。 |
 
 ## Viewport＋safe 支持边界
 
+### 安装开发测试的 Maven Local 依赖
+
+编好本平台的 Godot 共享库和带 Media 的 JFX SDK 后运行安装命令。Windows 用 `python scripts/maven_local.py install`，macOS 用 `./scripts/maven_local.py install`。默认使用本平台的暂存脚本，将当前构建产物重新打包到 `artifacts/godot-library` 后安装。传入 `--runtime <目录>` 会直接安装该目录里已有的发行包。安装器使用 PATH 中的 Maven 或仓库的 `.tools/apache-maven-3.9.9`，也可传 `--maven <可执行文件>`。安装和解析命令都显式传入 `-Dmaven.repo.local=<项目根目录>/.m2/repository`，构件和首次下载的 Maven 插件均保存在项目内。
+
+安装器将六个 POM、六个普通 JAR 和本平台的两个 classifier JAR 安装到 Maven Local，并核对 Maven 解析的 JAR 与 staging 文件的内容。重新编译 SDK 或 Godot 共享库后再执行一次安装，即使版本号相同也如此。公共场景启动器和 `test-scroll-settings`、`test-screen-layout`、`test-render-command-validation` 根据根配置版本和当前平台直接在项目的 `.m2/repository` 中定位六个运行时 JAR。graphics 和 media 选用平台 JAR，其余四个模块选用普通 JAR。查看当前选择时，把对应平台安装命令中的 `install` 换成 `module-path`。其他场景的 Java 观察器仍按各自脚本编译。模块路径和 Shadow 发布验收继续从显式指定的 staging 仓库读取本次发行包。
+
 ### Windows 库模式的独立验收
 
 Windows 场景入口和性能脚本由 JDK 直接启动测试进程，classpath 包含本次 Maven 发布的 Windows graphics、media 平台 JAR、其余 JavaFX 模块和应用观察器。`GodotSceneFixture` 调用 JavaFX 原生库加载器，核对进程中加载的引擎文件与 JAR 中 `godot.dll` 的 SHA-256，并输出 PID 和库路径。场景夹具继续选择 Java 观察器并检查窗口、像素和资源回收，二者共用该 JVM。普通应用启动与退出另外由模块路径和 Shadow 用例覆盖。源码 Editor 只用于预先导入或导出资源。独立 C++/Java 单元测试、刻意破坏依赖的负向测试和显式 D3D 对照保留各自的被测对象。
 
-完整 VFX Demo 构建后，用 `python scripts/test-vfx-demo-jar.py` 检查 Intro 类和资源，拒绝含 JVM 动态库的 JAR，并用已安装的 JDK 25 在只含该 JAR 的临时目录启动。Windows 使用普通交互入口，连续观察可见的 VFX Intro 窗口至少 20 秒，出现系统替代窗口即失败。读取该 Java 进程实际映射的模块，核对引擎 DLL 的构建缓存路径和 JAR 内资源哈希。随后向原窗口投递最大化和还原命令，每次均验证窗口状态发生预期变化，最后发送原生关闭消息。macOS 使用 `--smoke` 验证 Stage、菜单和关闭事件，并从该 Java PID 的映射文件核对 dylib 的缓存路径和 SHA-256。两端均检查退出状态和目录内仅余原始 JAR。普通交互启动用 `java -jar artifacts/vfx/libs/vfx-demo.jar`。
+完整 VFX Demo 构建后，在 macOS 上运行 `./scripts/test-vfx-demo-jar.py`，在 Windows 上运行 `python scripts/test-vfx-demo-jar.py`，检查 Intro 类和资源，拒绝含 JVM 动态库的 JAR，并用已安装的 JDK 25 在只含该 JAR 的临时目录启动。Windows 使用普通交互入口，连续观察可见的 VFX Intro 窗口至少 20 秒，出现系统替代窗口即失败。读取该 Java 进程实际映射的模块，核对引擎 DLL 的构建缓存路径和 JAR 内资源哈希。随后向原窗口投递最大化和还原命令，每次均验证窗口状态发生预期变化，最后发送原生关闭消息。macOS 使用 `--smoke` 验证 Stage、菜单和关闭事件，并从该 Java PID 的映射文件核对 dylib 的缓存路径和 SHA-256。两端均检查退出状态和目录内仅余原始 JAR。普通交互启动用 `java -jar artifacts/vfx/libs/vfx-demo.jar`。
 
 从仓库根目录构建并准备发行包后，使用 JDK 25、Python 和 Maven 3.9 运行下列命令。首次解析 Maven 插件需要联网。消费工程从本机回环地址读取本次发行的 Maven 仓库，Java 子进程的 PATH 只包含 JDK 和 Windows 系统目录。
 
@@ -31,7 +41,7 @@ python scripts/test-godot-library.py --runtime 'D:\Godot JavaFX' --maven 'D:\too
 python scripts/test-shadow-jar.py --runtime 'D:\Godot JavaFX'
 ```
 
-默认依次执行启动、失败处理和绘制三组。可用 `--group launch`、`--group failures` 或 `--group render` 单独复测。默认使用新的临时目录；控制台的 `Evidence` 行给出位置。其中 `results.json` 记录子进程命令、退出码、耗时、JAR 哈希和受检查的 DLL 路径，`artifacts/reference` 保存 GPU 读回。Media 使用已有 `test-media-video.ps1` 下载并校验的 Oracle MP4。
+默认依次执行启动、失败处理和绘制三组。可用 `--group launch`、`--group failures` 或 `--group render` 单独复测。绘制组包含 Oracle 与 Lk 两个媒体用例，`--group media` 可单独运行这两个用例。两个视频都由 `scripts/setup-env.py` 准备。默认使用新的临时目录，控制台的 `Evidence` 行给出位置。`results.json` 记录子进程命令、退出码、耗时、JAR 哈希和受检查的 DLL 路径，工作目录下的 `artifacts/reference` 分别保存 `media*.png` 和 `media-lk*.png`。
 
 启动组覆盖显式与自动初始化、无 main 的类、模块化入口、并发、配置冲突、隐藏最后窗口后再次显示以及退出。失败组要求重复初始化和等待者观察到同一错误，约定退出码为 31；显式退出用例应保留 37。绘制组使用 Godot 合成输入、独立 Stage、GodotView 像素、Node Shader 原有断言及 Effect 的 D3D 参考图，还验证本地视频的暂停、seek、重播和释放。
 
@@ -81,7 +91,7 @@ false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PAS
 | --- | --- |
 | G | 源码 Godot Editor（仅导入测试资源）、`godot-library` 共享库、`stage-godot-library.ps1` 发布的 Windows 平台 JAR，以及可用的 Windows 图形桌面与 GPU 驱动 |
 | J | JDK 25（默认 `$env:JAVA_HOME`，可用 `-Jdk` 覆盖）和 `jfx/build/sdk`；必须是本仓库源码 SDK |
-| M | 执行 `build-jfx-media.ps1`，SDK 中具备 jfxmedia/glib-lite/gstreamer-lite/fxplugins 原生库 |
+| M | `build-windows.ps1 -Target jfx` 生成的 SDK 包含 jfxmedia/glib-lite/gstreamer-lite/fxplugins 原生库 |
 | V | 执行 `build-vfx.ps1`，准备 `artifacts/vfx` 的主类、测试类、资源和依赖 |
 | Runtime | Windows 上以隔离目录中的项目和默认主场景运行同一个 DLL；Editor 负责资源导入 |
 
@@ -100,15 +110,15 @@ Windows DLL 回归用 `./scripts/run-windows-tests.ps1 -Group NonRobot` 或获�
 全量回归从仓库根目录执行。两个分组均按顺序运行 Metal 和 OpenGL，记录每项的参数、退出码、耗时与日志。仅支持一种后端的脚本按其自身配置执行。
 
 ```sh
-python3 scripts/run-macos-tests.py --group NonRobot
-python3 scripts/run-macos-tests.py --group Robot
+./scripts/run-macos-tests.py --group NonRobot
+./scripts/run-macos-tests.py --group Robot
 ```
 
 NonRobot 包括 module path、独立 Shadow 消费者和完整 VFX Demo JAR。Robot 包括真实跨应用拖放、IME 光标、桌面像素和 VFX 表格拖动。运行 Robot 须授权真实输入，并给启动 Java 的应用辅助功能和屏幕录制权限。每组的结果在 `artifacts/logs/macos-<分组>-<时间>/results.csv`。窗口图标的系统级跳过单独标为 SKIP。可用 `--list` 查看命令或用 `--renderer mobile|gl_compatibility` 选择一个后端。
 
 macOS 上每个测试的入口是与 Windows 版同名的 `scripts/test-*.sh`（`test-protocol.cmd`/`test-bounded-lru.cmd` 的对应物为同名 `.sh`，用 clang 代替 MSVC），在仓库根目录用 sh 执行。判定标记、日志位置与通过语义和对应 ps1 完全一致；前文各表的用途说明、断言与限制仍然适用，本节只列差异。
 
-前置条件与上文缩写表对应：G 为本机发布的 `mac-aarch64` 平台 JAR 和导入测试资源的源码编辑器，`--runtime` 档从隔离的项目目录加载同一引擎库；J 为 `JAVA_HOME` 指向的 JDK 25（未设置时脚本回退到仓库内 `.tools/jdk-25`，Temurin 25.0.5 arm64）和本仓库 `jfx/build/sdk`（mac 的 dylib 在 `lib/`）；M 已并入 mac 的单次 Gradle SDK 构建（AVFoundation 后端，见 [build-macos.md](docs/build-macos.md)），没有单独的 Media 构建脚本；V 为 `sh scripts/build-vfx.sh` 的产物。`--renderer mobile` 在本机 M1 的共享库中报告 Metal 3.1，`--renderer gl_compatibility` 走 OpenGL 4.1；未构建 Vulkan（未安装 MoltenVK）。
+前置条件与上文缩写表对应：G 为本机发布的 `mac-aarch64` 平台 JAR 和导入测试资源的源码编辑器，`--runtime` 档从隔离的项目目录加载同一引擎库；J 为 `JAVA_HOME` 指向的 JDK 25（未设置时脚本回退到仓库内 `.tools/jdk-25`，Temurin 25.0.5 arm64）和本仓库 `jfx/build/sdk`（mac 的 dylib 在 `lib/`）；M 已并入 mac 的单次 Gradle SDK 构建（AVFoundation 后端，见 [build-macos.md](docs/build-macos.md)），没有单独的 Media 构建脚本；V 为 `./scripts/build-vfx.sh` 的产物。`--renderer mobile` 在本机 M1 的共享库中报告 Metal 3.1，`--renderer gl_compatibility` 走 OpenGL 4.1；未构建 Vulkan（未安装 MoltenVK）。
 
 PowerShell 开关对应小写长选项：`-Renderer mobile` → `--renderer mobile`、`-RenderThread safe` → `--render-thread safe`、`-Runtime` → `--runtime`；`-Jdk` 由 `JAVA_HOME` 环境变量代替。多数支持 `--runtime` 的脚本在 macOS 沿用该档；Media 与部分 VFX 脚本的 `--runtime`/`--native-d3d`/`--handle-types`/`--providers` 未移植，脚本显式报错退出（exit 2），这表示档位不可用，不是功能失败。
 
@@ -396,7 +406,7 @@ touch keyboard 警告。2026-11-10 当前产物运行返回关闭请求 HRESULT
 | --- | --- | --- | --- |
 | `.\scripts\test-media-planes.ps1 -Renderer mobile` | YUV/R8、alpha、stride、padding 与 packed 上传。前置：G+J；合成帧，不需真实 MP4。 | GPU 色值、透明度、可见边界和 hold/release 断言。 | `-Jdk`、`-Renderer` |
 | `.\scripts\test-media-audio.ps1 -Renderer mobile` | 音频播放控制。前置：G+J+M；WAV 由 Python 生成两秒静音，`-Codec mp3/aiff/all` 改用 MSVC 编译的 `tests/native/make_audio_fixture.cpp` 本地编码 2 秒 440 Hz 样本（MP3 走 Media Foundation，AIFF 为手写容器）。 | 有限元数据时长(±容差，MP3 允许编码器 padding)、AudioTrack、暂停、有限播放时钟、seek、结束与销毁；回调/清理异常导致失败，AIFF 写入及关闭错误不输出生成 PASS。全程静音，不证明实际听感。 | `-Jdk`、`-Renderer`、`-Runtime`、`-Codec` |
-| `.\scripts\test-media-video.ps1 -Renderer mobile` | 真实 MP4 播放和 MediaView 控制。前置：G+J+M；首次下载 Oracle 样本并校验 SHA256，需网络或已有正确文件。 | 画面、暂停/seek/EOS/stop/replay、clip/opacity 与清理断言。 | `-Jdk`、`-Renderer`、`-Runtime` |
+| `.\scripts\test-media-video.ps1 -Renderer mobile` | 真实 MP4 播放和 MediaView 控制。前置：G+J+M，运行 `python scripts/setup-env.py` 准备样本。默认使用 Oracle，另可选用 1080p 无音轨的 Lk。 | 画面、暂停/seek/EOS/stop/replay、逐像素缩放、裁剪、半透明与清理断言。 | `-Jdk`、`-Renderer`、`-Runtime`、`-NativeD3D`、`-Sample oracle\|lk` |
 | `.\scripts\test-media-churn.ps1 -Renderer mobile` | 循环创建/销毁播放器和视频纹理。前置：G+J+M；先准备 MP4，或 AudioOnly 自动生成 PCM。 | 样本数、播放和清理检查；Providers 增加 AAC 稳定断言，进程内存另做趋势分析。 | `-Jdk`、`-Renderer`、`-Runtime` |
 
 ### VFX 真实 Demo
@@ -450,8 +460,12 @@ touch keyboard 警告。2026-11-10 当前产物运行返回关闭请求 HRESULT
 ### Media 数据与生命周期
 
 ```powershell
-# 获取并检查 Oracle MP4；网络下载只在样本缺失时需要
+# 环境准备时下载两个 MP4，后续复用通过 SHA-256 校验的文件
+python scripts/setup-env.py
+# 检查视频播放
 .\scripts\test-media-video.ps1
+# 单独运行 Lk 缩放和播放回归。macOS 使用 ./scripts/test-media-video.sh --sample lk
+.\scripts\test-media-video.ps1 -Sample lk
 # 正常视频生命周期 + AAC 注册稳定断言
 .\scripts\test-media-churn.ps1 -Cycles 24 -Providers
 # 扩展观察，仍不是无限时长泄漏证明

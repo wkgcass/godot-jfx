@@ -39,11 +39,7 @@ if [ "$AUDIO_ONLY" -eq 1 ]; then
     python3 -c 'import wave,sys; w=wave.open(sys.argv[1],"wb"); w.setparams((1,2,44100,0,"NONE","not compressed")); w.writeframes(bytes(44100*2*2)); w.close()' "$PWD/$VIDEO" \
         || { echo "PCM fixture generation failed" >&2; exit 1; }
 else
-    VIDEO="artifacts/reference/media-oracle-sample.mp4"
-    [ -f "$VIDEO" ] || { echo "Run test-media-video.sh to obtain the video fixture first" >&2; exit 1; }
-    HASH=$(shasum -a 256 "$VIDEO" | cut -d' ' -f1)
-    [ "$HASH" = "a6b3928991253a7828052612c8b6cec25f5de3648a361f92e5c2ece9a37d7d34" ] \
-        || { echo "Video fixture checksum differs" >&2; exit 1; }
+    VIDEO=$(./scripts/setup-env.py --sample-path oracle)
 fi
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media \

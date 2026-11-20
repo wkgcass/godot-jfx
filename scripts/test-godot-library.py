@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Run JDK 25 child-process checks for the Java-launched distribution."""
 import argparse
 import functools
@@ -9,6 +10,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -68,7 +70,7 @@ def resolve(runtime, work, maven):
     # Maven also resolves the ordinary graphics and media JARs transitively.
     # Select the platform variant of each module for the runtime module path.
     for module in ("graphics", "media"):
-        classifier, = (consumer / "modules").glob(f"javafx-{module}-*-{CLASSIFIER}.jar")
+        classifier, = (consumer / "modules").glob(f"godot-jfx-{module}-*-{CLASSIFIER}.jar")
         plain = classifier.with_name(classifier.name.replace(f"-{CLASSIFIER}.jar", ".jar"))
         if sha256(plain) != inventory[f"javafx.{module}"]["sha256"]:
             raise AssertionError(f"Unexpected transitive module: {plain}")
@@ -77,11 +79,11 @@ def resolve(runtime, work, maven):
     platform_hash = "windowsClassifierSha256" if WINDOWS else "macArm64ClassifierSha256"
     if len(hashes) != 6 or set(hashes.values()) != {m.get(platform_hash, m["sha256"]) for m in inventory.values()}:
         raise AssertionError("Resolved jars differ from the six staged modules")
-    graphics = next((consumer / "modules").glob("javafx-graphics-*.jar"))
+    graphics = next((consumer / "modules").glob("godot-jfx-graphics-*.jar"))
     with ZipFile(graphics) as jar:
         if not any(p.endswith(".gdshader") for p in jar.namelist()):
             raise AssertionError("Missing Godot shaders in Maven graphics jar")
-    controls = next((consumer / "modules").glob("javafx-controls-*.jar"))
+    controls = next((consumer / "modules").glob("godot-jfx-controls-*.jar"))
     with ZipFile(controls) as jar:
         for ext in (".bss", ".css", ".png", ".properties"):
             if not any(p.endswith(ext) for p in jar.namelist()):
@@ -180,7 +182,7 @@ class Suite:
             if not wanted.is_relative_to(self.work / "native-cache"):
                 raise AssertionError(f"{name}: loaded native outside the classifier cache: {wanted}")
             module = "media" if filename in MEDIA_LIBRARIES else "graphics"
-            classifier, = self.modules.glob(f"javafx-{module}-*-{CLASSIFIER}.jar")
+            classifier, = self.modules.glob(f"godot-jfx-{module}-*-{CLASSIFIER}.jar")
             with ZipFile(classifier) as jar:
                 if sha256(wanted) != hashlib.sha256(jar.read(filename)).hexdigest():
                     raise AssertionError(f"{filename} differs from {classifier}")
@@ -212,7 +214,7 @@ class Suite:
     def damaged_classifier(self, directory, module, entry, replacement=None):
         # Keep one module per name and alter only the resource under test.
         directory.mkdir(exist_ok=True, parents=True)
-        source, = self.modules.glob(f"javafx-{module}-*-{CLASSIFIER}.jar")
+        source, = self.modules.glob(f"godot-jfx-{module}-*-{CLASSIFIER}.jar")
         target = directory / source.name
         with ZipFile(source) as original, ZipFile(target, "w") as damaged:
             if entry not in original.namelist():
@@ -225,6 +227,9 @@ class Suite:
         return os.pathsep.join(str(target if jar == source else jar) for jar in self.modules.glob("*.jar"))
 
     def checks(self, group):
+        if group in ("render", "media"):
+            refs = self.work / "artifacts/reference"
+            refs.mkdir(exist_ok=True, parents=True)
         if group == "launch":
             for case in ("init", "concurrent", "race", "explicit", "auto", "startup", "exit"):
                 marker = {"init": "HOST_READY", "concurrent": "HOST_READY", "race": "HOST_READY", "explicit": "APPLICATION_STOP",
@@ -272,8 +277,6 @@ class Suite:
             self.child("native-" + backend, "BackendProbe", backend, properties={"prism.order": backend}, engines=0,
                        expected=["NATIVE_CONTROL_PASS"], loaded=[library("glass"), library("prism_" + backend)])
         elif group == "render":
-            refs = self.work / "artifacts/reference"
-            refs.mkdir(exist_ok=True, parents=True)
             project = self.project("独立 工程𠮷", "interaction.gd")
             pack = self.work / "窗口 𠮷.pck"
             self.pack(project, pack)
@@ -295,12 +298,16 @@ class Suite:
             ]:
                 project = self.project(name, name + "_observer.gd", parent)
                 self.child(name, "ProbeLauncher", probe, properties={"test.project": project}, expected=[marker])
-            video = ROOT / "artifacts/reference/media-oracle-sample.mp4"
-            if sha256(video) != "a6b3928991253a7828052612c8b6cec25f5de3648a361f92e5c2ece9a37d7d34":
-                raise ValueError("Unexpected Media reference checksum")
-            self.child("media", "MediaVideoProbe", expected=["MEDIA_VIDEO_CONTROLS_PASS", "MEDIA_VIDEO_PROBE_PASS"],
-                       env={"GODOT_JFX_MEDIA_FILE": str(video), "GODOT_JFX_MEDIA_CAPTURE": str(refs / "media.png")},
-                       loaded=[library("godot"), *MEDIA_LIBRARIES])
+        if group in ("render", "media"):
+            for case, sample in [("media", "oracle"), ("media-lk", "lk")]:
+                video = ROOT / subprocess.check_output(
+                    [sys.executable, ROOT / "scripts/setup-env.py", "--sample-path", sample], text=True).strip()
+                expected = ["MEDIA_VIDEO_RESIZE_PASS", "MEDIA_VIDEO_CONTROLS_PASS", "MEDIA_VIDEO_PROBE_PASS"]
+                if sample == "lk":
+                    expected.append("MEDIA_VIDEO_READY width=1920 height=1080")
+                self.child(case, "MediaVideoProbe", expected=expected,
+                           env={"GODOT_JFX_MEDIA_FILE": str(video), "GODOT_JFX_MEDIA_CAPTURE": str(refs / (case + ".png"))},
+                           loaded=[library("godot"), *MEDIA_LIBRARIES])
 
     @staticmethod
     def pack(project, output):
@@ -313,7 +320,7 @@ def main():
     parser.add_argument("--runtime", required=True, type=Path)
     parser.add_argument("--work", type=Path)
     parser.add_argument("--maven", default=shutil.which("mvn") or str(ROOT / ".tools/apache-maven-3.9.9/bin" / ("mvn.cmd" if WINDOWS else "mvn")))
-    parser.add_argument("--group", choices=["prepare", "launch", "failures", "render", "all"], default="all")
+    parser.add_argument("--group", choices=["prepare", "launch", "failures", "render", "media", "all"], default="all")
     args = parser.parse_args()
     runtime = args.runtime.resolve()
     work = args.work.resolve() if args.work else Path(tempfile.mkdtemp(prefix="Godot 验收 ")).resolve()

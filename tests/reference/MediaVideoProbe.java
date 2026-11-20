@@ -6,6 +6,7 @@ import javafx.scene.media.*;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.transform.Scale;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import javafx.embed.swing.SwingFXUtils;
@@ -22,6 +23,51 @@ public final class MediaVideoProbe extends Application {
     private long pausedAt;
     private double seekTarget;
     private void fail(Throwable error) { failure=error; Platform.exit(); }
+
+    private static WritableImage checkResizedVideo(Pane root, MediaView video) {
+        // Render the paused frame on the target pixel grid by scaling the node around its origin.
+        // Samples from the 320x180 snapshot may fall on different source texels.
+        Scale scale = new Scale(200.0 / video.getFitWidth(), 120.0 / video.getFitHeight());
+        video.getTransforms().add(scale);
+        WritableImage reference = root.snapshot(null, null);
+        video.getTransforms().remove(scale);
+        video.setFitWidth(200);
+        video.setFitHeight(120);
+        WritableImage opaque = root.snapshot(null, null);
+        video.setClip(new Rectangle(160, 100));
+        video.setOpacity(0.5);
+        WritableImage half = root.snapshot(null, null);
+
+        int maxResizeError = 0;
+        int maxBlendError = 0;
+        var colors = new HashSet<Integer>();
+        for (int y = 0; y < half.getHeight(); y++) {
+            for (int x = 0; x < half.getWidth(); x++) {
+                int scaled = reference.getPixelReader().getArgb(x, y);
+                int fitted = opaque.getPixelReader().getArgb(x, y);
+                int blended = half.getPixelReader().getArgb(x, y);
+                boolean inside = x >= 20 && x < 180 && y >= 20 && y < 120;
+                if (inside) colors.add(fitted);
+                else if (blended != 0xffff00ff) throw new AssertionError("Video escaped clip at " + x + "," + y);
+                for (int shift = 0; shift < 24; shift += 8) {
+                    int channel = (fitted >>> shift) & 255;
+                    int resizeError = Math.abs(channel - ((scaled >>> shift) & 255));
+                    maxResizeError = Math.max(maxResizeError, resizeError);
+                    if (resizeError > 12) throw new AssertionError("Video resize differs at " + x + "," + y + " by " + resizeError);
+                    if (inside) {
+                        int background = shift == 8 ? 0 : 255;
+                        int expected = (channel + background) / 2;
+                        int blendError = Math.abs(((blended >>> shift) & 255) - expected);
+                        maxBlendError = Math.max(maxBlendError, blendError);
+                        if (blendError > 12) throw new AssertionError("Video opacity differs at " + x + "," + y + " by " + blendError);
+                    }
+                }
+            }
+        }
+        if (colors.size() < 100) throw new AssertionError("No decoded picture in resized clip");
+        System.out.println("MEDIA_VIDEO_RESIZE_PASS max_resize_error=" + maxResizeError + " max_blend_error=" + maxBlendError);
+        return half;
+    }
     @Override public void start(Stage stage) {
         try {
             Media media=new Media(Path.of(System.getenv("GODOT_JFX_MEDIA_FILE")).toUri().toString());
@@ -60,19 +106,7 @@ public final class MediaVideoProbe extends Application {
                         for(int y=30;y<190;y+=3) for(int x=30;x<330;x+=3) colors.add(picture.getPixelReader().getArgb(x,y));
                         if(colors.size()<100) throw new AssertionError("Video has no decoded picture: colors="+colors.size());
                         ImageIO.write(SwingFXUtils.fromFXImage(picture,null),"png",Path.of(System.getenv("GODOT_JFX_MEDIA_CAPTURE")).toFile());
-                        video.setFitWidth(200);video.setFitHeight(120);video.setClip(new Rectangle(160,100));
-                        video.setOpacity(.5);
-                        WritableImage resized=root.snapshot(null,null);
-                        if(resized.getPixelReader().getArgb(190,50)!=0xffff00ff)
-                            throw new AssertionError("Resized video clip escaped");
-                        int before=picture.getPixelReader().getArgb(100,65);
-                        int after=resized.getPixelReader().getArgb(70,50);
-                        for(int shift=0;shift<24;shift+=8){
-                            int background=shift==8 ? 0 : 255;
-                            int expected=(((before>>>shift)&255)+background)/2;
-                            if(Math.abs(((after>>>shift)&255)-expected)>12)
-                                throw new AssertionError("Resized video opacity/color differs");
-                        }
+                        WritableImage resized=checkResizedVideo(root, video);
                         String capture=System.getenv("GODOT_JFX_MEDIA_CAPTURE");
                         ImageIO.write(SwingFXUtils.fromFXImage(resized,null),"png",Path.of(capture.replace(".png","-resized.png")).toFile());
                         player.play();

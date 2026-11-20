@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Platform inputs and loaded-library observations for distribution tests."""
 import os
 from pathlib import Path

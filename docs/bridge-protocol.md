@@ -359,7 +359,7 @@ pair. Echo events retain repeated press/typed delivery.
 
 ```powershell
 cmd /d /c scripts\test-protocol.cmd
-.\scripts\build-jfx-media.ps1
+.\scripts\build-windows.ps1 -Target jfx
 .\scripts\build-windows.ps1 -Target godot-library
 .\scripts\stage-godot-library.ps1
 .\scripts\test-bridge.ps1

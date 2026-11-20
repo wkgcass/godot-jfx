@@ -19,33 +19,33 @@
 
 以下命令从仓库根目录在 PowerShell 执行。当前脚本默认从 `$env:JAVA_HOME` 获取 JDK 25（可用 `-Jdk` 覆盖），Visual Studio 2022 Community/MSVC 与 Windows SDK；不要用机器默认的旧 Java 代替。Python 可通过 `python` 调用；SCons 使用 `.tools/python/Scripts/python.exe`。Media 构建使用 `MSYS2_ROOT`（默认 `D:\msys64`）中的 make/cygpath/sh 和 UCRT64 GCC；JFX/辅助测试的 Visual Studio 路径通过 `VSINSTALLDIR` 配置，默认 `%ProgramFiles%\Microsoft Visual Studio\2022\Community`。
 
-首次环境准备、依赖下载和路径覆盖参数见 [build-windows.md](docs/build-windows.md)。不要把下面的增量构建命令当成完整工具安装步骤。构建脚本对环境变量的修改应限于当前进程并恢复。
+首次环境准备、依赖下载和路径覆盖参数见 [build-windows.md](docs/build-windows.md) 和 [build-macos.md](docs/build-macos.md)。运行 `python scripts/setup-env.py`（macOS 直接运行 `./scripts/setup-env.py`）初始化缺少的 Godot、JFX、VFX 子模块，并准备仓库 `.tools` 内的 Ant、Maven 和本平台所需工具，已有安装直接复用。JFX 脚本优先读取 `ANT_HOME`。不要把下面的增量构建命令当成完整工具安装步骤。构建脚本对环境变量的修改应限于当前进程并恢复。
 
 ```powershell
 .\scripts\build-windows.ps1 -Target godot-editor
 .\scripts\build-windows.ps1 -Target godot-library
 .\scripts\build-windows.ps1 -Target jfx
-.\scripts\build-jfx-media.ps1
 .\scripts\build-vfx.ps1
 ```
 
 macOS arm64 在仓库根目录用 shell 执行（工具链准备详见 [build-macos.md](docs/build-macos.md)；JDK 25 在 `.tools/jdk-25`，SCons 在 `.tools/pyenv`，需要 Xcode 与 `xcodebuild -downloadComponent MetalToolchain` 安装的 Metal 工具链）：
 
 ```sh
-export JAVA_HOME="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=editor vulkan=no accesskit=no angle=no -j8
-(cd jfx && JAVA_HOME=$PWD/../.tools/jdk-25/Contents/Home GRADLE_USER_HOME=$PWD/../.gradle-cache ./gradlew sdk -PCOMPILE_MEDIA=true -PCOMPILE_WEBKIT=false --no-daemon)
-.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=template_release library_type=shared_library extra_suffix=library disable_path_overrides=no vulkan=no accesskit=no angle=no custom_modules="$PWD/native/godot_modules" -j8
-sh scripts/build-vfx.sh
+./scripts/build-macos.sh --target godot-editor
+./scripts/build-macos.sh --target godot-library
+./scripts/build-macos.sh --target jfx
+./scripts/build-vfx.sh
 ```
 
 mac 上 Media 由这一次 Gradle SDK 构建启用（AVFoundation 后端），没有单独的 Media 构建脚本；渲染器 `mobile` 使用 Metal（本机 M1 的发行库报告 Metal 3.1）、`gl_compatibility` 走 OpenGL 4.1，未构建 Vulkan（未安装 MoltenVK）。
 
-顺序执行原生构建；构建前关闭正在使用相应产物 的测试或 Demo，避免链接/复制冲突。JavaFX 模块编入共享库，Editor 负责导入与导出资源。默认 JFX 构建不能代替 Media 构建；Media 步骤显式启用 Media 并关闭 WebKit。不使用预编译 Godot/JavaFX SDK 替代本仓库源码产物；JVM 使用已安装版本，不需要自行构建。
+顺序执行原生构建；构建前关闭正在使用相应产物 的测试或 Demo，避免链接/复制冲突。JavaFX 模块编入共享库，Editor 负责导入与导出资源。Windows 的 `-Target jfx` 和 macOS 的 `--target jfx`都启用 Media 并关闭 WebKit。不使用预编译 Godot/JavaFX SDK 替代本仓库源码产物；JVM 使用已安装版本，不需要自行构建。
 
 产物：`godot/bin/godot.windows.editor.x86_64.exe`、`godot/bin/godot.windows.template_release.x86_64.library.dll`（macOS 对应 `godot.macos.editor.arm64`、`libgodot.macos.template_release.arm64.library.dylib`）、`jfx/build/sdk/`（mac 的 dylib 在 `lib/` 而非 `bin/`）、`artifacts/vfx/`。JNI 桥接在 Godot 模块内，没有独立桥接 DLL，也不依赖 godot-cpp。
 
 ## 运行与常用验证
+
+项目清理入口为 `python scripts/clean.py`（macOS 用 `./scripts/clean.py`）。默认清理全部五项，加 `--dry-run` 可预览命令与目录。`--target godot-editor|godot-library|jfx|packages|test-projects` 可单独清理，其中 `test-projects` 清理生成的 Godot 测试项目。具体范围见 [README](README.md#build-and-run)。
 
 ```powershell
 # 首选直接启动本平台完整 Demo JAR；两个 run-vfx-demo 脚本默认也启动此 JAR
@@ -59,6 +59,7 @@ java -jar artifacts/vfx/libs/vfx-demo.jar
 # 关闭 swapchain vsync 改用 CPU pacing（MaxFps 缺省 60，可填实际刷新率）
 .\scripts\run-vfx-demo.ps1 -DisableVsync -MaxFps 60
 
+python scripts/maven_local.py install           # 将场景与探针依赖安装到本项目的 .m2/repository
 .\scripts\test-protocol.cmd
 .\scripts\test-media-planes.ps1 -Renderer mobile
 .\scripts\test-media-video.ps1
@@ -70,6 +71,7 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 
 ```sh
 ./scripts/run-vfx-demo.sh                     # --smoke / --renderer mobile|gl_compatibility / --disable-vsync / --max-fps 60
+./scripts/maven_local.py install
 ./scripts/test-protocol.sh
 ./scripts/test-media-planes.sh --renderer mobile
 ./scripts/test-media-video.sh

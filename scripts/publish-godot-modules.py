@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Publish the source SDK as six plain Maven modules and record the shipped content."""
 import argparse
 import hashlib
@@ -8,6 +9,8 @@ import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
+
+from maven_coordinates import GROUP_ID, GROUP_PATH, artifact_id, release_version
 
 
 MODULES = {
@@ -20,18 +23,17 @@ MAC_PACKAGES = {
                  "com/sun/prism/es2", "com/sun/scenario/effect/impl/es2", "com/sun/scenario/effect/impl/hw/mtl"],
     "media": ["com/sun/media/jfxmediaimpl/platform/osx"],
 }
-GROUP = "org.godotjfx"
 
 
 def write_pom(path, artifact, version, dependencies):
     pom = ET.Element("project", xmlns="http://maven.apache.org/POM/4.0.0")
-    for key, value in [("modelVersion", "4.0.0"), ("groupId", GROUP),
+    for key, value in [("modelVersion", "4.0.0"), ("groupId", GROUP_ID),
                        ("artifactId", artifact), ("version", version)]:
         ET.SubElement(pom, key).text = value
     deps = ET.SubElement(pom, "dependencies")
     for name in dependencies:
         dep = ET.SubElement(deps, "dependency")
-        for key, value in [("groupId", GROUP), ("artifactId", "javafx-" + name), ("version", version)]:
+        for key, value in [("groupId", GROUP_ID), ("artifactId", artifact_id(name)), ("version", version)]:
             ET.SubElement(dep, key).text = value
     ET.indent(pom)
     ET.ElementTree(pom).write(path, encoding="utf-8", xml_declaration=True)
@@ -58,7 +60,7 @@ def publish(jfx, output, version, jar_tool, classifier, engine_file):
         build_id.update(name.encode("ascii") + b"\0" + hashlib.sha256(file.read_bytes()).digest())
     for name, dependencies in MODULES.items():
         module = "javafx." + name
-        artifact = "javafx-" + name
+        artifact = artifact_id(name)
         target = modules / (module + ".jar")
         source = jfx / "build" / "sdk" / "lib" / target.name
         compiled = jfx / "modules" / module / "build" / "classes/java/main" / module
@@ -101,7 +103,7 @@ def publish(jfx, output, version, jar_tool, classifier, engine_file):
                 inventory[module] = {"sha256": hashlib.sha256(packaged.read_bytes()).hexdigest(),
                                      "entries": entries, "additionalCompiledEntries": additions}
             packaged.replace(target)
-        coordinate = output / "repository/org/godotjfx" / artifact / version
+        coordinate = output / "repository" / GROUP_PATH / artifact / version
         coordinate.mkdir(exist_ok=True, parents=True)
         prefix = coordinate / f"{artifact}-{version}"
         published = Path(str(prefix) + ".jar")
@@ -129,14 +131,14 @@ def publish(jfx, output, version, jar_tool, classifier, engine_file):
         for file in files:
             Path(str(file) + ".sha1").write_text(hashlib.sha1(file.read_bytes()).hexdigest(), encoding="ascii")
     (output / "module-inventory.json").write_text(json.dumps(inventory, indent=2), encoding="utf-8")
+    (output / "version.txt").write_text(version + "\n", encoding="ascii")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    parser.add_argument("version")
     parser.add_argument("jar_tool", type=Path)
     parser.add_argument("--engine", type=Path, required=True)
     parser.add_argument("--classifier", choices=("win", "mac-aarch64"), default="win")
     args = parser.parse_args()
-    publish(Path(__file__).resolve().parents[1] / "jfx", args.output, args.version, args.jar_tool, args.classifier, args.engine)
+    publish(Path(__file__).resolve().parents[1] / "jfx", args.output, release_version(), args.jar_tool, args.classifier, args.engine)

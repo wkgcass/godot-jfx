@@ -1,5 +1,6 @@
 .tools/
 .gradle-cache/
+/.m2/
 scripts/vfx-build/.gradle/
 tests/library/shadow/.gradle/
 tests/library/shadow/build/

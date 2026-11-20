@@ -397,7 +397,7 @@ cannot be received.
 Validation:
 
 ```powershell
-.\scripts\build-jfx-media.ps1
+.\scripts\build-windows.ps1 -Target jfx
 .\scripts\build-windows.ps1 -Target godot-library
 .\scripts\stage-godot-library.ps1
 .\scripts\test-glass-scheduler.ps1

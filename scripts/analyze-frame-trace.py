@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Summarize optional frame traces. Counter intervals overlap; never sum them."""
 import argparse
 import json

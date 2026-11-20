@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Run the macOS arm64 scene and distribution tests serially on an idle desktop."""
 import argparse
 import csv
@@ -34,7 +35,7 @@ def cases(group, renderers):
     if group == "NonRobot":
         for script in ("test-godot-library", "test-shadow-jar", "test-vfx-demo-jar"):
             args = [] if script.endswith("demo-jar") else ["--runtime", str(ROOT / "artifacts/godot-library")]
-            yield [sys.executable, str(SCRIPTS / (script + ".py")), *args], {}
+            yield [str(SCRIPTS / (script + ".py")), *args], {}
         for renderer in renderers:
             args = ["--disable-vsync", "--max-fps", "60"] if renderer == "gl_compatibility" else []
             yield [str(SCRIPTS / "run-vfx-demo.sh"), "--smoke", "--renderer", renderer, *args], {}
@@ -86,12 +87,11 @@ def main():
         writer = csv.writer(results)
         writer.writerow(["Test", "Arguments", "Result", "Exit", "Seconds", "Log"])
         for index, (command, extra) in enumerate(tests, 1):
-            script_index = int(command[0] == sys.executable)
-            name = Path(command[script_index]).stem
+            name = Path(command[0]).stem
             if name in ("test-godot-library", "test-shadow-jar"):
                 command += ["--work", str(output.resolve() / name)]
             log = output / f"{index:03}-{name}.log"
-            options = " ".join(command[script_index + 1:])
+            options = " ".join(command[1:])
             print(f"[{index}/{len(tests)}] {name} {options}", flush=True)
             start = time.monotonic()
             with log.open("w") as stream, subprocess.Popen(command, cwd=ROOT, env=env | extra, start_new_session=True,

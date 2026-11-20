@@ -6,52 +6,56 @@ it. Run all commands from the repository root in a shell.
 
 ## Toolchain
 
+After cloning on Apple silicon, run `./scripts/setup-env.py`. It initializes
+missing source submodules using Git and the URLs in `.gitmodules` (GitHub SSH by default). For a
+new virtual environment, make Python 3.13 available on PATH before running setup. Setup prepares the following local tools and reuses
+installed components on subsequent runs. Install Xcode and its Metal toolchain
+separately.
+
+Setup downloads `media-oracle-sample.mp4` and `Lk.mp4` into `artifacts/reference/`.
+It reuses each video when its SHA-256 matches and downloads a replacement if needed.
+Use `./scripts/setup-env.py --sample-path oracle` (or `lk`) to verify an installed sample and print its path.
+
 | Tool | Location | Notes |
 | --- | --- | --- |
 | JDK 25 | `.tools/jdk-25` (Temurin 25.0.5 aarch64) | Scripts read `JAVA_HOME`; when unset they fall back to this in-repository JDK (`$PWD/.tools/jdk-25/Contents/Home`) |
 | SCons | `.tools/pyenv` (Python 3.13 venv with SCons 4.11, zstandard, Pillow) | Invoke as `.tools/pyenv/bin/scons` |
+| Apache Maven 3.9.9 | `.tools/apache-maven-3.9.9` | Used by Maven consumers when `mvn` is unavailable on PATH |
+| Apache Ant for JFX | `.tools/apache-ant-1.10.15` | Run `./scripts/setup-env.py` once or set `ANT_HOME` to an existing installation |
 | Xcode + Metal toolchain | System | Install the Metal component once with `xcodebuild -downloadComponent MetalToolchain` |
 
 The validated architecture is Apple silicon arm64. No prebuilt Godot or
 JavaFX SDK substitutes for these source builds, and the JVM is the installed
 JDK — it is not rebuilt.
 
-## Resource editor
-
-The test fixtures use the source-built editor for headless asset import and scene export.
+## Build from source
 
 ```sh
-.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=editor vulkan=no accesskit=no angle=no -j8
+./scripts/build-macos.sh --target godot-editor
+./scripts/build-macos.sh --target godot-library
+./scripts/build-macos.sh --target jfx
+./scripts/build-vfx.sh
 ```
 
-Renderer mapping on macOS: `mobile` uses the Metal driver and
+The test fixtures use the source-built editor for headless asset import and scene export.
+The shared library includes the JavaFX host module.
+On macOS, `mobile` uses the Metal driver and
 `gl_compatibility` through OpenGL 4.1. Vulkan is not built (`vulkan=no`;
 MoltenVK is not installed).
 
-## JavaFX SDK
-
-```sh
-(cd jfx && JAVA_HOME="$PWD/../.tools/jdk-25/Contents/Home" GRADLE_USER_HOME="$PWD/../.gradle-cache" \
-    ./gradlew sdk -PCOMPILE_MEDIA=true -PCOMPILE_WEBKIT=false --no-daemon)
-```
-
-A single Gradle invocation builds the SDK with Media enabled and WebKit
-disabled; on macOS the Media backend is AVFoundation (`libjfxmedia_avf.dylib`),
-so there is no separate Media build step like `build-jfx-media.ps1`.
+The `jfx` target builds the SDK in one Gradle invocation with Media enabled and WebKit
+disabled. On macOS the Media backend is AVFoundation (`libjfxmedia_avf.dylib`).
 Products are in `jfx/build/sdk`; native libraries are `.dylib` files under
 `lib/` (not `bin/` as on Windows). The platform classifiers package the dylibs for Java to load.
 
-## Build the VFX Demo JAR
-
-```sh
-export JAVA_HOME="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-.tools/pyenv/bin/scons -C godot platform=macos arch=arm64 target=template_release library_type=shared_library extra_suffix=library disable_path_overrides=no vulkan=no accesskit=no angle=no custom_modules="$PWD/native/godot_modules" -j8
-sh scripts/build-vfx.sh
-```
-
-This packages the local Media-enabled SDK, Godot dylib, VFX resources and Intro
+`build-vfx.sh` packages the local Media-enabled SDK, Godot dylib, VFX resources and Intro
 pages in `artifacts/vfx/libs/vfx-demo.jar`. The loose classes, resources and
 dependencies under `artifacts/vfx` also serve the Java scene fixtures.
+
+After building the Godot dylib and Media-enabled SDK, run `./scripts/maven_local.py install`
+to package the macOS arm64 modules and install them in this checkout's `.m2/repository`.
+The scene fixtures and the scroll-settings, screen-layout and render-command-validation probes
+use those JARs. To reuse artifacts already staged by `build-vfx.sh`, pass `--runtime artifacts/godot-library`.
 
 ## Running the VFX Demo
 
@@ -89,7 +93,7 @@ Windows-only entries that do not apply.
 - macOS has no per-window icon (the Dock icon belongs to NSApplication) and
   no Windows-style touch keyboard; the host reports both explicitly instead
   of silently ignoring requests.
-- Run `python3 scripts/run-macos-tests.py --group NonRobot` for the scene and
+- Run `./scripts/run-macos-tests.py --group NonRobot` for the scene and
   distribution tests, then `--group Robot` on an idle desktop with Accessibility
   and Screen Recording permission. Both default to Metal and OpenGL. Use
   `--list` to inspect the commands. Each invocation writes its own CSV and logs

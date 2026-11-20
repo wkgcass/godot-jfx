@@ -10,16 +10,18 @@ After preparing the Windows toolchain, run these builds sequentially from the ch
 .\scripts\build-windows.ps1 -Target godot-editor
 .\scripts\build-windows.ps1 -Target godot-library
 .\scripts\build-windows.ps1 -Target jfx
-.\scripts\build-jfx-media.ps1
 .\scripts\stage-godot-library.ps1 -Destination 'D:\Godot JavaFX'
 ```
 
 Staging publishes six Java modules and the Windows x64 graphics and Media classifiers to `repository/`. Use this Maven repository when building the application. The graphics classifier includes the engine DLL from the library target. Applications deliver the resulting Shadow JAR. The Editor is needed for exporting custom scenes and running the full regression suite.
 
+For local development tests, run `python scripts/maven_local.py install` after building the Godot shared library and Media-enabled SDK. It packages the six modules from those outputs and installs them in this checkout's `.m2/repository`. To install the exact artifacts from the staging example above, use `python scripts/maven_local.py install --runtime 'D:\Godot JavaFX'`.
+
 The example below builds the repository's sample consumer and launches it. Set the manifest main class to an ordinary Java launcher that calls `Application.launch`. See the [consumer build](../tests/library/shadow/build.gradle) for the dependencies and manifest.
 
 ```powershell
-.\jfx\gradlew.bat -p tests/library/shadow shadowJar '-Prepository=D:\Godot JavaFX\repository' '-PjavafxVersion=28-godot.4'
+$fxVersion = (Get-Content -Raw -LiteralPath 'D:\Godot JavaFX\version.txt').Trim()
+.\jfx\gradlew.bat -p tests/library/shadow shadowJar '-Prepository=D:\Godot JavaFX\repository' "-PjavafxVersion=$fxVersion"
 & "$env:JAVA_HOME/bin/java.exe" -jar tests/library/shadow/build/libs/stage-app-all.jar
 ```
 
@@ -59,26 +61,40 @@ on exit. A new shell must have the desired environment initialized again.
 
 ## Tool installation paths
 
+After cloning, run `python scripts/setup-env.py`. It initializes missing source
+submodules using Git and the URLs in `.gitmodules` (GitHub SSH by default).
+It installs Ant 1.10.15, Maven 3.9.9, SCons 4.10.1 in `.tools/python`,
+and the x64 MSVC packages for AccessKit, Mesa NIR, WinPixEventRuntime and the
+Agility SDK in `.tools/localappdata/Godot/build_deps`. It also prepares
+makedepend for Media using the MSYS2 installation below. Repeating setup
+reuses the installed components. Supply JDK 25, Visual Studio with the Windows
+SDK, and MSYS2 with UCRT64 GCC separately.
+
+Setup downloads `media-oracle-sample.mp4` and `Lk.mp4` into `artifacts/reference/`.
+It reuses each video when its SHA-256 matches and downloads a replacement if needed.
+Use `python scripts/setup-env.py --sample-path oracle` (or `lk`) to verify an installed sample and print its path.
+
 | Tool | Environment variable | Default when unset | PowerShell override |
 | --- | --- | --- | --- |
 | JDK 25 | `JAVA_HOME` | None; initialize your Java environment | `-Jdk` |
+| Apache Ant for JFX | `ANT_HOME` | `.tools/apache-ant-1.10.15` | Set `$env:ANT_HOME` |
 | MSYS2 with UCRT64 GCC | `MSYS2_ROOT` | `D:\msys64` | `-Msys` |
 | Visual Studio for JFX and native test helpers | `VSINSTALLDIR` | `%ProgramFiles%\Microsoft Visual Studio\2022\Community` | `-VisualStudio` |
 
 Explicit parameters take precedence over environment variables. `-VisualStudio`
-is accepted by `build-windows.ps1`, `build-jfx-media.ps1`, and
+is accepted by `build-windows.ps1` and
 `test-drag-drop-external.ps1`. Native `.cmd` tests read `VSINSTALLDIR` directly. The selected directory is
 normalized before invoking Visual Studio tools, including the trailing
 separator required by their environment setup; callers may omit that separator.
 Godot's native build continues to use SCons MSVC 14.3 discovery; the
 `build-windows.ps1 -VisualStudio` parameter configures the JFX build.
-After changing Visual Studio installations, rebuild the default JFX SDK before
-Media so its generated `windows_tools.properties` matches the selected compiler.
+The JFX build obtains the x64 compiler path from the selected installation's
+`vcvars64.bat` before invoking Gradle.
 
 Set these variables in your shell/profile to match your installations, then run
 the normal build commands without repeating path arguments. For example, set
-`$env:MSYS2_ROOT` to your existing MSYS2 installation directory. These scripts do
-not persist environment changes or install tools into their default directories.
+`$env:MSYS2_ROOT` to your existing MSYS2 installation directory. Environment
+overrides apply to the build process.
 Relative repository paths for tools, caches and generated files remain relative
 to this checkout. Clipboard/drag test file names are synthetic payloads and do
 not require corresponding files to exist.
@@ -93,28 +109,12 @@ and Vulkan/OpenGL renderer implementations remain enabled; the host still target
 Windows x64 as the reference platform, with macOS arm64 now ported separately
 (see [build-macos.md](build-macos.md)); Linux remains unvalidated.
 
-Run from the repository root in PowerShell. No prebuilt Godot or JavaFX SDK
-is used. Current M0 OpenJFX command builds upstream's default SDK: native
-graphics/fonts/Glass, Java modules; upstream defaults do not compile native
-WebKit or media. The latest user clarification requires Media support and excludes
-WebKit. The default SDK alone therefore does not finish the Media build requirement.
+Run from the repository root in Windows PowerShell 5.1 (`powershell.exe`). No prebuilt Godot or JavaFX SDK
+is used. The `jfx` target builds the Java modules, native graphics, fonts, Glass
+and Media in one Gradle SDK invocation with WebKit disabled.
 
 ```powershell
-python -m venv .tools/python
-.\.tools\python\Scripts\python.exe -m pip install scons==4.10.1
-
-# The upstream installers use LOCALAPPDATA. Isolate their downloads in this
-# checkout; the build script passes explicit SDK paths to SCons.
-$previousLocalAppData = $env:LOCALAPPDATA
-try {
-    $env:LOCALAPPDATA = Join-Path $PWD '.tools/localappdata'
-    .\.tools\python\Scripts\python.exe godot/misc/scripts/install_accesskit.py
-    if ($LASTEXITCODE -ne 0) { throw 'AccessKit installation failed' }
-    .\.tools\python\Scripts\python.exe godot/misc/scripts/install_d3d12_sdk_windows.py
-    if ($LASTEXITCODE -ne 0) { throw 'D3D12 dependency installation failed' }
-} finally {
-    $env:LOCALAPPDATA = $previousLocalAppData
-}
+python scripts/setup-env.py
 
 .\scripts\build-windows.ps1 -Target godot-editor
 .\scripts\build-windows.ps1 -Target jfx
@@ -126,7 +126,6 @@ Build logs and exit codes are under `artifacts/logs`. The source editor imports 
 .\scripts\build-windows.ps1 -Target godot-editor
 .\scripts\build-windows.ps1 -Target godot-library
 .\scripts\build-windows.ps1 -Target jfx
-.\scripts\build-jfx-media.ps1
 .\scripts\build-vfx.ps1
 .\scripts\write-delivery-inventory.ps1
 ```
@@ -155,7 +154,8 @@ and English text, controls, a gradient, shadow, rotated clip and opacity.
 
 Native Media uses existing MSYS2 make/cygpath/sh and UCRT64 GCC under
 `MSYS2_ROOT` (default `D:\msys64`).
-`build-jfx-media.ps1` calls `build-makedepend.ps1`, which downloads checksum-pinned
+`setup-env.py` reuses a verified makedepend installation.
+`build-windows.ps1 -Target jfx` calls `build-makedepend.ps1`, which downloads checksum-pinned
 X.Org makedepend 1.0.10 source, builds it under `.tools/makedepend`, and checks a
 header dependency fixture. Source: https://xorg.freedesktop.org/releases/individual/util/.
 A small MinGW compatibility header supplies existing-file canonicalization;

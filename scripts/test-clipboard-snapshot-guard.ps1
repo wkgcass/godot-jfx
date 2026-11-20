@@ -93,7 +93,7 @@ $nativeEnumerator=[ClipboardSnapshot].GetMethod('EnumClipboardFormats',[Reflecti
 $pinvoke=[Attribute]::GetCustomAttribute($nativeEnumerator,[Runtime.InteropServices.DllImportAttribute])
 if(!$pinvoke.SetLastError){throw 'Native enumeration does not preserve its error code'}
 Write-Output 'CLIPBOARD_SNAPSHOT_ENUMERATION_FAILURE_PASS (no clipboard access)'
-$handle=[SnapshotMemoryFault]::GlobalAlloc(0x42,[UIntPtr]4096)
+$handle=[SnapshotMemoryFault]::GlobalAlloc(0x42,[UIntPtr]::new([uint32]4096))
 if($handle -eq [IntPtr]::Zero){throw 'Native memory fault fixture allocation failed'}
 try {
     $method=[ClipboardSnapshot].GetMethod('TrackBlock',[Reflection.BindingFlags]'NonPublic,Static')

@@ -10,8 +10,7 @@ plugins {
 def workspace = file('../..')
 layout.buildDirectory = new File(workspace, 'artifacts/vfx')
 def distribution = new File(workspace, 'artifacts/godot-library')
-def versionFile = new File(distribution, 'version.txt')
-def fxVersion = versionFile.isFile() ? versionFile.text.trim() : '28-godot.4'
+def fxVersion = new File(distribution, 'version.txt').text.trim()
 def os = System.getProperty('os.name')
 def arch = System.getProperty('os.arch')
 def platform = os.startsWith('Windows') && arch in ['amd64', 'x86_64'] ? 'win' :
@@ -19,7 +18,11 @@ def platform = os.startsWith('Windows') && arch in ['amd64', 'x86_64'] ? 'win' :
 repositories {
     exclusiveContent {
         forRepository { maven { url = new File(distribution, 'repository').toURI() } }
-        filter { includeGroup 'org.godotjfx' }
+        filter {
+            ['base', 'graphics', 'controls', 'fxml', 'media', 'swing'].each {
+                includeModule 'io.vproxy', "godot-jfx-${it}"
+            }
+        }
     }
     mavenCentral()
 }
@@ -34,10 +37,10 @@ dependencies {
     api 'com.github.kwhat:jnativehook:2.2.2'
     api 'io.vproxy:commons:1.3.4'
     testImplementation 'junit:junit:4.13.2'
-    demoRuntime "org.godotjfx:javafx-controls:${fxVersion}"
-    demoRuntime "org.godotjfx:javafx-swing:${fxVersion}"
-    demoRuntime "org.godotjfx:javafx-graphics:${fxVersion}:${platform}"
-    demoRuntime "org.godotjfx:javafx-media:${fxVersion}:${platform}"
+    demoRuntime "io.vproxy:godot-jfx-controls:${fxVersion}"
+    demoRuntime "io.vproxy:godot-jfx-swing:${fxVersion}"
+    demoRuntime "io.vproxy:godot-jfx-graphics:${fxVersion}:${platform}"
+    demoRuntime "io.vproxy:godot-jfx-media:${fxVersion}:${platform}"
 }
 java { modularity.inferModulePath = true }
 sourceSets {

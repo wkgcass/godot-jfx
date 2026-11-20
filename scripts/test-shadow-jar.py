@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Build an independent Shadow consumer and run the single distributable with JDK 25."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor

@@ -1,7 +1,7 @@
 # VFX source build and Intro smoke
 
 Launch the full interactive Demo with `java -jar artifacts/vfx/libs/vfx-demo.jar`.
-Build it on the target platform with `scripts/build-vfx.ps1` or `sh scripts/build-vfx.sh`
+Build it on the target platform with `scripts/build-vfx.ps1` or `./scripts/build-vfx.sh`
 after the shared Godot library and Media-enabled SDK are available. The JAR contains
 the original Intro application, its pages, images, Godot shader controls and
 platform-native libraries. Both run scripts select this JAR by default.
@@ -325,7 +325,7 @@ The macOS runners are `scripts/test-vfx-*.sh` with `--renderer/--render-thread`
 arguments matching the PowerShell switches. The interactive launcher is
 `scripts/run-vfx-demo.sh` (`--smoke`, `--renderer`, `--disable-vsync`,
 `--max-fps`), equivalent to `run-vfx-demo.ps1`, and the VFX classes are built
-and packaged with `sh scripts/build-vfx.sh` instead of
+and packaged with `./scripts/build-vfx.sh` instead of
 `build-vfx.ps1`. VStage emulates maximize on macOS
 with manual bounds (screen minus the 24pt menu bar) instead of the native
 maximize, so `tests/reference/VfxWindowControlsProbe.java` reads

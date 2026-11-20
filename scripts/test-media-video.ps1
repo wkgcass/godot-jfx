@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[switch]$Runtime,[switch]$NativeD3D)
+param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[switch]$Runtime,[switch]$NativeD3D,[ValidateSet('oracle','lk')][string]$Sample='oracle')
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
@@ -12,13 +12,14 @@ try {
             if(!(Test-Path "jfx/build/sdk/bin/$library")){throw "Build source Media SDK first; missing $library"}
         }
     }
-    $videoFile=Join-Path $root 'artifacts/reference/media-oracle-sample.mp4'
-    if(!(Test-Path $videoFile)){Invoke-WebRequest -Uri 'https://download.oracle.com/otndocs/products/javafx/oow2010-2.mp4' -OutFile $videoFile}
-    if((Get-FileHash $videoFile -Algorithm SHA256).Hash -ne 'A6B3928991253A7828052612C8B6CEC25F5DE3648A361F92E5C2ECE9A37D7D34'){throw 'Video fixture checksum differs'}
+    $relative = & python "$PSScriptRoot/setup-env.py" --sample-path $Sample.ToLowerInvariant()
+    if ($LASTEXITCODE) { throw "Could not prepare playback input: $Sample" }
+    $videoFile = Join-Path $root $relative
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media,javafx.swing -d artifacts/reference tests/reference/MediaVideoProbe.java
     if($LASTEXITCODE -ne 0){throw 'Media video probe compilation failed'}
     $env:GODOT_JFX_JDK=$Jdk;$env:GODOT_JFX_MEDIA_FILE=$videoFile
     $suffix=if($NativeD3D){'-d3d'}elseif($Runtime){'-runtime'}else{''}
+    if ($Sample -eq 'lk') { $suffix += '-lk' }
     $env:GODOT_JFX_MEDIA_CAPTURE=Join-Path $root "artifacts/reference/media-video-$Renderer$suffix.png"
     $log=Join-Path $root "artifacts/logs/media-video-$Renderer$suffix.log"
     if($NativeD3D){

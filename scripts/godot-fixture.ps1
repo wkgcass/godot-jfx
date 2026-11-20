@@ -1,4 +1,11 @@
 # Windows scene fixtures run inside the Java process using the published classifier.
+. "$PSScriptRoot/native-output.ps1"
+function Get-GodotJfxTestModulePath {
+    $json = & python "$PSScriptRoot/maven_local.py" module-path --json
+    if ($LASTEXITCODE) { throw 'Could not resolve the Maven Local test modules' }
+    return (ConvertFrom-Json $json)
+}
+
 function Get-GodotFixtureLaunch {
     param([string[]]$EngineArguments, [string]$WorkingDirectory = (Get-Location).Path)
     $json = & python "$PSScriptRoot/godot-fixture.py" --print-command $WorkingDirectory @EngineArguments
@@ -10,7 +17,7 @@ function Get-GodotFixtureLaunch {
 function Invoke-GodotFixture {
     $launch = Get-GodotFixtureLaunch $args
     $prefix = $launch.Arguments
-    & $launch.Java @prefix
+    Invoke-NativeOutput $launch.Java @prefix
 }
 
 function Start-GodotFixture {

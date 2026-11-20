@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Import the scene fixtures in a disposable project at the same directory depth."""
 import hashlib
 import os

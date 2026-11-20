@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Summarize current-process samples; no claim of leak freedom from a trend alone."""
 import json
 import statistics

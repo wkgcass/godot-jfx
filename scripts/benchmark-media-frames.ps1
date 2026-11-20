@@ -22,8 +22,9 @@ try {
         $fixture=Get-Content artifacts/reference/media-1080p60.json -Raw | ConvertFrom-Json
         if($fixture.width -ne 1920 -or $fixture.height -ne 1080 -or $fixture.fps -ne 60 -or $fixture.frames -ne 960 -or $fixture.codec -ne 'H264' -or $fixture.sha256 -ne (Get-FileHash $env:GODOT_JFX_MEDIA_FILE -Algorithm SHA256).Hash -or $fixture.source_sha256 -ne (Get-FileHash tests/native/make_media_fixture.cpp -Algorithm SHA256).Hash){throw 'Regenerate and verify fixture using make-media-fixture.ps1'}
     }else{
-        $env:GODOT_JFX_MEDIA_FILE=Join-Path $root 'artifacts/reference/media-oracle-sample.mp4'
-        if((Get-FileHash $env:GODOT_JFX_MEDIA_FILE -Algorithm SHA256).Hash -ne 'A6B3928991253A7828052612C8B6CEC25F5DE3648A361F92E5C2ECE9A37D7D34'){throw 'Run test-media-video.ps1 to obtain verified fixture'}
+        $relative = & python "$PSScriptRoot/setup-env.py" --sample-path oracle
+        if ($LASTEXITCODE) { throw "Invalid Oracle playback sample" }
+        $env:GODOT_JFX_MEDIA_FILE = Join-Path $root $relative
     }
     $exports=@('--add-exports=javafx.media/com.sun.media.jfxmedia=ALL-UNNAMED','--add-exports=javafx.media/com.sun.media.jfxmedia.control=ALL-UNNAMED','--add-exports=javafx.media/com.sun.media.jfxmedia.events=ALL-UNNAMED','--add-exports=javafx.graphics/com.sun.prism=ALL-UNNAMED','--add-exports=javafx.graphics/com.sun.glass.ui=ALL-UNNAMED')
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media @exports -d artifacts/reference tests/reference/MediaFrameBenchmark.java

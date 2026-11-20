@@ -7,11 +7,12 @@ if [ ! -x "$JDK/bin/javac" ]; then
     exit 1
 fi
 mkdir -p artifacts/reference artifacts/logs
+module_path=$(python3 scripts/maven_local.py module-path)
 exports='--add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED --add-exports javafx.graphics/com.sun.glass.ui.godot=ALL-UNNAMED'
 # shellcheck disable=SC2086
-"$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.graphics $exports -d artifacts/reference tests/reference/ScreenLayoutProbe.java
+"$JDK/bin/javac" --module-path "$module_path" --add-modules javafx.graphics $exports -d artifacts/reference tests/reference/ScreenLayoutProbe.java
 # shellcheck disable=SC2086
-"$JDK/bin/java" --module-path jfx/build/sdk/lib --add-modules javafx.graphics $exports -cp artifacts/reference ScreenLayoutProbe > artifacts/logs/screen-layout.log 2>&1 || {
+"$JDK/bin/java" --module-path "$module_path" --add-modules javafx.graphics $exports -cp artifacts/reference ScreenLayoutProbe > artifacts/logs/screen-layout.log 2>&1 || {
     echo "Screen layout probe failed: artifacts/logs/screen-layout.log" >&2
     exit 1
 }

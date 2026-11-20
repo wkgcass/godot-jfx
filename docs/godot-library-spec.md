@@ -39,7 +39,9 @@ Java 启动器若找到该资源，就把字节交给引擎。引擎启动空场
 
 ## 构建与加载
 
-源码构建向本地 Maven 仓库发布 `org.godotjfx` 的 base、graphics、controls、fxml、media、swing 六个模块，当前版本为 `28-godot.4`。应用依赖所需模块，同时选择同版本的平台构件。下例使用 Windows x64 的 `win`；macOS arm64 的 graphics 和 media 均使用 `mac-aarch64`。以下 Gradle 依赖可用于普通控件应用，使用视频时再加入 Media。
+本地 Maven 仓库发布六个 `io.vproxy:godot-jfx-<模块>` 构件，模块为 base、graphics、controls、fxml、media、swing。Java 模块名沿用 `javafx.base`、`javafx.graphics` 等。Windows x64 的 graphics 和 media 使用 `win`，macOS arm64 使用 `mac-aarch64`。
+
+两个平台共用根目录的 [release.properties](../release.properties)。每次发行更新 `port.version`；同步上游基线时，更新对应的 `godot.upstream.commit` 或 `jfx.upstream.commit` 为完整上游提交哈希。打包脚本取两个哈希各自的前 8 位，按 `适配版本-Godot基线-JFX基线` 生成六个构件共用的版本，并写入发行目录的 `version.txt`。下面的消费示例通过 Gradle 参数 `-PjavafxVersion` 接收该文件中的版本。
 
 ```groovy
 plugins {
@@ -49,11 +51,12 @@ plugins {
 repositories {
     maven { url = uri(providers.gradleProperty('repository').get()) }
 }
+def fxVersion = providers.gradleProperty('javafxVersion').get()
 dependencies {
-    implementation 'org.godotjfx:javafx-controls:28-godot.4'
-    runtimeOnly 'org.godotjfx:javafx-graphics:28-godot.4:win'
+    implementation "io.vproxy:godot-jfx-controls:${fxVersion}"
+    runtimeOnly "io.vproxy:godot-jfx-graphics:${fxVersion}:win"
     // 仅使用 Media 时添加
-    implementation 'org.godotjfx:javafx-media:28-godot.4:win'
+    implementation "io.vproxy:godot-jfx-media:${fxVersion}:win"
 }
 application { mainClass = 'example.Main' }
 tasks.shadowJar {

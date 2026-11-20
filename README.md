@@ -48,15 +48,64 @@ For initial dependency setup and alternate JDK paths, follow
 [Windows source builds](docs/build-windows.md). Run native builds sequentially.
 
 ```powershell
+python scripts/setup-env.py
 .\scripts\build-windows.ps1 -Target godot-editor
 .\scripts\build-windows.ps1 -Target godot-library
 .\scripts\build-windows.ps1 -Target jfx
-.\scripts\build-jfx-media.ps1
 .\scripts\build-vfx.ps1
 ```
 
+On macOS arm64, run the corresponding commands from the repository root.
+
+```sh
+./scripts/setup-env.py
+./scripts/build-macos.sh --target godot-editor
+./scripts/build-macos.sh --target godot-library
+./scripts/build-macos.sh --target jfx
+./scripts/build-vfx.sh
+```
+
+To preview a project clean, run `python scripts/clean.py --dry-run` (macOS:
+`./scripts/clean.py --dry-run`). Omit `--dry-run` to clean the current
+platform's Godot editor and shared library with SCons, run OpenJFX's Gradle
+`cleanAll --no-problems-report`, and remove local package outputs and generated Godot test projects.
+Use `--target godot-editor`, `godot-library`, `jfx`, `packages` or `test-projects`
+to clean one part. A full clean removes the entire shared `godot/bin` directory
+after both SCons targets finish. It also removes `.scons_env.json`,
+`.scons_node_count`, `.sconsign5.dblite`, and `platform/windows/msvc_capture.log`
+under `godot/`. After all targets finish, the full clean removes Python
+`__pycache__` directories under `godot/`, `scripts/` and `native/`.
+Cleaning an individual Godot target keeps the shared build
+state and the other target's outputs. The packages target
+removes `artifacts/vfx`, the entire default staging directory
+`artifacts/godot-library` (all staged versions), and `tests/library/shadow/build`.
+The `test-projects` target removes directories matching `artifacts/runtime-*`
+and `artifacts/scene-fixtures-*`, including their Godot import caches and local
+import logs. It also removes `tests/godot/.godot/`, including local editor
+state. Tests recreate the projects they need from `tests/godot`.
+Installed Maven artifacts, tool and dependency caches, test logs in
+`artifacts/logs` and reference captures are retained. Close running tests or
+demos before cleaning their outputs.
+
+Before cleaning JFX, the script runs the JFX wrapper with `--stop` using this
+checkout's `.gradle-cache` as its Gradle User Home. After
+`cleanAll --no-problems-report --no-daemon` exits successfully, the script
+removes `jfx/.gradle` and `jfx/buildSrc/.gradle`. The packages target removes
+`scripts/vfx-build/.gradle` and `tests/library/shadow/.gradle`, stopping the
+same daemons first when run on its own with either directory present.
+The OpenJFX clean also removes `jfx/buildSrc/build` and suppresses the HTML
+report in `jfx/build/reports`. It invokes Apache Ant for the sample applications.
+The JFX scripts use `ANT_HOME` when set and otherwise use
+`.tools/apache-ant-1.10.15` in the checkout. Run `python scripts/setup-env.py`
+on Windows or `./scripts/setup-env.py` on macOS to initialize missing Godot,
+JFX and VFX submodules and prepare the build dependencies under `.tools/`.
+The submodule URLs in `.gitmodules` use GitHub SSH. Setup prepares the Oracle
+sample and `Lk.mp4` in `artifacts/reference/` and reuses each after checking its
+SHA-256. See the [Windows](docs/build-windows.md#tool-installation-paths) and
+[macOS](docs/build-macos.md#toolchain) guides for system prerequisites.
+
 The launcher defaults to Vulkan (`mobile`) with the `safe` render-thread mode.
-The Media step uses existing MSYS make/cygpath and UCRT64 GCC, builds its pinned
+The Windows JFX build uses existing MSYS make/cygpath and UCRT64 GCC, builds its pinned
 makedepend helper inside `.tools`, and stages source-built Media libraries into
 the SDK. See build-windows.md for prerequisites and current validation status.
 Use `-Renderer gl_compatibility` for OpenGL. JavaFX hosting supports only
@@ -71,6 +120,7 @@ On Windows x64 and macOS arm64, a JavaFX application can ship as a single Shadow
 
 | Area | Source / documentation |
 | --- | --- |
+| Maven distribution | `io.vproxy:godot-jfx-<module>`; [release version and upstream commits](release.properties), [consumer dependencies](docs/godot-library-spec.md#构建与加载) |
 | Runtime, native windows, JNI and GPU protocol | `native/godot_modules/javafx`; [architecture](docs/architecture.md), [module](docs/native-module.md), [protocol](docs/bridge-protocol.md) |
 | Prism pipeline, textures, graphics and effects | `jfx/modules/javafx.graphics/src/main/java/com/sun/prism/godot`; [Prism-Godot](docs/prism-godot.md) |
 | Glass windows, input, timer, clipboard and cursor | `jfx/modules/javafx.graphics/src/main/java/com/sun/glass/ui/godot`; [Glass-Godot](docs/glass-godot.md), [IME](docs/ime-godot.md) |

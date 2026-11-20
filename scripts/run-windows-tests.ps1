@@ -1,10 +1,11 @@
 [CmdletBinding()]
 param(
     [ValidateSet('NonRobot', 'Robot')][string]$Group = 'NonRobot',
-    [string]$ResultDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) "artifacts/logs/windows-$Group-$(Get-Date -Format yyyyMMdd-HHmmss)"),
+    [string]$ResultDirectory,
     [switch]$List
 )
 $ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/native-output.ps1"
 $desktop = 'test-robot','test-native-ime','test-file-dialog','test-drag-drop-external','test-hover-demo','test-virtual-keyboard'
 $optionalRobot = 'test-drag-drop','test-physical-drag','test-hover-flicker','test-vfx-table-scroll'
 if ($Group -eq 'NonRobot') {
@@ -20,6 +21,7 @@ if ($Group -eq 'NonRobot') {
     $tests = foreach ($name in $robotCases) { Get-Item -LiteralPath "$PSScriptRoot/$name.ps1" }
 }
 if ($List) { $tests.BaseName; return }
+if (!$ResultDirectory) { $ResultDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) "artifacts/logs/windows-$Group-$(Get-Date -Format yyyyMMdd-HHmmss)" }
 $ResultDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ResultDirectory)
 New-Item -ItemType Directory -Force -Path $ResultDirectory | Out-Null
 $results = @()
@@ -35,14 +37,18 @@ try {
         }
         $log = Join-Path $ResultDirectory "$name.log"
         $timer = [Diagnostics.Stopwatch]::StartNew()
-        if ($test.Extension -eq '.cmd') { & $test.FullName *> $log }
-        elseif ($test.Extension -eq '.py') {
+        $program = $test.FullName
+        if ($test.Extension -eq '.py') {
             if ($name -ne 'test-vfx-demo-jar') {
                 $arguments = @('--runtime', (Join-Path (Split-Path $PSScriptRoot -Parent) 'artifacts/godot-library'))
             }
-            & python $test.FullName @arguments *> $log
+            $program = 'python'
+            $arguments = @($test.FullName) + $arguments
+        } elseif ($test.Extension -eq '.ps1') {
+            $program = 'powershell.exe'
+            $arguments = @('-NoProfile', '-File', $test.FullName) + $arguments
         }
-        else { & pwsh -NoProfile -File $test.FullName @arguments *> $log }
+        Invoke-NativeOutput $program @arguments | Out-File -Encoding utf8 -LiteralPath $log
         $code = $LASTEXITCODE
         $results += [pscustomobject]@{Test=$name;Group=$Group;Exit=$code;Seconds=[math]::Round($timer.Elapsed.TotalSeconds,1)}
         $results | Export-Csv -NoTypeInformation -LiteralPath (Join-Path $ResultDirectory 'results.csv')

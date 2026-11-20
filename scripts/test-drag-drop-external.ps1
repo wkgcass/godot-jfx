@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [string]$VisualStudio=$(if ($env:VSINSTALLDIR) { $env:VSINSTALLDIR } else { Join-Path $env:ProgramFiles 'Microsoft Visual Studio/2022/Community' }))
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
@@ -76,7 +76,7 @@ try {
     if ($result -ne 0 -or $output -notmatch 'GODOT_EXTERNAL_DRAG_PASS' -or $output -notmatch 'EXTERNAL_DRAG_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|Exception)') {
         throw "External drag/drop test failed or incomplete (exit $result). See $log"
     }
-    $dropped = Get-Content -LiteralPath $targetLog -Raw
+    $dropped = Get-Content -LiteralPath $targetLog -Raw -Encoding UTF8
     if ($dropped -notmatch 'DND_HELPER_DROP text=\[外部 OLE 拖放 text\] url=\[https://example\.org/ole\] files=1 first=\[C:\\drag-test\.txt\] custom=\[出站自定义负载 🙂\]') {
         throw "Helper drop payload mismatch: $targetLog"
     }
@@ -85,7 +85,7 @@ try {
     if ($dropped -notmatch 'DND_HELPER_ENTER .*image=8x6@5,3 bytes=\d+') {
         throw "Helper did not observe the shell drag image (8x6@5,3): $targetLog"
     }
-    $sourced = Get-Content -LiteralPath $sourceLog -Raw
+    $sourced = Get-Content -LiteralPath $sourceLog -Raw -Encoding UTF8
     if ($sourced -notmatch 'DND_HELPER_SOURCE_DONE effect=1') {
         throw "Helper drag source did not complete with COPY: $sourceLog"
     }

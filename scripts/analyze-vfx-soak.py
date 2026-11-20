@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Summarize observations, without treating bounded samples as leak-free proof."""
 import argparse
 import json

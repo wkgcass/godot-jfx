@@ -21,12 +21,10 @@ try {
         @{cycle=[int]$_.Groups[1].Value;heap_used=[long]$_.Groups[2].Value;gc_count=[long]$_.Groups[3].Value;collected_stages=[int]$_.Groups[4].Value}
     })
     if($javaSamples.Count -ne $Cycles) {throw 'Stage churn Java sample count differs'}
-    $report=Get-Content artifacts/reference/stage-churn.json -Raw | ConvertFrom-Json -AsHashtable
-    $nativeSamples=@([regex]::Matches($output,'(?m)^STAGE_CHURN_RESOURCES (\{[^\r\n]+\})') | ForEach-Object {$_.Groups[1].Value | ConvertFrom-Json -AsHashtable})
+    $report=Get-Content artifacts/reference/stage-churn.json -Raw | ConvertFrom-Json
+    $nativeSamples=@([regex]::Matches($output,'(?m)^STAGE_CHURN_RESOURCES (\{[^\r\n]+\})') | ForEach-Object {$_.Groups[1].Value | ConvertFrom-Json})
     if($nativeSamples.Count -ne $Cycles+1) {throw 'Stage churn native sample count differs'}
-    $report['samples']=$nativeSamples
-    $report['java_samples']=$javaSamples
-    $report['heap_limit_mib']=$HeapMiB
+    $report | Add-Member -NotePropertyMembers @{samples=$nativeSamples; java_samples=$javaSamples; heap_limit_mib=$HeapMiB} -Force
     $report | ConvertTo-Json -Depth 8 | Set-Content "artifacts/reference/stage-churn-$Renderer-$RenderThread$suffix.json"
     Write-Output "Stage churn passed: $log"
 } finally {$env:GODOT_JFX_JDK=$savedJdk;$env:GODOT_JFX_CHURN_CYCLES=$savedCycles;$env:JAVA_TOOL_OPTIONS=$savedOptions;Pop-Location}

@@ -19,12 +19,12 @@ try {
     Write-Output "Media churn backend: $backend"
     if($AudioOnly){
         $videoFile=Join-Path $root 'artifacts/reference/media-churn-silence.wav'
-        & python -c 'import wave,sys; w=wave.open(sys.argv[1],"wb"); w.setparams((1,2,44100,0,"NONE","not compressed")); w.writeframes(bytes(44100*2*2)); w.close()' $videoFile
+        & python -c "import wave,sys; w=wave.open(sys.argv[1],'wb'); w.setparams((1,2,44100,0,'NONE','not compressed')); w.writeframes(bytes(44100*2*2)); w.close()" $videoFile
         if($LASTEXITCODE -ne 0){throw 'PCM fixture generation failed'}
     }else{
-        $videoFile=Join-Path $root 'artifacts/reference/media-oracle-sample.mp4'
-        if(!(Test-Path $videoFile)){throw 'Run test-media-video.ps1 to obtain the video fixture first'}
-        if((Get-FileHash $videoFile -Algorithm SHA256).Hash -ne 'A6B3928991253A7828052612C8B6CEC25F5DE3648A361F92E5C2ECE9A37D7D34'){throw 'Video fixture checksum differs'}
+        $relative = & python "$PSScriptRoot/setup-env.py" --sample-path oracle
+        if ($LASTEXITCODE) { throw "Invalid Oracle playback sample" }
+        $videoFile = Join-Path $root $relative
     }
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media -d artifacts/reference tests/reference/CurrentProcessHandles.java tests/reference/CurrentProcessMemory.java tests/reference/MediaChurnProbe.java
     if($LASTEXITCODE -ne 0){throw 'Media churn compilation failed'}

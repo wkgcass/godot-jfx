@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME,
     [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',
     [switch]$Runtime)

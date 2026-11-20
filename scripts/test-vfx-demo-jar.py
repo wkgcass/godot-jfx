@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Run the full Intro JAR in isolation and check that its directory stays portable."""
 import hashlib
 import os

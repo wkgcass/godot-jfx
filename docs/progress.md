@@ -1,5 +1,7 @@
 # 历史工作记录
 
+文中的 `artifacts/` 路径记录了每次实验在本机保存文件的位置。查看某次实验的原始日志或截图需要取得该次运行的归档。
+
 本文件保存历史实施与验证记录。每条记录中的“当前”“下一步”“未实现”仅指当时阶段；旧 RD/separate 命令不再适用于当前版本。当前实现见 [架构](architecture.md)，证据与限制见 [验收状态](acceptance-status.md)，可运行命令见 [TESTS.md](../TESTS.md)。
 
 下文涉及 Godot 创建或销毁 JVM 的记录来自已移除的早期实现。现行应用与场景测试均由标准 JDK 启动，JavaFX 从平台 JAR 加载 Godot 共享库。[交付规格](godot-library-spec.md)
