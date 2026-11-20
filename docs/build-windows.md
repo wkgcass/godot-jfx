@@ -2,6 +2,21 @@
 
 For the macOS arm64 port see [build-macos.md](build-macos.md).
 
+## PowerShell
+
+Windows builds, packaging, tests and Demo scripts require PowerShell **7.4.1 or later**.
+We recommend installing [PowerShell from the Microsoft Store](https://apps.microsoft.com/detail/9mz1snwt0n5d).
+Open a terminal at the repository root, check the version and start PowerShell.
+
+```text
+pwsh --version
+pwsh
+```
+
+Run the commands below in that `pwsh` session. Windows setup checks the version
+available on `PATH` before preparing dependencies. Each PowerShell script also
+checks its minimum version when invoked directly.
+
 ## Java-launched library
 
 After preparing the Windows toolchain, run these builds sequentially from the checkout.
@@ -70,7 +85,7 @@ makedepend for Media using the MSYS2 installation below. Repeating setup
 reuses the installed components. Supply JDK 25, Visual Studio with the Windows
 SDK, and MSYS2 with UCRT64 GCC separately.
 
-Setup downloads `media-oracle-sample.mp4` and `Lk.mp4` into `artifacts/reference/`.
+Setup downloads `media-oracle-sample.mp4` and `Lk.mp4` into `agentdir/media/`.
 It reuses each video when its SHA-256 matches and downloads a replacement if needed.
 Use `python scripts/setup-env.py --sample-path oracle` (or `lk`) to verify an installed sample and print its path.
 
@@ -109,8 +124,8 @@ and Vulkan/OpenGL renderer implementations remain enabled; the host still target
 Windows x64 as the reference platform, with macOS arm64 now ported separately
 (see [build-macos.md](build-macos.md)); Linux remains unvalidated.
 
-Run from the repository root in Windows PowerShell 5.1 (`powershell.exe`). No prebuilt Godot or JavaFX SDK
-is used. The `jfx` target builds the Java modules, native graphics, fonts, Glass
+Run from the repository root in `pwsh` to build Godot and the JavaFX SDK from source.
+The `jfx` target builds the Java modules, native graphics, fonts, Glass
 and Media in one Gradle SDK invocation with WebKit disabled.
 
 ```powershell
@@ -120,14 +135,13 @@ python scripts/setup-env.py
 .\scripts\build-windows.ps1 -Target jfx
 ```
 
-Build logs and exit codes are under `artifacts/logs`. The source editor imports test assets and exports custom scene packs. The shared engine is built at `godot/bin/godot.windows.template_release.x86_64.library.dll`. Build the platform classifiers and VFX Demo with:
+Build logs and exit codes are under `agentdir/logs`. The source editor imports test assets and exports custom scene packs. The shared engine is built at `godot/bin/godot.windows.template_release.x86_64.library.dll`. Build the platform classifiers and VFX Demo with:
 
 ```powershell
 .\scripts\build-windows.ps1 -Target godot-editor
 .\scripts\build-windows.ps1 -Target godot-library
 .\scripts\build-windows.ps1 -Target jfx
 .\scripts\build-vfx.ps1
-.\scripts\write-delivery-inventory.ps1
 ```
 
 The javafx custom module and JNI bridge are compiled into the shared Godot library;
@@ -136,9 +150,7 @@ graphics libraries include glass.dll, prism_d3d.dll, javafx_font.dll and
 javafx_iio.dll. The SDK also includes Java modules such as javafx.fxml.jar.
 Presence is not feature acceptance. The Media-enabled SDK build provides jfxmedia.dll and its
 three supporting libraries. jfxwebkit.dll remains absent because WebKit is excluded.
-The graphics/Glass native libraries are built from source. The generated
-artifacts/change-inventory.json records current repository revisions, all modified
-or untracked paths and selected artifact hashes; regenerate it after changes.
+The graphics/Glass native libraries are built from source.
 
 ## Reference scene
 

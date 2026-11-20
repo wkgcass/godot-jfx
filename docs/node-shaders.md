@@ -98,7 +98,7 @@ requesting full JavaFX node snapshots: the mirrored rectangle must update, its
 unwarped location must stay empty, and its former location must clear. Both phases
 require repeated samples and teardown requires zero owned host resources. Logs
 and captures use `node-shader-dirty-<renderer>-safe` names under
-`artifacts/logs` and `artifacts/reference`. No real mouse or keyboard input is used.
+`agentdir/logs` and `artifacts/reference`. No real mouse or keyboard input is used.
 
 2026-11-12: the regression reproduced the unwarped duplicate before the fix.
 The source JFX SDK build, this regression and the existing node-shader suite pass

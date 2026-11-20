@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [switch]$AllPages, [ValidateSet('safe')][string]$RenderThread = 'safe', [int]$PageLimit = 0, [switch]$FreezeFusion)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -23,7 +24,7 @@ try {
     $coverage = if ($AllPages) { '-all-pages' } else { '' }
     if ($PageLimit) { $coverage += "-$PageLimit" }
     if ($FreezeFusion) { $coverage += '-frozen' }
-    $log = "artifacts/logs/vfx-intro-$Renderer-$RenderThread$coverage.log"
+    $log = "agentdir/logs/vfx-intro-$Renderer-$RenderThread$coverage.log"
     Invoke-GodotFixture --path tests/godot res://vfx_intro.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 30000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

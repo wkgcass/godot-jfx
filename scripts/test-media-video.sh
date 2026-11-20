@@ -22,7 +22,7 @@ case "$RENDERER" in mobile|gl_compatibility) ;; *) echo "invalid renderer: $REND
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 VIDEO=$(./scripts/setup-env.py --sample-path "$SAMPLE")
 suffix=""
@@ -56,7 +56,7 @@ run_watchdog() {
 export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_MEDIA_FILE="$PWD/$VIDEO"
 export GODOT_JFX_MEDIA_CAPTURE="$PWD/artifacts/reference/media-video-$RENDERER$suffix.png"
-LOG="artifacts/logs/media-video-$RENDERER$suffix.log"
+LOG="agentdir/logs/media-video-$RENDERER$suffix.log"
 CODE=0
 run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://media_video.tscn \
     --rendering-method "$RENDERER" --render-thread safe || CODE=$?

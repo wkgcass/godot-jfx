@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [switch]$MissingScene, [switch]$Resize)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -14,7 +15,7 @@ try {
     $env:GODOT_JFX_SCENE_MISSING = if ($MissingScene) { '1' } else { '0' }
     $env:GODOT_JFX_SCENE_RESIZE = if ($Resize) { '1' } else { '0' }
     $suffix = if ($MissingScene) { '-missing' } elseif ($Resize) { '-resize' } else { '' }
-    $log = "artifacts/logs/scene-textures-$Renderer$suffix.log"
+    $log = "agentdir/logs/scene-textures-$Renderer$suffix.log"
     Invoke-GodotFixture --path tests/godot res://scene_textures.tscn --rendering-method $Renderer --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

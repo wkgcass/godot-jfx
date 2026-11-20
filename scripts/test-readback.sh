@@ -34,7 +34,7 @@ fi
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 EXPORTS="--add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED"
 EXPORTS="$EXPORTS --add-exports javafx.graphics/com.sun.prism=ALL-UNNAMED"
@@ -58,7 +58,7 @@ SUFFIX=""
 [ "$STRESS" -eq 1 ] && SUFFIX="$SUFFIX-stress"
 [ "$STOP" -eq 1 ] && SUFFIX="$SUFFIX-stop"
 [ "$RUNTIME" -eq 1 ] && SUFFIX="$SUFFIX-runtime"
-LOG="$PWD/artifacts/logs/readback-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="$PWD/agentdir/logs/readback-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 if [ "$RUNTIME" -eq 1 ]; then
     FIXTURE="$PWD/artifacts/runtime-readback"
     mkdir -p "$FIXTURE"

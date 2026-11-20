@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -10,7 +11,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Host lifetime probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
     $suffix = if ($Runtime) { '-runtime' } else { '' }
-    $log = Join-Path $root "artifacts/logs/host-lifetime-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path $root "agentdir/logs/host-lifetime-$Renderer-$RenderThread$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path $root 'artifacts/runtime-host-lifetime'
         New-Item -ItemType Directory -Force $fixture | Out-Null

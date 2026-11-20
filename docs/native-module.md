@@ -15,7 +15,7 @@ The external module is under `native/godot_modules/javafx`. Godot's official
 `custom_modules` SCons option compiles and registers it inside the engine.
 It uses neither GDExtension nor godot-cpp. M1 itself needs no Godot core patch;
 the current runtime also has targeted Windows window/IME and render-thread shutdown
-fixes in Godot core, recorded in progress.md.
+fixes in Godot core, recorded in the [implementation history](../agentdir/docs/progress.md).
 
 Build the source engine with this module (a separate stock build is not a
 prerequisite; do not run SCons concurrently in the same checkout):
@@ -147,7 +147,7 @@ Their viewport captures were inspected. This is a native primitive test, not Jav
 Stage integration or physical/OS screenshot acceptance by itself. The subsequent
 Glass-Godot migration routes ordinary secondary Stages through these independent
 native windows; the primary Stage uses the root window. See glass-godot.md and
-progress.md for the integration and lifecycle evidence.
+the [implementation history](../agentdir/docs/progress.md) for the integration and lifecycle evidence.
 
 ## OLE drag/drop delegate (2026-11-04)
 

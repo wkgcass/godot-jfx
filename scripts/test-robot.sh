@@ -23,7 +23,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
@@ -54,7 +54,7 @@ run_watchdog() {
 }
 
 export GODOT_JFX_JDK="$JDK"
-LOG="artifacts/logs/robot-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/robot-$RENDERER-$RENDER_THREAD.log"
 CODE=0
 run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://robot.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 10000 || CODE=$?

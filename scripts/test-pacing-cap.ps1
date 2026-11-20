@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile', [ValidateSet('cap','restore','override')][string]$Mode='cap')
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -7,13 +8,13 @@ $savedFallback=$env:GODOT_JFX_VSYNC_FALLBACK
 $savedMode=$env:GODOT_JFX_TEST_PACING_MODE
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
-    New-Item -ItemType Directory -Force artifacts/reference,artifacts/logs | Out-Null
+    New-Item -ItemType Directory -Force artifacts/reference,agentdir/logs | Out-Null
     & "$Jdk/bin/javac.exe" -d artifacts/reference tests/reference/PacingCapProbe.java
     if($LASTEXITCODE -ne 0){throw 'Pacing fixture compilation failed'}
     $env:GODOT_JFX_JDK=$Jdk
     $env:GODOT_JFX_VSYNC_FALLBACK='1'
     $env:GODOT_JFX_TEST_PACING_MODE=$Mode
-    $log="artifacts/logs/pacing-cap-$Renderer-$Mode.log"
+    $log="agentdir/logs/pacing-cap-$Renderer-$Mode.log"
     Invoke-GodotFixture --path tests/godot res://pacing_cap.tscn --rendering-method $Renderer *> $log
     $code=$LASTEXITCODE
     $output=Get-Content $log -Raw

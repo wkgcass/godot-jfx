@@ -5,6 +5,10 @@ scripts/vfx-build/.gradle/
 tests/library/shadow/.gradle/
 tests/library/shadow/build/
 artifacts/
+# Keep the historical Markdown linked from the project guides.
+/agentdir/**
+!/agentdir/docs/
+!/agentdir/docs/*.md
 tests/godot/.godot/
 __pycache__/
 *.obj

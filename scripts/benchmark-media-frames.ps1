@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d','safe')][string]$Backend='safe',[ValidateSet(1,2)][int]$Rate=1,[ValidateRange(0,20)][int]$Sample=0,[switch]$ClockSkew,[switch]$Native60,[switch]$NoVSync,[switch]$FramePhases,[switch]$Runtime)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -18,9 +19,12 @@ try {
     $env:GODOT_JFX_MEDIA_CLOCK=if($ClockSkew){'1'}else{'0'}
     $env:GODOT_JFX_MEDIA_FIXTURE=if($Native60){'1080p60'}else{'oracle30'}
     if($Native60){
-        $env:GODOT_JFX_MEDIA_FILE=Join-Path $root 'artifacts/reference/media-1080p60.mp4'
-        $fixture=Get-Content artifacts/reference/media-1080p60.json -Raw | ConvertFrom-Json
-        if($fixture.width -ne 1920 -or $fixture.height -ne 1080 -or $fixture.fps -ne 60 -or $fixture.frames -ne 960 -or $fixture.codec -ne 'H264' -or $fixture.sha256 -ne (Get-FileHash $env:GODOT_JFX_MEDIA_FILE -Algorithm SHA256).Hash -or $fixture.source_sha256 -ne (Get-FileHash tests/native/make_media_fixture.cpp -Algorithm SHA256).Hash){throw 'Regenerate and verify fixture using make-media-fixture.ps1'}
+        $env:GODOT_JFX_MEDIA_FILE=Join-Path $root 'agentdir/media/media-1080p60.mp4'
+        $manifest='agentdir/media/media-1080p60.json'
+        $prepareHint='Prepare the 1080p60 fixture using .\scripts\make-media-fixture.ps1'
+        if(!(Test-Path -LiteralPath $manifest -PathType Leaf) -or !(Test-Path -LiteralPath $env:GODOT_JFX_MEDIA_FILE -PathType Leaf)){throw $prepareHint}
+        $fixture=Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
+        if($fixture.width -ne 1920 -or $fixture.height -ne 1080 -or $fixture.fps -ne 60 -or $fixture.frames -ne 960 -or $fixture.codec -ne 'H264' -or $fixture.sha256 -ne (Get-FileHash $env:GODOT_JFX_MEDIA_FILE -Algorithm SHA256).Hash -or $fixture.source_sha256 -ne (Get-FileHash tests/native/make_media_fixture.cpp -Algorithm SHA256).Hash){throw $prepareHint}
     }else{
         $relative = & python "$PSScriptRoot/setup-env.py" --sample-path oracle
         if ($LASTEXITCODE) { throw "Invalid Oracle playback sample" }
@@ -37,7 +41,7 @@ try {
     if($NoVSync){$suffix+='-novsync'}
     if($FramePhases){$suffix+='-phases'}
     if($Runtime){$suffix+='-runtime'}
-    $log=Join-Path $root "artifacts/logs/media-frame-benchmark-$Backend$suffix.log"
+    $log=Join-Path $root "agentdir/logs/media-frame-benchmark-$Backend$suffix.log"
     if($Backend -eq 'd3d'){
         [string[]]$javaArgs=if($NoVSync){@('-Dprism.vsync=false')}else{@()}
         & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media --enable-native-access=javafx.graphics,javafx.media '-Dprism.order=d3d' @javaArgs -cp artifacts/reference MediaFrameBenchmark *> $log

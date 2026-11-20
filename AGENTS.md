@@ -4,7 +4,7 @@
 
 ## 先读哪里
 
-第一次进入项目先读 [README](README.md)、[架构](docs/architecture.md)、[当前验收状态](docs/acceptance-status.md)。选择验证命令时查 [TESTS.md](TESTS.md)。`docs/progress.md` 是历史记录，不能把其中旧的“未实现”直接当成当前 TODO。
+第一次进入项目先读 [README](README.md)、[架构](docs/architecture.md)、[当前验收状态](docs/acceptance-status.md)。选择验证命令时查 [TESTS.md](TESTS.md)。[历史工作记录](agentdir/docs/progress.md) 是历史记录，不能把其中旧的“未实现”直接当成当前 TODO。
 
 ## 目录与修改边界
 
@@ -12,12 +12,17 @@
 - `native/godot_modules/javafx/`：编译进 Godot 的宿主、窗口、输入、GPU 命令消费与资源管理。
 - `jfx/modules/javafx.graphics/`：Glass-Godot、Prism-Godot、GodotView、Shader 扩展；`javafx.media/`：Media 与 GPU 视频帧生命周期。
 - `scripts/`：构建、启动、测试和分析入口。`tests/godot/` 为宿主测试场景，`tests/reference/` 为 Java 观察器/对照，`tests/native/` 为 C++ 测试。
-- `.tools/`、`.gradle-cache/`、`artifacts/` 为本地工具、缓存和生成物。实际日志在 `artifacts/logs/`，截图与报告主要在 `artifacts/reference/`。
+- `.tools/` 存放本地工具，`.gradle-cache/` 存放 Gradle 缓存。
+- `artifacts/` 存放构建、运行和测试使用的输入与产物。Maven 模块暂存在 `artifacts/godot-library/`，Demo 打包到 `artifacts/vfx/`，本地生成的媒体夹具、测试截图和基准报告放在 `artifacts/reference/`。完整清理和 `--target test-projects` 会删除整个 `artifacts/reference/`；需留存的验收结果在清理前归档。Git 忽略整个目录。
+- `agentdir/media/` 存放跨次测试复用的音视频。初始化脚本下载并校验 Oracle 和 Lk 样本，测试通过 `setup-env.py --sample-path oracle|lk` 获取路径。Windows 的 `scripts/make-media-fixture.ps1` 在此生成 `media-1080p60.mp4` 和同名 JSON，供 `benchmark-media-frames.ps1 -Native60` 读取。Windows 和 macOS 音频播放及纯音频 churn 测试在此按需生成 WAV、MP3 和 AIFF，已有文件直接复用。
+- `agentdir/logs/` 存放本次构建、测试和 Demo 的运行日志。脚本在这里写日志，也从这里读取日志判断是否通过。
+- `agentdir/artifacts/` 归档一次性调查材料，例如临时探针、故障现场、修复前后的截图对照和旧验收日志。归档前先核对脚本的读写路径，把仍会复用的文件保留在原位。
+- `agentdir/docs/` 存放从现行文档拆出的历史实施、审查和验收记录。现行命令与限制保留在原文档，按需链接到归档。Git 默认忽略 `agentdir/` 下的内容，仅 `agentdir/docs/*.md` 可提交。
 - 保留用户已有修改；不要为通过测试修改 VFX 业务行为、禁用功能或放宽断言。修改协议时同时核对 Java 编码端、C++ 解码/资源校验端和实际消费者。
 
 ## 构建环境
 
-以下命令从仓库根目录在 PowerShell 执行。当前脚本默认从 `$env:JAVA_HOME` 获取 JDK 25（可用 `-Jdk` 覆盖），Visual Studio 2022 Community/MSVC 与 Windows SDK；不要用机器默认的旧 Java 代替。Python 可通过 `python` 调用；SCons 使用 `.tools/python/Scripts/python.exe`。Media 构建使用 `MSYS2_ROOT`（默认 `D:\msys64`）中的 make/cygpath/sh 和 UCRT64 GCC；JFX/辅助测试的 Visual Studio 路径通过 `VSINSTALLDIR` 配置，默认 `%ProgramFiles%\Microsoft Visual Studio\2022\Community`。
+以下 Windows 命令从仓库根目录用 PowerShell 7.4.1 或更高版本（`pwsh`）执行，推荐从 Microsoft Store 安装。当前脚本默认从 `$env:JAVA_HOME` 获取 JDK 25（可用 `-Jdk` 覆盖），Visual Studio 2022 Community/MSVC 与 Windows SDK；不要用机器默认的旧 Java 代替。Python 可通过 `python` 调用；SCons 使用 `.tools/python/Scripts/python.exe`。Media 构建使用 `MSYS2_ROOT`（默认 `D:\msys64`）中的 make/cygpath/sh 和 UCRT64 GCC；JFX/辅助测试的 Visual Studio 路径通过 `VSINSTALLDIR` 配置，默认 `%ProgramFiles%\Microsoft Visual Studio\2022\Community`。
 
 首次环境准备、依赖下载和路径覆盖参数见 [build-windows.md](docs/build-windows.md) 和 [build-macos.md](docs/build-macos.md)。运行 `python scripts/setup-env.py`（macOS 直接运行 `./scripts/setup-env.py`）初始化缺少的 Godot、JFX、VFX 子模块，并准备仓库 `.tools` 内的 Ant、Maven 和本平台所需工具，已有安装直接复用。JFX 脚本优先读取 `ANT_HOME`。不要把下面的增量构建命令当成完整工具安装步骤。构建脚本对环境变量的修改应限于当前进程并恢复。
 
@@ -116,8 +121,8 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 | [vfx-demo.md](docs/vfx-demo.md) | 原始 VFX Demo 的构建、导航、控件交互和截图验证 |
 | [frame-benchmark.md](docs/frame-benchmark.md) | 帧率、长帧、原生对照和性能诊断；计数器解释 |
 | [memory-validation.md](docs/memory-validation.md) | 长时间导航、进程/GPU/Java 内存采样及趋势解释 |
-| [review-open-items.md](docs/review-open-items.md) | 当前实现审查未闭环项、下一步及验证限制；不是新功能需求或完成证明 |
-| [progress.md](docs/progress.md) | 逆序历史工作记录；旧结论可能被上方新记录取代 |
+| [review-open-items.md](agentdir/docs/review-open-items.md) | 固定范围的历史审查、修复前后对照及当时的验证限制 |
+| [progress.md](agentdir/docs/progress.md) | 逆序历史工作记录；旧结论可能被上方新记录取代 |
 
 ## 修改代码后的文档检查
 
@@ -125,6 +130,8 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 
 每次修改代码后，都要检查相关文档是否需要同步更新，尤其是行为、接口、构建/运行命令、测试入口、验收结论和已知限制发生变化时。需要更新的文档应与代码一起修改，避免文档与实际实现不符。
 
+过时的文档优先删除。只有确有保留价值时，例如仍需追溯设计决策或核查历史验收证据，才迁移到 `agentdir/docs/`。若仅部分内容过时，按同一原则删除或归档相应段落，现行说明保留在原文档。删除或迁移时同步更新文档地图和相关引用。
+
 `docs/architecture.md` 必须使用初学者也能理解的方式书写，不能假定读者深入了解 JavaFX 或 Godot。先解释组件的用途和协作流程，再介绍实现细节；首次出现的专业术语应解释含义，必要时使用具体示例、流程图或对照表。
 
-交付前按需要执行 `git diff --check` 并更新相关说明。需要刷新完整变更/产物清单时执行 `.\scripts\write-delivery-inventory.ps1`，结果为 `artifacts/change-inventory.json`；清单不是测试通过证明。
+交付前按需要执行 `git diff --check` 并更新相关说明。

@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Msys=$(if ($env:MSYS2_ROOT) { $env:MSYS2_ROOT } else { 'D:\msys64' }), [switch]$Reuse)
 $ErrorActionPreference='Stop'

@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param(
     [ValidateSet('godot-editor', 'godot-library', 'jfx', 'jfx-media')]
@@ -11,7 +12,7 @@ param(
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot/native-output.ps1"
 $root = Split-Path $PSScriptRoot -Parent
-$logs = Join-Path $root 'artifacts/logs'
+$logs = Join-Path $root 'agentdir/logs'
 if ($Target -eq 'jfx-media' -and $Clean) { throw 'Use -Target jfx -Clean to clean the OpenJFX build, including Media.' }
 New-Item -ItemType Directory -Force $logs | Out-Null
 $action = if ($Clean) { 'Clean' } else { 'Build' }

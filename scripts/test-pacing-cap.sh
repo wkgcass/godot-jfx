@@ -20,7 +20,7 @@ case "$MODE" in cap|restore|override) ;; *) echo "invalid mode: $MODE" >&2; exit
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" -d artifacts/reference tests/reference/PacingCapProbe.java \
     || { echo "Pacing fixture compilation failed" >&2; exit 1; }
@@ -49,7 +49,7 @@ run_watchdog() {
 export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_VSYNC_FALLBACK="1"
 export GODOT_JFX_TEST_PACING_MODE="$MODE"
-LOG="artifacts/logs/pacing-cap-$RENDERER-$MODE.log"
+LOG="agentdir/logs/pacing-cap-$RENDERER-$MODE.log"
 CODE=0
 run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://pacing_cap.tscn \
     --rendering-method "$RENDERER" || CODE=$?

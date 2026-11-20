@@ -17,11 +17,11 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
-mkdir -p artifacts/logs
+mkdir -p agentdir/logs
 
 SUFFIX=""
 if [ "$CACHE_PRESSURE" -eq 1 ]; then SUFFIX="-cache-pressure"; fi
-LOG="artifacts/logs/mesh-transform-$RENDERER$SUFFIX.log"
+LOG="agentdir/logs/mesh-transform-$RENDERER$SUFFIX.log"
 
 # Frame limit prevents an unhandled GDScript error from hanging the test.
 # Exit zero alone is insufficient: an explicit PASS is required below.

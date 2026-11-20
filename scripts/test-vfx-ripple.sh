@@ -22,7 +22,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 [ -d artifacts/vfx/classes/java/main ] || { echo "VFX artifacts missing: artifacts/vfx" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 CLASSPATH="artifacts/vfx/classes/java/main:artifacts/vfx/classes/java/test:artifacts/vfx/dependencies/*"
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
@@ -54,7 +54,7 @@ run_watchdog() {
 export GODOT_JFX_JDK="$JDK"
 CASE_NAME="$RENDERER-$RENDER_THREAD"
 export GODOT_JFX_RIPPLE_OUTPUT="$PWD/artifacts/reference/vfx-ripple-$CASE_NAME"
-LOG="artifacts/logs/vfx-ripple-$CASE_NAME.log"
+LOG="agentdir/logs/vfx-ripple-$CASE_NAME.log"
 CODE=0
 run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://vfx_ripple.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?

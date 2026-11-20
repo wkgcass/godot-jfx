@@ -57,11 +57,8 @@ def install(runtime, maven):
     if runtime is None:
         runtime = ROOT / "artifacts/godot-library"
         if target == "win":
-            # Let Windows PowerShell load its own modules when launched from Python.
-            stage_env = env.copy()
-            stage_env.pop("PSMODULEPATH", None)
-            subprocess.run(["powershell.exe", "-NoProfile", "-File", ROOT / "scripts/stage-godot-library.ps1",
-                            "-Destination", runtime], cwd=ROOT, env=stage_env, check=True)
+            subprocess.run(["pwsh.exe", "-NoProfile", "-File", ROOT / "scripts/stage-godot-library.ps1",
+                            "-Destination", runtime], cwd=ROOT, env=env, check=True)
         else:
             if not env.get("JAVA_HOME"):
                 env["JAVA_HOME"] = str(ROOT / ".tools/jdk-25/Contents/Home")

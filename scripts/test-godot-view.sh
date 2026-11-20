@@ -25,7 +25,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 if [ "$TRANSFORM" -eq 1 ]; then
     "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
@@ -33,9 +33,9 @@ if [ "$TRANSFORM" -eq 1 ]; then
     CODE=0
     "$JDK/bin/java" -Dglass.platform=Mac --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
         --enable-native-access=javafx.graphics \
-        -cp artifacts/reference TransformClipReference >artifacts/logs/transform-clip-mac-native.log 2>&1 || CODE=$?
-    if [ "$CODE" -ne 0 ] || ! grep -q 'TRANSFORM_CLIP_REFERENCE_PASS' artifacts/logs/transform-clip-mac-native.log; then
-        echo "Native transform clip reference failed: artifacts/logs/transform-clip-mac-native.log" >&2
+        -cp artifacts/reference TransformClipReference >agentdir/logs/transform-clip-mac-native.log 2>&1 || CODE=$?
+    if [ "$CODE" -ne 0 ] || ! grep -q 'TRANSFORM_CLIP_REFERENCE_PASS' agentdir/logs/transform-clip-mac-native.log; then
+        echo "Native transform clip reference failed: agentdir/logs/transform-clip-mac-native.log" >&2
         exit 1
     fi
 fi
@@ -49,7 +49,7 @@ export GODOT_JFX_TEST_VIEW_TRANSFORM="$TRANSFORM"
 SUFFIX=""
 [ "$TRANSFORM" -eq 1 ] && SUFFIX="-transform"
 [ "$RUNTIME" -eq 1 ] && SUFFIX="$SUFFIX-runtime"
-LOG="$PWD/artifacts/logs/godot-view-$RENDERER$SUFFIX.log"
+LOG="$PWD/agentdir/logs/godot-view-$RENDERER$SUFFIX.log"
 if [ "$RUNTIME" -eq 1 ]; then
     FIXTURE="$PWD/artifacts/runtime-godot-view"
     mkdir -p "$FIXTURE"

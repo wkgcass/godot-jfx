@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('d3d','safe')][string]$Backend='safe', [switch]$Host120, [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile', [ValidateSet(0,60,120,240)][int]$MailboxFps=0, [switch]$Trace)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -25,7 +26,7 @@ try {
     if ($MailboxFps) { $suffix += "-mailbox$MailboxFps" }
     if ($Backend -ne 'd3d' -and $Renderer -ne 'mobile') { $suffix += "-$Renderer" }
     if ($Trace) { $suffix += '-trace' }
-    $log="artifacts/logs/vfx-frame-benchmark-$Backend$suffix.log"
+    $log="agentdir/logs/vfx-frame-benchmark-$Backend$suffix.log"
     if ($Backend -eq 'd3d') {
         & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing --enable-native-access=javafx.graphics,ALL-UNNAMED '-Dprism.order=d3d' -cp $classpath VfxFrameBenchmark *> $log
     } else {

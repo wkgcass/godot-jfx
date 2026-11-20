@@ -32,7 +32,7 @@ def prepare_submodules():
 
 def media_sample(name, *, download):
     filename, url, digest = SAMPLES[name]
-    sample = ROOT / "artifacts/reference" / filename
+    sample = ROOT / "agentdir/media" / filename
     if sample.is_file() and hashlib.sha256(sample.read_bytes()).hexdigest() == digest:
         if download:
             print(f"Reusing {sample}")
@@ -41,6 +41,16 @@ def media_sample(name, *, download):
         raise ValueError(f"Run scripts/setup-env.py to prepare {filename}")
 
     sample.parent.mkdir(parents=True, exist_ok=True)
+    legacy = ROOT / "artifacts/reference" / filename
+    try:
+        if hashlib.sha256(legacy.read_bytes()).hexdigest() == digest:
+            legacy.replace(sample)
+            print(f"Moved {filename} to {sample.parent}")
+            return sample
+    except FileNotFoundError:
+        # Another setup may have moved the legacy sample while we were checking it.
+        if sample.is_file() and hashlib.sha256(sample.read_bytes()).hexdigest() == digest:
+            return sample
     print(f"Downloading {sample.name}", flush=True)
     with TemporaryDirectory(dir=sample.parent) as temp:
         staged = Path(temp) / sample.name
@@ -186,11 +196,8 @@ def prepare_windows():
                     "0027fc24f947c48dbded13ada7d280be221eb651644e23a8a476f0f1f0a079dd",
                     ["build/native/bin/x64/D3D12Core.dll", "build/native/bin/x64/d3d12SDKLayers.dll"],
                     version_marker=("Microsoft.Direct3D.D3D12.nuspec", "<version>1.618.5</version>"))
-    # A Python child of PowerShell 7 can inherit incompatible Core module paths.
-    env = os.environ.copy()
-    env.pop("PSMODULEPATH", None)
-    subprocess.run(["powershell.exe", "-NoProfile", "-File", ROOT / "scripts/build-makedepend.ps1", "-Reuse"],
-                   env=env, check=True)
+    subprocess.run(["pwsh.exe", "-NoProfile", "-File", ROOT / "scripts/build-makedepend.ps1", "-Reuse"],
+                   check=True)
 
 
 def prepare_macos():
@@ -206,6 +213,11 @@ def main():
     windows = sys.platform == "win32" and platform.machine().lower() in ("amd64", "x86_64")
     if not windows and (sys.platform != "darwin" or platform.machine() != "arm64"):
         raise ValueError("Run setup on Windows x64 or macOS arm64")
+    if windows:
+        pwsh = shutil.which("pwsh.exe")
+        if not pwsh or subprocess.run([pwsh, "-NoProfile", "-Command",
+                                       "if ($PSVersionTable.PSVersion -lt '7.4.1') { exit 1 }"]).returncode:
+            raise ValueError("PowerShell 7.4.1 or later is required. Install PowerShell from the Microsoft Store and ensure pwsh is on PATH.")
     prepare_submodules()
     install_java_tools(windows)
     prepare_venv(windows)

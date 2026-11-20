@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [switch]$StopFromHost, [switch]$Encoded, [switch]$Textures, [switch]$PrismTextures, [switch]$ShaderStates, [switch]$PrismContext,
     [ValidateSet('gl_compatibility', 'mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread='safe')
@@ -19,10 +20,10 @@ if ($PrismTextures) { $suffix += '-prism-textures' }
 if ($ShaderStates) { if ($Textures -or $PrismTextures -or $Encoded -or $StopFromHost) { throw 'Shader probe is a separate mode.' }; $suffix += '-shaders' }
 if ($PrismContext) { if ($Textures -or $PrismTextures -or $Encoded -or $StopFromHost -or $ShaderStates) { throw 'Context probe is a separate mode.' }; $suffix += '-context' }
 if ($Renderer -ne 'gl_compatibility') { $suffix += "-$Renderer" }
-$log = Join-Path $root "artifacts/logs/m2-bridge$suffix.log"
+$log = Join-Path $root "agentdir/logs/m2-bridge$suffix.log"
 Push-Location $root
 try {
-    New-Item -ItemType Directory -Force artifacts/reference,artifacts/logs | Out-Null
+    New-Item -ItemType Directory -Force artifacts/reference,agentdir/logs | Out-Null
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.graphics --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.impl=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.godot=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.paint=ALL-UNNAMED --add-exports javafx.graphics/com.sun.javafx.geom=ALL-UNNAMED --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/BridgeProbe.java tests/reference/BridgeStopProbe.java tests/reference/RenderCommandsProbe.java tests/reference/TextureCommandsProbe.java tests/reference/PrismTextureProbe.java tests/reference/ShaderCommandsProbe.java tests/reference/PrismContextProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'BridgeProbe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk

@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param(
     [string]$Jdk = $env:JAVA_HOME,
@@ -17,7 +18,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Loading performance probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_PROFILE_COMMANDS = '1'
-    $log = "artifacts/logs/vfx-loading-perf-$Renderer-$RenderThread.log"
+    $log = "agentdir/logs/vfx-loading-perf-$Renderer-$RenderThread.log"
     Invoke-GodotFixture --path tests/godot res://vfx_loading_perf.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
     $code = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw

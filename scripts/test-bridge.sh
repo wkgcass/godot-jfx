@@ -46,7 +46,7 @@ SUFFIX=""
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.graphics \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
@@ -70,7 +70,7 @@ export GODOT_JFX_TEST_CONTEXT="$PRISM_CONTEXT"
 export GODOT_JFX_TEST_SHADER_STATES="$SHADER_STATES"
 export GODOT_JFX_TEST_PRISM_TEXTURES="$PRISM_TEXTURES"
 
-LOG="artifacts/logs/m2-bridge$SUFFIX.log"
+LOG="agentdir/logs/m2-bridge$SUFFIX.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://bridge.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?

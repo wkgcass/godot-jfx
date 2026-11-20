@@ -4,9 +4,9 @@ set -u
 cd "$(dirname "$0")/.."
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
-mkdir -p artifacts/logs
+mkdir -p agentdir/logs
 
-LOG="artifacts/logs/render-mode-rejection.log"
+LOG="agentdir/logs/render-mode-rejection.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --path tests/godot --script res://render_mode_rejection.gd \
     --rendering-method gl_compatibility --render-thread separate >"$LOG" 2>&1 || CODE=$?

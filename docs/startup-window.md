@@ -42,5 +42,5 @@ It samples visible Godot HWNDs every 20 ms to reject the initial validation
 window. This sampling cannot exclude visibility changes shorter than 20 ms;
 GPU readback also does not prove physical monitor presentation timing.
 No physical keyboard or mouse input is generated. Logs use
-`artifacts/logs/startup-<mode>-<renderer>-<thread>`; the logo readback is
+`agentdir/logs/startup-<mode>-<renderer>-<thread>`; the logo readback is
 `artifacts/reference/startup-logo.png`. Require `STARTUP_PASS` and no errors.

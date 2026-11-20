@@ -21,7 +21,7 @@ case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $REND
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.graphics \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
@@ -35,7 +35,7 @@ export GODOT_JFX_SCENE_MISSING="$MISSING"
 export GODOT_JFX_SCENE_RESIZE="$RESIZE"
 SUFFIX=""
 if [ "$MISSING" -eq 1 ]; then SUFFIX="-missing"; elif [ "$RESIZE" -eq 1 ]; then SUFFIX="-resize"; fi
-LOG="artifacts/logs/scene-textures-$RENDERER$SUFFIX.log"
+LOG="agentdir/logs/scene-textures-$RENDERER$SUFFIX.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://scene_textures.tscn \
     --rendering-method "$RENDERER" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?

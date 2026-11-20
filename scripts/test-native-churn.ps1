@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([ValidateSet('Idle','SubViewport','Window','JavaFXNativeWindow')][string]$Kind='Window',
       [ValidateSet('gl_compatibility','mobile')][string]$Renderer='gl_compatibility',
@@ -9,7 +10,7 @@ $savedKind=$env:GODOT_JFX_NATIVE_CHURN_KIND
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
     $env:GODOT_JFX_NATIVE_CHURN_KIND=$Kind
-    $log="artifacts/logs/native-churn-$Kind-$Renderer-$RenderThread.log"
+    $log="agentdir/logs/native-churn-$Kind-$Renderer-$RenderThread.log"
     Invoke-GodotFixture --path tests/godot res://native_churn.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 12000 *> $log
     $result=$LASTEXITCODE
     $output=Get-Content $log -Raw

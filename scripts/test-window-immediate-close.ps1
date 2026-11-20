@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([ValidateSet('gl_compatibility','mobile')][string]$Renderer='gl_compatibility',
       [ValidateSet('safe')][string]$RenderThread='safe', [switch]$Runtime)
@@ -7,7 +8,7 @@ $root=Split-Path $PSScriptRoot -Parent
 Push-Location $root
 try {
     $suffix=if($Runtime){'-runtime'}else{''}
-    $log=Join-Path $root "artifacts/logs/window-immediate-close-$Renderer-$RenderThread$suffix.log"
+    $log=Join-Path $root "agentdir/logs/window-immediate-close-$Renderer-$RenderThread$suffix.log"
     New-Item -ItemType Directory -Force (Split-Path $log) | Out-Null
     if($Runtime){
         $fixture=Join-Path $root 'artifacts/runtime-window-immediate-close'

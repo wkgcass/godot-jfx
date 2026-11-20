@@ -1,5 +1,8 @@
+#Requires -Version 7.4.1
 # Windows scene fixtures run inside the Java process using the published classifier.
 . "$PSScriptRoot/native-output.ps1"
+# The calling script may redirect output before the fixture starts.
+[void][IO.Directory]::CreateDirectory((Join-Path $PSScriptRoot "../agentdir/logs"))
 function Get-GodotJfxTestModulePath {
     $json = & python "$PSScriptRoot/maven_local.py" module-path --json
     if ($LASTEXITCODE) { throw 'Could not resolve the Maven Local test modules' }

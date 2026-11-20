@@ -1,9 +1,10 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([ValidateSet('gl_compatibility', 'mobile')][string]$Renderer = 'gl_compatibility')
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$log = Join-Path $root "artifacts/logs/godot-shaders-$Renderer.log"
+$log = Join-Path $root "agentdir/logs/godot-shaders-$Renderer.log"
 Push-Location $root
 try {
     $generated = Join-Path $root 'jfx/modules/javafx.graphics/build/gensrc'

@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.4.1
+[CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME,
     [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',
     [switch]$Runtime)
@@ -107,7 +108,7 @@ try {
     }).AddArgument($syncPath).AddArgument((Join-Path $root 'tests/reference/ClipboardSnapshot.cs'))
     $exchange=$clipShell.BeginInvoke(); $exchangePending=$true
     $suffix=if($Runtime){'-runtime'}else{''}
-    $log = Join-Path $root "artifacts/logs/clipboard-$Renderer$suffix.log"
+    $log = Join-Path $root "agentdir/logs/clipboard-$Renderer$suffix.log"
     if($Runtime){
         $fixture=Join-Path $root 'artifacts/runtime-clipboard'
         New-Item -ItemType Directory -Force $fixture | Out-Null

@@ -274,7 +274,7 @@ static void startup_contracts() {
     wc.lpszClassName = HELPER_CLASS;
     assert(RegisterClassW(&wc));
     wchar_t mode[]=L"target", zero[]=L"0", size[]=L"100";
-    wchar_t log[]=L"artifacts/native-tests/dnd-helper-startup.log";
+    wchar_t log[]=L"agentdir/logs/dnd-helper-startup.log";
     wchar_t name[]=L"helper";
     wchar_t *args[]={name,mode,zero,zero,size,size,log};
     // Registration fails before any window is created. Warm up OLE before

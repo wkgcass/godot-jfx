@@ -16,7 +16,7 @@ done
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.graphics \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
@@ -46,10 +46,10 @@ run_watchdog() {
 }
 
 export GODOT_JFX_JDK="$JDK"
-LOG="$PWD/artifacts/logs/m2-glass-window.log"
+LOG="$PWD/agentdir/logs/m2-glass-window.log"
 CODE=0
 if [ "$RUNTIME" -eq 1 ]; then
-    LOG="$PWD/artifacts/logs/m2-glass-window-runtime.log"
+    LOG="$PWD/agentdir/logs/m2-glass-window-runtime.log"
     FIXTURE="$PWD/artifacts/runtime-window"
     mkdir -p "$FIXTURE"
     cp tests/godot/window.tscn tests/godot/window_test.gd "$FIXTURE/"

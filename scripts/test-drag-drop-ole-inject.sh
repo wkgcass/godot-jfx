@@ -31,7 +31,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED \
@@ -39,7 +39,7 @@ mkdir -p artifacts/reference artifacts/logs
 
 SUFFIX=""
 [ "$TIMEOUT" = 1 ] && SUFFIX="-timeout"
-LOG="artifacts/logs/ole-inject-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/ole-inject-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 
 CODE=0
 (

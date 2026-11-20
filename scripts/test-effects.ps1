@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -8,12 +9,12 @@ Push-Location $root
 try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/EffectsProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Effects probe compilation failed' }
-    & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED '-Dprism.order=d3d' '-Deffects.reference=artifacts/reference/d3d-effects.png' -cp artifacts/reference EffectsProbe *> artifacts/logs/effects-d3d.log
-    if ($LASTEXITCODE -ne 0 -or (Get-Content artifacts/logs/effects-d3d.log -Raw) -notmatch 'EFFECTS_REFERENCE_PASS') { throw 'D3D effects reference failed' }
+    & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED '-Dprism.order=d3d' '-Deffects.reference=artifacts/reference/d3d-effects.png' -cp artifacts/reference EffectsProbe *> agentdir/logs/effects-d3d.log
+    if ($LASTEXITCODE -ne 0 -or (Get-Content agentdir/logs/effects-d3d.log -Raw) -notmatch 'EFFECTS_REFERENCE_PASS') { throw 'D3D effects reference failed' }
     $env:GODOT_JFX_JDK = $Jdk
     $suffix = ''
     if ($Runtime) { $suffix += '-runtime' }
-    $log = Join-Path $root "artifacts/logs/effects-$Renderer$suffix.log"
+    $log = Join-Path $root "agentdir/logs/effects-$Renderer$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path $root 'artifacts/runtime-effects'
         New-Item -ItemType Directory -Force $fixture | Out-Null

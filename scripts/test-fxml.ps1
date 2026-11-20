@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -11,7 +12,7 @@ try {
     Copy-Item tests/reference/fxml/* -Destination artifacts/reference/fxml -Force
     $env:GODOT_JFX_JDK = $Jdk
     $suffix = if ($Runtime) { '-runtime' } else { '' }
-    $log = Join-Path (Get-Location) "artifacts/logs/fxml-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path (Get-Location) "agentdir/logs/fxml-$Renderer-$RenderThread$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path (Get-Location) 'artifacts/runtime-fxml'
         New-Item -ItemType Directory -Force $fixture | Out-Null

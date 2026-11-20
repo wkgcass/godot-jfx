@@ -31,13 +31,11 @@ case "$SETTLE" in 0|30|60) ;; *) echo "invalid settle seconds: $SETTLE" >&2; exi
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 echo "Media churn backend: Java / Glass-Godot / Prism-Godot / $RENDERER"
 if [ "$AUDIO_ONLY" -eq 1 ]; then
-    VIDEO="artifacts/reference/media-churn-silence.wav"
-    python3 -c 'import wave,sys; w=wave.open(sys.argv[1],"wb"); w.setparams((1,2,44100,0,"NONE","not compressed")); w.writeframes(bytes(44100*2*2)); w.close()' "$PWD/$VIDEO" \
-        || { echo "PCM fixture generation failed" >&2; exit 1; }
+    VIDEO=$(./scripts/prepare-audio-fixtures.py churn)
 else
     VIDEO=$(./scripts/setup-env.py --sample-path oracle)
 fi
@@ -53,7 +51,7 @@ SUFFIX=""
 [ "$AUDIO_ONLY" -eq 1 ] && SUFFIX="$SUFFIX-pcm"
 SUFFIX="$SUFFIX-cycles$CYCLES-process"
 [ "$SETTLE" -gt 0 ] && SUFFIX="$SUFFIX-idle${SETTLE}s"
-LOG="artifacts/logs/media-churn-$RENDERER$SUFFIX.log"
+LOG="agentdir/logs/media-churn-$RENDERER$SUFFIX.log"
 
 run_watchdog() {
     wlog="$1"; limit="$2"; shift 2

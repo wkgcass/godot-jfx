@@ -5,7 +5,7 @@ and `gl_compatibility`; native JavaFX/D3D runs are explicit comparisons. No
 performance environment variables are required for the Demo or ordinary tests.
 Run GUI measurements serially with the test window focused, without concurrent
 builds or GPU-heavy work. Historical RD/separate measurements are in
-[progress.md](progress.md) and Git history, not available backend choices.
+[progress.md](../agentdir/docs/progress.md) and Git history, not available backend choices.
 
 ## Entry points
 
@@ -29,7 +29,7 @@ For a frame trace:
 
 ```powershell
 ./scripts/benchmark-vfx-frames.ps1 -Trace
-python scripts/analyze-frame-trace.py artifacts/logs/vfx-frame-benchmark-safe-trace.log
+python scripts/analyze-frame-trace.py agentdir/logs/vfx-frame-benchmark-safe-trace.log
 ```
 
 The analyzer requires completed Java/host records and produces `.analysis.json`
@@ -63,7 +63,7 @@ The menu profile runs five five-second phases: closed idle, initial opening,
 open-menu ripples, closed-menu ripples and repeated opening/closing. Ripples
 spawn every 0.5 seconds; the final phase toggles the menu every 0.7 seconds
 with ripples off. `MENU_PERF` reports pulse rate, p95/max gaps and focus loss.
-Current logs are `artifacts/logs/vfx-menu-<renderer>-safe-<default|full>.log`.
+Current logs are `agentdir/logs/vfx-menu-<renderer>-safe-<default|full>.log`.
 
 Small patches update only dirty rectangles of unreferenced GPU textures.
 Referenced textures receive a new immutable revision. Packed pixels are uploaded
@@ -89,7 +89,7 @@ logs `LOADING_STATS` counters; require `VFX_LOADING_PERF_PASS` and
 at display cadence; previously each animating native window held the shared
 frame queue until its own post-draw composition, capping all windows near
 20 pulses/s. The fixture fires synthetic events only. Timing is diagnostic,
-not a fixed FPS acceptance threshold. Log: `artifacts/logs/vfx-loading-perf-mobile-safe.log`.
+not a fixed FPS acceptance threshold. Log: `agentdir/logs/vfx-loading-perf-mobile-safe.log`.
 
 ## Optional diagnostics
 
@@ -102,12 +102,7 @@ batch boundary); GPU resource ordering remains the renderer's responsibility.
 
 `GODOT_JFX_GPU_TIMING=1` enables optional target/window measurements in the relevant
 fixtures. The default 256 timestamp slots can overflow with many effect passes.
-The 2026-11-13 diagnostic table/transition rerun used a temporary project override
-of 8192, then removed it; ordinary project settings were unchanged. All 68
-transitions passed, with 1691 window samples averaging about 512 us. Offscreen
-samples still remained zero on the direct path. Logs are
-`vfx-table-scroll-mobile-safe.log` and `vfx-transition-mobile-safe.log`; the initial
-capacity failure is preserved in `artifacts/dead-code-audit/table-default-timestamp-limit.log`.
+[Historical verification](../agentdir/docs/frame-benchmark.md) records the diagnostic rerun with a larger timestamp pool.
 Do not disable error checks or treat the failure run as a passing benchmark.
 
 `GODOT_JFX_STACK_SAMPLE=<positive milliseconds>` enables bounded Java stack

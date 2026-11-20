@@ -1,10 +1,11 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param()
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
-    $log = 'artifacts/logs/render-mode-rejection.log'
+    $log = 'agentdir/logs/render-mode-rejection.log'
     Invoke-GodotFixture --path tests/godot --script res://render_mode_rejection.gd --rendering-method gl_compatibility --render-thread separate *> $log
     $code = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw

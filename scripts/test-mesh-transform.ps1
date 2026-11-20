@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param(
     [ValidateSet('gl_compatibility', 'mobile')]
@@ -10,8 +11,8 @@ $savedPressure=$env:GODOT_JFX_MESH_CACHE_PRESSURE
 $savedMeshCache=$env:GODOT_JFX_MESH_CACHE
 $root = Split-Path $PSScriptRoot -Parent
 $suffix=if($CachePressure){'-cache-pressure'}else{''}
-$log = Join-Path $root "artifacts/logs/mesh-transform-$Renderer$suffix.log"
-New-Item -ItemType Directory -Force (Join-Path $root 'artifacts/logs') | Out-Null
+$log = Join-Path $root "agentdir/logs/mesh-transform-$Renderer$suffix.log"
+New-Item -ItemType Directory -Force (Join-Path $root 'agentdir/logs') | Out-Null
 Push-Location $root
 try {
     $env:GODOT_JFX_MESH_CACHE_PRESSURE=if($CachePressure){'1'}else{'0'}

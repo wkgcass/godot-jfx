@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [switch]$StopHost)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -19,11 +20,11 @@ try {
     $env:GODOT_JFX_DIALOG_TOKEN = 'JFX-' + [guid]::NewGuid().ToString('N')
     Add-Type -Path (Join-Path $root 'tests/reference/FileDialogDriver.cs')
     $env:GODOT_JFX_DIALOG_STOP=if($StopHost){'1'}else{'0'}
-    $readyPath=Join-Path $root ("artifacts/logs/"+$env:GODOT_JFX_DIALOG_TOKEN+'.ready')
+    $readyPath=Join-Path $root ("agentdir/logs/"+$env:GODOT_JFX_DIALOG_TOKEN+'.ready')
     $env:GODOT_JFX_DIALOG_READY=$readyPath
     $driver = [FileDialogDriver]::Start($env:GODOT_JFX_DIALOG_TOKEN,$cancel.Token,[bool]$StopHost,$env:GODOT_JFX_DIALOG_READY)
     $suffix=$(if($Runtime){'-runtime'}else{''})+$(if($StopHost){'-stop'}else{''})
-    $log = Join-Path $root "artifacts/logs/file-dialog-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path $root "agentdir/logs/file-dialog-$Renderer-$RenderThread$suffix.log"
     if($Runtime) {
         $fixture=Join-Path $root 'artifacts/runtime-file-dialog'
         New-Item -ItemType Directory -Force $fixture | Out-Null

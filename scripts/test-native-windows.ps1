@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe')
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -5,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 Push-Location $root
 try {
-    $log = "artifacts/logs/native-windows-$Renderer-$RenderThread.log"
+    $log = "agentdir/logs/native-windows-$Renderer-$RenderThread.log"
     Invoke-GodotFixture --path tests/godot res://native_windows.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$BatchBoundary, [switch]$ViewportState)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -15,13 +16,13 @@ try {
     if ($BatchBoundary -and $ViewportState) { throw 'Choose one fixture mode' }
     $env:GODOT_JFX_TEST_VIEWPORT_STATE = if($ViewportState){'1'}else{'0'}
     if($ViewportState){$env:GODOT_JFX_INSTANCE_UNIFORMS='1'}
-    New-Item -ItemType Directory -Force artifacts/reference,artifacts/logs | Out-Null
+    New-Item -ItemType Directory -Force artifacts/reference,agentdir/logs | Out-Null
     $env:GODOT_JFX_TEST_BATCH_BOUNDARY = if($BatchBoundary){'1'}else{'0'}
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.godot=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.ps=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/QueuedTextureUpdateProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Queued texture update probe compilation failed' }
     if($BatchBoundary){$env:JAVA_TOOL_OPTIONS="$savedJvm --add-opens=javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED"}
     $env:GODOT_JFX_JDK = $Jdk
-    $log = "artifacts/logs/queued-texture-update-$Renderer-$RenderThread$(if($BatchBoundary){'-boundary'})$(if($ViewportState){'-viewport-state'}).log"
+    $log = "agentdir/logs/queued-texture-update-$Renderer-$RenderThread$(if($BatchBoundary){'-boundary'})$(if($ViewportState){'-viewport-state'}).log"
     Invoke-GodotFixture --path tests/godot res://queued_texture_update.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 10000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

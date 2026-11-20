@@ -422,7 +422,7 @@ four premultiplied channels with a tolerance of two 8-bit levels. GL/safe and
 Vulkan/separate pass. The adjacent SRC edge row is transparent with AA on and
 retains red with AA off in both D3D and Godot. Raw results are saved under
 `artifacts/reference/composite-edges-*.txt`, with comparison logs under
-`artifacts/logs/composite-edges-*`. These small rectangles do not cover every
+`agentdir/logs/composite-edges-*`. These small rectangles do not cover every
 shape, transform or effect shader.
 
 ## LCD text: destination sampling through the renderer backbuffer

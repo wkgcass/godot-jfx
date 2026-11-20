@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param(
     [string]$Jdk = $env:JAVA_HOME,
@@ -20,7 +21,7 @@ try {
     $env:GODOT_JFX_REGION_UPLOAD = if ($FullUploads) { '0' } else { $null }
     $env:GODOT_JFX_PROFILE_COMMANDS = '1'
     $mode = if ($FullUploads) { 'full' } else { 'default' }
-    $log = "artifacts/logs/vfx-menu-$Renderer-$RenderThread-$mode.log"
+    $log = "agentdir/logs/vfx-menu-$Renderer-$RenderThread-$mode.log"
     Invoke-GodotFixture --path tests/godot res://vfx_menu_performance.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
     $code = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw

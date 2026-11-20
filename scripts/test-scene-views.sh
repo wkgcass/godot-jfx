@@ -15,9 +15,9 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
-mkdir -p artifacts/logs artifacts/reference
+mkdir -p agentdir/logs artifacts/reference
 
-LOG="artifacts/logs/scene-views-$RENDERER.log"
+LOG="agentdir/logs/scene-views-$RENDERER.log"
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://scene_views.tscn \
     --rendering-method "$RENDERER" --quit-after 3000 > "$LOG" 2>&1
 CODE=$?

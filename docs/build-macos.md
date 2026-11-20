@@ -12,7 +12,7 @@ new virtual environment, make Python 3.13 available on PATH before running setup
 installed components on subsequent runs. Install Xcode and its Metal toolchain
 separately.
 
-Setup downloads `media-oracle-sample.mp4` and `Lk.mp4` into `artifacts/reference/`.
+Setup downloads `media-oracle-sample.mp4` and `Lk.mp4` into `agentdir/media/`.
 It reuses each video when its SHA-256 matches and downloads a replacement if needed.
 Use `./scripts/setup-env.py --sample-path oracle` (or `lk`) to verify an installed sample and print its path.
 
@@ -61,7 +61,7 @@ use those JARs. To reuse artifacts already staged by `build-vfx.sh`, pass `--run
 
 ```sh
 java -jar artifacts/vfx/libs/vfx-demo.jar               # preferred interactive launch
-scripts/run-vfx-demo.sh                                  # same JAR, logs to artifacts/logs
+scripts/run-vfx-demo.sh                                  # same JAR, logs to agentdir/logs
 scripts/run-vfx-demo.sh --smoke                          # bounded startup/close check
 scripts/run-vfx-demo.sh --renderer gl_compatibility      # OpenGL 4.1
 scripts/run-vfx-demo.sh --disable-vsync --max-fps 60     # CPU pacing instead of swapchain vsync
@@ -88,7 +88,7 @@ Windows-only entries that do not apply.
   criteria are unchanged.
 - A few runner modes are not ported and the scripts reject them explicitly
   (exit 2), for example Media `--runtime`/`--native-d3d`/`--handle-types`/
-  `--providers`. `make-media-fixture.ps1` (the 1080p60 benchmark fixture) is
+  `--providers`. The 1080p60 benchmark fixture generator is
   Windows-only.
 - macOS has no per-window icon (the Dock icon belongs to NSApplication) and
   no Windows-style touch keyboard; the host reports both explicitly instead
@@ -97,4 +97,4 @@ Windows-only entries that do not apply.
   distribution tests, then `--group Robot` on an idle desktop with Accessibility
   and Screen Recording permission. Both default to Metal and OpenGL. Use
   `--list` to inspect the commands. Each invocation writes its own CSV and logs
-  beneath `artifacts/logs`.
+  beneath `agentdir/logs`.

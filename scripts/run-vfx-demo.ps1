@@ -1,11 +1,12 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[ValidateSet('safe')][string]$RenderThread='safe',[switch]$Smoke,[switch]$NoGodotLogo,[switch]$DisableVsync,[ValidateRange(0,1000)][int]$MaxFps=0)
 $ErrorActionPreference='Stop'
 . "$PSScriptRoot/native-output.ps1"
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
-    $log="artifacts/logs/vfx-demo-$Renderer-$RenderThread.log"
-    New-Item -ItemType Directory -Force artifacts/logs | Out-Null
+    $log="agentdir/logs/vfx-demo-$Renderer-$RenderThread.log"
+    New-Item -ItemType Directory -Force agentdir/logs | Out-Null
     $jar='artifacts/vfx/libs/vfx-demo.jar'
     if (!(Test-Path -LiteralPath $jar -PathType Leaf)) { throw "Missing $jar. Run scripts/build-vfx.ps1 first." }
     $program=Join-Path $Jdk 'bin/java.exe'

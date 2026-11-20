@@ -25,7 +25,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs artifacts/native-tests
+mkdir -p artifacts/reference agentdir/logs artifacts/native-tests
 
 HELPER="artifacts/native-tests/macos-window-titles"
 if [ ! -x "$HELPER" ] || [ scripts/macos-window-titles.m -nt "$HELPER" ]; then
@@ -40,7 +40,7 @@ now_ms() { python3 -c 'import time; print(int(time.time() * 1000))'; }
 
 run_case() {
     case_name="$1" mode="$2" cancel="$3"
-    prefix="artifacts/logs/startup-$case_name-$RENDERER-$RENDER_THREAD"
+    prefix="agentdir/logs/startup-$case_name-$RENDERER-$RENDER_THREAD"
     GODOT_JFX_JDK="$JDK" GODOT_JFX_STARTUP="$mode" GODOT_JFX_STARTUP_CANCEL="$cancel" \
         python3 "$FIXTURE_LAUNCHER" --path tests/godot res://startup.tscn \
         --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" >"$prefix.log" 2>&1 &

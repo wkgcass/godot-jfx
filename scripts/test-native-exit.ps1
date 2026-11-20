@@ -1,10 +1,11 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe')
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
-    $log = "artifacts/logs/native-exit-$Renderer-$RenderThread.log"
+    $log = "agentdir/logs/native-exit-$Renderer-$RenderThread.log"
     Invoke-GodotFixture --path tests/godot res://native_exit.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 1500 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

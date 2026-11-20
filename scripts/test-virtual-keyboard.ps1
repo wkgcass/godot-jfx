@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [switch]$Robot, [switch]$CompileOnly)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -7,10 +8,10 @@ if (!$CompileOnly -and !$Robot) {
 }
 $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
-$log = Join-Path $root 'artifacts/logs/virtual-keyboard.log'
+$log = Join-Path $root 'agentdir/logs/virtual-keyboard.log'
 Push-Location $root
 try {
-    New-Item -ItemType Directory -Force artifacts/reference,artifacts/logs | Out-Null
+    New-Item -ItemType Directory -Force artifacts/reference,agentdir/logs | Out-Null
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.graphics --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED --add-exports javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/VirtualKeyboardProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'VirtualKeyboardProbe compilation failed' }
     if ($CompileOnly) { Write-Output 'VirtualKeyboardProbe compilation passed; system keyboard not requested'; return }

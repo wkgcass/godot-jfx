@@ -8,7 +8,7 @@ if [ ! -x "$JDK/bin/javac" ]; then
 fi
 patch='artifacts/reference/lcd-shader-format-patch'
 resource='com/sun/prism/godot/shaders'
-mkdir -p "$patch/$resource" artifacts/logs artifacts/reference
+mkdir -p "$patch/$resource" agentdir/logs artifacts/reference
 for name in Solid_TextureSecondPassLCD Solid_TextureSecondPassLCD_AlphaTest; do
     stock="jfx/build/modular-sdk/modules/javafx.graphics/$resource/$name.gdshader"
     if ! grep -q 'uniform sampler2D dstColor;' "$stock"; then
@@ -31,7 +31,7 @@ for mode in 0 1; do
                 expect='reject'
             fi
         fi
-        log="artifacts/logs/lcd-shader-load-$mode-$altered.log"
+        log="agentdir/logs/lcd-shader-load-$mode-$altered.log"
         # shellcheck disable=SC2086
         "$JDK/bin/java" $module_args $extra -cp artifacts/reference LcdShaderLoadProbe $expect > "$log" 2>&1 || {
             echo "LCD shader loading failed: $log" >&2

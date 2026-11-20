@@ -77,7 +77,7 @@ def main():
     if sys.platform != "darwin":
         parser.error("macOS is required")
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    output = args.results or ROOT / "artifacts/logs" / f"macos-{args.group}-{stamp}"
+    output = args.results or ROOT / "agentdir/logs" / f"macos-{args.group}-{stamp}"
     output.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env.setdefault("JAVA_HOME", str(ROOT / ".tools/jdk-25/Contents/Home"))

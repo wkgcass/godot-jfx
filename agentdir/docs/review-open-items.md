@@ -1,33 +1,33 @@
 # 实现审查状态与验证限制
 
-文中的 `artifacts/review-*.json`、修复前的探针和故障截图保存在当时的审查工作区。新检出可直接阅读下文的审查结论；核查原件需要取得对应归档。当前版本的复测入口见 [测试指南](../TESTS.md)。
+文中的 `agentdir/artifacts/review-*.json`、修复前的探针和故障截图保存在当时的审查工作区。新检出可直接阅读下文的审查结论；核查原件需要取得对应归档。当前版本的复测入口见 [测试指南](../../TESTS.md)。
 
 > Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
 > safe. Custom RD-direct and separate-thread host support have been removed.
 > Dated RD/separate measurements below are historical evidence, not runnable
-> configurations or acceptance of the current build. See [tests](../TESTS.md)
+> configurations or acceptance of the current build. See [tests](../../TESTS.md)
 > for current commands.
 
 
 ## 当前入口
 
-2026-11-13 已完成 Viewport＋safe 收敛和残留代码审计。当前证据、测量限制与兼容性缺口见 [acceptance-status.md](acceptance-status.md)，当前测试命令见 [TESTS.md](../TESTS.md)。
+2026-11-13 已完成 Viewport＋safe 收敛和残留代码审计。当前证据、测量限制与兼容性缺口见 [acceptance-status.md](../../docs/acceptance-status.md)，当前测试命令见 [TESTS.md](../../TESTS.md)。
 
 下文保留 **2026-11-11 及以前** 的固定范围审查记录。其中 RD/separate 路径、旧脚本、源码数量和“当前”均指当时构建，不是当前配置或待办；旧哈希清单也不对应之后的清理提交。
 
 ## 2026-11-11 固定范围收尾记录
 
-本次固定实现审查已完成：原始 156/156、累计补充 52/52。所有当前修改都登记到源码审查或关联修复中；交付清单与完整完成核对位于 artifacts/review-completion-audit.json。
+本次固定实现审查已完成：原始 156/156、累计补充 52/52。所有当前修改都登记到源码审查或关联修复中；交付清单与完整完成核对位于 agentdir/artifacts/review-completion-audit.json。
 
 共享缓存修复后六轮导航、清理及生命周期测试通过；目标数第 3–6 轮保持 232，最后两轮首页纹理内存相同，静态内存约 240.6→241.2 MiB。材质等有界缓存仍少量填充，进程内存也不是严格常数；这是有限工作负载的预热趋缓证据，不是无限时长无泄漏保证。详见 memory-validation.md。
 
 本次收尾另修复 LCD 截图写入失败未检查及 IME/InputCancel 探针中断退出路径。
 LCD 正常对照与隔离写入失败、两个探针宿主回归及隔离中断退出检查均通过；
-累计入口复核和新运行证据见 `artifacts/review-cumulative-closeout.json`。
+累计入口复核和新运行证据见 `agentdir/artifacts/review-cumulative-closeout.json`。
 
 2026-11-11 共享缓存构建 mobile/safe 的 68 次切页：RD1/LCD1 为
 59.662 Pulse FPS / 56.786 宿主合成 FPS；RD0/LCD1 为 58.604 / 55.741。
-两者失焦 0、资源清理通过；独立复算/哈希见 `artifacts/review-shared-mesh-performance.json`，
+两者失焦 0、资源清理通过；独立复算/哈希见 `agentdir/artifacts/review-shared-mesh-performance.json`，
 日志为 `review-shared-mesh-transition-rd0.log` / `-rd1.log`。不是所有页面稳定 60 或物理扫描帧率。
 此前 58.742/56.543、59.386/56.668 等保留为历史测量。
 
@@ -49,13 +49,13 @@ LCD 正常对照与隔离写入失败、两个探针宿主回归及隔离中断�
 **当前输入测试授权：2026-11-10 用户重新明确允许 Robot 及其他测试。本轮真实输入测试串行运行；下文较早的停止记录保留为历史，不代表本轮仍被禁止。后续若用户再次要求停止，应立即停止。**
 
 历史修复及运行记录见
-[progress.md](progress.md)，验证范围见 [acceptance-status.md](acceptance-status.md)。
+[progress.md](progress.md)，验证范围见 [acceptance-status.md](../../docs/acceptance-status.md)。
 
 早期系统接口补测：剪贴板快照曾因 Chromium 私有格式拒绝测试写入；此后的完整
 互操作及恢复曾通过；后续完整复验再次被私有格式保护拒绝，最新范围以上表为准，未绕过保护。虚拟键盘调用、tick 推进和探针清理通过，但系统
 关闭请求返回拒绝访问（HRESULT -2147024891），不算显示/关闭验收通过。
 包装脚本现在会直接显示原生警告并标明 PASS 范围。日志为
-`artifacts/logs/review-final-clipboard.log`、`review-final-virtual-keyboard.log`
+`agentdir/artifacts/logs/review-final-clipboard.log`、`review-final-virtual-keyboard.log`
 及 `virtual-keyboard.log`。原来的仅编译记录是历史状态。
 
 ## 已验证：真实 Demo 悬停测试（2026-11-10）
@@ -67,8 +67,8 @@ LCD 正常对照与隔离写入失败、两个探针宿主回归及隔离中断�
 左侧仍为红色 (1,0,0,1)，期望蓝色 (0,0,1,1)，右侧绿色保持正确。修正后的
 pre-draw/post-draw 顺序在相同注入下完成全部 305 轮。日志为
 `review-shader-queued-notice-old.log`、`review-shader-queued-notice-fresh.log`，
-失败图为 `artifacts/reference/shader-cache-failure-3460-cycle-275.png`。
-对照源码保存在 `artifacts/native-tests/shader-notification-repro/`。
+失败图为 `agentdir/artifacts/reference/shader-cache-failure-3460-cycle-275.png`。
+对照源码保存在 `agentdir/artifacts/native-tests/shader-notification-repro/`。
 
 这将此前“通知计数不保证新绘制”的证据推进到真实像素误判；仍不具备原始偶发
 失败的像素证据，不能断言两个事件完全同因。新增 `-QueuedNotifications` 显式
@@ -77,15 +77,15 @@ pre-draw/post-draw 顺序在相同注入下完成全部 305 轮。日志为
 ### separate 像素异常的有界复现（2026-11-11）
 
 新增六次串行 mobile/separate shader-cache 运行全部通过，日志为
-`artifacts/logs/review-pixel-repro-1-full.log` 至 `review-pixel-repro-6-full.log`。
+`agentdir/artifacts/logs/review-pixel-repro-1-full.log` 至 `review-pixel-repro-6-full.log`。
 保留相同像素断言、等待方式及失败截图逻辑，没有新增重试或放宽阈值。
 源码检查确认 separate 模式的 `frame_post_draw` 经延迟调用送回主线程，
 因此通知送达与当前测试命令完成不是同一概念。
 
 随后独立探针实际制造了积压通知：等待三次 post-draw 前后提交计数均为 9，
 证明原等待方式不能保证新的绘制。改为每轮先等 pre-draw 再等 post-draw 后，
-计数从 9 增至 13，见 `artifacts/logs/review-post-draw-notification-probe.log`；
-探针源码保存在 `artifacts/native-tests/post-draw-notification-probe/probe.gd`。
+计数从 9 增至 13，见 `agentdir/artifacts/logs/review-post-draw-notification-probe.log`；
+探针源码保存在 `agentdir/artifacts/native-tests/post-draw-notification-probe/probe.gd`。
 压力夹具据此修正等待边界，仍为三轮、相同像素阈值，不加入失败重试。
 这证明并修复测试同步缺口，但尚不能证明第 275 轮历史异常由它引起，
 也不意味着生产渲染路径已排除问题。
@@ -156,7 +156,7 @@ mobile/separate 的开关 0、1 都通过；GL/separate 的开关 0 也通过，
 引擎的 mobile/safe 完整 shader-cache 通过；mobile/separate 首次碰撞专项通过，
 但后续旧压力段第 275 轮像素失败。增加实际像素诊断后重跑完整通过，故保留此
 一次失败为待定位的间歇现象，不能以第二次通过宣称根因已修复，也不放宽断言。
-日志位于 `artifacts/logs/review-material-collision-before-full.log`、
+日志位于 `agentdir/artifacts/logs/review-material-collision-before-full.log`、
 `review-material-collision-safe-full.log`、`review-material-collision-separate-failure.log`
 和 `review-material-collision-separate-diagnostic-full.log`。
 
@@ -195,7 +195,7 @@ GL/safe 完整检查也通过；引擎构建成功。修复后 Viewport mobile/s
 shader 与 mesh-transform -CachePressure 像素回归通过。未将此宣称为无限期
 无泄漏或删除后访问的 ASan 动态覆盖。
 
-证据均在 `artifacts/logs/`：`review-final-media-churn-runtime-full.log`（修复前）、
+证据均在 `agentdir/artifacts/logs/`：`review-final-media-churn-runtime-full.log`（修复前）、
 `review-media-churn-cache-diagnostic-full.log`（关闭缓存对照）、
 `review-material-retirement-churn-full.log`（正常缓存修复后），以及同前缀构建、
 shader、mesh 日志。视频控制和 WAV/MP3/AIFF 的最终 SDK/Runtime 组合也已通过；
@@ -205,7 +205,7 @@ shader、mesh 日志。视频控制和 WAV/MP3/AIFF 的最终 SDK/Runtime 组合
 OLE 拖放、hover-flicker -Robot、physical-drag -Robot、六用例文件对话框；
 mobile/safe Runtime 的 Robot 与外部 OLE 拖放。当前表格水平 Robot 回归也通过，
 96 Pulse、60.004 FPS、867px 位移且未失焦，补上此前受用户操作干扰的这一次验证。
-日志见 `artifacts/logs/review-final-*.log` 及对应脚本的标准日志。
+日志见 `agentdir/artifacts/logs/review-final-*.log` 及对应脚本的标准日志。
 
 最终 RD 切页测量不再受旧拒绝记录阻塞：显式 RD_DIRECT=1、LCD_SCREEN=1，
 mobile/safe，68 次切页，59.006 Pulse FPS、55.946 宿主呈现 FPS，未失焦，
@@ -221,7 +221,7 @@ mobile/safe，68 次切页，59.006 Pulse FPS、55.946 宿主呈现 FPS，未失
 `hover_demo.gd` 已使用当前缩放并要求八轮均有稳定样本；沿用原诊断阈值 0.30，
 跳过每轮前 31 帧，稳定期亮/暗错误比例不得超过 5%。当前 mobile/safe 真实运行通过：
 八轮 enters=8、flickers=0，稳定期 hold=861、gap=511，亮暗检查全部符合。
-日志 artifacts/logs/hover-demo-mobile-safe.log；此为指定页面/配置的有界验证。
+日志 agentdir/logs/hover-demo-mobile-safe.log；此为指定页面/配置的有界验证。
 
 - `test-hover-demo.ps1 -CompileOnly`、GDScript 和 PowerShell 解析检查通过。
 - 用户已于 2026-11-10 授权后续真实键鼠 Robot 测试；`test-hover-demo.ps1 -Robot` 已通过。
@@ -307,7 +307,7 @@ resize_cursor、virtual_keyboard_test、window_drag 十个原始 GDScript，逐�
 本轮没有重跑物理输入或剪贴板交换。
 
 原始 19 个 `.tscn` 本次逐一核对：均为单节点、单 Script 引用，ExtResource ID
-实际绑定且目标文件存在。完整路径对应见 `artifacts/review-original-scenes.json`。
+实际绑定且目标文件存在。完整路径对应见 `agentdir/artifacts/review-original-scenes.json`。
 这是场景绑定检查，不执行脚本主体。下表把先前使用功能名记录的夹具补齐到路径：
 
 | 原始夹具（相对 `tests/`） | 对应源码检查/已有证据 |
@@ -322,7 +322,7 @@ resize_cursor、virtual_keyboard_test、window_drag 十个原始 GDScript，逐�
 | `godot/virtual_keyboard_test.gd`、`virtual_keyboard.tscn` | “虚拟键盘探针的超时与活跃判定”；本次再次核对 30 秒宿主期限及退出资源归零。近期只编译 Java/运行模拟 COM，未重新验收系统键盘可见性 |
 | `native/frame_protocol_test.cpp` | “根仓库原始协议变更：几何事务”和“GodotBridge 原始接口与 JNI 对应”；最近组件构建通过原子拒绝、队列背压、停止和 10000 并发帧，不替代 GPU 渲染验证 |
 
-另生成 `artifacts/review-evidence-locator.json`，覆盖固定原始 156 条路径，帮助定位
+另生成 `agentdir/artifacts/review-evidence-locator.json`，覆盖固定原始 156 条路径，帮助定位
 相关文档章节。其自动匹配及本表人工路径对应都不是整体完成证明；不能以文件名
 被提到就认定实现已验证。根仓库及两个相关子模块的 diff --check 本次均通过。
 
@@ -352,7 +352,7 @@ SDK 重新编译通过，本次没有启动或操作系统剪贴板，也没有�
 `tests/native/dnd_helper.cpp` 的异常释放修复不覆盖这个生产实现。
 
 新增组件测试在修复前复现“Extraction allocation failure leaked lock or medium”，
-日志 `artifacts/logs/review-dnd-extraction-before.log`；现以作用域守卫保证先解锁、
+日志 `agentdir/artifacts/logs/review-dnd-extraction-before.log`；现以作用域守卫保证先解锁、
 后释放介质，并在任意退出路径释放枚举器。TargetHandler 的外层同时捕获 bad_alloc/
 length_error，清空旧载荷、返回 NONE 并消费失败拖放，不将异常带过 COM 边界或
 继续尝试另一条 Godot 拖放路径。正常格式、动作掩码和 Java 回调顺序不变。
@@ -389,7 +389,7 @@ retained_meshes 的 Ref，缓存淘汰不会使排队绘制丢失网格。变换
 render-command-validation、virtual-keyboard、image-pool-reuse 六个入口，分别在
 相关环境变量原本不存在和已有值的两种状态下传入不存在的 JDK。12 次均拒绝
 编译器启动，环境变量与工作目录恢复；没有进入 GUI/键鼠或旧产物运行路径。
-记录 `artifacts/logs/review-wrapper-compiler-failure.json`。这只覆盖编译器不可用
+记录 `agentdir/artifacts/logs/review-wrapper-compiler-failure.json`。这只覆盖编译器不可用
 这一失败点，不证明编译后或 GUI 失败的所有清理路径。
 
 固定原始范围中的全部 17 个 PowerShell 入口当前解析通过，文件哈希与结果见
@@ -412,7 +412,7 @@ render-command-validation、virtual-keyboard、image-pool-reuse 六个入口，�
 | `test-clipboard.ps1` | 先备份且拒绝未知私有格式，再启动交换；原始快照在恢复成功前留盘，恢复时检查序列号，失败保留备份。只有交换验证及恢复均成功才输出最终成功。此轮只读源码，没有 Capture/写入/恢复调用，原互操作限制保留 |
 
 上述八个 PowerShell 文件解析通过，记录为
-`artifacts/logs/review-original-wrapper-syntax.json`；CMD 按命令和测试入口源码核对。
+`agentdir/artifacts/logs/review-original-wrapper-syntax.json`；CMD 按命令和测试入口源码核对。
 解析通过不证明所有参数组合或异常分支已运行；本轮未发现需要新增修改的问题。
 
 ## GodotBridge 原始接口与 JNI 对应（2026-11-10）
@@ -420,7 +420,7 @@ render-command-validation、virtual-keyboard、image-pool-reuse 六个入口，�
 原始 `GodotBridge.java` 新增独立输入唤醒、完整剪贴板格式及外部拖放的接口声明。
 本次从新构建的 `javafx.graphics.jar` 用 javap 读取 native 方法描述符，与当前
 `javafx_host.cpp` 注册表逐项比较：36 个方法全部同名同签名，无遗漏或多余注册；
-结果保存到 `artifacts/review-jni-signatures.json`。另逐项核对反向调用的
+结果保存到 `agentdir/artifacts/review-jni-signatures.json`。另逐项核对反向调用的
 dragTargetCallback 与 launch 两个描述符，也与新 SDK 一致。这项检查不执行任何
 方法，包括 robot/clipboard 方法，不证明 C++ 函数内部的 ABI 类型或系统行为。
 
@@ -428,7 +428,7 @@ dragTargetCallback 与 launch 两个描述符，也与新 SDK 一致。这项检
 等待值；FrameQueue 在锁内更新独立 input_tick，用条件变量谓词等待，不因帧更新
 误认为新输入；finish/stop 唤醒等待者并返回 -1。当前 `test-protocol.cmd` 重新
 编译运行通过，覆盖输入计数合并、超时不造 tick、关闭及 10000 帧并发提交；日志
-`artifacts/logs/review-bridge-input-protocol.log`。没有新增实现改动或物理输入验收。
+`agentdir/artifacts/logs/review-bridge-input-protocol.log`。没有新增实现改动或物理输入验收。
 
 ## 剪贴板图片复制前的内存预算（2026-11-10）
 
@@ -443,12 +443,12 @@ Glass Pixels 构造器已防止尺寸乘法溢出，但允许的缓冲大于原�
 及 Integer.MAX_VALUE 尺寸检查，直接调用预检而不分配大图片。Media SDK 源码构建
 通过（`review-clipboard-image-budget-build-full.log`），新 SDK 在 32 MiB Java 堆下
 通过 `CLIPBOARD_IMAGE_BUDGET_PASS` 和既有 `CLIPBOARD_ENCODING_PASS`；日志
-`artifacts/logs/clipboard-encoding.log`。未操作系统剪贴板，未执行实际图片互操作或
+`agentdir/logs/clipboard-encoding.log`。未操作系统剪贴板，未执行实际图片互操作或
 原生发布失败注入。原生限制保持不变，不需要重建 Godot。
 
 ## Prism 原始状态改动对应（2026-11-10）
 
-2026-11-11 最终源码复核已固定到 `artifacts/review-jfx-final-audit.json`：
+2026-11-11 最终源码复核已固定到 `agentdir/artifacts/review-jfx-final-audit.json`：
 BaseContext、GlyphCache、BaseShaderContext、BaseShaderGraphics、GodotContext、
 GodotGraphics、GodotShader、GodotTexturePool、ImagePool 共九个原始路径。
 逐一对照基线差异、当前调用关系与图像池测试断言，未发现新增修改项；记录各自
@@ -472,8 +472,8 @@ GodotGraphics、GodotShader、GodotTexturePool、ImagePool 共九个原始路径
 
 本组未发现需新增修改的问题。当前 SDK 重新执行三个免窗口测试：源码缓存命中/
 容量/动态常量、LCD 原始与改动格式在两种开关下的接受/拒绝、编码器非法几何与
-缓存边界，均通过。日志分别为 `artifacts/logs/review-prism-source-cache.log`、
-`artifacts/logs/review-prism-lcd-load.log`、`artifacts/logs/review-prism-encoder.log`。
+缓存边界，均通过。日志分别为 `agentdir/artifacts/logs/review-prism-source-cache.log`、
+`agentdir/artifacts/logs/review-prism-lcd-load.log`、`agentdir/artifacts/logs/review-prism-encoder.log`。
 这三项不证明 GPU 绘制顺序或视频像素；相关跨批次、纹理版本、LCD 重叠和 Media
 像素验证仍以各自已记录的 GPU 用例为依据。本次没有重跑 GUI 或真实键鼠测试。
 
@@ -492,8 +492,8 @@ GodotGraphics、GodotShader、GodotTexturePool、ImagePool 共九个原始路径
 该缓存的 owned-resource 计数，因而不足以证明此项释放；本次只强化测试，没有改动渲染实现。
 mobile 下 `test-m1.ps1`、`test-shaders.ps1` 重新通过，后者解析 262 份生成源码，
 已有颜色、UV、alpha 和材质版本像素门禁保持不变。完整日志
-`artifacts/logs/review-cache-exit-surface-full.log`、
-`artifacts/logs/review-cache-exit-shaders-full.log`。这些有界用例不证明全部场景无泄漏。
+`agentdir/artifacts/logs/review-cache-exit-surface-full.log`、
+`agentdir/artifacts/logs/review-cache-exit-shaders-full.log`。这些有界用例不证明全部场景无泄漏。
 
 ## 切页基准清理与统计复核（2026-11-10）
 
@@ -519,13 +519,13 @@ FPS、无失焦且清理通过，日志 `review-transition-max-counter-full.log`
 p50 16.610 ms、p95 21.542 ms、p99 51.941 ms、max 144.557 ms。
 最慢切页 L17 表格页为 36.603 pulse FPS，不能把整体均值写成每页稳定 60。
 双侧 PASS 及 `VFX_TRANSITION_RESOURCE_CLEANUP_PASS` 通过。
-日志 `artifacts/logs/review-transition-cleanup-full.log`，包装器输出
-`artifacts/logs/review-transition-cleanup.log`。不与前述显式 RD 配置直接比较或归因性能变化。
+日志 `agentdir/artifacts/logs/review-transition-cleanup-full.log`，包装器输出
+`agentdir/artifacts/logs/review-transition-cleanup.log`。不与前述显式 RD 配置直接比较或归因性能变化。
 
 ## 着色器改写、转换及退出路径对应（2026-11-10）
 
 2026-11-11 已完成下表五个原始路径的当前源码最终复核，记录在
-`artifacts/review-root-final-audit.json`。完整读取改写器、转换器、两个头文件及
+`agentdir/artifacts/review-root-final-audit.json`。完整读取改写器、转换器、两个头文件及
 模块注册/卸载实现，并追踪 Target/RD 的编译和失败释放调用；没有新增修改项。
 记录固定源码哈希及既有 LRU、262 项 corpus、LCD 和 shader-cache 证据；根仓库
 剩余路径仍显式列在 pending 列表，不能把这五项当成完整原生渲染审查完成。
@@ -544,7 +544,7 @@ p50 16.610 ms、p95 21.542 ms、p99 51.941 ms、max 144.557 ms。
 队列持有资源与淘汰验证仍适用；这里没有声称实际注入 GPU 分配失败。
 
 本次重新编译并运行 `test-bounded-lru.cmd`：`BOUNDED_LRU_PASS`，日志
-`artifacts/logs/review-shader-cache-lru.log`。测试覆盖碰撞、访问顺序、字节/条目预算、
+`agentdir/artifacts/logs/review-shader-cache-lru.log`。测试覆盖碰撞、访问顺序、字节/条目预算、
 替换、超限拒绝、索引分配失败回滚和接近 SIZE_MAX 的计数，未操作窗口或键鼠。
 同时重新读取已有 `rd-regressions-safe-runtime.log`：默认值、覆盖值、单元素数组、
 ivec3、碰撞源码及流水线淘汰像素门禁通过；这是已有 GPU 运行记录，本次没有重新运行。
@@ -572,7 +572,7 @@ Stage 测试已修复整数缩放截断，当前 2× 的 mobile/GL 验证通过�
 TESTS.md 参数表进一步使用 PowerShell AST 核对：93 个脚本条目、231 个列出的
 可选参数均存在于对应脚本的参数声明。此结果只证明参数名可用，不证明所有参数
 组合、运行前置条件、像素结果或物理设备行为均已验证。读取出的参数清单位于
-`artifacts/script-parameters.json`，是审计辅助数据，不是测试 PASS 清单。
+`agentdir/artifacts/script-parameters.json`，是审计辅助数据，不是测试 PASS 清单。
 
 
 ## 外部拖放 helper 边界审查记录
@@ -707,7 +707,7 @@ review-ime-order-modals.log、review-ime-order-cancel.log。之前的失败日�
 ## Godot 原始十文件差异复核（2026-11-10）
 
 2026-11-11 完成该组当前源码的逐文件最终复核，固定记录为
-`artifacts/review-godot-final-audit.json`：包含原始十文件及关联 GL 头文件的
+`agentdir/artifacts/review-godot-final-audit.json`：包含原始十文件及关联 GL 头文件的
 当前 SHA-256、各自结论，以及已核查日志的 SHA-256 和通过标记。文件内容未变
 时不再重复审查这一组；后续相关修改需重新核对对应项。该记录只关闭这组源码
 审查，不代表根仓库/JFX 已完成，也不把历史测试伪装为本轮新运行或源码构建溯源。
@@ -935,7 +935,7 @@ review-audio-failure-env.log。播放仍为静音验证，不证明可听设备�
 `media-audio-mobile-aiff.log`，可见时长分别 2000/2058/2000 ms 和双侧 PASS；
 这些是已有播放证据，本次未重新播放。现有源码构建的夹具程序另执行不存在父目录的
 AIFF 输出测试，退出 1、报告 open AIFF output 且无生成 PASS；日志
-`artifacts/logs/review-audio-fixture-invalid-path.log`。该测试不覆盖磁盘写满或关闭失败注入。
+`agentdir/artifacts/logs/review-audio-fixture-invalid-path.log`。该测试不覆盖磁盘写满或关闭失败注入。
 
 其余同类恢复路径已修正：repro-hover-manual、build-jfx-media、build-windows、
 run-vfx-demo、test-lcd-overlap、make-media-fixture、test-drag-drop-external、
@@ -1156,7 +1156,7 @@ queued-texture-update-mobile-separate-boundary.log。本轮未单独在 Runtime 
 ## 原始范围固定与当前验证快照（2026-11-10）
 
 重新从三个明确 Git 范围提取原始清单：根仓库 127 路径、Godot 10、JFX 19。
-artifacts/review-original-scope.json 保存路径、原始首尾提交以及当前文件 SHA-256，
+agentdir/artifacts/review-original-scope.json 保存路径、原始首尾提交以及当前文件 SHA-256，
 用于防止原始已提交改动从审查范围消失；它只是定位索引，不是逐项通过证明。
 后续修复/新增文件仍由 artifacts/change-inventory.json 跟踪，不能互相替代。
 
@@ -1239,7 +1239,7 @@ guard 检查通过。证据：`review-clipboard-close-sequence.json`、
 契约依据：[Microsoft EnumClipboardFormats](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumclipboardformats)。
 无真实剪贴板访问的委托故障测试覆盖空/完整列表、首项失败、部分列表后失败，
 以及 P/Invoke 错误保留属性。既有预算与分配释放检查也通过，日志
-`artifacts/logs/review-clipboard-enumeration-guard.log`。未动态制造 Windows 枚举失败，
+`agentdir/artifacts/logs/review-clipboard-enumeration-guard.log`。未动态制造 Windows 枚举失败，
 不把模拟结果当作真实互操作通过；已请求用户在自行保留内容后准备可恢复的普通
 文本，收到准备完成回复前不启动共享剪贴板交换。
 
@@ -1269,10 +1269,10 @@ Process private peak drops from about 5.19 to 3.70 GiB; tail-half slope drops fr
 about 116 to 38 MiB/minute. These are bounded observations, not zero-growth proof.
 Targets still grow 196/219/231 and materials 1957/2555/2836; texture memory grows
 775/817/836 MiB. Remaining retention needs explanation before memory closeout.
-Evidence: review-shared-mesh-after.json and .analysis.json in artifacts/reference.
+Evidence: review-shared-mesh-after.json and .analysis.json in agentdir/artifacts/reference.
 
 Current mobile/safe 68-transition rates are Viewport 58.604 pulse / 55.741 host
 composition FPS and RD 59.662 / 56.786, both unfocused=0 and cleanup PASS.
 The independent rate calculation and current binary hashes are recorded in
-artifacts/review-shared-mesh-performance.json. Occasional long frames remain
+agentdir/artifacts/review-shared-mesh-performance.json. Occasional long frames remain
 explicitly deferred. These counters do not measure physical scanout.

@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[switch]$Runtime,[switch]$NativeD3D,[ValidateSet('oracle','lk')][string]$Sample='oracle')
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -21,7 +22,7 @@ try {
     $suffix=if($NativeD3D){'-d3d'}elseif($Runtime){'-runtime'}else{''}
     if ($Sample -eq 'lk') { $suffix += '-lk' }
     $env:GODOT_JFX_MEDIA_CAPTURE=Join-Path $root "artifacts/reference/media-video-$Renderer$suffix.png"
-    $log=Join-Path $root "artifacts/logs/media-video-$Renderer$suffix.log"
+    $log=Join-Path $root "agentdir/logs/media-video-$Renderer$suffix.log"
     if($NativeD3D){
         & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media,javafx.swing --enable-native-access=javafx.graphics,javafx.media '-Dprism.order=d3d' -cp artifacts/reference MediaVideoProbe *> $log
     }elseif($Runtime){

@@ -18,10 +18,10 @@ case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $REND
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
-mkdir -p artifacts/logs
+mkdir -p agentdir/logs
 
 export GODOT_JFX_INSTANCE_UNIFORMS=1
-LOG="artifacts/logs/shader-cache-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/shader-cache-$RENDERER-$RENDER_THREAD.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://shader_cache.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?

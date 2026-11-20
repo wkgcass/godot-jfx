@@ -17,14 +17,14 @@ case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $REND
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
     -encoding UTF-8 -d artifacts/reference tests/reference/StageProbe.java
 
 export GODOT_JFX_JDK="$JDK"
-LOG="artifacts/logs/stage-$RENDERER.log"
+LOG="agentdir/logs/stage-$RENDERER.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://stage.tscn \
     --rendering-method "$RENDERER" --quit-after 4000 >"$LOG" 2>&1 || CODE=$?

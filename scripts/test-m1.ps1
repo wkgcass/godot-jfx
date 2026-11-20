@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param(
     [ValidateSet('gl_compatibility', 'mobile')]
@@ -6,9 +7,9 @@ param(
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$log = Join-Path $root "artifacts/logs/m1-$Renderer.log"
+$log = Join-Path $root "agentdir/logs/m1-$Renderer.log"
 New-Item -ItemType Directory -Force (Join-Path $root 'artifacts/reference') | Out-Null
-New-Item -ItemType Directory -Force (Join-Path $root 'artifacts/logs') | Out-Null
+New-Item -ItemType Directory -Force (Join-Path $root 'agentdir/logs') | Out-Null
 Push-Location $root
 try {
     # Frame limit prevents an unhandled GDScript error from hanging the test.

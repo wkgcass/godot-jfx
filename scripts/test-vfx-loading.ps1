@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [switch]$Cancel)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -13,7 +14,7 @@ try {
     $env:GODOT_JFX_LOADING_CANCEL = if ($Cancel) { '1' } else { '0' }
     $suffix = if ($Runtime) { '-runtime' } else { '' }
     if ($Cancel) { $suffix += '-cancel' }
-    $log = Join-Path (Get-Location) "artifacts/logs/vfx-loading-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path (Get-Location) "agentdir/logs/vfx-loading-$Renderer-$RenderThread$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path (Get-Location) 'artifacts/runtime-vfx-loading'
         New-Item -ItemType Directory -Force $fixture | Out-Null

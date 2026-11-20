@@ -17,7 +17,7 @@ case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $REND
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 PY=".tools/pyenv/bin/python3"
 [ -x "$PY" ] || PY="python3"
-mkdir -p artifacts/logs artifacts/reference
+mkdir -p agentdir/logs artifacts/reference
 
 # Generated Godot shader variants must cover the same set as the stock
 # generation, and the SDK jar must package the current generated files.
@@ -51,7 +51,7 @@ print('SHADER_COVERAGE_PASS')
 EOF
 [ $? -eq 0 ] || exit 1
 
-LOG="artifacts/logs/godot-shaders-$RENDERER.log"
+LOG="agentdir/logs/godot-shaders-$RENDERER.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://shaders.tscn \
     --rendering-method "$RENDERER" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?

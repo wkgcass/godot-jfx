@@ -28,7 +28,7 @@ if [ "$HEAP_MIB" -gt 4096 ]; then echo "invalid heap mib: $HEAP_MIB" >&2; exit 2
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED \
@@ -41,7 +41,7 @@ if [ "$HEAP_MIB" -gt 0 ]; then
     export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Xmx${HEAP_MIB}m"
 fi
 SUFFIX="-$CYCLES-heap$HEAP_MIB"
-LOG="artifacts/logs/stage-churn-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/stage-churn-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://stage_churn.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" >"$LOG" 2>&1 || CODE=$?

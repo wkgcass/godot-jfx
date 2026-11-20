@@ -26,9 +26,9 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 PY="$(command -v python3)" || { echo "python3 not found" >&2; exit 1; }
-mkdir -p artifacts/logs artifacts/reference
+mkdir -p agentdir/logs artifacts/reference
 
-LOG="artifacts/logs/native-churn-$KIND-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/native-churn-$KIND-$RENDERER-$RENDER_THREAD.log"
 GODOT_JFX_NATIVE_CHURN_KIND="$KIND" \
     python3 "$FIXTURE_LAUNCHER" --path tests/godot res://native_churn.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 12000 > "$LOG" 2>&1

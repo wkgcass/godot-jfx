@@ -25,7 +25,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 VFX_CP="artifacts/vfx/classes/java/main:artifacts/vfx/classes/java/test:artifacts/vfx/resources/main:artifacts/vfx/resources/test"
 for jar in artifacts/vfx/dependencies/*.jar; do VFX_CP="$VFX_CP:$jar"; done
@@ -59,7 +59,7 @@ export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_HOVER_ROBOT="$ROBOT"
 SUFFIX=""
 [ "$ROBOT" = "1" ] && SUFFIX="-robot"
-LOG="artifacts/logs/hover-flicker-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/hover-flicker-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
 run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://hover_flicker.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?

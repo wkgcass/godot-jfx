@@ -20,9 +20,9 @@ if [ "$RUNTIME" -eq 1 ]; then
 fi
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
-mkdir -p artifacts/logs
+mkdir -p agentdir/logs
 
-LOG="artifacts/logs/render-thread-shutdown-scene-safe.log"
+LOG="agentdir/logs/render-thread-shutdown-scene-safe.log"
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://render_thread_shutdown.tscn \
     --rendering-method mobile --render-thread safe --quit-after 3 > "$LOG" 2>&1
 CODE=$?

@@ -20,7 +20,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 VFX_BASE="artifacts/vfx"
 VFX_CP="$VFX_BASE/classes/java/main:$VFX_BASE/classes/java/test:$VFX_BASE/resources/main:$VFX_BASE/resources/test"
@@ -33,7 +33,7 @@ done
     -cp "$VFX_CP" -encoding UTF-8 -d artifacts/reference tests/reference/MenuClickProbe.java
 
 export GODOT_JFX_JDK="$JDK"
-LOG="artifacts/logs/menu-click-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/menu-click-$RENDERER-$RENDER_THREAD.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://menu_click.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" >"$LOG" 2>&1 || CODE=$?

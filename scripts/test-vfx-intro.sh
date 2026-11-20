@@ -27,7 +27,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 if [ "$FREEZE" -eq 1 ]; then export GODOT_JFX_VFX_FREEZE=1; else export GODOT_JFX_VFX_FREEZE=0; fi
 if [ "$ALL_PAGES" -eq 1 ]; then
@@ -55,7 +55,7 @@ COVERAGE=""
 [ "$ALL_PAGES" -eq 1 ] && COVERAGE="-all-pages"
 [ "$PAGE_LIMIT" -ne 0 ] && COVERAGE="$COVERAGE-$PAGE_LIMIT"
 [ "$FREEZE" -eq 1 ] && COVERAGE="$COVERAGE-frozen"
-LOG="artifacts/logs/vfx-intro-$RENDERER-$RENDER_THREAD$COVERAGE.log"
+LOG="agentdir/logs/vfx-intro-$RENDERER-$RENDER_THREAD$COVERAGE.log"
 
 run_watchdog() {
     wlog="$1"; limit="$2"; shift 2

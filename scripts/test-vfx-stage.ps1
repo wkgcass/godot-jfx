@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Abrupt)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -13,7 +14,7 @@ try {
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_VFX_ABRUPT = if ($Abrupt) { '1' } else { $null }
     $suffix = if ($Abrupt) { '-abrupt' } else { '' }
-    $log = "artifacts/logs/vfx-stage-$Renderer-$RenderThread$suffix.log"
+    $log = "agentdir/logs/vfx-stage-$Renderer-$RenderThread$suffix.log"
     Invoke-GodotFixture --path tests/godot res://vfx_stage.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 20000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

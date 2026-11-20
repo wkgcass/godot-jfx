@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [switch]$SpacedClick)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -12,7 +13,7 @@ try {
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_IME_SPACED_CLICK = if ($SpacedClick) { '1' } else { '0' }
     $suffix = if ($SpacedClick) { "-spaced" } else { "" }
-    $log = "artifacts/logs/ime-$Renderer$suffix.log"
+    $log = "agentdir/logs/ime-$Renderer$suffix.log"
     Invoke-GodotFixture --path tests/godot res://ime.tscn --rendering-method $Renderer --quit-after 4000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

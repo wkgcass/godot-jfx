@@ -26,7 +26,7 @@ case "$PROBE" in FailureShutdownProbe|FailureApplicationProbe) ;; *) echo "inval
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
@@ -58,7 +58,7 @@ export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_FAILURE_PROBE="$PROBE"
 SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
-LOG="$PWD/artifacts/logs/failure-shutdown-$PROBE-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="$PWD/agentdir/logs/failure-shutdown-$PROBE-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
 if [ "$RUNTIME" -eq 1 ]; then
     FIXTURE="$PWD/artifacts/runtime-failure-shutdown"

@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.graphics \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
@@ -16,7 +16,7 @@ mkdir -p artifacts/reference artifacts/logs
     || { echo "GlassSchedulerProbe compilation failed" >&2; exit 1; }
 
 export GODOT_JFX_JDK="$JDK"
-LOG="artifacts/logs/m2-glass-scheduler.log"
+LOG="agentdir/logs/m2-glass-scheduler.log"
 CODE=0
 # Headroom doubled over the Windows run: the frame budget also covers JVM
 # teardown, and this lightweight scene iterates faster on macOS.

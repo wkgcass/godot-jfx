@@ -20,7 +20,7 @@ GODOT_STATE_FILES = (".scons_env.json", ".scons_node_count", ".sconsign5.dblite"
 def native_command(target):
     if sys.platform == "win32":
         # Use the same SDK locations, custom modules and target options as the build.
-        return ["powershell.exe", "-NoProfile", "-File", str(ROOT / "scripts/build-windows.ps1"),
+        return ["pwsh.exe", "-NoProfile", "-File", str(ROOT / "scripts/build-windows.ps1"),
                 "-Target", target, "-Clean"]
     if sys.platform != "darwin" or platform.machine() != "arm64":
         raise ValueError("Native clean targets require Windows x64 or macOS arm64.")
@@ -46,6 +46,13 @@ def remove_directory(path, dry_run):
         shutil.rmtree(path)
 
 
+def remove_file(path, dry_run):
+    check_output_path(path)
+    print(f"Remove file: {path}", flush=True)
+    if not dry_run:
+        path.unlink(missing_ok=True)
+
+
 def run_command(label, command, cwd, env, dry_run):
     display = subprocess.list2cmdline(command) if os.name == "nt" else shlex.join(command)
     print(f"{label}: {display}", flush=True)
@@ -56,8 +63,6 @@ def run_command(label, command, cwd, env, dry_run):
 def clean(target, dry_run):
     targets = TARGETS if target == "all" else (target,)
     env = os.environ.copy()
-    if sys.platform == "win32":
-        env.pop("PSMODULEPATH", None)  # Let Windows PowerShell load its own modules.
     if sys.platform == "darwin":
         env["JAVA_HOME"] = env.get("JAVA_HOME") or str(ROOT / ".tools/jdk-25/Contents/Home")
 
@@ -74,7 +79,8 @@ def clean(target, dry_run):
                 artifacts = ROOT / "artifacts"
                 paths = sorted(path for pattern in ("runtime-*", "scene-fixtures-*")
                                for path in artifacts.glob(pattern) if path.is_dir())
-                paths.append(ROOT / "tests/godot/.godot")
+                paths.extend((artifacts / "reference", artifacts / "native-tests", artifacts / "vfx-gpu-profile", artifacts / "pulse-stop-patch",
+                              artifacts / "texture-cancellation-patch", ROOT / "tests/godot/.godot"))
             for path in paths:
                 remove_directory(path, dry_run)
         else:
@@ -91,11 +97,7 @@ def clean(target, dry_run):
                 # SCons can write its signature database as it exits.
                 remove_directory(ROOT / "godot/bin", dry_run)
                 for relative in GODOT_STATE_FILES:
-                    path = ROOT / "godot" / relative
-                    check_output_path(path)
-                    print(f"Remove file: {path}", flush=True)
-                    if not dry_run:
-                        path.unlink(missing_ok=True)
+                    remove_file(ROOT / "godot" / relative, dry_run)
 
     if target == "all":
         for relative in ("godot", "scripts", "native"):

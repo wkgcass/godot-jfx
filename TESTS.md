@@ -8,12 +8,12 @@
 
 ## 跨平台待验证清单
 
-macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。带 `--renderer <后端>` 的用例分别运行 `mobile`（Metal）和 `gl_compatibility`（OpenGL），使用 safe 模式，GUI 测试串行执行。每个入口均须正常退出、退出码为 0，并满足脚本原有 PASS 与错误检查。合并 `ca8ff42` 后既有窗口及资源修复的 Windows 三轮稳定性记录位于 `artifacts/logs/restored-stability-20261118/results.csv`。
+macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。带 `--renderer <后端>` 的用例分别运行 `mobile`（Metal）和 `gl_compatibility`（OpenGL），使用 safe 模式，GUI 测试串行执行。每个入口均须正常退出、退出码为 0，并满足脚本原有 PASS 与错误检查。
 
 | 目标平台与待验证内容 | 验证入口与参数 | 通过条件及已知限制 |
 | --- | --- | --- |
 | macOS arm64，仓库内构建依赖 | 在新的工作区提供 Python 3.13，在未设置 `ANT_HOME` 的 shell 中连续两次运行 `./scripts/setup-env.py`。使用仓库的 JDK 运行 Ant 和 Maven 的版本命令，执行 `./.tools/pyenv/bin/scons --version`、`./.tools/pyenv/bin/python -c 'import zstandard, PIL'` 和 `./scripts/clean.py --target jfx` | 首次按父仓库记录的提交初始化缺少的 Godot、JFX、VFX 子模块，第二次保留已有子模块检出和本地修改。首次安装 Temurin 25、Ant 1.10.15、Maven 3.9.9、SCons 4.11.x 及两个 Python 包，第二次复用已有安装。版本与导入检查、JFX 清理均成功。 |
-| macOS arm64，项目清理 | 在临时构建工作区按 macOS 构建说明生成产物，运行场景测试及其 `--runtime` 模式，再依次运行 `./scripts/clean.py --dry-run` 和 `./scripts/clean.py` | 预览以仓库 Gradle wrapper 的 `--stop` 开始。实跑停止仓库 daemon，成功执行 `cleanAll --no-problems-report --no-daemon` 后删除 JFX 和 buildSrc 的 `.gradle/`，打包清理删除 VFX 构建和 Shadow 测试的 `.gradle/`。Godot 两个目标、`godot/bin`、四个状态文件、`godot/`、`scripts/` 和 `native/` 下的 `__pycache__/`、JFX SDK、`jfx/build/reports`、`jfx/buildSrc/build`、打包输出、生成的测试项目及源夹具的 `tests/godot/.godot/` 均已清理。缺少 Windows 的 `msvc_capture.log` 时清理也应成功。仓库 `.gradle-cache/`、`tests/godot`、工具、Maven 仓库和验收记录保留。 |
+| macOS arm64，项目清理 | 在临时构建工作区按 macOS 构建说明生成产物，运行场景测试及其 `--runtime` 模式，再依次运行 `./scripts/clean.py --dry-run` 和 `./scripts/clean.py` | 预览以仓库 Gradle wrapper 的 `--stop` 开始。实跑停止仓库 daemon，成功执行 `cleanAll --no-problems-report --no-daemon` 后删除 JFX 和 buildSrc 的 `.gradle/`，打包清理删除 VFX 构建和 Shadow 测试的 `.gradle/`。Godot 两个目标、`godot/bin`、四个状态文件、`godot/`、`scripts/` 和 `native/` 下的 `__pycache__/`、JFX SDK、`jfx/build/reports`、`jfx/buildSrc/build`、打包输出、生成的测试项目及源夹具的 `tests/godot/.godot/` 均已清理。缺少 Windows 的 `msvc_capture.log` 时清理也应成功。生成的 `artifacts/reference/` 整体删除。仓库 `.gradle-cache/`、`tests/godot`、工具、Maven 仓库和 `agentdir/` 下的验收归档保留。 |
 | macOS arm64，Maven Local 开发测试 | 编好 Godot 共享库和带 Media 的 JFX SDK 后直接运行 `./scripts/maven_local.py install`，依次运行 `./scripts/test-scroll-settings.sh`、`./scripts/test-screen-layout.sh`、`./scripts/test-render-command-validation.sh` 和 `./scripts/test-startup.sh --renderer mobile` | 三个探针和启动场景均通过，`./scripts/maven_local.py module-path` 只列出本项目 `.m2/repository` 内六个模块，graphics 和 media 使用 mac-aarch64。 |
 | macOS arm64，新的 Maven 坐标与上游基线版本 | `./scripts/build-vfx.sh`，随后依次运行 `./scripts/test-godot-library.py --runtime artifacts/godot-library` 和 `./scripts/test-shadow-jar.py --runtime artifacts/godot-library` | 六个 `io.vproxy:godot-jfx-*` 构件的版本与根目录 `release.properties` 生成的版本一致，graphics 和 media 解析到 `mac-aarch64`，Demo 构建和两项消费测试通过。 |
 | macOS arm64，Retina 与混合缩放多屏下的共享窗口夹具 | 在 Retina 单屏和不同缩放双屏环境运行 `test-logical-windows.sh`、`test-window-order.sh`、`test-window-composition.sh`，将主窗口置于屏幕交界附近，覆盖子窗口落在另一屏的情况；记录各窗口所在屏幕、缩放和位置 | 核对窗口尺寸、相对位置、输入坐标与 GPU 像素。当前部分断言用主窗口屏幕缩放计算子窗口采样点，可能误判；如需修正，应依据各窗口实际坐标与渲染尺寸。缺少对应显示器环境时保留该范围的待办。 |
@@ -83,7 +83,7 @@ false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PAS
 
 工具路径可通过 `JAVA_HOME`、`MSYS2_ROOT`、`VSINSTALLDIR` 配置，默认值和参数优先级见 [构建说明](docs/build-windows.md)。剪贴板文件列表中的路径是虚构测试数据；Java 观察器与 PowerShell 校验使用相同值，不依赖开发者的实际工作目录。
 
-所有命令在仓库根目录用 PowerShell 执行（macOS arm64 的 shell 入口见下文“macOS arm64 入口”一节）。脚本自行编译 Java/C++ 测试观察器，但通常**不会重新构建生产 SDK 或 Godot**。修改生产代码后先构建对应产物，协议变化必须同时更新宿主和 SDK。重新链接共享库前先结束使用该文件的进程。
+Windows 命令在仓库根目录用 PowerShell 7.4.1 或更高版本（`pwsh`）执行。分组测试用同一份 `pwsh` 启动各 PowerShell 用例。macOS arm64 的 shell 入口见下文“macOS arm64 入口”一节。脚本自行编译 Java/C++ 测试观察器，但通常**不会重新构建生产 SDK 或 Godot**。修改生产代码后先构建对应产物，协议变化必须同时更新宿主和 SDK。重新链接共享库前先结束使用该文件的进程。
 
 表中前置条件缩写：
 
@@ -114,7 +114,7 @@ Windows DLL 回归用 `./scripts/run-windows-tests.ps1 -Group NonRobot` 或获�
 ./scripts/run-macos-tests.py --group Robot
 ```
 
-NonRobot 包括 module path、独立 Shadow 消费者和完整 VFX Demo JAR。Robot 包括真实跨应用拖放、IME 光标、桌面像素和 VFX 表格拖动。运行 Robot 须授权真实输入，并给启动 Java 的应用辅助功能和屏幕录制权限。每组的结果在 `artifacts/logs/macos-<分组>-<时间>/results.csv`。窗口图标的系统级跳过单独标为 SKIP。可用 `--list` 查看命令或用 `--renderer mobile|gl_compatibility` 选择一个后端。
+NonRobot 包括 module path、独立 Shadow 消费者和完整 VFX Demo JAR。Robot 包括真实跨应用拖放、IME 光标、桌面像素和 VFX 表格拖动。运行 Robot 须授权真实输入，并给启动 Java 的应用辅助功能和屏幕录制权限。每组的结果在 `agentdir/logs/macos-<分组>-<时间>/results.csv`。窗口图标的系统级跳过单独标为 SKIP。可用 `--list` 查看命令或用 `--renderer mobile|gl_compatibility` 选择一个后端。
 
 macOS 上每个测试的入口是与 Windows 版同名的 `scripts/test-*.sh`（`test-protocol.cmd`/`test-bounded-lru.cmd` 的对应物为同名 `.sh`，用 clang 代替 MSVC），在仓库根目录用 sh 执行。判定标记、日志位置与通过语义和对应 ps1 完全一致；前文各表的用途说明、断言与限制仍然适用，本节只列差异。
 
@@ -157,7 +157,7 @@ PowerShell 开关对应小写长选项：`-Renderer mobile` → `--renderer mobi
 
 前置条件为 G+J。`-Runtime` 从隔离的场景目录启动同一 DLL。脚本编译并启动两个由 `tests/native/dnd_helper.cpp` 编译到 `artifacts/native-tests/dnd_helper.exe` 的 Win32 OLE 端点（一个接受放入的 IDropTarget，一个在按下时发起 DoDragDrop 的源），由 Java 观察器用 Robot 驱动真实鼠标完成三个阶段：向外部进程拖出 text+URL+文件列表、从外部进程拖入三格式数据、Escape 取消拖出。helper 窗口按系统 DPI 缩放放置（FX 逻辑坐标 × 缩放 = 物理像素），均为置顶窗口。观察器在拖出时设置 `Dragboard.setDragView(8×6, 偏移 5,3)`，判定要求 helper 日志记录的放入负载与预期完全一致（含 `application/x-godot-custom-*` 自定义格式双向负载）、DragEnter 日志包含与设置一致的 shell `DragImageBits`（尺寸与偏移，证明拖放预览图经 IDragSourceHelper 注册并可跨进程观察）、源端完成效果为 COPY、观察器打印 `EXTERNAL_DRAG_PROBE_PASS`、宿主打印 `GODOT_EXTERNAL_DRAG_PASS` 且无 ERROR。`-RenderThread`/`-Renderer` 与 `-Jdk` 可用。
 
-外部探针的 FX 驱动调用设有 10 秒超时，回调异常会使测试失败；退出时停止并回收驱动线程，逐项尝试释放输入、恢复原鼠标位置和关闭窗口，清理失败不输出 PASS。脚本恢复调用前的 helper 坐标环境变量。早期 2026-11-10 记录仅有编译和语法检查；后续已获授权的 Runtime mobile/safe 跨进程实跑通过，含拖入/拖出、自定义负载、预览元数据和取消，日志 `review-drag-request-runtime-external.log`。实际运行仍需有效用户授权和空闲桌面；不据此证明所有外部应用兼容。
+外部探针的 FX 驱动调用设有 10 秒超时，回调异常会使测试失败；退出时停止并回收驱动线程，逐项尝试释放输入、恢复原鼠标位置和关闭窗口，清理失败不输出 PASS。脚本恢复调用前的 helper 坐标环境变量。实际运行仍需有效用户授权和空闲桌面；不据此证明所有外部应用兼容。
 
 macOS 等价入口（同样三阶段、同样需要授权与空闲桌面）：
 
@@ -259,17 +259,9 @@ Surface、生成 Shader、RenderTarget、网格变换的
 `artifacts/reference/shader-cache-failure-<PID>-cycle-<轮数>.png`，并输出保存结果。
 不会为了截图重新渲染、重读或重试像素判定；保存失败也不改变原测试失败结果。
 
-Media churn 也覆盖 Viewport 材质缓存对已销毁视频纹理的回收。2026-11-10 的
-mobile Runtime、24 轮、`-Providers` 在缓存开启时曾于第 11 轮触发资源增长
-门禁（owned=51）；修复后同一门禁通过，owned=31、最终为 0。保持原来的
-暖机后资源上限，不以禁用缓存或提高阈值作为通过条件。修复前后日志分别为
-`review-final-media-churn-runtime-full.log` 与 `review-material-retirement-churn-full.log`。
+Media churn 检查 Viewport 材质缓存是否释放已销毁的视频纹理，并校验暖机后的资源上限。
 
-`test-virtual-keyboard.ps1` 的成功仅表示 Java 调用完成、宿主 tick 继续推进和探针
-清理完成，不验证系统键盘是否实际显示或关闭。脚本会直接输出原生日志中的
-touch keyboard 警告。2026-11-10 当前产物运行返回关闭请求 HRESULT
-`-2147024891`（拒绝访问），因此不能以该次 PASS 宣称系统键盘关闭成功；
-证据为 `artifacts/logs/review-final-virtual-keyboard.log` 和 `virtual-keyboard.log`。
+Java 调用、宿主 tick 和清理均通过也不能证明系统键盘已显示或关闭。脚本输出原生 touch keyboard 警告。
 
 审查修复专项（不操作真实键鼠，也不读写剪贴板）：
 
@@ -284,7 +276,7 @@ touch keyboard 警告。2026-11-10 当前产物运行返回关闭请求 HRESULT
 图片池专项前置 J；使用内存中的测试图片和 Renderer，不启动图形设备、不依赖 GC 时机。脚本分别运行 FIFO/LIFO，验证空引用、丢失图片及连续失效条目之后的可用图片仍被复用，并保持相同尺寸图片的选择顺序；还强制先检查失效候选，验证其锁归零、有效图像 checkout/checkIn 锁配对及再次复用；要求不发生额外分配且两次均有 `IMAGE_POOL_REUSE_PASS`。日志 `image-pool-reuse-0.log`（FIFO）、`image-pool-reuse-1.log`（LIFO），支持 `-Jdk`，运行后恢复原 `GODOT_JFX_IMAGE_POOL_LIFO`。
 
 - 以脚本正常返回、对应观察器/宿主完成标记和脚本内断言共同判定。大部分脚本拒绝 ERROR、异常和缺失样本。故障注入测试会特许指定的预期错误，并要求故障后的退出/唤醒证据。
-- 主要日志在 `artifacts/logs`，图片/JSON 在 `artifacts/reference`，Runtime 临时项目在 `artifacts/runtime-*`。以脚本最终打印的路径为准；同参数重跑可能覆盖旧日志，做前后对比前先保存旧证据。
+- 主要日志在 `agentdir/logs`，图片/JSON 在 `artifacts/reference`，Runtime 临时项目在 `artifacts/runtime-*`。以脚本最终打印的路径为准；同参数重跑可能覆盖旧日志，做前后对比前先保存旧证据。
 - 像素测试应查看实际图像，尤其首次修改渲染路径时。原生 D3D 对照只证明参考后端结果，不是 Godot 通过。随机数据、时间和动画会造成 VFX 图像差异，不能只凭差异率下结论。
 - `final_owned=0` 等宿主计数不等于整个进程绝无泄漏。压力测试同时看 Java 堆、自然 GC、进程 private bytes/handles、GPU 计数及时间趋势；不要通过强制 GC 或放宽阈值掩盖问题。
 - 性能区分 Pulse、绘制、合成和物理扫描输出；平均 FPS 之外还看 P95/P99、最大帧间隔、背压与焦点丢失。当前物理音画同步未验收。
@@ -470,7 +462,7 @@ python scripts/setup-env.py
 .\scripts\test-media-churn.ps1 -Cycles 24 -Providers
 # 扩展观察，仍不是无限时长泄漏证明
 .\scripts\test-media-churn.ps1 -Cycles 120 -SettleSeconds 30 -Providers
-# 纯音频隔离（Python 自动生成 PCM），以及原生 D3D 对照
+# 纯音频隔离（首次生成 PCM，之后复用 agentdir/media/media-churn-silence.wav），以及原生 D3D 对照
 .\scripts\test-media-churn.ps1 -AudioOnly -Cycles 24 -HandleTypes
 .\scripts\test-media-churn.ps1 -NativeD3D -Cycles 24 -Providers
 # Runtime 验证
@@ -521,7 +513,7 @@ GPU 时间戳回收有限制，零值不表示没有 GPU 开销。窗口 GPU 样
 | 命令 | 用途与特殊前置条件 | 如何验收/解释 |
 | --- | --- | --- |
 | `.\scripts\make-media-fixture.ps1` | 需要 MSVC、Windows SDK、`jfx/build/windows_tools.properties`；本地编码器生成 16 秒 1920×1080 H.264 60 FPS 样本 | 构建及编码成功；独立 reader 验格式和 960 个样本，生成 MP4/hash JSON；不是播放性能证明 |
-| `.\scripts\benchmark-media-frames.ps1 -Native60` | G+J+M；先运行 make-media-fixture；默认 Godot/Vulkan/safe、Rate=1 | 实际 Glass/Prism 身份正确、无失焦；Native60/Rate1 要求绘制 ≥55 FPS，Godot 另要求合成 ≥55 FPS 且背压为零 |
+| `.\scripts\benchmark-media-frames.ps1 -Native60` | G+J+M；先按上一行准备视频和校验清单；默认 Godot/Vulkan/safe、Rate=1 | 实际 Glass/Prism 身份正确、无失焦；Native60/Rate1 要求绘制 ≥55 FPS，Godot 另要求合成 ≥55 FPS 且背压为零 |
 | `.\scripts\benchmark-media-frames.ps1 -Native60 -Runtime -ClockSkew -Sample 12` | 追加 Runtime；ClockSkew 测媒体时钟与最新帧时间戳；Sample 0–20 区分文件 | 相同 FPS 门槛；时钟差是软件取样，不是物理音画同步；生成样本没有音轨 |
 | `.\scripts\benchmark-media-frames.ps1 -Backend d3d -Native60 -NoVSync -Sample 19` | J+M；原生 JavaFX 对照，NoVSync 传 `prism.vsync=false` | 不能作为 Godot 验收；不同 VSync 条件不能混作公平后端对照 |
 | `.\scripts\benchmark-media-frames.ps1 -Rate 2 -Sample 12` | G+J+M；使用 Oracle 30 FPS MP4，加速播放到约 60 FPS | 观察输出，不是原生编码 60 FPS 验收；普通模式没有 Native60 的 ≥55 门槛 |
@@ -532,14 +524,14 @@ GPU 时间戳回收有限制，零值不表示没有 GPU 开销。窗口 GPU 样
 | `.\scripts\profile-vfx-gpu.ps1` | G+J+V；Vulkan GPU profiling 专用场景 | 检查 profile 输出，作为瓶颈定位，不是默认性能验收 |
 | `.\scripts\capture-vfx-reference.ps1` | J+V；用本地 SDK 的 D3D 捕获基线页面 | 记录 D3D 页面与 manifest，不能证明 Godot 画面对齐 |
 | `python scripts/compare-vfx-pages.py --renderer mobile` | Python + Pillow；先完成匹配页数、缩放的 D3D 基线与 Godot AllPages 截图 | 生成配对图和差异统计，人工核对布局/缺失；随机数据和动画不是自动失败依据 |
-| `python scripts/analyze-frame-trace.py artifacts/logs/vfx-frame-benchmark-safe-trace.log` | 先完成对应 Trace benchmark | 检查 trace 完整性并统计；计时区间有重叠，不能直接求和 |
+| `python scripts/analyze-frame-trace.py agentdir/logs/vfx-frame-benchmark-safe-trace.log` | 先完成对应 Trace benchmark | 检查 trace 完整性并统计；计时区间有重叠，不能直接求和 |
 | `python scripts/analyze-media-churn.py artifacts/reference/media-churn-mobile-cycles24-process-types-providers.json` | 完成同参数 Media churn；按实际生成文件名调整 | 验样本序号/进程、分段趋势、idle 等；斜率单独不能证明是否泄漏 |
-| `python scripts/analyze-media-handles.py artifacts/logs/media-churn-mobile-cycles24-process-types-providers.log --require-stable-aac` | 日志含完整 churn 和 Providers 信息 | AAC 不能比首个采样继续累计；缺少数据或增长会失败，不覆盖所有内存资源 |
+| `python scripts/analyze-media-handles.py agentdir/logs/media-churn-mobile-cycles24-process-types-providers.log --require-stable-aac` | 日志含完整 churn 和 Providers 信息 | AAC 不能比首个采样继续累计；缺少数据或增长会失败，不覆盖所有内存资源 |
 | `python scripts/analyze-vfx-soak.py artifacts/reference/vfx-soak-mobile-3-heap256.json` | 完成 soak，需核对其打印的实际 JSON 路径 | 统计各轮/主页/进程趋势；采样 console launcher 而非真实引擎的结果无效 |
 
 Media 性能脚本还支持 `-FramePhases`、`-ClockSkew`、`-NoVSync`；后端固定 Vulkan，不接受 `-Renderer`。Runtime 不能与 D3D 组合。FramePhases 是 Godot 帧阶段诊断。当前 Native60 样本只有 16 秒，**不要与 Rate=2 组合做十秒测量**：预热后剩余媒体长度不足。VFX 的 `-Host120` 和 `-MailboxFps 60/120/240` 是调度诊断；Mailbox 只允许 Vulkan Godot，不能与 Host120 或 D3D 组合。不要把这些开关作为默认性能条件。
 
-参考图冻结模式用 `capture-vfx-reference.ps1 -FreezeFusion` 配对 `test-vfx-intro.ps1 -AllPages -FreezeFusion`，然后 `compare-vfx-pages.py --renderer mobile --frozen`。默认不要冻结。
+复现前三页的 Fusion 边框诊断时，依次运行 `.\scripts\capture-vfx-reference.ps1 -FreezeFusion -PageLimit 3`、`.\scripts\test-vfx-intro.ps1 -Renderer mobile -AllPages -FreezeFusion -PageLimit 3` 和 `python scripts/compare-vfx-pages.py --renderer mobile --frozen`。常规全页验收保留动画。
 
 ## 没有包装脚本的诊断探针
 
@@ -550,7 +542,7 @@ Media 性能脚本还支持 `-FramePhases`、`-ClockSkew`、`-NoVSync`；后端�
 & "$env:JAVA_HOME/bin/javac.exe" -d artifacts/reference tests/reference/CurrentProcessHandles.java tests/reference/MediaFoundationLifecycleProbe.java
 & "$env:JAVA_HOME/bin/java.exe" --enable-native-access=ALL-UNNAMED -cp artifacts/reference CurrentProcessHandles
 & "$env:JAVA_HOME/bin/java.exe" --enable-native-access=ALL-UNNAMED -cp artifacts/reference MediaFoundationLifecycleProbe
-& "$env:JAVA_HOME/bin/java.exe" --enable-native-access=ALL-UNNAMED -cp artifacts/reference MediaFoundationLifecycleProbe artifacts/reference/media-oracle-sample.mp4
+& "$env:JAVA_HOME/bin/java.exe" --enable-native-access=ALL-UNNAMED -cp artifacts/reference MediaFoundationLifecycleProbe agentdir/media/media-oracle-sample.mp4
 
 # 只有 Godot 的帧循环，不加载 JavaFX，用于区分宿主自身的节奏
 . .\scripts\godot-fixture.ps1
@@ -572,7 +564,7 @@ Invoke-GodotFixture --path tests/godot --script res://host_frame_probe.gd --rend
 
 ### 性能采样器的独立检查
 
-`.\scripts\test-stack-sampler.ps1` 只需要默认 JDK（可用 `-Jdk` 覆盖），不启动 JavaFX/Godot、不操作输入设备。切页和大表滚动诊断共用此有界采样器。它检查非法间隔拒绝、长睡眠的可中断退出、停止后的稳定快照、4096 种调用栈上限及丢弃计数、采样异常报告。验收要求进程成功并出现 `THREAD_STACK_SAMPLER_PASS`，日志为 `artifacts/logs/stack-sampler.log`。
+`.\scripts\test-stack-sampler.ps1` 只需要默认 JDK（可用 `-Jdk` 覆盖），不启动 JavaFX/Godot、不操作输入设备。切页和大表滚动诊断共用此有界采样器。它检查非法间隔拒绝、长睡眠的可中断退出、停止后的稳定快照、4096 种调用栈上限及丢弃计数、采样异常报告。验收要求进程成功并出现 `THREAD_STACK_SAMPLER_PASS`，日志为 `agentdir/logs/stack-sampler.log`。
 
 VFX 翻页基准可用 `GODOT_JFX_STACK_SAMPLE` 启用采样；必须是正整数毫秒。关闭时移除该变量，不能设为 `0`（会明确失败）。启用后的输出含 `VFX_TRANSITION_SAMPLING ... diagnostic_only=true`，采样会干扰时序，不应与未采样运行混合作帧率对照。`VFX_TRANSITION_SAMPLE_DROPPED` 表示超过调用栈种类上限的采样次数。
 
@@ -587,7 +579,7 @@ VFX 翻页基准可用 `GODOT_JFX_STACK_SAMPLE` 启用采样；必须是正整�
 
 ## LCD 着色器加载检查
 
-`.\scripts\test-lcd-shader-load.ps1` 需要 JDK 和源码 SDK（含 `jfx/build/modular-sdk` 的生成资源），无需 Godot、窗口或真实输入。检查普通及 AlphaTest 两种 LCD 着色器，在 `GODOT_JFX_LCD_SCREEN=0/1` 下均正常加载；再通过独立 `--patch-module` 资源目录给声明添加合法空格，验证普通模式仍接受、屏幕采样模式因无法按约定转换而明确报错，不能静默使用已停供的 LCDBuffer。四个进程均须退出 0 并打印 `LCD_SHADER_LOAD_PASS`；日志 `artifacts/logs/lcd-shader-load-*.log`。不改 SDK 资源，退出恢复环境变量；不证明 GPU 画面正确。可选 `-Jdk`。
+`.\scripts\test-lcd-shader-load.ps1` 需要 JDK 和源码 SDK（含 `jfx/build/modular-sdk` 的生成资源），无需 Godot、窗口或真实输入。检查普通及 AlphaTest 两种 LCD 着色器，在 `GODOT_JFX_LCD_SCREEN=0/1` 下均正常加载；再通过独立 `--patch-module` 资源目录给声明添加合法空格，验证普通模式仍接受、屏幕采样模式因无法按约定转换而明确报错，不能静默使用已停供的 LCDBuffer。四个进程均须退出 0 并打印 `LCD_SHADER_LOAD_PASS`；日志 `agentdir/logs/lcd-shader-load-*.log`。不改 SDK 资源，退出恢复环境变量；不证明 GPU 画面正确。可选 `-Jdk`。
 
 ## LCD 重叠文字对照
 
@@ -602,7 +594,7 @@ VFX 翻页基准可用 `GODOT_JFX_STACK_SAMPLE` 启用采样；必须是正整�
 `test-pacing-cap.ps1 -Renderer mobile`（也支持 gl_compatibility、-Jdk）需要源码
 G+J。夹具把 Engine.max_fps 设为 30、VSync 设为开启，让 JVM 存活
 6.5 秒，超过回退采样周期；要求设置均未被覆盖、无回退日志、Java 与宿主 PASS。
-结束恢复夹具原设置，无真实键鼠输入。日志 artifacts/logs/pacing-cap-<renderer>-<mode>.log。
+结束恢复夹具原设置，无真实键鼠输入。日志 agentdir/logs/pacing-cap-<renderer>-<mode>.log。
 `-Mode cap` 为默认；`-Mode restore` 用每帧 40 ms 的受控延迟触发真实回退，要求
 Java 结束后及宿主移除后都恢复 max_fps=0、VSync 开启；`-Mode override` 在回退后
 主动改成 47 FPS，要求停止后保留 47、恢复 VSync。后两模式需要显示器刷新率
@@ -673,10 +665,7 @@ Java/宿主协议连续复用同一离屏目标：显式红色、参数省略后
 `test-physical-drag.ps1` 的合成输入按初始窗口实际像素尺寸与 420×320 逻辑尺寸
 换算，不再固定为 2 倍。真实 Robot 结束时依次尝试释放按键、恢复原光标位置、
 销毁 Robot，任一步失败均保留为测试失败；脚本会创建日志和编译输出目录。
-2026-11-10：mobile/separate 合成与 Robot、GL/safe 合成均通过。真实档验证窗口
-Y=-14、尺寸 740×576、手势连续和宿主资源归零，日志
-`artifacts/logs/physical_drag-mobile-separate-robot.log`。本机实际缩放为 2 倍，
-未切换显示器 DPI，也未动态注入 Robot 清理错误；不能据此宣称跨屏缩放已验证。
+跨屏 DPI 和 Robot 清理错误仍需单独验证。
 
 ### 原生 JavaFX 大表物理拖动对照
 
@@ -693,19 +682,14 @@ Y=-14、尺寸 740×576、手势连续和宿主资源归零，日志
 获得同意后才可运行：
 
 ```powershell
-& "$env:JAVA_HOME/bin/java.exe" '-Dglass.platform=Win' '-Dprism.order=d3d' --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED -cp 'artifacts/reference;artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/resources/main;artifacts/vfx/resources/test;artifacts/vfx/dependencies/*' NativeTableDrag *> artifacts/logs/native-table-drag.log
+& "$env:JAVA_HOME/bin/java.exe" '-Dglass.platform=Win' '-Dprism.order=d3d' --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED -cp 'artifacts/reference;artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/resources/main;artifacts/vfx/resources/test;artifacts/vfx/dependencies/*' NativeTableDrag *> agentdir/logs/native-table-drag.log
 ```
 
 要求退出码 0、原生 WinApplication 标记、完整 96 个间隔、所选轴累计实际位移至少 200 像素、NATIVE_TABLE_DRAG_PASS，
 且无异常。失焦、提前关闭、异常或仍有脉冲推进时超过 45 秒均失败；结束时停止
 计时器并尝试释放按键、恢复原鼠标位置、销毁 Robot；后台任务清理失败也仍尝试注销
 全局监听器。此超时不是 FX 线程完全阻塞时的外部看门狗。
-2026-11-10 获授权后水平、垂直实际运行均通过，各 96 个间隔；日志为
-`artifacts/logs/review-native-table-drag-h.log` 和 `review-native-table-drag-v.log`。
-上述 2026-11-10 记录只验证采样和正常退出。2026-11-11 补齐位移门槛与水平可滚动目标筛选后，
-纵向 62.475 FPS/1581 像素、横向 62.530 FPS/867 像素均通过，日志为
-`review-native-table-displacement-v.log`、`review-native-table-displacement-h.log`。
-这仍是 Pulse 测量，不含像素断言或动态注入清理异常。
+这些 Pulse 采样不包含像素断言或动态注入清理异常。[历次专项验证](agentdir/docs/TESTS.md)。
 
 ## 触摸键盘原生返回值
 
@@ -721,7 +705,7 @@ Y=-14、尺寸 740×576、手势连续和宿主资源归零，日志
 动作不变；六秒后正常结束，宿主还要求完成渲染序号及合成提交数相对点击前增加。
 Java/宿主 PASS、退出码 0、无 ERROR/SHADER ERROR/异常才通过。FX 定时器有
 45 秒期限，独立宿主循环有 60 秒期限；无阻塞 FX sleep 或后台无限 latch 等待。
-日志 `artifacts/logs/menu-click-<renderer>-<thread>.log`。它检查菜单动作与后续
+日志 `agentdir/logs/menu-click-<renderer>-<thread>.log`。它检查菜单动作与后续
 渲染进展，不证明菜单所有像素或物理鼠标交互。可选 `-Jdk`、`-Renderer`、`-RenderThread`。
 
 窗口拖动夹具 `WindowDragProbe` 为避开实际光标只读取当前位置；成功创建的
@@ -743,7 +727,7 @@ Java 侧所有节点访问在 FX 线程，调用等待有 10 秒期限，退出�
 比例不得超过 5%。退出码 0、HOVER_DEMO_PASS、HOVER_DEMO_PIXEL_PASS 及无错误日志才
 通过。macOS 入口为 `./scripts/test-hover-demo.sh --renderer mobile|gl_compatibility`
 （双渲染器已通过）。日志
-`artifacts/logs/hover-demo-<renderer>-<thread>.log`，异常亮度图像位于 artifacts/reference。
+`agentdir/logs/hover-demo-<renderer>-<thread>.log`，异常亮度图像位于 artifacts/reference。
 早期记录仅有编译和解析；后续 `hover-demo-mobile-safe.log` 包含 Java 与像素通过标记（hold=861、gap=511），这不是 separate 模式的证明。逐帧读回/事件日志不能作为 FPS 基准。
 
 Stage 渲染测试 `test-stage.ps1` 的像素映射使用浮点捕获宽度比例，只在图像坐标
@@ -806,7 +790,7 @@ OLE 注入观察器在创建场景前创建并关闭临时 DND ClipboardAssistan
 `./scripts/test-scroll-settings.ps1`：前置 J，验证输入 V2 记录长度、完整 UINT32
 滚轮设置往返（含 0、1024、旧打包溢出边界、INT_MAX、0xffffffff 分页值），拒绝
 负数、小数、溢出值和 NaN/Infinity。要求 `SCROLL_SETTINGS_PASS`，日志
-`artifacts/logs/scroll-settings.log`；支持 `-Jdk`。不启动窗口、不修改系统滚轮
+`agentdir/logs/scroll-settings.log`；支持 `-Jdk`。不启动窗口、不修改系统滚轮
 设置，也不操作输入设备；它不证明所有设置下 JavaFX 控件的实际滚动效果。
 
 IME 输入回归的 `test-ime.ps1 -Renderer mobile -SpacedClick` 在每次合成按钮事件后

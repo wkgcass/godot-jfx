@@ -26,7 +26,7 @@ case "$RENDERER" in mobile|gl_compatibility) ;; *) echo "invalid renderer: $REND
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 CLASSPATH="artifacts/vfx/classes/java/main:artifacts/vfx/classes/java/test:artifacts/vfx/dependencies/*"
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
@@ -43,8 +43,8 @@ export GODOT_JFX_VFX_FREEZE=0
 export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Xmx${HEAP}m"
 
 STEM="vfx-soak-$RENDERER-$ROUNDS-heap$HEAP"
-LOG="artifacts/logs/$STEM.log"
-ERR="artifacts/logs/$STEM.stderr.log"
+LOG="agentdir/logs/$STEM.log"
+ERR="agentdir/logs/$STEM.stderr.log"
 TIMEOUT=$((120 + ROUNDS * PAGES * 8))
 
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://vfx_soak.tscn \
@@ -78,8 +78,8 @@ if [ "$TIMED_OUT" -eq 1 ]; then
     exit 1
 fi
 
-cat "$LOG" "$ERR" > "artifacts/logs/$STEM.combined.log"
-COMBINED="artifacts/logs/$STEM.combined.log"
+cat "$LOG" "$ERR" > "agentdir/logs/$STEM.combined.log"
+COMBINED="agentdir/logs/$STEM.combined.log"
 EXPECTED=$((1 + ROUNDS * 2 * (PAGES - 1)))
 REPORT="artifacts/reference/$STEM.json"
 PASS=0

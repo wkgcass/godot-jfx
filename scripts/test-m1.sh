@@ -15,9 +15,9 @@ done
 case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
-LOG="artifacts/logs/m1-$RENDERER.log"
+LOG="agentdir/logs/m1-$RENDERER.log"
 # Frame limit prevents an unhandled GDScript error from hanging the test.
 # Exit zero alone is insufficient: an explicit PASS is required below.
 python3 "$FIXTURE_LAUNCHER" --path tests/godot --rendering-method "$RENDERER" --quit-after 300 > "$LOG" 2>&1

@@ -20,14 +20,14 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
     -encoding UTF-8 -d artifacts/reference tests/reference/NodeShaderProbe.java || { echo "Node shader probe compilation failed" >&2; exit 1; }
 
 export GODOT_JFX_JDK="$JDK"
-LOG="artifacts/logs/node-shaders-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/node-shaders-$RENDERER-$RENDER_THREAD.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://node_shaders.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 4000 >"$LOG" 2>&1 || CODE=$?

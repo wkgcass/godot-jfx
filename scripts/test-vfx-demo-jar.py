@@ -112,7 +112,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="VFX Intro ") as directory:
         jar = Path(directory) / source.name
         shutil.copyfile(source, jar)
-        log = ROOT / "artifacts/logs/vfx-demo-jar-isolated.log"
+        log = ROOT / "agentdir/logs/vfx-demo-jar-isolated.log"
         log.parent.mkdir(parents=True, exist_ok=True)
         args = [java, "-jar", jar.name]
         if os.name != "nt":

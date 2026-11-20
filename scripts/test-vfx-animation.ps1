@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [switch]$TimingOnly)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -13,7 +14,7 @@ try {
     $env:GODOT_JFX_JDK = $Jdk
     $suffix = if ($Runtime) { '-runtime' } else { '' }
     if ($TimingOnly) { $suffix += '-timing-only' }
-    $log = Join-Path (Get-Location) "artifacts/logs/vfx-animation-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path (Get-Location) "agentdir/logs/vfx-animation-$Renderer-$RenderThread$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path (Get-Location) 'artifacts/runtime-vfx-animation'
         New-Item -ItemType Directory -Force $fixture | Out-Null

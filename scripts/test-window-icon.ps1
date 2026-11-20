@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[ValidateSet('safe')][string]$RenderThread='safe',[switch]$Runtime)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -10,7 +11,7 @@ try {
     if($LASTEXITCODE -ne 0){throw 'Icon probe compilation failed'}
     $env:GODOT_JFX_JDK=$Jdk
     $suffix=if($Runtime){'-runtime'}else{''}
-    $log=Join-Path $root "artifacts/logs/window-icon-$Renderer-$RenderThread$suffix.log"
+    $log=Join-Path $root "agentdir/logs/window-icon-$Renderer-$RenderThread$suffix.log"
     if($Runtime){
         $fixture=Join-Path $root 'artifacts/runtime-window-icon'
         New-Item -ItemType Directory -Force $fixture | Out-Null

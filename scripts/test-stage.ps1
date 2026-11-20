@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility')
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -9,7 +10,7 @@ try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/StageProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Stage probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
-    $log = "artifacts/logs/stage-$Renderer.log"
+    $log = "agentdir/logs/stage-$Renderer.log"
     Invoke-GodotFixture --path tests/godot res://stage.tscn --rendering-method $Renderer --quit-after 4000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

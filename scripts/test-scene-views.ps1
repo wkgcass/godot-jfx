@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility')
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -5,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 Push-Location $root
 try {
-    $log = "artifacts/logs/scene-views-$Renderer.log"
+    $log = "agentdir/logs/scene-views-$Renderer.log"
     Invoke-GodotFixture --path tests/godot res://scene_views.tscn --rendering-method $Renderer --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

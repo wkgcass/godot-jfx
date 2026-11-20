@@ -6,7 +6,7 @@ if [ ! -x "$JDK/bin/javac" ]; then
     echo "javac not found under $JDK" >&2
     exit 1
 fi
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 options='--module-path jfx/build/sdk/lib --add-modules javafx.graphics'
 for package in com.sun.javafx.geom com.sun.javafx.geom.transform com.sun.scenario.effect com.sun.scenario.effect.impl; do
     options="$options --add-exports javafx.graphics/$package=ALL-UNNAMED"
@@ -15,7 +15,7 @@ done
 "$JDK/bin/javac" $options -encoding UTF-8 -d artifacts/reference tests/reference/ImagePoolReuseProbe.java
 for mode in 1 0; do
     export GODOT_JFX_IMAGE_POOL_LIFO="$mode"
-    log="artifacts/logs/image-pool-reuse-$mode.log"
+    log="agentdir/logs/image-pool-reuse-$mode.log"
     # shellcheck disable=SC2086
     "$JDK/bin/java" $options --add-opens javafx.graphics/com.sun.scenario.effect.impl=ALL-UNNAMED -cp artifacts/reference ImagePoolReuseProbe > "$log" 2>&1 || {
         echo "Image pool reuse failed: $log" >&2

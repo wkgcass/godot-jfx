@@ -21,7 +21,7 @@ case "$RENDERER" in mobile|gl_compatibility) ;; *) echo "invalid renderer: $REND
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs artifacts/native-tests
+mkdir -p artifacts/reference agentdir/logs artifacts/native-tests
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
@@ -58,7 +58,7 @@ run_watchdog() {
 
 UUID=$(uuidgen | tr -d '-' | tr 'A-F' 'a-f')
 SYNC="$PWD/artifacts/native-tests/clipboard-$UUID.ready"
-PEER_LOG="artifacts/logs/clipboard-peer.log"
+PEER_LOG="agentdir/logs/clipboard-peer.log"
 # The macOS pasteboard server hides file lists of nonexistent paths from
 # other processes, so the probe fixtures (ClipboardProbe FILES and the
 # external peer's second set) must be real files.
@@ -84,7 +84,7 @@ PEER_PID=$!
 
 SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
-LOG="$PWD/artifacts/logs/clipboard-$RENDERER$SUFFIX.log"
+LOG="$PWD/agentdir/logs/clipboard-$RENDERER$SUFFIX.log"
 CODE=0
 if [ "$RUNTIME" -eq 1 ]; then
     FIXTURE="$PWD/artifacts/runtime-clipboard"

@@ -25,7 +25,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
@@ -35,16 +35,16 @@ CODE=0
 "$JDK/bin/java" -Dglass.platform=Mac --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
     -Deffects.reference=artifacts/reference/d3d-effects.png \
-    -cp artifacts/reference EffectsProbe >artifacts/logs/effects-mac-native.log 2>&1 || CODE=$?
-if [ "$CODE" -ne 0 ] || ! grep -q 'EFFECTS_REFERENCE_PASS' artifacts/logs/effects-mac-native.log; then
-    echo "Native effects reference failed: artifacts/logs/effects-mac-native.log" >&2
+    -cp artifacts/reference EffectsProbe >agentdir/logs/effects-mac-native.log 2>&1 || CODE=$?
+if [ "$CODE" -ne 0 ] || ! grep -q 'EFFECTS_REFERENCE_PASS' agentdir/logs/effects-mac-native.log; then
+    echo "Native effects reference failed: agentdir/logs/effects-mac-native.log" >&2
     exit 1
 fi
 
 export GODOT_JFX_JDK="$JDK"
 SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
-LOG="$PWD/artifacts/logs/effects-$RENDERER$SUFFIX.log"
+LOG="$PWD/agentdir/logs/effects-$RENDERER$SUFFIX.log"
 if [ "$RUNTIME" -eq 1 ]; then
     FIXTURE="$PWD/artifacts/runtime-effects"
     mkdir -p "$FIXTURE"

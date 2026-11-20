@@ -26,7 +26,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.graphics,javafx.swing \
     --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED \
@@ -39,7 +39,7 @@ export GODOT_JFX_PHYSICAL_DRAG_ROBOT="$ROBOT"
 export GODOT_JFX_PHYSICAL_DRAG_CAPTURE="$PWD/artifacts/reference/physical-drag-desktop.png"
 SUFFIX=""
 [ "$ROBOT" = "1" ] && SUFFIX="-robot"
-LOG="artifacts/logs/physical_drag-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/physical_drag-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
 # --quit-after is only a hang backstop (the scene has its own 120s deadline):
 # when the window server declines to vsync this session the main loop runs

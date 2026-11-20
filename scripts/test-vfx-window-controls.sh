@@ -22,7 +22,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 CLASSPATH="artifacts/vfx/classes/java/main:artifacts/vfx/classes/java/test:artifacts/vfx/dependencies/*"
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
@@ -53,7 +53,7 @@ run_watchdog() {
 }
 
 export GODOT_JFX_JDK="$JDK"
-LOG="artifacts/logs/vfx-window-controls-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/vfx-window-controls-$RENDERER-$RENDER_THREAD.log"
 CODE=0
 run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://vfx_window_controls.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?

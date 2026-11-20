@@ -6,9 +6,9 @@ if [ ! -x "$JDK/bin/javac" ]; then
     echo "javac not found under $JDK" >&2
     exit 1
 fi
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 "$JDK/bin/javac" -encoding UTF-8 -d artifacts/reference tests/reference/ClipboardEncodingProbe.java
-log='artifacts/logs/clipboard-encoding.log'
+log='agentdir/logs/clipboard-encoding.log'
 "$JDK/bin/java" -Xmx32m -XX:MaxDirectMemorySize=96m --module-path jfx/build/sdk/lib --add-modules javafx.graphics --add-opens javafx.graphics/com.sun.glass.ui.godot=ALL-UNNAMED -cp artifacts/reference ClipboardEncodingProbe > "$log" 2>&1 || {
     echo "Clipboard encoding failed: $log" >&2
     exit 1

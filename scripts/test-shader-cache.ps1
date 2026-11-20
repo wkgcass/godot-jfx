@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe')
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -7,7 +8,7 @@ $savedInstanceUniforms = $env:GODOT_JFX_INSTANCE_UNIFORMS
 $env:GODOT_JFX_INSTANCE_UNIFORMS = "1"
 Push-Location $root
 try {
-    $log = "artifacts/logs/shader-cache-$Renderer-$RenderThread.log"
+    $log = "agentdir/logs/shader-cache-$Renderer-$RenderThread.log"
     Invoke-GodotFixture --path tests/godot res://shader_cache.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

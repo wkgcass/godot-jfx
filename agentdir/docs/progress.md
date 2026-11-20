@@ -1,16 +1,18 @@
 # 历史工作记录
 
-文中的 `artifacts/` 路径记录了每次实验在本机保存文件的位置。查看某次实验的原始日志或截图需要取得该次运行的归档。
+本工作区已迁移的原件位于 `agentdir/artifacts/`，其中日志和截图分别沿用 `logs/` 和 `reference/` 子目录。其他路径以及历史命令对应各次实验的运行环境。查看某次实验的原始日志或截图需要取得该次运行的归档。
 
-本文件保存历史实施与验证记录。每条记录中的“当前”“下一步”“未实现”仅指当时阶段；旧 RD/separate 命令不再适用于当前版本。当前实现见 [架构](architecture.md)，证据与限制见 [验收状态](acceptance-status.md)，可运行命令见 [TESTS.md](../TESTS.md)。
+2026-11-20 从 Windows 工作区收起的截图、采样和对照报告位于 `agentdir/artifacts/reference/windows-workspace-20261120/`。归档保留了当时磁盘上的文件；同一文件名在多轮测试中可能被覆盖。
 
-下文涉及 Godot 创建或销毁 JVM 的记录来自已移除的早期实现。现行应用与场景测试均由标准 JDK 启动，JavaFX 从平台 JAR 加载 Godot 共享库。[交付规格](godot-library-spec.md)
+本文件保存历史实施与验证记录。每条记录中的“当前”“下一步”“未实现”仅指当时阶段；旧 RD/separate 命令不再适用于当前版本。当前实现见 [架构](../../docs/architecture.md)，证据与限制见 [验收状态](../../docs/acceptance-status.md)，可运行命令见 [TESTS.md](../../TESTS.md)。
+
+下文涉及 Godot 创建或销毁 JVM 的记录来自已移除的早期实现。现行应用与场景测试均由标准 JDK 启动，JavaFX 从平台 JAR 加载 Godot 共享库。[交付规格](../../docs/godot-library-spec.md)
 
 ## 2026-11-13 — Viewport＋safe 收敛与残留清理
 
 - 删除自定义 RD-direct 后端、翻译器、编译/运行开关、JNI 能力查询和专用探针，以及 separate 专用通知、纹理代理和 Windows 线程适配。保留 Godot 自身渲染器、RenderingDevice、区域上传及资源回收修复。
 - 以 `9d1f2a2` 和其 Godot/JFX 指针为基线，复查函数、内联方法、字段读写、JNI、ClassDB、协议和测试入口。累计清理遗留 spike/mesh 包装、旧剪贴板 JNI 入口、回调计时状态、上传派发包装、full-shadow 参数分支及从未更新的窗口 GPU 字段。
-- 34 个剩余 JNI 入口、30 个协议命令有调用/消费路径；层合成器仍服务主 Stage 和次级原生窗口，不是可删除的旧窗口模型。审计清单为 `artifacts/dead-code-audit/audit.json`，生成时的 HEAD 早于随后 amend；文件散列对应审计源码。
+- 34 个剩余 JNI 入口、30 个协议命令有调用/消费路径；层合成器仍服务主 Stage 和次级原生窗口，不是可删除的旧窗口模型。审计清单为 `agentdir/artifacts/dead-code-audit/audit.json`，生成时的 HEAD 早于随后 amend；文件散列对应审计源码。
 - 引擎、JFX、Media 源码构建及主要回归分轮通过；最终上传 API 改动后重测两种渲染器的纹理更新、Viewport 状态、批次边界、协议、Runtime 窗口控制及 Demo 启动。更早的 Robot 与 Media 结果不等同每次清理都全量重跑。
 - 表格和 68 次切页 GPU 诊断通过，但默认时间戳池先发生容量错误；临时使用 8192 槽位后恢复配置。直接离屏路径的 GPU 样本为零是测量限制；窗口 GPU 样本由夹具直接读取，不再输出旧宿主零值。诊断运行不作为普通性能验收。
 - 系统剪贴板复验因现有 `DataObject` 无法安全备份而在写入前停止，未改写内容；编码和保护单元测试通过。保留物理设备、长期内存等验收限制。
@@ -22,7 +24,7 @@
 - 六轮 Viewport/mobile/256MiB 实跑完成，35 页、409 份 Java/原生样本、988 次进程采样、40 次自然 GC，最终 owned=0。第 3–6 轮目标数保持 232；首页 static MiB 为 235.78/238.11/240.61/241.24，纹理 MiB 为 869.86/872.09/873.64/873.64。共享网格预算始终不超过 4096。
 - 剩余 owned 增加主要是每目标有界材质/着色器/绘制槽填充，不能把总数要求为常数。末半段 private OLS 约 +9.70 MiB/min；另排除最后 10 秒退出段、只看 750 秒之后，private 范围 3876.29–3895.27 MiB、OLS +4.87 MiB/min。结果支持该有限工作负载预热趋缓，不宣称零增长或无限时长无泄漏。
 - 当前双路径帧率 Viewport 58.604 / RD 59.662 Pulse FPS，68 次切换、失焦 0、清理通过。GL/Vulkan 共享缓存预算、淘汰后像素、单个及最后目标释放通过；补充 mobile/separate 离屏目标、Media 平面和 Runtime 视频控制均通过。
-- 最终证据与限制见 artifacts/review-completion-audit.json、review-cumulative-closeout.json 和 memory-validation.md。系统剪贴板最新完整复验被未知私有格式保护拒绝，实际输入法/虚拟键盘可见性等项目兼容性限制仍保留，不改写成通过；它们不等同本次代码审查仍有已定位未修缺陷。
+- 最终证据与限制见 agentdir/artifacts/review-completion-audit.json、review-cumulative-closeout.json 和 memory-validation.md。系统剪贴板最新完整复验被未知私有格式保护拒绝，实际输入法/虚拟键盘可见性等项目兼容性限制仍保留，不改写成通过；它们不等同本次代码审查仍有已定位未修缺陷。
 
 ## 2026-11-11：六轮运行期间同步验收入口
 
@@ -63,7 +65,7 @@
 
 - 分类诊断仍在同一进程运行；第一轮尚未结束时已观察到 200 个目标、29522 个目标缓存网格，retired target/texture 为 0，说明当次增长不主要由等待退休的列表解释。
 - 源码核对：PrismMeshCache 的 4096 项/48 MiB 是每实例预算，每个 RenderTarget 独立持有，因此总体预算随目标数累乘；DrawSlot 的 Ref<ArrayMesh> 负责保护已排队绘制。共享有界缓存是候选改进，尚未据此宣称完整根因或修改生产淘汰行为。
-- 采样中间证据保存 artifacts/review-soak-growth-localization.json；这是未完成运行的快照，不能代替最终报告。继续观察首页计数及第二、三轮变化，保留原始失败证据。
+- 采样中间证据保存 agentdir/artifacts/review-soak-growth-localization.json；这是未完成运行的快照，不能代替最终报告。继续观察首页计数及第二、三轮变化，保留原始失败证据。
 - 原始审查已完成/总计：156/156；累计补充收尾已完成/总计：51/52。
 
 ## 2026-11-11：soak 资源增长分类诊断
@@ -104,19 +106,19 @@
 
 - 核对 16 个累计测试入口/探针/场景：LCD 资源加载、RD corpus、LCD、非法输入、缺失纹理视图、窗口立即关闭及限速所有权。未发现需再次修改的实现问题。
 - 新运行通过：LCD 四组合；RD separate 非法输入五例、缺失视图恢复及 LCD；262 个 corpus 全部满足 2/255；GL/separate Runtime 32 次窗口立即关闭；mobile 的 cap/restore/override 三种限速模式。测试串行，不操作真实键鼠。
-- 原始审查已完成/总计：156/156；累计补充收尾已完成/总计：31/52，剩余 21 个路径。日志哈希登记于 artifacts/review-cumulative-closeout.json；这些检查不替代全页面帧率或所有驱动的验证。
+- 原始审查已完成/总计：156/156；累计补充收尾已完成/总计：31/52，剩余 21 个路径。日志哈希登记于 agentdir/artifacts/review-cumulative-closeout.json；这些检查不替代全页面帧率或所有驱动的验证。
 
 ## 2026-11-11：累计修复的输入、采样和内存保护复核
 
 - 核对 GodotInputPacket 及调用点、滚轮设置探针、共享采样器与探针、LRU/TabTip/剪贴板所有权组件测试、剪贴板编码和快照保护入口，共 15 个新增收尾路径；未发现需再次修改的实现问题。
-- 七个对应入口重新执行通过，覆盖无符号设置边界、采样退出/容量/错误传播、LRU 分配失败回滚、COM 错误与释放、剪贴板格式/分配保护。未启动 GUI、未合成真实输入、未读写系统剪贴板。日志与哈希保存在 artifacts/review-cumulative-closeout.json。
+- 七个对应入口重新执行通过，覆盖无符号设置边界、采样退出/容量/错误传播、LRU 分配失败回滚、COM 错误与释放、剪贴板格式/分配保护。未启动 GUI、未合成真实输入、未读写系统剪贴板。日志与哈希保存在 agentdir/artifacts/review-cumulative-closeout.json。
 - 原始审查已完成/总计：156/156；累计补充收尾已完成/总计：15/52，剩余 37 个路径。不将组件测试等同完整剪贴板互通或实际键盘可见性。
 
 ## 2026-11-11：历史记录边界与累计修复收尾清单
 
 - 将历史阅读说明放在入口，为未统一标注日期的早期英文记录增加边界。保留早期未实现项、测量值与失败记录，不把它们改写成当前结果。
 - 原始范围审查已完成/总计：156/156（根仓库 127/127、Godot 10/10、JFX 19/19）。已登记文件哈希与当前工作区匹配；该检查只证明内容对应，不能代替代码审查或测试。
-- 累计修复继续单列收尾：当前新增/修改路径与原始审查及关联文件登记逐一对照，未覆盖项保留到 artifacts/review-cumulative-closeout.json，不因原始计数完成而忽略。
+- 累计修复继续单列收尾：当前新增/修改路径与原始审查及关联文件登记逐一对照，未覆盖项保留到 agentdir/artifacts/review-cumulative-closeout.json，不因原始计数完成而忽略。
 - 本轮核对四个构建/启动入口的环境恢复变更：不存在的环境变量在 finally 中删除，原有值恢复，失败不继续运行旧产物。未重新执行构建或 GUI 测试。
 
 ## 2026-11-11：验收状态与最新证据对齐
@@ -194,21 +196,21 @@
 ## 2026-11-11：外部拖放请求 JNI 分配异常边界
 
 - drag_start_external 只有部分局部分配带有 bad_alloc 处理，文本/富文本字符串、路径、自定义载荷和图像缓冲区仍可能让原生异常越过 JNI。给整个入口增加统一 bad_alloc 边界；原生所有权按栈展开清理、请求不发布，Java 收到 OutOfMemoryError。JNI 局部引用在本次原生调用返回时自动释放。
-- 隔离夹具使用实际函数体和模拟 JNI，注入请求对象、64 字符文本、64 字节富文本的三个分配失败位置。旧版在文本分配处退出 1；修复版三个失败均保持 dnd_pending 为空，并在同一 Runtime 上恢复分配后成功重试。日志 `review-drag-request-before.log`、`review-drag-request-after.log`，夹具 `artifacts/native-tests/drag-request-failure/`。没有声称已经逐一注入文件、自定义格式、图像所有分支或真实 JVM 堆耗尽。
+- 隔离夹具使用实际函数体和模拟 JNI，注入请求对象、64 字符文本、64 字节富文本的三个分配失败位置。旧版在文本分配处退出 1；修复版三个失败均保持 dnd_pending 为空，并在同一 Runtime 上恢复分配后成功重试。日志 `review-drag-request-before.log`、`review-drag-request-after.log`，夹具 `agentdir/artifacts/native-tests/drag-request-failure/`。没有声称已经逐一注入文件、自定义格式、图像所有分支或真实 JVM 堆耗尽。
 - 引擎顺序构建通过（`review-drag-request-editor-build.log`、`review-drag-request-runtime-build.log`）。Runtime mobile/safe 真实 Robot 跨进程双向传输、拖动图像及取消测试通过，日志 `review-drag-request-runtime-external.log`；测试已退出。Glass 文档同步。
 - 主宿主复核已推进到 JVM 初始化/启动配置，仍需继续核对启动失败与主循环。固定原始源码审查已完成/总计保持 140/156。
 
 ## 2026-11-11：屏幕信息 JNI 分配失败边界
 
 - screen_info 原先复制原生 screens 向量时未捕获 std::bad_alloc，可能让 C++ 异常越过 JNI。现在与其他快照入口一致转换为 Java OutOfMemoryError；局部锁在异常处理前释放，正常查询路径不变。
-- 使用实际函数体与模拟 JNI 的隔离夹具注入快照复制失败。旧版退出 1 并报告原生异常逃逸；修复版验证 Java 异常类型、没有尝试创建 Java 数组、锁已释放及重试返回原始三个值。源与运行入口在 `artifacts/native-tests/screen-snapshot-failure/`，日志 `review-screen-snapshot-before.log` / `review-screen-snapshot-after.log`。这不是完整 JVM 内存耗尽测试。
+- 使用实际函数体与模拟 JNI 的隔离夹具注入快照复制失败。旧版退出 1 并报告原生异常逃逸；修复版验证 Java 异常类型、没有尝试创建 Java 数组、锁已释放及重试返回原始三个值。源与运行入口在 `agentdir/artifacts/native-tests/screen-snapshot-failure/`，日志 `review-screen-snapshot-before.log` / `review-screen-snapshot-after.log`。这不是完整 JVM 内存耗尽测试。
 - 引擎顺序构建通过（`review-screen-snapshot-editor-build.log`、`review-screen-snapshot-runtime-build.log`）；mobile/separate 的 `test-screens.ps1` 屏幕枚举、元数据与窗口关联通过（`screens-mobile-separate.log`），没有修改用户显示设置。
 - Glass 文档同步。主宿主 JNI 读取已推进至外部拖放请求构造部分；该部分还有字符串/图像容器分配需继续核对异常边界，主循环全文尚未完成。固定原始源码审查已完成/总计仍为 140/156。
 
 ## 2026-11-11：自定义光标入队序号事务修复
 
 - 主宿主 JNI 部分复核发现 custom_cursor 在 deque 入队前递增 next_host_sequence；若 push_back 分配失败，关闭完成判断会等待一个从未成功入队的序号。改为 push_back 成功后递增，与普通窗口/图标命令一致。
-- 从实际 custom_cursor 函数体生成隔离原生夹具，以模拟 JNI 环境和 STL 分配失败遍历队列已有 0～255 项，验证失败时队列/序号均不变、恢复分配后原序号可重试。旧版本退出 1（count=0 即暴露序号消耗）；修复版通过 256 次失败/重试。夹具在 `artifacts/native-tests/cursor-queue-transaction/`，日志 `review-cursor-queue-before.log`、`review-cursor-queue-after.log`；不是全进程内存耗尽或完整退出流程的动态测试。
+- 从实际 custom_cursor 函数体生成隔离原生夹具，以模拟 JNI 环境和 STL 分配失败遍历队列已有 0～255 项，验证失败时队列/序号均不变、恢复分配后原序号可重试。旧版本退出 1（count=0 即暴露序号消耗）；修复版通过 256 次失败/重试。夹具在 `agentdir/artifacts/native-tests/cursor-queue-transaction/`，日志 `review-cursor-queue-before.log`、`review-cursor-queue-after.log`；不是全进程内存耗尽或完整退出流程的动态测试。
 - 引擎顺序构建通过：`review-cursor-queue-editor-build.log`、`review-cursor-queue-runtime-build.log`。Runtime mobile/separate 的 `test-image-cursor.ps1` 通过 13 步光标图像/热点/隐藏恢复/子窗口与退出清理；使用 Godot 合成输入，不移动真实鼠标。
 - Glass 文档补充成功入队才提交序号的约束。主宿主文件全文复核仍未完成，本轮固定原始源码审查已完成/总计保持 140/156；后续继续核对 JNI 分配异常边界和主循环。
 
@@ -273,7 +275,7 @@
 
 - ClipboardProbe 的启动超时/等待中断原先可能跳过窗口关闭和 Platform.exit；现统一在 finally 中关闭，FX 清理等待有界且可取消，保留原始异常并恢复中断状态。PASS 移至清理成功后。
 - 当前探针编译通过。完整测试在备份阶段因 Chromium 私有格式被保护逻辑拒绝，未执行剪贴板写入；不绕过保护，不把此次拒绝当成互操作回归失败。日志 `review-clipboard-finally.log`，先前完整互操作记录仍属此前版本。
-- 从当前清理代码生成无剪贴板访问的独立故障夹具：创建临时窗口后注入中断异常，确认窗口关闭、中断恢复、进程退出 1 且无 PASS。日志 `review-clipboard-cleanup-interruption.log`；夹具位于 `artifacts/native-tests/clipboard-cleanup/`。这验证新清理路径，不代替格式交换验证。
+- 从当前清理代码生成无剪贴板访问的独立故障夹具：创建临时窗口后注入中断异常，确认窗口关闭、中断恢复、进程退出 1 且无 PASS。日志 `review-clipboard-cleanup-interruption.log`；夹具位于 `agentdir/artifacts/native-tests/clipboard-cleanup/`。这验证新清理路径，不代替格式交换验证。
 - 完整核对 ClipboardSnapshot 的总量预算、枚举错误、句柄交接、写后序列号及带锁恢复保护。固定原始源码审查已完成/总计：128/156（根仓库 99/127、Godot 10/10、JFX 19/19）；累计新增修复仍需收尾。
 
 ## 2026-11-11：悬停与编码探针核对、拖放测试读边界修复
@@ -292,7 +294,7 @@
 
 - 核对 VirtualKeyboard、WindowDrag、ResizeCursor、MenuClick、ScrollWheel、ImagePoolReuse、SceneTexture、MediaAudio、OleInject、PhysicalDrag、ExternalDrag 探针的完整源码和相关宿主判定边界。
 - 重点检查超时取消、线程停止、输入释放、鼠标恢复、异常保留、资源关闭及成功标记的条件；本轮未发现新的必改项。WindowDrag/ResizeCursor 的主要几何或光标断言由宿主场景负责，Java PASS 不能单独替代；Media 静音测试和虚拟键盘调用测试的能力限制保留。
-- 当前哈希和逐项结论记录在 `artifacts/review-root-final-audit.json`，累计 91/127 项，剩余 36 项及累计新增修复。本轮未重复执行已通过的 GUI/Robot 测试，未修改生产行为或放宽断言。
+- 当前哈希和逐项结论记录在 `agentdir/artifacts/review-root-final-audit.json`，累计 91/127 项，剩余 36 项及累计新增修复。本轮未重复执行已通过的 GUI/Robot 测试，未修改生产行为或放宽断言。
 
 ## 2026-11-11：RenderTarget 最终核对与音频样本工具收尾修复
 
@@ -312,7 +314,7 @@
 - 完整核对悬停、Stage、网格变换、RD 翻译、Surface、RenderTarget、Shader 与缓存场景；没有发现新的必改项。Stage 的等待以像素变化为终态，不能与只数旧完成通知的等待混为一谈。
 - 生成 Shader 的完整性由包装脚本比较 D3D 变体集合及 SDK 内容，场景自身的数量输出不能独立证明完整覆盖。普通网格变换通过也不能代替可选缓存压力档。
 - 核对 custom-format、TabTip 和 Prism mesh 辅助实现及相关调用点；缓存使用完整内容比较和 COW 快照，预算仅计输入数据，虚拟键盘仍保留系统可见性限制。
-- 逐项源码结论与哈希写入 `artifacts/review-root-final-audit.json`，累计 73/127 项、剩余 54 项及累计新增修复。本轮未修改生产行为或重新运行 GUI 测试。
+- 逐项源码结论与哈希写入 `agentdir/artifacts/review-root-final-audit.json`，累计 73/127 项、剩余 54 项及累计新增修复。本轮未修改生产行为或重新运行 GUI 测试。
 
 ## 2026-11-11：RD 诊断及回归场景源码核对
 
@@ -374,7 +376,7 @@
 
 - 复读 GodotEventLoop、GodotPulseScheduler、GodotTimer 及应用停止调用，发现 GlassSchedulerProbe 的独立事件循环只有成功路径释放闩锁；中途超时/断言会遗留非守护线程。
 - 独立循环的 stop、闩锁释放和两条测试线程 join 移入 finally，正常路径额外确认同步调用者已退出。生产调度器未改动。
-- `test-glass-scheduler.ps1` 通过，完整日志 `review-scheduler-cleanup.log`。从当前测试块生成独立探针，在 held 和 queued 两个位置注入断言，均无新增非守护线程存活；日志 `review-scheduler-failure-cleanup-0.log`、`-1.log`，源码位于 `artifacts/native-tests/scheduler-cleanup/`。
+- `test-glass-scheduler.ps1` 通过，完整日志 `review-scheduler-cleanup.log`。从当前测试块生成独立探针，在 held 和 queued 两个位置注入断言，均无新增非守护线程存活；日志 `review-scheduler-failure-cleanup-0.log`、`-1.log`，源码位于 `agentdir/artifacts/native-tests/scheduler-cleanup/`。
 
 ## 2026-11-11：SceneView 输入边界和生命周期复核
 
@@ -445,20 +447,20 @@
 
 - 重新读取实际基准日志，修正 acceptance-status 开头仍将 57.553/54.325 称为最新的旧描述。分别列出 RD 59.006/55.946 与 Viewport 58.700/56.133，并明确这些测量早于后续非默认同步备用路径修复，不冒充所有当前配置的测试。
 - review-open-items 顶部集中列出尚未闭环的 separate 单次像素失败、剪贴板互操作保护、虚拟键盘可见性与全范围完成核对；已修复问题、历史授权撤回/命令拒绝与更广项目验收限制分开记录。
-- 从 Git 再次推导固定原始路径集合，与原始范围索引逐项比较。结果保存 `artifacts/logs/review-current-scope-check.json`；集合匹配只证明范围未漂移，不证明源码或测试全部完成。
+- 从 Git 再次推导固定原始路径集合，与原始范围索引逐项比较。结果保存 `agentdir/artifacts/logs/review-current-scope-check.json`；集合匹配只证明范围未漂移，不证明源码或测试全部完成。
 - 本轮未修改代码或重复执行已通过的 GUI 测试。
 
 ## 2026-11-10：跨线程回调所有权复核
 
 - 按当前源代码逐项检查模块的 RenderingServer 派发与帧信号：RID/上传数据按值持有、共享 staging/借用参数在返回前 sync、退出树断开信号。审查清单新增路径与完成边界表；未发现另一处与上一轮备用路径相同的问题。
-- 最终 Runtime 的 RD separate 回归通过，包括读回和顶点输入所有权、uniform 退休、pipeline 淘汰、屏幕采样与待绘制源复制。日志 `artifacts/logs/review-render-callback-runtime-full.log`；不把它扩大为所有调度/设备失败保证。
+- 最终 Runtime 的 RD separate 回归通过，包括读回和顶点输入所有权、uniform 退休、pipeline 淘汰、屏幕采样与待绘制源复制。日志 `agentdir/artifacts/logs/review-render-callback-runtime-full.log`；不把它扩大为所有调度/设备失败保证。
 - 本轮未修改生产代码，默认 separate 的单次历史像素失败仍独立保留。
 
 ## 2026-11-10：修复 separate 备用路径的迟到对象回调
 
 - 检查发现关闭 ASYNC_PASS_FENCE 且 PASS_SYNC_INTERVAL=0 时，绑定目标对象的回调仍异步入队，却提前读取耗时并返回。新增 128 次提交后立即释放目标，在修复前捕获 Invalid Object id；原 100 轮复制检查的 PASS 不足以掩盖该 ERROR。
 - separate 备用路径现在每次返回前完成队列同步，保证对象和成员耗时访问安全；默认异步 RID 路径不增加逐次等待，safe 模式仍保留原节流策略。
-- 引擎构建成功。mobile/separate 的 ASYNC_PASS_FENCE=0 和 1、GL/separate 的 0，均通过新增生命周期检查和原像素/资源门禁。证据 `artifacts/logs/review-sync-fallback-*`；修改诊断环境变量后均恢复。
+- 引擎构建成功。mobile/separate 的 ASYNC_PASS_FENCE=0 和 1、GL/separate 的 0，均通过新增生命周期检查和原像素/资源门禁。证据 `agentdir/artifacts/logs/review-sync-fallback-*`；修改诊断环境变量后均恢复。
 - 同步协议说明、TESTS 和审查清单已更新。这是独立的非默认路径错误，尚无证据解释早前默认 separate 压力检查的单次像素失败。
 
 ## 2026-11-10：碰撞条目删除与最终 Media 回归
@@ -469,13 +471,13 @@
 
 ## 2026-11-10：独立项目缓存与淘汰生命周期复核
 
-- 为 separate 像素间歇失败创建独立临时项目，只复制项目配置与 shader-cache 场景/脚本，未复制或清除原项目缓存。碰撞专项与 305 轮压力检查全部通过，日志 `artifacts/logs/review-cold-cache.log`，路径见 `review-cold-cache-project.txt`；未清理驱动缓存，不能称为完全冷启动。
+- 为 separate 像素间歇失败创建独立临时项目，只复制项目配置与 shader-cache 场景/脚本，未复制或清除原项目缓存。碰撞专项与 305 轮压力检查全部通过，日志 `agentdir/artifacts/logs/review-cold-cache.log`，路径见 `review-cold-cache-project.txt`；未清理驱动缓存，不能称为完全冷启动。
 - 复读 instance uniform 名缓存及调用者：查询返回 COW Vector 所有权，主线程路径使用，没有把缓存条目引用跨淘汰保存；未得到将首次像素失败归因于该缓存的证据。
 - 不基于猜测添加生产 fence 或放宽等待/像素阈值，原首次失败与待定位状态继续保留。本轮未修改生产代码。
 
 ## 2026-11-10：separate 压力检查间歇失败的诊断补充
 
-- 针对前次第 275 轮像素失败，三个独立进程顺序运行 mobile/separate shader-cache 均完整通过，证据为 `artifacts/logs/review-separate-cache-{1,2,3}-full.log`；未把重复通过当作根因修复。
+- 针对前次第 275 轮像素失败，三个独立进程顺序运行 mobile/separate shader-cache 均完整通过，证据为 `agentdir/artifacts/logs/review-separate-cache-{1,2,3}-full.log`；未把重复通过当作根因修复。
 - 检查 Viewport 自动更新、离屏命令 FIFO 和 shader pipeline 路径，现有证据不足以归因于测试同步或生产渲染缺陷。
 - 在原像素失败分支保存同一次读回的图片，文件名含 PID/轮次并报告保存错误；不增加等待、重试或颜色容差。GDScript `--check-only` 通过，日志 `review-cache-diagnostic-parse.log`。此分支尚无新的真实失败截图，不能声称定位完成。
 
@@ -485,19 +487,19 @@
 - 移除就地改写已发布材质的 patch 路径。缓存以完整 shader/参数身份复用，碰撞另存条目；主键未命中时查找已有碰撞条目，保留上一轮失效 sampler 回收。旧 MATERIAL_PATCH 诊断开关不再影响实现。
 - 引擎顺序源码构建成功。mobile/safe 与 GL/safe shader-cache 完整通过，包含三轮碰撞像素/两份材质复用、原有 305 轮压力门禁。mobile/separate 首次碰撞通过、后续第 275 轮旧像素门禁失败；增加实际颜色诊断后重跑通过，仍保留第一次失败为待定位间歇现象，不宣称已解决。
 - Viewport（RD_DIRECT=0、LCD_SCREEN=1）mobile/safe 的 68 次切页：58.700 Pulse FPS、56.133 宿主呈现 FPS，未失焦、资源清理通过。日志 `review-material-collision-transition-full.log`，不以单次波动声称提速。
-- 相关构建及测试证据均为 `artifacts/logs/review-material-collision-*`；TESTS、Prism 和审查清单同步更新。未改业务功能或放宽断言。
+- 相关构建及测试证据均为 `agentdir/artifacts/logs/review-material-collision-*`；TESTS、Prism 和审查清单同步更新。未改业务功能或放宽断言。
 
 ## 2026-11-10：修复 Media 循环暴露的材质缓存滞留
 
 - 当前 Runtime 视频控制与 WAV/MP3/AIFF 解码控制通过；TabTip 错误传播/COM 释放组件测试通过。未将这些等同实际听音或系统键盘显示验收。
 - Media churn 原断言在第 11 轮失败：owned 从 31 持续增至 51，纹理内存不变。关闭 RID 缓存的诊断对照 24 轮通过、owned=29，证据保存在 `review-final-media-churn-runtime-full.log` 和 `review-media-churn-cache-diagnostic-full.log`。
 - 修复 `JavaFXRenderTarget::acquire_material`：缓存未命中时清理已失效采样器的条目及顺序索引，材质沿原 pass 资源路径延迟释放；不再等缓存满才回收。另消除 map erase 后继续读取旧条目指针的风险。未禁用交付缓存、未放宽测试阈值。
-- 引擎顺序构建成功。缓存显式开启的 mobile Runtime 24 轮 `-Providers` 通过，owned=31、退出=0；shader 和 mesh-transform 缓存压力像素检查通过。日志 `review-material-retirement-*.log` 位于 `artifacts/logs/`。
+- 引擎顺序构建成功。缓存显式开启的 mobile Runtime 24 轮 `-Providers` 通过，owned=31、退出=0；shader 和 mesh-transform 缓存压力像素检查通过。日志 `review-material-retirement-*.log` 位于 `agentdir/artifacts/logs/`。
 - 显式 RD_DIRECT=0、LCD_SCREEN=1 的 mobile/safe 切页 68 次：58.457 Pulse FPS、56.008 宿主呈现 FPS，未失焦，资源清理通过。与之前 RD 结果配置不同，不作因果性能提升声明；偶发长帧仍按用户要求暂不处理。
 
 ## 2026-11-10：系统接口补测与结果范围修正
 
-- `test-clipboard.ps1 -Renderer mobile` 在备份检查阶段遇到 Chromium 私有格式而拒绝运行；未进入测试写入，不清空或绕过快照保护。记录 `artifacts/logs/review-final-clipboard.log`，本次不算剪贴板互操作通过。
+- `test-clipboard.ps1 -Renderer mobile` 在备份检查阶段遇到 Chromium 私有格式而拒绝运行；未进入测试写入，不清空或绕过快照保护。记录 `agentdir/artifacts/logs/review-final-clipboard.log`，本次不算剪贴板互操作通过。
 - `test-virtual-keyboard.ps1` 当前产物运行确认 Java 调用、宿主 tick 推进、探针清理通过，但原生关闭请求返回 HRESULT -2147024891（拒绝访问）；未验证系统键盘显示或关闭。
 - 修正虚拟键盘脚本的结果提示，直接输出原生 touch keyboard 警告，并明确成功范围是调用与存活检查。修改后重跑结果符合预期；未改变生产接口或放宽断言。
 - 审查清单中旧的最终基准拒绝记录标明为历史，当前 FPS 更新为上一轮实际测量的 59.006 / 55.946。
@@ -505,7 +507,7 @@
 ## 2026-11-10：重新授权后的最终产物与 Robot 回归
 
 - 用户重新明确允许 Robot 及其他测试，本轮 GUI 测试串行执行，没有修改生产代码或放宽断言。
-- 最终引擎的 mobile/safe 切页基准，显式 RD_DIRECT=1、LCD_SCREEN=1，关闭采样/性能诊断变量：68 次切页、1613 Pulse，59.006 Pulse FPS；1602 次宿主呈现 / 28634.649ms = 55.946 FPS；unfocused=0，资源清理通过。p99=51.433ms、max=117.829ms；按用户要求不处理偶发长帧。日志 `review-final-transition-full.log`，独立复算 `review-final-transition-rates.json`，均位于 `artifacts/logs/`。
+- 最终引擎的 mobile/safe 切页基准，显式 RD_DIRECT=1、LCD_SCREEN=1，关闭采样/性能诊断变量：68 次切页、1613 Pulse，59.006 Pulse FPS；1602 次宿主呈现 / 28634.649ms = 55.946 FPS；unfocused=0，资源清理通过。p99=51.433ms、max=117.829ms；按用户要求不处理偶发长帧。日志 `review-final-transition-full.log`，独立复算 `review-final-transition-rates.json`，均位于 `agentdir/artifacts/logs/`。
 - mobile/separate 引擎的 Robot、外部 OLE 拖放、hover-flicker -Robot、physical-drag -Robot、文件对话框通过。悬停 FusionButton 有效 HOLD/GAP 样本 583/222，资源清零；文件对话框完成六用例。
 - mobile/safe 的表格水平 Robot 拖动通过：96 Pulse、60.004 FPS、位移 867px、unfocused_ticks=0；这是有界物理输入回归，不是长期性能保证。完整日志 `review-final-table-robot-full.log`。
 - mobile/safe Runtime 的 Robot 和外部 OLE 拖放也通过，覆盖最终原生产物的正常跨进程路径。日志 `robot-mobile-safe-runtime.log` 和 `drag-drop-external-mobile-safe-runtime.log`。
@@ -845,21 +847,21 @@
 
 - 两者 GetCanonicalFormatEtc 原来只清空 ptd，却返回 SAMEFORMATETC，其他输出字段未初始化；现复制输入后清空设备指针，空指针明确失败。不支持订阅时清空连接编号和枚举器输出。
 - 实现依据 Microsoft GetCanonicalFormatEtc 的 device-independent 指引，链接见 glass-godot.md。共享测试同时检查生产 DataObject 与 helper，包含别名和失败输出。
-- `test-dnd-drag-image.cmd` 和 `test-dnd-helper-lifetime.cmd --asan` 通过；日志 `artifacts/logs/review-dnd-output.log`、`artifacts/logs/review-dnd-helper-output-asan.log`。无真实输入操作；未替代跨进程拖放验收。
+- `test-dnd-drag-image.cmd` 和 `test-dnd-helper-lifetime.cmd --asan` 通过；日志 `agentdir/artifacts/logs/review-dnd-output.log`、`agentdir/artifacts/logs/review-dnd-helper-output-asan.log`。无真实输入操作；未替代跨进程拖放验收。
 - Godot 引擎源码增量构建均通过（日志 review-dnd-output-editor-build.log、review-dnd-output-runtime-build.log）。架构分工不变，architecture.md 无需修改。
 
 ## 2026-11-10：helper 文件列表读取边界
 
 - 移除首项 MAX_PATH 固定缓冲区，复用有界 DROPFILES 解析器；读取完整首项并统计全部文件。空列表单独验证双终止符，保留未提供格式时的 files=-1。
 - 对文件介质限制 16 MiB、列表 4096 项、单项 32767 字符；损坏数据和 GetData 错误明确失败，Drop 失败保持 NONE。资源使用原有介质/锁 RAII。
-- `test-dnd-helper-lifetime.cmd --asan` 全部通过，新增 FILES 门禁覆盖长路径、ANSI、多字节对齐边界、非法偏移/终止符、空列表和分配失败；日志 `artifacts/logs/review-dnd-helper-files-asan.log`。
+- `test-dnd-helper-lifetime.cmd --asan` 全部通过，新增 FILES 门禁覆盖长路径、ANSI、多字节对齐边界、非法偏移/终止符、空列表和分配失败；日志 `agentdir/artifacts/logs/review-dnd-helper-files-asan.log`。
 - 无真实文件访问或物理输入。只修改测试 helper，宿主架构和公开 API 不变，architecture.md 无需变更。
 
 ## 2026-11-10：外部拖放 helper 启动清理
 
 - 用统一生命周期对象回收日志、OLE、窗口类/画刷、窗口及拖放目标；参数不足在打开日志前拒绝。
 - 源端窗口回调用 COM 智能指针管理对象，分配异常与 DoDragDrop 失败明确退出 1；GetMessage 的 -1 不再作为普通消息处理。
-- `test-dnd-helper-lifetime.cmd --asan` 通过；日志 `artifacts/logs/review-dnd-helper-startup-asan.log`。注册冲突在窗口创建前触发，101 次失败检查 GDI 数量、OLE 配对和日志关闭，回调首处分配失败检查退出 1；已有五组组件门禁继续通过。
+- `test-dnd-helper-lifetime.cmd --asan` 通过；日志 `agentdir/artifacts/logs/review-dnd-helper-startup-asan.log`。注册冲突在窗口创建前触发，101 次失败检查 GDI 数量、OLE 配对和日志关闭，回调首处分配失败检查退出 1；已有五组组件门禁继续通过。
 - 未操作真实鼠标键盘；尚未动态验证正常窗口退出、实际拖放和消息循环系统错误。架构和公开 API 未改变，无需修改 architecture.md。
 
 # Progress — history through 2026-11-10
@@ -900,7 +902,7 @@
 
 ## 2026-11-10：实现重审——测试文档参数与当前脚本核对
 
-- 使用 PowerShell AST 提取各脚本参数，将 TESTS 表格 93 个脚本条目、231 个可选参数逐项对照，全部匹配。参数数据保存 artifacts/script-parameters.json；该检查不执行脚本、不证明参数组合或功能通过。
+- 使用 PowerShell AST 提取各脚本参数，将 TESTS 表格 93 个脚本条目、231 个可选参数逐项对照，全部匹配。参数数据保存 agentdir/artifacts/script-parameters.json；该检查不执行脚本、不证明参数组合或功能通过。
 - 修正 review-open-items 中“HoverDemo 没有包装脚本”的过期现状：已存在 test-hover-demo.ps1，仍仅编译/解析通过，实际鼠标运行待许可。没有新增生产代码改动或重复性能测试。
 - git diff --check 通过；整体实现/物理验证仍未宣称完成。
 
@@ -999,7 +1001,7 @@
 - 按更新后的目标，FPS 接近 60 即可，偶发长帧暂不修复；继续审查实现正确性、明确的性能浪费及资源生命周期。
 - HoverFlickerProbe 原来多处 CountDownLatch 无限等待，Fusion FX 回调仅打印异常后继续，且未在失败时停止动画和关闭窗口。改为 FutureTask 有界调用（每次 10 秒），传播异常，超时/中断取消尚未执行的任务并保留线程中断状态；统一 finally 清理，清理异常附加到原失败，只有正常完成及清理后才输出 PASS。取消不强行中断已执行的 FX 回调，宿主保留 120 秒总期限。
 - Theme/场景操作均在 FX 线程，删除工作线程读标题后跳过阶段的路径与重复 Robot 创建；默认合成输入、阶段次数、停留时间和像素断言保持不变。没有修改 VFX 业务行为。
-- source SDK 编译及 mobile/separate 合成档通过：普通按钮 1428 帧/28 缺色，Fusion 稳定 hold 583/583 亮、gap 223/223 暗。日志 artifacts/logs/review-hover-fx-lifecycle.log；未运行真实鼠标 Robot 档，未注入 FX 卡死。逐帧读回测试不作为性能数据。
+- source SDK 编译及 mobile/separate 合成档通过：普通按钮 1428 帧/28 缺色，Fusion 稳定 hold 583/583 亮、gap 223/223 暗。日志 agentdir/artifacts/logs/review-hover-fx-lifecycle.log；未运行真实鼠标 Robot 档，未注入 FX 卡死。逐帧读回测试不作为性能数据。
 
 ## 2026-11-10：实现重审——Fusion 悬停只统计未判定
 
@@ -1021,7 +1023,7 @@
 
 ## 2026-11-10：实现重审——累计原生与调度约束复验
 
-- 核对测试入口后运行当前源码单元测试：test-protocol（含 10000 帧并发、畸形输入、原子接收、背压、停止及三种通知时钟隔离）、test-bounded-lru（容量/字节预算及分配失败回滚）、test-clipboard-ownership（私有 HGLOBAL 生命周期和 DROPFILES/DIB 边界）、test-dnd-drag-image（OLE 数据对象/分配失败和拖动图像存储）全部通过。日志保存为 artifacts/logs/review-test-*.log。
+- 核对测试入口后运行当前源码单元测试：test-protocol（含 10000 帧并发、畸形输入、原子接收、背压、停止及三种通知时钟隔离）、test-bounded-lru（容量/字节预算及分配失败回滚）、test-clipboard-ownership（私有 HGLOBAL 生命周期和 DROPFILES/DIB 边界）、test-dnd-drag-image（OLE 数据对象/分配失败和拖动图像存储）全部通过。日志保存为 agentdir/artifacts/logs/review-test-*.log。
 - 当前源码 SDK 的 render-command-validation 及真实 Godot 承载的 glass-scheduler 通过；后者日志明确为 GL compatibility，覆盖线程隔离、嵌套事件循环、异常、定时器、取消及接收线程终止。相关根仓库和子模块 diff --check 通过。本轮没有新增实现修改。
 - 这些测试不读写系统剪贴板、不注入真实键鼠；OLE shell 图像存储通过不代表跨进程拖放或屏幕预览通过。仍保留此前记录的物理夹具、系统剪贴板互通及完整范围收尾审查限制，没有据单元测试汇总宣告整体完成。
 
@@ -1294,7 +1296,7 @@
 - 拒绝非正间隔和非法环境值；采样异常终止并报告，不再吞掉异常高速重试。最多保留 4096 种调用栈，额外观察计数明确输出；排序使用 long 比较，移除每帧正则类名处理。
 - 报告保留栈顶八层与观察到的线程状态，包括 Java 等待/休眠帧；这是墙钟采样，不是 CPU 利用率，线程状态和栈的两次观察也并非原子快照。启用采样明确标记 `diagnostic_only=true`。
 - `test-stack-sampler.ps1` 检查非法间隔、可中断停止、报告稳定性、种类预算、异常传播与栈顶/等待帧保留，已通过。VFX 启动失败也会执行采样线程关闭。整体重审仍未完成。
-- 最终采样器在 RD/mobile/safe 下完成 68 次原始 VFX 页面切换并正常退出，100 ms 采样、全程前台、丢弃 0；包含栈顶和等待帧的报告归档 `artifacts/logs/review-stack-sampler-transitions.log`。此次启用诊断，不作为无采样性能改善证据。
+- 最终采样器在 RD/mobile/safe 下完成 68 次原始 VFX 页面切换并正常退出，100 ms 采样、全程前台、丢弃 0；包含栈顶和等待帧的报告归档 `agentdir/artifacts/logs/review-stack-sampler-transitions.log`。此次启用诊断，不作为无采样性能改善证据。
 
 ## 2026-11-10：实现重审——OLE DataObject
 
@@ -1310,7 +1312,7 @@
 - 顶点验证与哈希合并为一次扫描；缓存关闭时仍做完整验证，但不计算哈希。
 - 缓存硬性限制为默认 1024 条目（可配置）及每编码器 32 MiB 数组数据，另有对象/Map 开销。保留 64 次提交闲置期限；无法淘汰时拒绝接纳新缓存项，继续正常绘制，避免旧软上限在持续新几何下膨胀。
 - 注册条目在完整命令写入后添加；释放旧条目也先成功写入释放命令，再修改预算和索引。
-- 编码器测试扩展确定性碰撞、可变数组所有权、条目和字节预算、闲置退休。旧 SDK 在碰撞断言处失败，保留于 `artifacts/logs/review-geometry-cache-before.log`。此测试通过反射检查编码状态，GPU 生命周期仍需宿主测试。
+- 编码器测试扩展确定性碰撞、可变数组所有权、条目和字节预算、闲置退休。旧 SDK 在碰撞断言处失败，保留于 `agentdir/artifacts/logs/review-geometry-cache-before.log`。此测试通过反射检查编码状态，GPU 生命周期仍需宿主测试。
 - 最终源码 Media SDK 构建通过；`test-render-command-validation.ps1` 全部断言通过。将容量设为 4 项后，RD/mobile/separate 的 Node Shader GPU 测试通过（`review-geometry-cap4-node-shaders.log`），覆盖容量不足时继续发送普通几何。
 - 同样 4 项容量下 OpenGL Node Shader 测试通过（`review-geometry-cap4-node-shaders-gl.log`）。完整 VFX 68 次切换通过，RD/mobile/safe、2560×1600、60 Hz、`unfocused=0`：Pulse 57.255 FPS、宿主呈现 54.730 FPS、P95 21.072 ms、P99 75.116 ms、最大 191.007 ms。上传 43668 次、引用 41689 次；硬容量会增加未缓存传输，不能声称总体性能提升或稳定 60 FPS。归档 `review-bounded-geometry-transitions.log`。整体重审尚未完成。
 
@@ -1319,7 +1321,7 @@
 - `FlushList` 不再拆分出八个并行数组，改为通过 COW 引用共享 `RecordedDraw` 数组。提交时不再逐字段追加、分配并维护一致的索引；渲染线程直接消费完整命令，屏幕采样快照扫描找到首项后即可结束。
 - 保留原有同步完成点及延迟回收时序。COW 共享减少此处的数据装配工作，但仍需实际基准才能判断整体 FPS 变化。
 - 调试参数读取改为先检查对应 float 的真实字节范围，再用 `memcpy` 读取，避免旧的长度判断不足与对齐假设。
-- 原始 VFX 页面切换基准（RD / Vulkan mobile / safe，2560×1600，60 Hz）完成 68 次切换：Pulse 57.808 FPS，宿主呈现 53.937 FPS，P95 20.842 ms，P99 57.010 ms，最大 328.540 ms。`unfocused=497`，且没有同条件改前配对数据，不能据此认定性能提升或通过帧率验收。日志归档 `artifacts/logs/review-rd-shared-draws-transitions.log`。
+- 原始 VFX 页面切换基准（RD / Vulkan mobile / safe，2560×1600，60 Hz）完成 68 次切换：Pulse 57.808 FPS，宿主呈现 53.937 FPS，P95 20.842 ms，P99 57.010 ms，最大 328.540 ms。`unfocused=497`，且没有同条件改前配对数据，不能据此认定性能提升或通过帧率验收。日志归档 `agentdir/artifacts/logs/review-rd-shared-draws-transitions.log`。
 - 引擎源码构建以及引擎 `safe`、`separate`、`-NoBatch` 和 Runtime `safe` GPU 回归通过。整体重审仍在进行，后续继续检查 Java 几何缓存和跨线程任务所有权。
 
 ## 2026-11-10：实现重审——RD 数据缓存与延迟回收
@@ -1333,7 +1335,7 @@
 ## 2026-11-10：实现重审——RD Shader 身份缓存
 
 - 在此前整体审查范围上继续检查性能和资源安全；本条不是整个重审完成声明。
-- 已复现等长、同 `String.hash()` 的两个不同 Shader 被缓存混同：期望绿色的实际 GPU 读回为红色，旧产物日志为 `artifacts/logs/review-shader-collision-before.log`。
+- 已复现等长、同 `String.hash()` 的两个不同 Shader 被缓存混同：期望绿色的实际 GPU 读回为红色，旧产物日志为 `agentdir/artifacts/logs/review-shader-collision-before.log`。
 - 源码身份改为完整字符串比较后分配编号；八槽快速缓存持有 COW 字符串引用，避免依靠已释放地址及首尾字符猜测内容。共享 Pipeline 清理时同步释放源码缓存。重复绘制仍走指针命中路径；尚未重新测量帧率，不能宣称 FPS 提升。
 - 扩展 `test-rd-regressions.ps1` 的场景，三轮交替绘制哈希冲突的红/绿 Shader，并检查完整读回图像。
 - 验证：引擎源码构建通过；RD GPU 回归引擎 `safe`、引擎 `separate`、Runtime `safe` 均通过。日志分别为 `rd-regressions-safe.log`、`rd-regressions-separate.log`、`rd-regressions-safe-runtime.log`；本轮未运行真实键鼠测试。
@@ -1809,8 +1811,8 @@ Process latter-half private bytes: 1.90–2.61 GB, median 2.29 GB, fitted slope
 +113542 bytes/minute; handles 808–821. Round-2/3 maxima ~2484/2487 MiB, medians
 ~2155/2193 MiB. No clear sustained accumulation at this duration; this does not
 prove absence of small leaks or cover arbitrary/longer workloads. Both logs and
-analysis complete, no test process remains live. See memory-validation.md and
-artifacts/reference/vfx-soak-mobile-3-heap256.analysis.json. Overall goal stays active.
+analysis complete, no test process remains live. See the completed Vulkan/safe run in [the memory validation archive](memory-validation.md).
+The later run's summary is archived at `agentdir/artifacts/reference/windows-workspace-20261120/vfx-soak-mobile-3-heap256.analysis.json`. Overall goal stays active.
 
 REAL VFX MEMORY SOAK IN PROGRESS: Added test-vfx-soak.ps1 and vfx_soak scene,
 using original Demo Next/Previous controls through host input. Three full 35-page
@@ -1880,7 +1882,7 @@ and VFX source confirms random IDs/text/numbers and current-time fields. Their
 table geometry, headers and clipping match visually; observer navigation UI is
 intentionally excluded by comparison. Other content-region mean differences are
 <=0.00003575. This is visual triage, not exhaustive pixel equivalence or desktop
-acceptance. Artifacts: vfx-pages-mobile/run.json and vfx-comparison-mobile.png/json.
+acceptance. This run used vfx-pages-mobile/run.json and vfx-comparison-mobile.png/json; later runs reused those filenames.
 The GPU window border is visible in both Godot and native images; it does not
 resolve whether the user's desktop edge also contains a DWM border.
 Computer-use skill/guidance were re-read and @oai/sky initialization retried:
@@ -2040,7 +2042,7 @@ The JFR-enabled run loses focus for 359 Java intervals and is excluded from
 foreground FPS comparison. Its 11 GC pauses total 121.431 ms, max 31.289 ms,
 with the large pauses during startup and later pauses around 1–2 ms; do not
 attribute measured long frames to GC without temporal correlation. JFR/event
-exports are under artifacts/logs/vfx-default-frames.*. Optional native command
+exports are under agentdir/artifacts/logs/vfx-default-frames.*. Optional native command
 profiling now splits texture/target/geometry/shader-state wall costs and counts
 target shader-cache misses; engine builds pass. A focused native
 command-profile run identifies the first two long intervals as target allocation
@@ -2104,7 +2106,7 @@ constructor accessed OS before startup under MSVC (even --version exited
 GPU profiling initially exceeded 256 timestamp slots and is rejected as partial;
 scripts/profile-vfx-gpu.ps1 uses an isolated fixture with 8192 slots and checks
 for errors. Both VSync and no-VSync/host120 profiles now pass. Measured-window
-counter summary in artifacts/logs/vulkan-wait-summary.json: wait-only VSync
+counter summary in agentdir/artifacts/logs/vulkan-wait-summary.json: wait-only VSync
 acquire averages 7.353 ms/native present, fence .039 ms, submit .204 ms,
 present .022 ms; no-VSync acquire .004 ms. The VSync wait-only run recovers
 47.884 JavaFX compositions/s with ~60 host ticks/s, illustrating timing variance.
@@ -2171,7 +2173,7 @@ Single-surface composition experiment was rejected and removed: it dropped to
 transparent checks. Log retained as -direct-composition.log. Sampling JFR on
 the prior async/batched path to identify Java CPU/GC/wait contributions before
 further synchronization changes. No default rendering policy changed.
-JFR recording artifacts/logs/vfx-frames.jfr contains 116 Java execution samples:
+JFR recording agentdir/artifacts/logs/vfx-frames.jfr contains 116 Java execution samples:
 20 sampled stacks pass through sampler source rewriting (replaceAll/matcher),
 7 through the per-draw shader ASCII scan, plus regex compilation in name checks.
 GC pauses total 18.8 ms (14 pauses, max 2.33 ms); this does not explain the frame
@@ -2525,12 +2527,16 @@ vfx-loading-<renderer>-<thread>[-runtime] prefixes. This covers normal completio
 not cancellation, injected load failure, physical input or smoothness/performance.
 No production code or VFX business handler changes were needed.
 
-OPENGL FULL VFX RECHECK AT 200% SCALE: Re-ran test-vfx-intro.ps1 -Renderer
+#### OpenGL full-page recheck
+
+On 2026-11-03, re-ran test-vfx-intro.ps1 -Renderer
 gl_compatibility -RenderThread safe -AllPages after the native-memory fixes.
 All 35 original pages are acknowledged via the observer after host Next-button
 input, captured at 2560x1600, and close normally with final_owned_resources=0.
-The manifest is artifacts/reference/vfx-pages-gl_compatibility/run.json; the log
-is artifacts/logs/vfx-intro-gl_compatibility-safe-all-pages.log. Comparison against
+The Windows workspace copies of the OpenGL and D3D captures and their manifests
+are under `agentdir/artifacts/reference/windows-workspace-20261120/` in
+`vfx-pages-gl_compatibility/` and `vfx-pages-d3d/`. The run log is
+`agentdir/logs/vfx-intro-gl_compatibility-safe-all-pages.log`. Comparison against
 the completed 35-page D3D reference at system_scale=2 produces the paired sheet
 and JSON vfx-comparison-gl_compatibility.*. The paired sheet and full captures of
 FusionPane, the editable table, components and image-backed transparent components
@@ -2879,6 +2885,9 @@ the existing content crop; page 2's central rectangle (100,150)-(2460,1350) is
 pixel-exact (RGB difference bbox is empty). Frozen contact sheet visually inspected.
 Thus the observed border difference is state/timing-dependent, not evidence of a
 border-rendering defect. No runtime or VFX business implementation changed.
+The three-page workspace captures are archived in
+`agentdir/artifacts/reference/windows-workspace-20261120/{vfx-pages-d3d-frozen,vfx-pages-frozen-mobile}/`,
+alongside the frozen comparison sheet and JSON report.
 Diagnostic reference log is vfx-reference-frozen.log; normal full-page images and
 manifests remain separate. This does not validate animation timing/performance or
 the page's Stage-opening button actions; those remain separate acceptance work.
@@ -3908,13 +3917,13 @@ Completed preparation:
 
 M0 evidence:
 - Godot stock editor build passed, exit 0, in 15m26s; log
-  artifacts/logs/godot-editor.log. `--headless --version` returns
+  agentdir/logs/godot-editor.log. `--headless --version` returns
   4.8.beta.custom_build.7be59b463. MSVC 14.3 selector (VS 2022), SDK
   10.0.26100.0, eight jobs. Initial dependency failure was resolved.
 - OpenJFX default SDK passed, exit 0, in 9m12s; log
-  artifacts/logs/jfx-baseline.log and explicit .exitcode file.
+  agentdir/artifacts/logs/jfx-baseline.log and explicit .exitcode file.
   JDK 25.0.3, Gradle 9.7.0; native graphics DLLs and modular JARs exist.
-- Baseline hashes saved in artifacts/logs/m0-baseline-hashes.json before
+- Baseline hashes saved in agentdir/artifacts/logs/m0-baseline-hashes.json before
   custom-module rebuilding.
 - ReferenceSmoke runs the source-built JavaFX D3D pipeline. Its snapshot
   artifacts/reference/stock-d3d.png was visually inspected: Chinese/English,

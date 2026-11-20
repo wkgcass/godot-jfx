@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$NoSample, [string]$LogPath)
 # Manual hover-freeze capture: starts the VFX demo with HOVER_TAP (Java event
@@ -26,9 +27,9 @@ try {
             $saved[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
             [Environment]::SetEnvironmentVariable($key, $settings[$key], 'Process')
         }
-        New-Item -ItemType Directory -Force artifacts/logs | Out-Null
+        New-Item -ItemType Directory -Force agentdir/logs | Out-Null
         $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-        $log = Join-Path $root "artifacts/logs/hover-manual-$stamp.log"
+        $log = Join-Path $root "agentdir/logs/hover-manual-$stamp.log"
         Write-Output "Starting the VFX demo with hover instrumentation. Close its window when done. Log: $log"
         Invoke-GodotFixture --path tests/godot res://vfx_demo.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
         $code = $LASTEXITCODE

@@ -27,10 +27,10 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs artifacts/native-tests
+mkdir -p artifacts/reference agentdir/logs artifacts/native-tests
 
 HELPER="artifacts/native-tests/dnd_helper_macos"
-BUILD_LOG="artifacts/logs/dnd-helper-build.log"
+BUILD_LOG="agentdir/logs/dnd-helper-build.log"
 if ! clang++ -std=c++17 -fobjc-arc -O2 -framework AppKit -framework Foundation \
         tests/native/dnd_helper_macos.mm -o "$HELPER" >"$BUILD_LOG" 2>&1; then
     echo "dnd_helper_macos build failed: $BUILD_LOG" >&2; exit 1
@@ -39,8 +39,8 @@ fi
     -encoding UTF-8 -d artifacts/reference tests/reference/ExternalDragProbe.java \
     || { echo "ExternalDragProbe compilation failed" >&2; exit 1; }
 
-TARGET_LOG="artifacts/logs/dnd-helper-target.log"
-SOURCE_LOG="artifacts/logs/dnd-helper-source.log"
+TARGET_LOG="agentdir/logs/dnd-helper-target.log"
+SOURCE_LOG="agentdir/logs/dnd-helper-source.log"
 rm -f "$TARGET_LOG" "$SOURCE_LOG"
 
 HELPER_PIDS=""
@@ -101,7 +101,7 @@ run_watchdog() {
 export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_HELPER_X=940 GODOT_JFX_HELPER_Y=400
 export GODOT_JFX_HELPER_SRC_X=1300 GODOT_JFX_HELPER_SRC_Y=400
-LOG="artifacts/logs/drag-drop-external-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/drag-drop-external-$RENDERER-$RENDER_THREAD.log"
 CODE=0
 run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://drag_drop_external.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 30000 || CODE=$?

@@ -31,11 +31,14 @@ def prepare():
                 target = staged / path.relative_to(source)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, target)
-            with (staged / "import.log").open("wb") as log:
+            logs = ROOT / "agentdir/logs"
+            logs.mkdir(parents=True, exist_ok=True)
+            import_log = logs / f"{project.name}-{Path(temp).name}-import.log"
+            with import_log.open("wb") as log:
                 result = subprocess.run([editor, "--headless", "--editor", "--path", staged, "--import"],
                                         stdout=log, stderr=subprocess.STDOUT, timeout=120)
             if result.returncode or not (staged / ".godot/global_script_class_cache.cfg").is_file():
-                raise RuntimeError((staged / "import.log").read_text("utf-8", errors="replace"))
+                raise RuntimeError(f"Fixture import failed ({import_log}): {import_log.read_text('utf-8', errors='replace')}")
             try:
                 staged.rename(project)
             except FileExistsError:

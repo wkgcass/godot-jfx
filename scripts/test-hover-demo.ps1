@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Robot, [switch]$CompileOnly)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -8,7 +9,7 @@ $savedJdk = $env:GODOT_JFX_JDK
 $savedRobot = $env:GODOT_JFX_HOVER_DEMO_ROBOT
 Push-Location $root
 try {
-    New-Item -ItemType Directory -Force artifacts/reference,artifacts/logs | Out-Null
+    New-Item -ItemType Directory -Force artifacts/reference,agentdir/logs | Out-Null
     $vfxBase = Join-Path $root 'artifacts/vfx'
     $vfxCp = @("$vfxBase/classes/java/main", "$vfxBase/classes/java/test", "$vfxBase/resources/main", "$vfxBase/resources/test") + (Get-ChildItem "$vfxBase/dependencies" -Filter *.jar | ForEach-Object { $_.FullName })
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls -cp ($vfxCp -join ';') -encoding UTF-8 -d artifacts/reference tests/reference/HoverDemoProbe.java
@@ -16,7 +17,7 @@ try {
     if ($CompileOnly) { Write-Output 'Hover demo compilation passed; physical run not performed'; return }
     $env:GODOT_JFX_HOVER_DEMO_ROBOT = '1'
     $env:GODOT_JFX_JDK = $Jdk
-    $log = "artifacts/logs/hover-demo-$Renderer-$RenderThread.log"
+    $log = "agentdir/logs/hover-demo-$Renderer-$RenderThread.log"
     Invoke-GodotFixture --path tests/godot res://hover_demo.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
     $code = $LASTEXITCODE
     $output = Get-Content $log -Raw

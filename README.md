@@ -40,7 +40,7 @@ by default. Add `-Smoke` on Windows or `--smoke` on macOS for a bounded run.
 Build the Windows x64 JAR on Windows and the macOS arm64 JAR on macOS.
 The standalone Intro JAR has been launched on both platforms. See [acceptance status](docs/acceptance-status.md).
 
-Use PowerShell at this directory (macOS uses the shell equivalents in
+Use PowerShell 7.4.1 or later (`pwsh`) at this directory (macOS uses the shell equivalents in
 [macOS source builds](docs/build-macos.md)). The scripts use JDK 25 from `JAVA_HOME`
 (or an explicit `-Jdk` override), Visual Studio 2022/MSVC, Windows SDK and
 SCons 4.10.1.
@@ -80,11 +80,20 @@ state and the other target's outputs. The packages target
 removes `artifacts/vfx`, the entire default staging directory
 `artifacts/godot-library` (all staged versions), and `tests/library/shadow/build`.
 The `test-projects` target removes directories matching `artifacts/runtime-*`
-and `artifacts/scene-fixtures-*`, including their Godot import caches and local
-import logs. It also removes `tests/godot/.godot/`, including local editor
-state. Tests recreate the projects they need from `tests/godot`.
-Installed Maven artifacts, tool and dependency caches, test logs in
-`artifacts/logs` and reference captures are retained. Close running tests or
+and `artifacts/scene-fixtures-*`, including their Godot import caches. It also removes
+`artifacts/vfx-gpu-profile/` and `tests/godot/.godot/`, including local editor
+state. Tests recreate the projects they need from `tests/godot`. The same target
+cleans `artifacts/pulse-stop-patch/` and `artifacts/texture-cancellation-patch/`.
+Both probes recompile their module patches from the JFX sources on every run.
+It also removes `artifacts/native-tests/`. The Windows and macOS test scripts
+rebuild their native tests and helpers from repository sources when needed.
+It removes the entire `artifacts/reference/` directory, including compiled
+probes, generated fixtures, screenshots and reports. Archive any results you
+want to keep before cleaning.
+Audio tests create missing WAV, MP3 and AIFF fixtures in `agentdir/media/`
+and reuse them across runs and project cleans.
+Installed Maven artifacts, tool and dependency caches, and test logs in
+`agentdir/logs` are retained. Close running tests or
 demos before cleaning their outputs.
 
 Before cleaning JFX, the script runs the JFX wrapper with `--stop` using this
@@ -100,7 +109,7 @@ The JFX scripts use `ANT_HOME` when set and otherwise use
 on Windows or `./scripts/setup-env.py` on macOS to initialize missing Godot,
 JFX and VFX submodules and prepare the build dependencies under `.tools/`.
 The submodule URLs in `.gitmodules` use GitHub SSH. Setup prepares the Oracle
-sample and `Lk.mp4` in `artifacts/reference/` and reuses each after checking its
+sample and `Lk.mp4` in `agentdir/media/` and reuses each after checking its
 SHA-256. See the [Windows](docs/build-windows.md#tool-installation-paths) and
 [macOS](docs/build-macos.md#toolchain) guides for system prerequisites.
 
@@ -130,17 +139,15 @@ On Windows x64 and macOS arm64, a JavaFX application can ship as a single Shadow
 | Original Demo and visual comparisons | [VFX Demo](docs/vfx-demo.md) |
 | Performance and lifetime observations | [frame timing](docs/frame-benchmark.md), [memory validation](docs/memory-validation.md) |
 | Current evidence, unsupported paths and remaining acceptance | [acceptance status](docs/acceptance-status.md) |
-| Historical implementation notes | [progress](docs/progress.md) |
+| Historical implementation notes | [progress](agentdir/docs/progress.md) |
 
 Build products are in `godot/bin`, `jfx/build/sdk` and `artifacts/vfx`. The JNI
 bridge is compiled into Godot; no separate bridge DLL or godot-cpp dependency is
-used. `scripts/write-delivery-inventory.ps1` generates
-`artifacts/change-inventory.json` with repository revisions, modified/untracked
-paths and selected output hashes. Build and test logs are in `artifacts/logs`.
+used. Build and test logs are in `agentdir/logs`.
 
-Actual Demo GPU captures are in `artifacts/reference/vfx-pages-mobile`, with a
-paired D3D contact sheet at `artifacts/reference/vfx-comparison-mobile.png`.
-These are rendered viewport captures, not OS desktop screenshots.
+The all-page Demo test writes GPU viewport captures to `artifacts/reference/vfx-pages-mobile`.
+After capturing the matching D3D reference, run `python scripts/compare-vfx-pages.py --renderer mobile`
+to generate the paired contact sheet at `artifacts/reference/vfx-comparison-mobile.png`.
 
 ## Current measured results and limits
 

@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from zipfile import ZipFile
@@ -152,16 +153,18 @@ def main():
         raise AssertionError("Projectless startup wrote files beside the application JAR")
     (jar.parent / "project.godot").write_text('config_version=5\n[application]\nrun/main_scene="res://absent.tscn"\n')
     launch(work, jar, "foreign-project", [], ["SHADOW_STAGE_PASS"])
+    video = ROOT / subprocess.check_output(
+        [sys.executable, ROOT / "scripts/setup-env.py", "--sample-path", "oracle"], text=True).strip()
     jar = build(work, runtime, "media")
     launch(work, jar, "media", [], ["MEDIA_VIDEO_CONTROLS_PASS", "MEDIA_VIDEO_PROBE_PASS"], {
-        "GODOT_JFX_MEDIA_FILE": str(ROOT / "artifacts/reference/media-oracle-sample.mp4"),
+        "GODOT_JFX_MEDIA_FILE": str(video),
         "GODOT_JFX_MEDIA_CAPTURE": str(work / "media.png")})
     if not WINDOWS:
         # Native Glass uses OpenJFX's ordinary library cache. Exercise its
         # first extraction, reuse and two JVMs extracting into one empty cache.
         def native_media(case, cache):
             launch(work, jar, case, [], ["MEDIA_VIDEO_CONTROLS_PASS", "MEDIA_VIDEO_PROBE_PASS"], {
-                "GODOT_JFX_MEDIA_FILE": str(ROOT / "artifacts/reference/media-oracle-sample.mp4"),
+                "GODOT_JFX_MEDIA_FILE": str(video),
                 "GODOT_JFX_MEDIA_CAPTURE": str(work / (case + ".png"))}, native_cache=work / cache)
 
         native_media("native-cold", "native-cache")

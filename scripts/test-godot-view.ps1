@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Transform, [switch]$Runtime)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -10,8 +11,8 @@ try {
     if($Transform){
         & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing -d artifacts/reference tests/reference/TransformClipReference.java
         if($LASTEXITCODE -ne 0){throw 'Transform clip reference compilation failed'}
-        & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing --enable-native-access=javafx.graphics '-Dprism.order=d3d' -cp artifacts/reference TransformClipReference *> artifacts/logs/transform-clip-d3d.log
-        if($LASTEXITCODE -ne 0 -or (Get-Content artifacts/logs/transform-clip-d3d.log -Raw) -notmatch 'TRANSFORM_CLIP_REFERENCE_PASS'){throw 'D3D transform clip reference failed'}
+        & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing --enable-native-access=javafx.graphics '-Dprism.order=d3d' -cp artifacts/reference TransformClipReference *> agentdir/logs/transform-clip-d3d.log
+        if($LASTEXITCODE -ne 0 -or (Get-Content agentdir/logs/transform-clip-d3d.log -Raw) -notmatch 'TRANSFORM_CLIP_REFERENCE_PASS'){throw 'D3D transform clip reference failed'}
     }
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/GodotViewProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'GodotView probe compilation failed' }
@@ -20,7 +21,7 @@ try {
     $suffix = ''
     if($Transform){$suffix += '-transform'}
     if($Runtime){$suffix += '-runtime'}
-    $log = Join-Path $root "artifacts/logs/godot-view-$Renderer$suffix.log"
+    $log = Join-Path $root "agentdir/logs/godot-view-$Renderer$suffix.log"
     if($Runtime){
         $fixture=Join-Path $root 'artifacts/runtime-godot-view'
         New-Item -ItemType Directory -Force $fixture | Out-Null

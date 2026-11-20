@@ -29,8 +29,8 @@ case "$MAX_FPS" in ''|*[!0-9]*) echo "invalid max fps: $MAX_FPS" >&2; exit 2 ;; 
 [ "$MAX_FPS" -le 1000 ] || { echo "max fps exceeds 1000" >&2; exit 2; }
 if [ ! -x "$JDK/bin/java" ]; then echo "JDK not found at $JDK" >&2; exit 1; fi
 
-LOG="artifacts/logs/vfx-demo-$RENDERER-$RENDER_THREAD.log"
-mkdir -p artifacts/logs
+LOG="agentdir/logs/vfx-demo-$RENDERER-$RENDER_THREAD.log"
+mkdir -p agentdir/logs
 
 echo "Starting the VFX Demo ($RENDERER + $RENDER_THREAD). Log: $LOG"
 jar=artifacts/vfx/libs/vfx-demo.jar

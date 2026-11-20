@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Snapshot, [switch]$StopDuringRead, [switch]$Runtime, [switch]$SnapshotStress)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -23,7 +24,7 @@ try {
     if ($SnapshotStress) { $suffix += '-stress' }
     if ($StopDuringRead) { $suffix += '-stop' }
     if ($Runtime) { $suffix += '-runtime' }
-    $log = Join-Path $root "artifacts/logs/readback-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path $root "agentdir/logs/readback-$Renderer-$RenderThread$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path $root 'artifacts/runtime-readback'
         New-Item -ItemType Directory -Force $fixture | Out-Null

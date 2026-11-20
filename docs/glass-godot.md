@@ -8,8 +8,8 @@
 
 
 Recorded test results below describe their named workload and build; they are
-not an automatic rerun after every subsequent change. Consult acceptance-status.md
-and review-open-items.md for the current review evidence and remaining limits.
+not an automatic rerun after every subsequent change. See [acceptance status](acceptance-status.md) for current limits and the
+[archived review](../agentdir/docs/review-open-items.md) for the original evidence.
 
 Standard `Stage.getIcons()` supports setting, replacing and clearing icons on
 the primary and independent native windows, including hide/reshow. Glass copies
@@ -42,7 +42,7 @@ touch, held-button cancellation and close veto. Native enabled/focusable state a
 nested/window/application modality now pass native-window probes. Independent
 fullscreen, Escape exit and restoration of normal/maximized mode also pass GL and
 Vulkan separate-thread probes. Per-window IME routing passes composition/commit/
-cancel tests; physical IME candidate UI and DPI remain to verify. See progress.md
+cancel tests; physical IME candidate UI and DPI remain to verify. See the [implementation history](../agentdir/docs/progress.md)
 for test scope and failure notes.
 
 On macOS, AppKit keeps owned Stages together. To raise a child within that
@@ -361,7 +361,7 @@ TESTS.md for exact scope.
 Unsupported entry points report
 unsupported operations; they must be implemented before claiming Glass
 compatibility. Standard Application controls now run through Prism-Godot;
-see progress.md for current rendering and mixed-scene verification.
+see the [implementation history](../agentdir/docs/progress.md) for the rendering and mixed-scene verification runs.
 
 On macOS, cross-process drag/drop uses the Cocoa dragging protocols instead of
 OLE. Inbound drags enter through a per-window drag delegate installed on
@@ -411,7 +411,7 @@ invokeAndWait exception propagation, nested loops, periodic/per-frame timers,
 pause/resume, and cancellation of a definitely queued/parked synchronous
 caller. It terminates Glass and waits for host shutdown. The test requires
 both GLASS_SCHEDULER_PASS and M2_GLASS_SCHEDULER_PASS, not exit zero alone.
-Latest result: PASS, artifacts/logs/m2-glass-scheduler.log.
+The scheduler probe passed. New runs write `agentdir/logs/m2-glass-scheduler.log`.
 
 GlassWindowProbe checks actual host size/position, View events, Unicode title,
 stock cursor and GPU background pixels, and requires exactly one window in
@@ -791,12 +791,7 @@ volatile completion/failure publication and synchronized failure aggregation.
 The optional Robot is created on the FX thread and its pressed state is tracked
 for release/destroy on close or failure.
 
-Default synthetic mobile/separate and GL/safe runs pass the exact drag/resize
-path checks after this change. At that stage the physical Robot branch was compiled but not run. A later
-authorized mobile/separate Robot run passed drag and resize assertions
-(`physical_drag-mobile-separate-robot.log`, both Java and Godot PASS markers).
-This covers the tested 2x-DPI desktop path, not other displays or injected
-failure/timeout cleanup.
+The physical drag and resize checks cover the tested 2× DPI desktop. Other displays and injected cleanup failures remain unverified. [Historical verification](../agentdir/docs/glass-godot.md).
 
 ### Native drop-target registration lifetime (2026-11-10)
 

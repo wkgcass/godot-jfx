@@ -13,7 +13,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-mkdir -p artifacts/logs artifacts/native-tests
+mkdir -p agentdir/logs artifacts/native-tests
 PEER="artifacts/native-tests/macos_clipboard_peer"
 if [ ! -x "$PEER" ] || [ tests/native/macos_clipboard_peer.mm -nt "$PEER" ]; then
     clang++ -std=c++17 -fobjc-arc -framework AppKit \
@@ -21,7 +21,7 @@ if [ ! -x "$PEER" ] || [ tests/native/macos_clipboard_peer.mm -nt "$PEER" ]; the
         || { echo "Clipboard peer compilation failed" >&2; exit 1; }
 fi
 
-LOG="artifacts/logs/clipboard-snapshot-guard.log"
+LOG="agentdir/logs/clipboard-snapshot-guard.log"
 "$PEER" guard-selftest >"$LOG" 2>&1 || {
     echo "Clipboard snapshot guard failed: $LOG" >&2
     exit 1

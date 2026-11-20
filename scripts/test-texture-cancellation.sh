@@ -6,7 +6,7 @@ if [ ! -x "$JDK/bin/javac" ]; then
     echo "javac not found under $JDK" >&2
     exit 1
 fi
-mkdir -p artifacts/texture-cancellation-patch artifacts/reference artifacts/logs
+mkdir -p artifacts/texture-cancellation-patch artifacts/reference agentdir/logs
 source_dir='jfx/modules/javafx.graphics/src/main/java/com/sun/prism/godot'
 patch='artifacts/texture-cancellation-patch'
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --patch-module "javafx.graphics=$source_dir" -d "$patch" "$source_dir/GodotTexture.java"
@@ -14,12 +14,12 @@ exports='--add-exports javafx.graphics/com.sun.prism=ALL-UNNAMED --add-exports j
 # shellcheck disable=SC2086
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.graphics $exports -d artifacts/reference tests/reference/TextureCancellationProbe.java
 # shellcheck disable=SC2086
-"$JDK/bin/java" --module-path jfx/build/sdk/lib --add-modules javafx.graphics --patch-module "javafx.graphics=$patch" $exports -cp artifacts/reference TextureCancellationProbe > artifacts/logs/texture-cancellation.log 2>&1 || {
-    echo "Texture cancellation test failed: artifacts/logs/texture-cancellation.log" >&2
+"$JDK/bin/java" --module-path jfx/build/sdk/lib --add-modules javafx.graphics --patch-module "javafx.graphics=$patch" $exports -cp artifacts/reference TextureCancellationProbe > agentdir/logs/texture-cancellation.log 2>&1 || {
+    echo "Texture cancellation test failed: agentdir/logs/texture-cancellation.log" >&2
     exit 1
 }
-if ! grep -q 'TEXTURE_CANCELLATION_PASS' artifacts/logs/texture-cancellation.log; then
-    echo "Texture cancellation test failed: artifacts/logs/texture-cancellation.log" >&2
+if ! grep -q 'TEXTURE_CANCELLATION_PASS' agentdir/logs/texture-cancellation.log; then
+    echo "Texture cancellation test failed: agentdir/logs/texture-cancellation.log" >&2
     exit 1
 fi
 echo 'Texture cancellation passed'

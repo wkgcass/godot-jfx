@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe')
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -9,7 +10,7 @@ try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.graphics --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.impl=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.godot=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.paint=ALL-UNNAMED --add-exports javafx.graphics/com.sun.javafx.geom=ALL-UNNAMED --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/CompositeProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Composite probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
-    $log = "artifacts/logs/composite-$Renderer-$RenderThread.log"
+    $log = "agentdir/logs/composite-$Renderer-$RenderThread.log"
     Invoke-GodotFixture --path tests/godot res://composite.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw

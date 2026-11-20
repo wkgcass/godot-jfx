@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[ValidateSet('safe')][string]$RenderThread='safe')
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -7,7 +8,7 @@ $saved=@{}
 try {
     foreach($key in @('GODOT_JFX_JDK','GODOT_JFX_STARTUP','GODOT_JFX_STARTUP_CANCEL')) { $saved[$key]=[Environment]::GetEnvironmentVariable($key,'Process') }
     $env:GODOT_JFX_JDK=$Jdk
-    New-Item -ItemType Directory -Force artifacts/reference,artifacts/logs | Out-Null
+    New-Item -ItemType Directory -Force artifacts/reference,agentdir/logs | Out-Null
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls -d artifacts/reference tests/reference/StartupProbe.java
     if($LASTEXITCODE -ne 0){throw 'Startup probe compilation failed'}
     if(-not ('StartupWindows' -as [type])) {
@@ -44,7 +45,7 @@ public static class StartupWindows {
         $mode=$case.Split('-')[0]
         $env:GODOT_JFX_STARTUP_CANCEL=$(if($case.EndsWith('-cancel')){'1'}else{'0'})
         $env:GODOT_JFX_STARTUP=$mode
-        $prefix="artifacts/logs/startup-$case-$Renderer-$RenderThread"
+        $prefix="agentdir/logs/startup-$case-$Renderer-$RenderThread"
         $process=Start-GodotFixture -WorkingDirectory (Get-Location).Path -ArgumentList @('--path','tests/godot','res://startup.tscn','--rendering-method',$Renderer,'--render-thread',$RenderThread) -Log "$prefix.log" -ErrorLog "$prefix.err.log"
         $watch=[Diagnostics.Stopwatch]::StartNew()
         $visible=$false

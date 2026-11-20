@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[switch]$Runtime,[ValidateRange(24,240)][int]$Cycles=24,[switch]$NativeD3D,[ValidateSet(0,30,60)][int]$SettleSeconds=0,[switch]$HandleTypes,[switch]$AudioOnly,[switch]$Providers)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -18,14 +19,13 @@ try {
     $backend=if($NativeD3D){'Native JavaFX / Windows Glass / D3D (comparison only)'}elseif($Runtime){"Godot DLL (isolated project) / Glass-Godot / Prism-Godot / $Renderer"}else{"Godot DLL / Glass-Godot / Prism-Godot / $Renderer"}
     Write-Output "Media churn backend: $backend"
     if($AudioOnly){
-        $videoFile=Join-Path $root 'artifacts/reference/media-churn-silence.wav'
-        & python -c "import wave,sys; w=wave.open(sys.argv[1],'wb'); w.setparams((1,2,44100,0,'NONE','not compressed')); w.writeframes(bytes(44100*2*2)); w.close()" $videoFile
-        if($LASTEXITCODE -ne 0){throw 'PCM fixture generation failed'}
+        $relative = & python "$PSScriptRoot/prepare-audio-fixtures.py" churn
+        if ($LASTEXITCODE) { throw 'PCM fixture preparation failed' }
     }else{
         $relative = & python "$PSScriptRoot/setup-env.py" --sample-path oracle
         if ($LASTEXITCODE) { throw "Invalid Oracle playback sample" }
-        $videoFile = Join-Path $root $relative
     }
+    $videoFile = Join-Path $root $relative
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media -d artifacts/reference tests/reference/CurrentProcessHandles.java tests/reference/CurrentProcessMemory.java tests/reference/MediaChurnProbe.java
     if($LASTEXITCODE -ne 0){throw 'Media churn compilation failed'}
     $env:GODOT_JFX_JDK=$Jdk
@@ -43,7 +43,7 @@ try {
     if($SettleSeconds){$suffix+="-idle$SettleSeconds"}
     if($HandleTypes){$suffix+='-types'}
     if($Providers){$suffix+='-providers'}
-    $log=Join-Path $root "artifacts/logs/media-churn-$Renderer$suffix.log"
+    $log=Join-Path $root "agentdir/logs/media-churn-$Renderer$suffix.log"
     # The Godot fixture owns its timeout and normal shutdown. No process manipulation.
     if($NativeD3D){
         & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media --enable-native-access=javafx.graphics,javafx.media,ALL-UNNAMED '-Dprism.order=d3d' -cp artifacts/reference MediaChurnProbe *> $log

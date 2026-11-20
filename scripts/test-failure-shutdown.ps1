@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [ValidateSet('FailureShutdownProbe','FailureApplicationProbe')][string]$Probe = 'FailureShutdownProbe', [switch]$Runtime)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -12,7 +13,7 @@ try {
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_FAILURE_PROBE = $Probe
     $suffix = if ($Runtime) { '-runtime' } else { '' }
-    $log = Join-Path $root "artifacts/logs/failure-shutdown-$Probe-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path $root "agentdir/logs/failure-shutdown-$Probe-$Renderer-$RenderThread$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path $root 'artifacts/runtime-failure-shutdown'
         New-Item -ItemType Directory -Force $fixture | Out-Null

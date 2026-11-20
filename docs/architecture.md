@@ -139,7 +139,7 @@ JavaFX 宿主只保留 Viewport＋safe：通过 Godot 视口生成纹理，并�
 | 调度与 Java 桥接 | `jfx/modules/javafx.graphics/src/main/java/com/sun/javafx/tk/godot/` |
 | 视频帧与播放器 | `jfx/modules/javafx.media/`、Prism-Godot 的媒体纹理路径 |
 
-更多协议和生命周期细节分别在 [bridge-protocol.md](bridge-protocol.md)、[glass-godot.md](glass-godot.md)、[prism-godot.md](prism-godot.md)。构建运行看根目录 [AGENTS.md](../AGENTS.md)，按改动选测试看 [TESTS.md](../TESTS.md)。历史决策与实验保存在 [progress.md](progress.md)，不作为当前架构的另一套定义。
+更多协议和生命周期细节分别在 [bridge-protocol.md](bridge-protocol.md)、[glass-godot.md](glass-godot.md)、[prism-godot.md](prism-godot.md)。构建运行看根目录 [AGENTS.md](../AGENTS.md)，按改动选测试看 [TESTS.md](../TESTS.md)。历史决策与实验保存在 [progress.md](../agentdir/docs/progress.md)，不作为当前架构的另一套定义。
 
 ### Shader、材质和网格如何安全复用
 

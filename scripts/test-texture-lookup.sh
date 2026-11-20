@@ -18,9 +18,9 @@ case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $REND
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
-mkdir -p artifacts/logs
+mkdir -p agentdir/logs
 
-LOG="artifacts/logs/texture-lookup-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/texture-lookup-$RENDERER-$RENDER_THREAD.log"
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://texture_lookup.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" > "$LOG" 2>&1
 CODE=$?

@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.4.1
+[CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [string]$VisualStudio=$(if ($env:VSINSTALLDIR) { $env:VSINSTALLDIR } else { Join-Path $env:ProgramFiles 'Microsoft Visual Studio/2022/Community' }))
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
@@ -11,10 +12,10 @@ foreach ($name in @('VSINSTALLDIR','GODOT_JFX_HELPER_X','GODOT_JFX_HELPER_Y','GO
 Push-Location $root
 $helpers = @()
 try {
-    New-Item -ItemType Directory -Force artifacts/reference,artifacts/logs,artifacts/native-tests | Out-Null
+    New-Item -ItemType Directory -Force artifacts/reference,agentdir/logs,artifacts/native-tests | Out-Null
     # External endpoint: a plain Win32 OLE drop target / drag source process.
     $helper = Join-Path $root 'artifacts/native-tests/dnd_helper.exe'
-    $buildLog = Join-Path $root 'artifacts/logs/dnd-helper-build.log'
+    $buildLog = Join-Path $root 'agentdir/logs/dnd-helper-build.log'
     $env:VSINSTALLDIR = $VisualStudio.Replace('/', '\').TrimEnd('\') + '\'
     $vcvars = (Join-Path $VisualStudio 'VC/Auxiliary/Build/vcvars64.bat')
     & cmd.exe /c "call `"$vcvars`" >nul && cl /nologo /std:c++17 /EHsc /W4 /O2 tests\native\dnd_helper.cpp /Foartifacts\native-tests\dnd_helper.obj /Feartifacts\native-tests\dnd_helper.exe /link ole32.lib shell32.lib user32.lib gdi32.lib > `"$buildLog`" 2>&1"
@@ -22,8 +23,8 @@ try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls -encoding UTF-8 -d artifacts/reference tests/reference/ExternalDragProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'ExternalDragProbe compilation failed' }
 
-    $targetLog = Join-Path $root 'artifacts/logs/dnd-helper-target.log'
-    $sourceLog = Join-Path $root 'artifacts/logs/dnd-helper-source.log'
+    $targetLog = Join-Path $root 'agentdir/logs/dnd-helper-target.log'
+    $sourceLog = Join-Path $root 'agentdir/logs/dnd-helper-source.log'
     Remove-Item $targetLog,$sourceLog -ErrorAction SilentlyContinue
     # Chromeless topmost helper windows, right of the 400x160 stage at FX (300,300).
     # The probe drives the mouse in JavaFX logical coordinates; our Glass platform
@@ -56,7 +57,7 @@ try {
     $env:GODOT_JFX_HELPER_X = '940'; $env:GODOT_JFX_HELPER_Y = '400'
     $env:GODOT_JFX_HELPER_SRC_X = '1300'; $env:GODOT_JFX_HELPER_SRC_Y = '400'
     $suffix = if($Runtime){'-runtime'}else{''}
-    $log = Join-Path $root "artifacts/logs/drag-drop-external-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path $root "agentdir/logs/drag-drop-external-$Renderer-$RenderThread$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path $root 'artifacts/runtime-dnd-external'
         New-Item -ItemType Directory -Force $fixture | Out-Null

@@ -68,7 +68,7 @@ left-only spawning, unconsumed events, correct positions and overlapping drops,
 visible GPU distortion and expansion, transparent corners, expiry, disabling,
 resize and cleanup on hiding. The Godot
 wrapper checks window/resource teardown. Logs and snapshots use the
-`artifacts/logs/vfx-ripple-*` and `artifacts/reference/vfx-ripple-*` prefixes.
+`agentdir/logs/vfx-ripple-*` and `artifacts/reference/vfx-ripple-*` prefixes.
 These tests use no real mouse/keyboard input and are not a frame-rate benchmark.
 
 ## Blackhole Effect in the Intro menu
@@ -135,7 +135,7 @@ disable, and mapping after resize. An edge marker verifies distortion inside
 the group when the pointer is outside it, while title bar pixels remain unchanged.
 It also checks Scene exit/reentry and final host
 resource cleanup. Captures are under `artifacts/reference/vfx-blackhole-*` and
-logs under `artifacts/logs/vfx-blackhole-*`. The D3D case only checks that the
+logs under `agentdir/logs/vfx-blackhole-*`. The D3D case only checks that the
 unsupported control is absent. These checks are not physical-input or
 frame-rate acceptance.
 
@@ -173,18 +173,8 @@ owned resources; the Runtime cancellation capture was inspected. Cancel outputs
 have a -cancel suffix. Injected item failure, physical input and animation
 smoothness are not established by these tests.
 
-2026-11-03 full-page recheck after native-memory fixes: OpenGL/safe completes all
-35 original pages at 200% scale (2560x1600), using host Next-button input and
-rendered-page acknowledgements, then releases all host resources. The completed
-manifest is artifacts/reference/vfx-pages-gl_compatibility/run.json. D3D comparison
-uses the same scale and page count; vfx-comparison-gl_compatibility.png/.json
-contain the paired sheet and per-page differences. The sheet plus full-size
-FusionPane, table and component/image-background captures were inspected.
-Randomized table data/timestamps and animated borders prevent treating raw image
-differences as an automatic correctness gate. This run does not exercise every
-page action. LoadingStage completion/cancellation and animation-graph actions
-now have the dedicated coverage described above. Subsequent Vulkan/safe all-page
-captures also pass; see acceptance-status.md for the current evidence.
+The [2026-11-03 full-page recheck](../agentdir/docs/progress.md#opengl-full-page-recheck)
+records the 35-page OpenGL run and its D3D comparison.
 
 2026-11-03 long-table coverage: `test-vfx-scroll.ps1` uses original Intro page 19.
 Host input drags horizontally 250 logical pixels, wheels to the 50-row table's
@@ -253,7 +243,7 @@ For interactive use, `java -jar artifacts/vfx/libs/vfx-demo.jar` runs
 `VfxDemoMain`, which initializes the packaged engine and calls the original
 `io.vproxy.vfx.intro.IntroMain`. The scene tests use the published platform
 JARs and compiled observers on the Java classpath. Logs are
-artifacts/logs/vfx-build.log and vfx-intro-<renderer>.log. Captures are
+agentdir/logs/vfx-build.log and vfx-intro-<renderer>.log. Captures are
 artifacts/reference/vfx-intro-<renderer>.png and vfx-intro-next-<renderer>.png.
 
 Both GL compatibility and Vulkan mobile pass startup, the application's own
@@ -295,22 +285,11 @@ clipboard, IME, media, popup stages, physical input, DPI or prolonged animation
 and resource stability. Continue page-by-page visual and interaction acceptance;
 do not treat this smoke result as completion of M6 or the overall objective.
 
-## Windows PowerShell stderr handling
+## Windows Demo logs
 
-`run-vfx-demo.ps1` supports both Windows PowerShell 5.1 and PowerShell 7.
-Native stderr is captured as text while temporarily using `Continue` for the
-native invocation. This prevents Windows PowerShell 5.1 from treating benign
-JDK native-access warnings as terminating errors when KeyChooser loads
-JNativeHook. The previous error preference is restored afterward; file-write
-errors, nonzero native exit codes, missing close markers and logged application
-errors still fail the launcher. Warnings remain in the log.
-
-2026-11-12 validation: the launcher smoke passes in PowerShell 5.1 and 7.
-The same launch pipeline in a bounded Components Demo diagnostic accepts the
-actual JNativeHook warning, opens and closes KeyChooser through synthetic Godot
-input, and completes normally on PowerShell 5.1. A diagnostic native command
-returning exit code 7 is still rejected even when it prints the close marker.
-No physical mouse or keyboard input was synthesized.
+Run `run-vfx-demo.ps1` with PowerShell 7.4.1 or later (`pwsh`). The launcher
+records Java output and warnings in the Demo log. It checks the native exit
+code, the close marker and logged application errors before reporting success.
 
 ## Startup window
 

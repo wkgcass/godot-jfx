@@ -22,7 +22,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     -encoding UTF-8 -d artifacts/reference tests/reference/HostLifetimeProbe.java \
@@ -52,7 +52,7 @@ run_watchdog() {
 export GODOT_JFX_JDK="$JDK"
 SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
-LOG="$PWD/artifacts/logs/host-lifetime-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="$PWD/agentdir/logs/host-lifetime-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
 if [ "$RUNTIME" -eq 1 ]; then
     # Import this isolated project before passing its directory to the library.

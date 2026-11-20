@@ -24,7 +24,7 @@ FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 PY=".tools/pyenv/bin/python3"
 [ -x "$PY" ] || PY="python3"
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 EXPORTS="--add-exports javafx.graphics/com.sun.prism=ALL-UNNAMED"
 EXPORTS="$EXPORTS --add-exports javafx.graphics/com.sun.prism.paint=ALL-UNNAMED"
@@ -34,7 +34,7 @@ EXPORTS="$EXPORTS --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED"
     -encoding UTF-8 -d artifacts/reference tests/reference/CompositeEdgeProbe.java || { echo "Edge probe compilation failed" >&2; exit 1; }
 
 REFERENCE="$PWD/artifacts/reference/composite-edges-mac-native.txt"
-REFLOG="artifacts/logs/composite-edges-mac-native.log"
+REFLOG="agentdir/logs/composite-edges-mac-native.log"
 CODE=0
 # shellcheck disable=SC2086
 "$JDK/bin/java" -Dglass.platform=Mac --module-path jfx/build/sdk/lib --add-modules javafx.graphics $EXPORTS \
@@ -48,7 +48,7 @@ fi
 
 export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_EDGE_OUTPUT="$PWD/artifacts/reference/composite-edges-$RENDERER-$RENDER_THREAD.txt"
-LOG="artifacts/logs/composite-edges-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/composite-edges-$RENDERER-$RENDER_THREAD.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://composite_edges.tscn \
     --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?

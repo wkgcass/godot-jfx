@@ -35,7 +35,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
@@ -44,10 +44,10 @@ mkdir -p artifacts/reference artifacts/logs
     -encoding UTF-8 -d artifacts/reference tests/reference/FileDialogProbe.java
 
 TOKEN="JFX-$(uuidgen | tr -d '-' | tr 'A-F' 'a-f')"
-READY_PATH="$PWD/artifacts/logs/$TOKEN.ready"
+READY_PATH="$PWD/agentdir/logs/$TOKEN.ready"
 SUFFIX=""
 [ "$STOP_HOST" = 1 ] && SUFFIX="-stop"
-LOG="artifacts/logs/file-dialog-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/file-dialog-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 
 CODE=0
 (

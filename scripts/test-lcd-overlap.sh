@@ -18,7 +18,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     -encoding UTF-8 -d artifacts/reference tests/reference/LcdOverlapProbe.java || { echo "LCD probe compilation failed" >&2; exit 1; }
@@ -26,7 +26,7 @@ mkdir -p artifacts/reference artifacts/logs
 export GODOT_JFX_JDK="$JDK"
 for mode in 0 1; do
     export GODOT_JFX_LCD_SCREEN="$mode"
-    LOG="artifacts/logs/lcd-overlap-$RENDER_THREAD-$mode.log"
+    LOG="agentdir/logs/lcd-overlap-$RENDER_THREAD-$mode.log"
     CODE=0
     python3 "$FIXTURE_LAUNCHER" --path tests/godot res://lcd_overlap.tscn \
         --rendering-method mobile --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?

@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -6,12 +7,12 @@ $root = Split-Path $PSScriptRoot -Parent
 $savedJdk = $env:GODOT_JFX_JDK
 Push-Location $root
 try {
-    New-Item -ItemType Directory -Force artifacts/reference,artifacts/logs | Out-Null
+    New-Item -ItemType Directory -Force artifacts/reference,agentdir/logs | Out-Null
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.graphics --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/ResizeCursorProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Resize cursor probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
     $suffix = if ($Runtime) { '-runtime' } else { '' }
-    $log = Join-Path $root "artifacts/logs/resize_cursor-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path $root "agentdir/logs/resize_cursor-$Renderer-$RenderThread$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path $root 'artifacts/runtime-resize-cursor'
         New-Item -ItemType Directory -Force $fixture | Out-Null

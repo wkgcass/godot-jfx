@@ -1,3 +1,4 @@
+#Requires -Version 7.4.1
 [CmdletBinding()]
 param(
     [ValidateSet('NonRobot', 'Robot')][string]$Group = 'NonRobot',
@@ -21,7 +22,7 @@ if ($Group -eq 'NonRobot') {
     $tests = foreach ($name in $robotCases) { Get-Item -LiteralPath "$PSScriptRoot/$name.ps1" }
 }
 if ($List) { $tests.BaseName; return }
-if (!$ResultDirectory) { $ResultDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) "artifacts/logs/windows-$Group-$(Get-Date -Format yyyyMMdd-HHmmss)" }
+if (!$ResultDirectory) { $ResultDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) "agentdir/logs/windows-$Group-$(Get-Date -Format yyyyMMdd-HHmmss)" }
 $ResultDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ResultDirectory)
 New-Item -ItemType Directory -Force -Path $ResultDirectory | Out-Null
 $results = @()
@@ -45,7 +46,7 @@ try {
             $program = 'python'
             $arguments = @($test.FullName) + $arguments
         } elseif ($test.Extension -eq '.ps1') {
-            $program = 'powershell.exe'
+            $program = Join-Path $PSHOME 'pwsh.exe'
             $arguments = @('-NoProfile', '-File', $test.FullName) + $arguments
         }
         Invoke-NativeOutput $program @arguments | Out-File -Encoding utf8 -LiteralPath $log

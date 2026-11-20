@@ -20,7 +20,7 @@ case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $REND
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference artifacts/logs
+mkdir -p artifacts/reference agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
@@ -30,7 +30,7 @@ export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_IME_SPACED_CLICK="$SPACED_CLICK"
 SUFFIX=""
 if [ "$SPACED_CLICK" = "1" ]; then SUFFIX="-spaced"; fi
-LOG="artifacts/logs/ime-$RENDERER$SUFFIX.log"
+LOG="agentdir/logs/ime-$RENDERER$SUFFIX.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://ime.tscn \
     --rendering-method "$RENDERER" --quit-after 4000 >"$LOG" 2>&1 || CODE=$?

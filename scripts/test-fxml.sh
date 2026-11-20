@@ -22,7 +22,7 @@ case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference/fxml artifacts/logs
+mkdir -p artifacts/reference/fxml agentdir/logs
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.fxml \
     --add-exports javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED \
@@ -56,7 +56,7 @@ run_watchdog() {
 export GODOT_JFX_JDK="$JDK"
 SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
-LOG="$PWD/artifacts/logs/fxml-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="$PWD/agentdir/logs/fxml-$RENDERER-$RENDER_THREAD$SUFFIX.log"
 if [ "$RUNTIME" -eq 1 ]; then
     FIXTURE="$PWD/artifacts/runtime-fxml"
     mkdir -p "$FIXTURE"
