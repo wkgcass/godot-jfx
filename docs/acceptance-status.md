@@ -10,6 +10,8 @@ Tests write logs under `agentdir/logs/` and captures under `artifacts/reference/
 ## Supported configuration
 
 Windows x64 and macOS arm64 have source-built platform JARs. See the platform sections below for execution evidence.
+Both platforms build the Godot Editor and shared library with `accesskit=no`,
+which disables Godot's screen-reader integration.
 JavaFX hosting uses **Viewport + safe**, with Godot `mobile` (Vulkan on the
 validated Windows configuration, Metal 3.1 in the packaged macOS library on M1) or `gl_compatibility`
 (OpenGL). The custom
@@ -29,6 +31,11 @@ referenced textures retain immutable revisions. Active protocol diagnostics,
 reflection/virtual callbacks and resource-lifetime fixes are retained.
 
 ## Validation evidence
+
+On 2026-11-21 the Windows Editor and packaged shared library both reported
+`DisplayServer.FEATURE_ACCESSIBILITY_SCREEN_READER` as unavailable with the
+Windows display driver, OpenGL and `--accessibility always`. The rebuilt VFX
+Demo passed the Vulkan startup and close check.
 
 Windows x64 passed the six-module Maven packaging checks, all 27 module-path cases, five Shadow consumers and the isolated VFX Demo JAR test. In the November 19 regression, two of 108 NonRobot entries passed on retry after a fixture rename failed. All ten Robot entries passed. [Historical verification](../agentdir/docs/acceptance-status.md).
 

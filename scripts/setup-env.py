@@ -62,8 +62,7 @@ def media_sample(name, *, download):
     return sample
 
 
-def install_archive(destination, url, digest, files, *, archive_root="", version_marker=None,
-                    accesskit_version=None):
+def install_archive(destination, url, digest, files, *, archive_root="", version_marker=None):
     """Verify the archive before exposing its contents at the path used by the build."""
     def ready(folder):
         if not all((folder / name).is_file() for name in files):
@@ -110,8 +109,6 @@ def install_archive(destination, url, digest, files, *, archive_root="", version
                         if not entry.is_dir() and (entry.external_attr >> 16) & 0o111:
                             (unpacked / entry.filename).chmod(0o755)
         source = unpacked / archive_root
-        if accesskit_version:
-            (source / "version").write_text(accesskit_version)
         if not ready(source):
             raise ValueError(f"{name} does not contain the expected files")
         try:
@@ -169,17 +166,10 @@ def prepare_venv(windows):
 
 
 def prepare_windows():
-    # These are the x64 MSVC packages selected by Godot's install_accesskit.py and
-    # install_d3d12_sdk_windows.py. Install each separately to reuse partial SDK sets.
+    # Install the x64 MSVC packages from Godot's install_d3d12_sdk_windows.py separately.
     deps = TOOLS / "localappdata/Godot/build_deps"
     releases = "https://github.com/godotengine"
     nuget = "https://api.nuget.org/v3-flatcontainer"
-    install_archive(deps / "accesskit",
-                    f"{releases}/godot-accesskit-c-static/releases/download/0.23.1/accesskit-c-0.23.1.zip",
-                    "b9b42ccf2443c880afdb69057347c0d359e10865e29c35bff92ef7a4981ec3f7",
-                    ["version", "include/accesskit.h", "lib/windows/x86_64/msvc/static/accesskit.lib"],
-                    archive_root="accesskit-c-0.23.1", accesskit_version="0.23.1",
-                    version_marker=("version", "0.23.1"))
     install_archive(deps / "mesa-x86_64-msvc",
                     f"{releases}/godot-nir-static/releases/download/25.3.1-3/godot-nir-static-x86_64-msvc-release.zip",
                     "f7796c97657fab348774906dc938bb46fbfd1e45434244141fc8886e5e4b5530",

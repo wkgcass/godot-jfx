@@ -73,7 +73,7 @@ try {
             $env:JAVA_HOME = $Jdk
             $moduleArgs += "custom_modules=$(Join-Path $root 'native/godot_modules')"
         }
-        Invoke-NativeOutput $python -m SCons -C godot platform=windows arch=x86_64 "target=$godotTarget" msvc_version=14.3 "-j$Jobs" "accesskit_sdk_path=$deps/accesskit" "mesa_libs=$deps/mesa" "agility_sdk_path=$deps/agility_sdk" "pix_path=$deps/pix" @moduleArgs | Out-File -Encoding utf8 -LiteralPath $log
+        Invoke-NativeOutput $python -m SCons -C godot platform=windows arch=x86_64 "target=$godotTarget" msvc_version=14.3 "-j$Jobs" accesskit=no "mesa_libs=$deps/mesa" "agility_sdk_path=$deps/agility_sdk" "pix_path=$deps/pix" @moduleArgs | Out-File -Encoding utf8 -LiteralPath $log
     }
     $result = $LASTEXITCODE
     Set-Content -LiteralPath "$log.exitcode" -Value $result

@@ -79,11 +79,15 @@ on exit. A new shell must have the desired environment initialized again.
 After cloning, run `python scripts/setup-env.py`. It initializes missing source
 submodules using Git and the URLs in `.gitmodules` (GitHub SSH by default).
 It installs Ant 1.10.15, Maven 3.9.9, SCons 4.10.1 in `.tools/python`,
-and the x64 MSVC packages for AccessKit, Mesa NIR, WinPixEventRuntime and the
+and the x64 MSVC packages for Mesa NIR, WinPixEventRuntime and the
 Agility SDK in `.tools/localappdata/Godot/build_deps`. It also prepares
 makedepend for Media using the MSYS2 installation below. Repeating setup
 reuses the installed components. Supply JDK 25, Visual Studio with the Windows
 SDK, and MSYS2 with UCRT64 GCC separately.
+
+Both the Godot Editor and the shared library are built with `accesskit=no`.
+Godot screen-reader support is disabled in both binaries, even if a previous
+setup installed the AccessKit SDK in this checkout.
 
 Setup downloads `media-oracle-sample.mp4` and `Lk.mp4` into `agentdir/media/`.
 It reuses each video when its SHA-256 matches and downloads a replacement if needed.
