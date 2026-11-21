@@ -60,6 +60,16 @@ public class DirectApplication extends Application {
                 view.close();
                 stage.close();
             });
+        } else if (Boolean.getBoolean("test.awaitModuleSnapshot")) {
+            Thread.ofPlatform().daemon().start(() -> {
+                try {
+                    System.in.read();
+                } catch (java.io.IOException ex) {
+                    throw new java.io.UncheckedIOException(ex);
+                } finally {
+                    Platform.runLater(stage::close);
+                }
+            });
         } else {
             PauseTransition delay = new PauseTransition(Duration.millis(350));
             delay.setOnFinished(event -> stage.close());

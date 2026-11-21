@@ -13,7 +13,7 @@ macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。日常只
 | 目标平台与待验证内容 | 验证入口与参数 | 通过条件及已知限制 |
 | --- | --- | --- |
 | macOS arm64，无项目 JavaFX 应用和 Demo 选择驱动 | 在 Mac 上重建 Godot 共享库、JavaFX SDK 并重新打包。用默认 logo 与 `--no-godot-logo` 分别启动 Demo，核对自动启动后的窗口。运行 `./scripts/test-godot-library.py --runtime artifacts/godot-library --group launch` 和 `./scripts/test-vfx-demo-jar.py`，再运行 `java -Djavafx.godot.driver=metal -jar artifacts/vfx/libs/vfx-demo.jar --smoke`，并分别将属性改为 `opengl`、`d3d12`、`vulkan` 复测。 | 省略属性时，Demo 的引擎日志报告 Metal，默认显示启动 logo，传 `--no-godot-logo` 时首帧直接显示应用，窗口均正常关闭。显式 Metal 时普通应用的 `direct-metal` 用例通过，Demo 的 `Using Device` 行以 `Metal ` 开头，并输出 `VFX_DEMO_CLOSED`。显式 OpenGL 时设备行以 `OpenGL API ` 开头，Demo 正常关闭。显式 D3D12 和 Vulkan 均须报驱动不支持并以非零状态退出。 |
-| macOS arm64，默认 Metal 与双后端回归 | 分别用 `--list` 预览 NonRobot 和 Robot 的无参数驱动选择、`--driver opengl` 和 `--driver all`。实跑无驱动参数的 `./scripts/test-m1.sh`、`./scripts/test-glass-window.sh --runtime` 和 `./scripts/test-godot-view.sh`；再运行 `./scripts/test-godot-view.sh --driver opengl`。按下文双后端命令验收两个分组，Robot 须先获授权。 | 默认计划只选 Metal，直接启动的场景及独立项目日志报告 Metal，无 OpenGL 回退。双后端计划中的适用用例各跑两次；发布测试分别记录驱动。两种后端的 `Using Device` 行分别以 `Metal ` 和 `OpenGL API ` 开头，原有像素、资源、Shadow 消费和 Demo 关闭断言均通过。OpenGL 专项只在明确选择时运行。 |
+| macOS arm64，默认 Metal 与双后端回归 | 运行 `python3 scripts/test-driver-config.py --driver all` 核对实际驱动和设备行。分别用 `--list` 预览 NonRobot 和 Robot 的无参数驱动选择、`--driver opengl` 和 `--driver all`。实跑无驱动参数的 `./scripts/test-m1.sh`、`./scripts/test-glass-window.sh --runtime` 和 `./scripts/test-godot-view.sh`；再运行 `./scripts/test-godot-view.sh --driver opengl`。按下文双后端命令验收两个分组，Robot 须先获授权。 | 默认计划只选 Metal，直接启动的场景及独立项目日志报告 Metal，无 OpenGL 回退。双后端计划中的适用用例各跑两次；发布测试分别记录驱动。两种后端的 `Using Device` 行分别以 `Metal ` 和 `OpenGL API ` 开头，原有像素、资源、Shadow 消费和 Demo 关闭断言均通过。OpenGL 专项只在明确选择时运行。 |
 | macOS arm64，仓库内构建依赖 | 在新的工作区提供 Python 3.13，在未设置 `ANT_HOME` 的 shell 中连续两次运行 `./scripts/setup-env.py`。使用仓库的 JDK 运行 Ant 和 Maven 的版本命令，执行 `./.tools/pyenv/bin/scons --version`、`./.tools/pyenv/bin/python -c 'import zstandard, PIL'` 和 `./scripts/clean.py --target jfx` | 首次按父仓库记录的提交初始化缺少的 Godot、JFX、VFX 子模块，第二次保留已有子模块检出和本地修改。首次安装 Temurin 25、Ant 1.10.15、Maven 3.9.9、SCons 4.11.x 及两个 Python 包，第二次复用已有安装。版本与导入检查、JFX 清理均成功。 |
 | macOS arm64，项目清理 | 在临时构建工作区按 macOS 构建说明生成产物，运行场景测试及其 `--runtime` 模式，再依次运行 `./scripts/clean.py --dry-run` 和 `./scripts/clean.py` | 预览以仓库 Gradle wrapper 的 `--stop` 开始。实跑停止仓库 daemon，成功执行 `cleanAll --no-problems-report --no-daemon` 后删除 JFX 和 buildSrc 的 `.gradle/`，打包清理删除 VFX 构建和 Shadow 测试的 `.gradle/`。Godot 两个目标、`godot/bin`、四个状态文件、`godot/`、`scripts/` 和 `native/` 下的 `__pycache__/`、JFX SDK、`jfx/build/reports`、`jfx/buildSrc/build`、打包输出、生成的测试项目及源夹具的 `tests/godot/.godot/` 均已清理。缺少 Windows 的 `msvc_capture.log` 时清理也应成功。生成的 `artifacts/reference/` 整体删除。仓库 `.gradle-cache/`、`tests/godot`、工具、Maven 仓库和 `agentdir/` 下的验收归档保留。 |
 | macOS arm64，Maven Local 开发测试 | 编好 Godot 共享库和带 Media 的 JFX SDK 后直接运行 `./scripts/maven_local.py install`，依次运行 `./scripts/test-scroll-settings.sh`、`./scripts/test-screen-layout.sh`、`./scripts/test-render-command-validation.sh` 和 `./scripts/test-startup.sh --driver metal` | 三个探针和启动场景均通过，`./scripts/maven_local.py module-path` 只列出本项目 `.m2/repository` 内六个模块，graphics 和 media 使用 mac-aarch64。 |
@@ -131,7 +131,23 @@ Windows DLL 回归用 `./scripts/run-windows-tests.ps1 -Group NonRobot` 或获�
 
 在 Windows 上直接运行适用的场景脚本（例如 `.\scripts\test-godot-view.ps1`）默认使用 D3D12，包括带 `-Runtime` 的独立项目。单项可直接传 `-Driver vulkan` 或 `-Driver opengl`。用回归运行器的 `-Test` 配合 `-Driver all` 可让同一单项跑三后端。**可选参数以表中“可选公共参数”及后文该测试的专项说明为准**：`-RenderThread safe`、`-Runtime` 并非所有脚本支持。`-Jdk` 用于覆盖 JDK 路径。RenderThread 固定为 safe。
 
+## 驱动配置验收
+
+在仓库根目录运行 `python scripts/maven_local.py install --runtime artifacts/godot-library` 准备本平台的发布模块，使用 JDK 25。Windows 用 `python`，macOS 也可用 `python3`。
+
+```sh
+python scripts/test-driver-config.py
+python scripts/test-driver-config.py --driver opengl
+python scripts/test-driver-config.py --driver all
+```
+
 **Windows 和 macOS 均以 Godot 的 `Using Device` 设备行判定实际驱动。** 每次需要验收驱动的引擎启动都须输出一条设备行。行首的 `D3D12`、`Vulkan`、`Metal`、`OpenGL API` 分别对应 `d3d12`、`vulkan`、`metal`、`opengl`。设备行缺失、重复、API 无法识别、与预期不符，或宿主标记 `GODOT_LIBRARY_DRIVER` 缺失或不一致，均判失败。M1、网格变换、生成着色器、渲染线程退出和 Demo 启动脚本单独运行时也执行这项检查。
+
+驱动配置专测为每种配置启动一个新的普通 JavaFX 应用 JVM，同时核对窗口启动与关闭。控制台的 `actual` 来自设备行。例如 `OpenGL API … - Using Device: …` 对应 `actual=opengl`，宿主标记应为 `opengl3`。
+
+应用显示窗口后，测试用 JDK 25 的 `jcmd <PID> VM.dynlibs` 读取该 JVM 已加载的动态库，完整清单保存在同一日志目录的 `<配置>-modules.txt`。Windows 还要求存在 `godot.dll` 和对应的 API 库（`D3D12.dll`、`vulkan-1.dll` 或 `opengl32.dll`）；macOS 检查 `libgodot.dylib`，并列出观察到的 Metal/OpenGL 框架。多个 API 库可以同时出现，活动后端由 `Using Device` 行判定。macOS 真机复测时也需核对动态库清单。
+
+无参数时只测平台默认后端，同时覆盖省略 JVM 属性、显式传入默认值和拒绝无效值。单选其他驱动只启动一次。`--driver all` 在 Windows 上覆盖 D3D12、Vulkan、OpenGL，在 macOS 上覆盖 Metal 和 OpenGL。此用例已纳入两平台 NonRobot 组。macOS 真机验收需运行全驱动命令并核对本机 GPU。
 
 ## macOS arm64 入口
 

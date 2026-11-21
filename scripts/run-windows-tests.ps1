@@ -17,7 +17,7 @@ if ($Group -eq 'NonRobot') {
     $tests = Get-ChildItem -Path (Join-Path $PSScriptRoot 'test-*') -File | Where-Object {
         $_.Extension -in '.ps1','.cmd' -and $_.BaseName -notin $desktop
     } | Sort-Object @{Expression={ switch ($_.BaseName) { 'test-startup' {0} 'test-vfx-soak' {2} default {1} } }},Name
-    $tests = @($tests) + @(foreach ($name in 'test-godot-library','test-shadow-jar','test-vfx-demo-jar') {
+    $tests = @($tests) + @(foreach ($name in 'test-driver-config','test-godot-library','test-shadow-jar','test-vfx-demo-jar') {
         Get-Item -LiteralPath "$PSScriptRoot/$name.py"
     })
 } else {

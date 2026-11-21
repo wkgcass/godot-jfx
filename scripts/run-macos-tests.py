@@ -36,6 +36,7 @@ DEFAULTS = {"media-audio": "--codec all", "vfx-intro": "--all-pages"}
 def cases(group, drivers):
     if group == "NonRobot":
         for driver in drivers:
+            yield [str(SCRIPTS / "test-driver-config.py"), "--driver", driver], {}
             for script in ("test-godot-library", "test-shadow-jar", "test-vfx-demo-jar"):
                 args = [] if script.endswith("demo-jar") else ["--runtime", str(ROOT / "artifacts/godot-library")]
                 yield [str(SCRIPTS / (script + ".py")), *args, "--driver", driver], {}

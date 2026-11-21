@@ -52,6 +52,8 @@ Neither form requires a Godot project file.
 To confirm the active driver, read the graphics API at the start of the engine’s
 `Using Device` line. For example, `OpenGL API … - Using Device: …` identifies
 OpenGL and the GPU. The corresponding engine marker is `GODOT_LIBRARY_DRIVER opengl3`.
+After installing the test modules, run `python scripts/test-driver-config.py --driver all`
+to verify each driver on the current platform. [Driver configuration test](TESTS.md#驱动配置验收)
 
 Both `scripts/run-vfx-demo.ps1` and `scripts/run-vfx-demo.sh` launch this JAR
 by default. Add `-Smoke` on Windows or `--smoke` on macOS for a bounded run.
