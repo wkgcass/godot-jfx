@@ -1,10 +1,10 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([ValidateSet('gl_compatibility', 'mobile')][string]$Renderer = 'gl_compatibility')
+param([ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12')
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$log = Join-Path $root "agentdir/logs/godot-shaders-$Renderer.log"
+$log = Join-Path $root "agentdir/logs/godot-shaders-$Driver.log"
 Push-Location $root
 try {
     $generated = Join-Path $root 'jfx/modules/javafx.graphics/build/gensrc'
@@ -30,13 +30,14 @@ try {
             }
         }
     } finally { $sdk.Dispose() }
-    Invoke-GodotFixture --path tests/godot res://shaders.tscn --rendering-method $Renderer --quit-after 3000 *> $log
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://shaders.tscn --quit-after 3000 *> $log
     $result = $LASTEXITCODE
+    Assert-GodotDriver $Driver $log
     $output = Get-Content -LiteralPath $log -Raw
     if ($result -ne 0 -or $output -notmatch 'GODOT_SHADER_PASS count=' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:)') {
         throw "Generated shader validation failed. See $log"
     }
-    Copy-Item artifacts/reference/godot-generated-shader.png "artifacts/reference/godot-generated-shader-$Renderer.png"
-    Copy-Item artifacts/reference/godot-shader-states.png "artifacts/reference/godot-shader-states-$Renderer.png"
-    Write-Output "Generated shader validation passed on $Renderer. Log: $log"
+    Copy-Item artifacts/reference/godot-generated-shader.png "artifacts/reference/godot-generated-shader-$Driver.png"
+    Copy-Item artifacts/reference/godot-shader-states.png "artifacts/reference/godot-shader-states-$Driver.png"
+    Write-Output "Generated shader validation passed on $Driver. Log: $log"
 } finally { Pop-Location }

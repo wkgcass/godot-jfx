@@ -39,9 +39,11 @@ JDK — it is not rebuilt.
 
 The test fixtures use the source-built editor for headless asset import and scene export.
 The shared library includes the JavaFX host module.
-On macOS, `mobile` uses the Metal driver and
-`gl_compatibility` through OpenGL 4.1. Vulkan is not built (`vulkan=no`;
-MoltenVK is not installed).
+Metal is the default driver for the `mobile` renderer. Ordinary JavaFX applications
+and the VFX Demo can also request it explicitly, for example
+`java -Djavafx.godot.driver=metal -jar artifacts/vfx/libs/vfx-demo.jar`.
+A successful explicit launch logs `GODOT_LIBRARY_DRIVER metal`. Use `opengl` for
+OpenGL 4.1 with `gl_compatibility`. Vulkan is not built (`vulkan=no`; MoltenVK is not installed).
 
 The `jfx` target builds the SDK in one Gradle invocation with Media enabled and WebKit
 disabled. On macOS the Media backend is AVFoundation (`libjfxmedia_avf.dylib`).
@@ -63,7 +65,7 @@ use those JARs. To reuse artifacts already staged by `build-vfx.sh`, pass `--run
 java -jar artifacts/vfx/libs/vfx-demo.jar               # preferred interactive launch
 scripts/run-vfx-demo.sh                                  # same JAR, logs to agentdir/logs
 scripts/run-vfx-demo.sh --smoke                          # bounded startup/close check
-scripts/run-vfx-demo.sh --renderer gl_compatibility      # OpenGL 4.1
+scripts/run-vfx-demo.sh --driver opengl      # OpenGL 4.1
 scripts/run-vfx-demo.sh --disable-vsync --max-fps 60     # CPU pacing instead of swapchain vsync
 ```
 
@@ -95,6 +97,8 @@ Windows-only entries that do not apply.
   of silently ignoring requests.
 - Run `./scripts/run-macos-tests.py --group NonRobot` for the scene and
   distribution tests, then `--group Robot` on an idle desktop with Accessibility
-  and Screen Recording permission. Both default to Metal and OpenGL. Use
-  `--list` to inspect the commands. Each invocation writes its own CSV and logs
+  and Screen Recording permission. Both groups and individual rendering tests
+  default to Metal. Pass `--driver opengl` to a group to test OpenGL, or
+  `--driver all` to exercise both drivers.
+  Use `--list` to inspect the commands. Each invocation writes its own CSV and logs
   beneath `agentdir/logs`.

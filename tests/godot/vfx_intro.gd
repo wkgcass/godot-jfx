@@ -15,7 +15,9 @@ func _ready() -> void:
 	var pages := maxi(2,OS.get_environment("GODOT_JFX_VFX_PAGES").to_int())
 	var prefix := "vfx-pages-" if pages > 2 else "vfx-smoke-"
 	if OS.get_environment("GODOT_JFX_VFX_FREEZE")=="1": prefix+="frozen-"
-	var folder := ProjectSettings.globalize_path("res://../../artifacts/reference/"+prefix+RenderingServer.get_current_rendering_method())
+	var engine_driver := RenderingServer.get_current_rendering_driver_name()
+	var driver := "opengl" if engine_driver == "opengl3" else engine_driver
+	var folder := ProjectSettings.globalize_path("res://../../artifacts/reference/"+prefix+"godot-"+driver)
 	DirAccess.make_dir_recursive_absolute(folder)
 	FileAccess.open(folder+"/run.json",FileAccess.WRITE).store_string(JSON.stringify({"status":"running","pages":pages}))
 	var host = ClassDB.instantiate("JavaFXHost")

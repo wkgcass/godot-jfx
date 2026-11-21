@@ -3,7 +3,6 @@ package io.vproxy.vfx.intro;
 import io.vproxy.vfx.theme.Theme;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
-import javafx.application.GodotRuntime;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 import javafx.util.Duration;
@@ -16,12 +15,15 @@ public final class VfxDemoMain {
         boolean smoke = false;
         boolean disableVsync = false;
         int maxFps = 0;
-        String renderer = "mobile";
-        var startup = GodotRuntime.StartupWindow.LOGO;
+        String driver = null;
+        String startup = System.getProperty("javafx.godot.startupWindow", "logo");
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
-                case "--renderer" -> renderer = args[++i];
-                case "--no-godot-logo" -> startup = GodotRuntime.StartupWindow.HIDDEN;
+                case "--driver" -> {
+                    if (++i == args.length) throw new IllegalArgumentException("Missing --driver value");
+                    driver = args[i];
+                }
+                case "--no-godot-logo" -> startup = "hidden";
                 case "--disable-vsync" -> disableVsync = true;
                 case "--max-fps" -> {
                     maxFps = Integer.parseInt(args[++i]);
@@ -38,12 +40,13 @@ public final class VfxDemoMain {
                 Runtime.getRuntime().halt(1);
             });
         }
+        if (driver != null) System.setProperty("javafx.godot.driver", driver);
+        System.setProperty("javafx.godot.startupWindow", startup);
         System.setProperty("javafx.godot.disableVsync", Boolean.toString(disableVsync));
         System.setProperty("javafx.godot.maxFps", Integer.toString(disableVsync && maxFps == 0 ? 60 : maxFps));
         if (System.getProperty("jnativehook.lib.locator") == null && System.getProperty("jnativehook.lib.path") == null) {
             System.setProperty("jnativehook.lib.locator", DemoHookLibrary.class.getName());
         }
-        GodotRuntime.init(new GodotRuntime.Options(null, renderer, startup));
         if (smoke) {
             Theme.setTheme(new IntroTheme());
             Application.launch(SmokeIntro.class);

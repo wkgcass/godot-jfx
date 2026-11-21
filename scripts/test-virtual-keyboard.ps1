@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [switch]$Robot, [switch]$CompileOnly)
+param([string]$Jdk = $env:JAVA_HOME, [switch]$Robot, [switch]$CompileOnly, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12')
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 if (!$CompileOnly -and !$Robot) {
@@ -16,7 +16,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'VirtualKeyboardProbe compilation failed' }
     if ($CompileOnly) { Write-Output 'VirtualKeyboardProbe compilation passed; system keyboard not requested'; return }
     $env:GODOT_JFX_JDK = $Jdk
-    Invoke-GodotFixture --path tests/godot res://virtual_keyboard.tscn --quit-after 3000 *> $log
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://virtual_keyboard.tscn --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw
     if ($result -ne 0 -or $output -notmatch 'GODOT_VIRTUAL_KEYBOARD_PASS' -or $output -notmatch 'VIRTUAL_KEYBOARD_PASS:' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|Exception)') {

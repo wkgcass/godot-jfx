@@ -2,24 +2,24 @@
 # macOS equivalent of test-drag-drop.ps1. Default is the synthetic input mode.
 # --robot drives the real mouse/keyboard (the terminal needs Accessibility and
 # Screen Recording permissions; keep the desktop idle and the window frontmost).
-# Usage: test-drag-drop.sh [--renderer gl_compatibility|mobile] [--render-thread safe] [--robot]
+# Usage: test-drag-drop.sh [--driver metal|opengl] [--render-thread safe] [--robot]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="gl_compatibility"
+DRIVER="metal"
 RENDER_THREAD="safe"
 ROBOT=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --robot) ROBOT=1 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -36,10 +36,10 @@ export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_ROBOT_DRAG="$ROBOT"
 SUFFIX=""
 [ "$ROBOT" = "1" ] && SUFFIX="-robot"
-LOG="agentdir/logs/drag-drop-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/drag-drop-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
-python3 "$FIXTURE_LAUNCHER" --path tests/godot res://drag_drop.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 10000 >"$LOG" 2>&1 || CODE=$?
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://drag_drop.tscn \
+    --render-thread "$RENDER_THREAD" --quit-after 10000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_DRAG_DROP_PASS' "$LOG" \
     || ! grep -q 'DRAG_DROP_PROBE_PASS' "$LOG" \

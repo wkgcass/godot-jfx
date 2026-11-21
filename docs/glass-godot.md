@@ -464,14 +464,14 @@ option runs the fixture from an isolated project directory.
 
 ## Independent Stage churn
 
-`scripts/test-stage-churn.ps1 -Renderer gl_compatibility -RenderThread safe
+`scripts/test-stage-churn.ps1 -Driver opengl -RenderThread safe
 -Cycles 180 -HeapMiB 128` exercises repeated independent native Stage creation
-and closure through host input. Use `-Renderer mobile -RenderThread safe`
+and closure through host input. Use `-Driver d3d12 -RenderThread safe`
 for Vulkan. The fixture checks native window identity/count, three alternating
 sizes, rendered pixels, closure, stable owned-resource and texture-memory baselines,
 and final resource drain. It does not force garbage collection; Java heap, natural
 GC counts and weak Stage references are recorded. JSON reports are written to
-`artifacts/reference/stage-churn-<renderer>-<thread>-<cycles>-heap<MiB>.json`.
+`artifacts/reference/stage-churn-<driver>-<thread>-<cycles>-heap<MiB>.json`.
 
 Both 180-cycle configurations pass these assertions. The initial OpenGL run's
 64-byte-per-cycle growth was traced to an unreleased initial COM reference in
@@ -590,7 +590,7 @@ The first diagnostic runs exposed this and an IME candidate surface intercepting
 clicks. The fixture commits text with Enter and dismisses candidates with Escape
 before testing the button; it does not disable the user's IME or change layouts.
 
-`test-drag-drop.ps1 -Robot -Renderer mobile` drives the same seven drag assertions
+`test-drag-drop.ps1 -Robot -Driver d3d12` drives the same seven drag assertions
 through real OS-synthesized mouse/key events. The default mode remains host
 injection to test same-batch delivery deterministically. Both modes pass;
 physical hardware and external OLE transfers remain distinct acceptance items.

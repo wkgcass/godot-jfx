@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d','safe')][string]$Backend='safe',[ValidateSet(1,2)][int]$Rate=1,[ValidateRange(0,20)][int]$Sample=0,[switch]$ClockSkew,[switch]$Native60,[switch]$NoVSync,[switch]$FramePhases,[switch]$Runtime)
+param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d','safe')][string]$Backend='safe',[ValidateSet(1,2)][int]$Rate=1,[ValidateRange(0,20)][int]$Sample=0,[switch]$ClockSkew,[switch]$Native60,[switch]$NoVSync,[switch]$FramePhases,[switch]$Runtime, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12')
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
@@ -11,8 +11,9 @@ $savedFixture=$env:GODOT_JFX_MEDIA_FIXTURE
 $savedPhases=$env:GODOT_JFX_MEDIA_FRAME_PHASES
 Push-Location $root
 try {
+    if ($Backend -eq 'd3d' -and $PSBoundParameters.ContainsKey('Driver')) { throw 'Driver selects Godot. Omit it for the native JavaFX comparison.' }
     if($Runtime -and $Backend -eq 'd3d'){throw 'Runtime requires a Godot backend'}
-    $backendName=if($Backend -eq 'd3d'){'Native JavaFX / Windows Glass / D3D (comparison only)'}elseif($Runtime){"Godot DLL (isolated project) / Glass-Godot / Prism-Godot / Vulkan / $Backend"}else{"Godot DLL / Glass-Godot / Prism-Godot / Vulkan / $Backend"}
+    $backendName=if($Backend -eq 'd3d'){'Native JavaFX / Windows Glass / D3D (comparison only)'}elseif($Runtime){"Godot DLL (isolated project) / Glass-Godot / Prism-Godot / $Driver / $Backend"}else{"Godot DLL / Glass-Godot / Prism-Godot / $Driver / $Backend"}
     Write-Output "Media frame backend: $backendName"
     $env:GODOT_JFX_MEDIA_FRAME_PHASES=if($FramePhases){'1'}else{'0'}
     $env:GODOT_JFX_MEDIA_RATE="$Rate"
@@ -41,6 +42,7 @@ try {
     if($NoVSync){$suffix+='-novsync'}
     if($FramePhases){$suffix+='-phases'}
     if($Runtime){$suffix+='-runtime'}
+    if ($Backend -ne 'd3d' -and $Driver -ne 'd3d12') { $suffix += "-$Driver" }
     $log=Join-Path $root "agentdir/logs/media-frame-benchmark-$Backend$suffix.log"
     if($Backend -eq 'd3d'){
         [string[]]$javaArgs=if($NoVSync){@('-Dprism.vsync=false')}else{@()}
@@ -57,10 +59,10 @@ try {
             & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
             if($LASTEXITCODE -ne 0){throw "Media benchmark Runtime import failed: $log.import"}
             Push-Location $fixture
-            try { Invoke-GodotFixture --rendering-method mobile --render-thread $Backend @hostArgs *> $log }
+            try { Invoke-GodotFixture -Driver $Driver --render-thread $Backend @hostArgs *> $log }
             finally {Pop-Location}
         }else{
-            Invoke-GodotFixture --path tests/godot res://media_frame_benchmark.tscn --rendering-method mobile --render-thread $Backend @hostArgs *> $log
+            Invoke-GodotFixture -Driver $Driver --path tests/godot res://media_frame_benchmark.tscn --render-thread $Backend @hostArgs *> $log
         }
     }
     $code=$LASTEXITCODE;$output=Get-Content $log -Raw

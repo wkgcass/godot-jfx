@@ -1,13 +1,18 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param()
+param([ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12')
+if ($Driver -ne 'opengl') {
+    Write-Output 'SKIP: OpenGL-only render mode rejection test. Run with -Driver opengl.'
+    return
+}
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
     $log = 'agentdir/logs/render-mode-rejection.log'
-    Invoke-GodotFixture --path tests/godot --script res://render_mode_rejection.gd --rendering-method gl_compatibility --render-thread separate *> $log
+    Invoke-GodotFixture -Driver $Driver --path tests/godot --script res://render_mode_rejection.gd --render-thread separate *> $log
     $code = $LASTEXITCODE
+    Assert-GodotDriver $Driver $log
     $output = Get-Content -LiteralPath $log -Raw
     $expected = 'JavaFX hosting requires --render-thread safe; separate is unsupported.'
     if ($code -ne 0 -or $output -notmatch 'RENDER_MODE_REJECTION_PASS' -or !$output.Contains($expected)) {

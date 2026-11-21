@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$NoSample, [string]$LogPath)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$NoSample, [string]$LogPath)
 # Manual hover-freeze capture: starts the VFX demo with HOVER_TAP (Java event
 # faucet + FX_GAP/FX_TASK stall probes) and HOVER_SAMPLE (per-frame luma under
 # the cursor). The user reproduces the defect by hand and closes the window;
@@ -31,7 +31,7 @@ try {
         $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
         $log = Join-Path $root "agentdir/logs/hover-manual-$stamp.log"
         Write-Output "Starting the VFX demo with hover instrumentation. Close its window when done. Log: $log"
-        Invoke-GodotFixture --path tests/godot res://vfx_demo.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+        Invoke-GodotFixture -Driver $Driver --path tests/godot res://vfx_demo.tscn --render-thread $RenderThread *> $log
         $code = $LASTEXITCODE
     }
     $output = Get-Content -LiteralPath $log -Raw

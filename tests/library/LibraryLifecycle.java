@@ -5,27 +5,15 @@ import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class LibraryLifecycle {
-    private static String nativeWorkingDirectory() throws Exception {
-        boolean windows = System.getProperty("os.name").startsWith("Windows");
-        var command = windows ? new ProcessBuilder(System.getenv("ComSpec"), "/d", "/u", "/c", "cd")
-                              : new ProcessBuilder("/bin/pwd", "-P");
-        var process = command.start();
-        String path = new String(process.getInputStream().readAllBytes(), windows ? StandardCharsets.UTF_16LE : StandardCharsets.UTF_8).strip();
-        if (process.waitFor() != 0 || path.isBlank()) throw new AssertionError("Cannot read native working directory");
-        return path;
-    }
-
-    private static GodotRuntime.Options options(String renderer) {
-        return new GodotRuntime.Options(
-                System.getProperty("test.project") == null ? null : Path.of(System.getProperty("test.project")),
-                renderer, GodotRuntime.StartupWindow.HIDDEN);
+    private static GodotRuntime.Options options(String driver) {
+        String project = System.getProperty("test.project");
+        return new GodotRuntime.Options(project == null ? null : Path.of(project), driver, GodotRuntime.StartupWindow.HIDDEN);
     }
 
     private static void checkHost() {
@@ -74,16 +62,16 @@ public final class LibraryLifecycle {
         switch (args[0]) {
             case "auto" -> Application.launch(DirectApplication.class);
             case "opengl" -> {
-                var opts = options("gl_compatibility");
+                var opts = options("opengl");
                 GodotRuntime.init(new GodotRuntime.Options(opts.project(),
-                        opts.renderer(), GodotRuntime.StartupWindow.NORMAL));
+                        opts.driver(), GodotRuntime.StartupWindow.NORMAL));
                 GodotRuntime.init();
                 checkHost();
                 Application.launch(DirectApplication.class);
             }
             case "race" -> {
-                var first = options("mobile");
-                var second = options("gl_compatibility");
+                var first = options(null);
+                var second = new GodotRuntime.Options(first.project(), first.driver(), GodotRuntime.StartupWindow.NORMAL);
                 var pool = Executors.newFixedThreadPool(2);
                 var gate = new CyclicBarrier(2);
                 var results = new ArrayList<Future<Boolean>>();
@@ -108,15 +96,18 @@ public final class LibraryLifecycle {
                 } finally { pool.shutdownNow(); }
             }
             case "init", "explicit", "concurrent" -> {
-                String before = nativeWorkingDirectory();
+                String before = DirectApplication.nativeWorkingDirectory();
                 if (args[0].equals("concurrent")) concurrent(false);
-                else GodotRuntime.init(options("mobile"));
+                else GodotRuntime.init(options(null));
                 GodotRuntime.init();
-                GodotRuntime.init(options("mobile"));
-                try { GodotRuntime.init(options("gl_compatibility")); throw new AssertionError("Accepted conflicting renderer"); }
+                GodotRuntime.init(options(null));
+                String platformDefault = System.getProperty("os.name").startsWith("Windows") ? "d3d12" : "metal";
+                String current = System.getProperty("javafx.godot.driver", platformDefault);
+                String otherDriver = current.equals("opengl") ? platformDefault : "opengl";
+                try { GodotRuntime.init(options(otherDriver)); throw new AssertionError("Accepted conflicting driver"); }
                 catch (IllegalStateException expected) { System.out.println("CONFIG_CONFLICT " + expected.getMessage()); }
                 checkHost();
-                if (!before.equals(nativeWorkingDirectory())) throw new AssertionError("Godot changed cwd");
+                if (!before.equals(DirectApplication.nativeWorkingDirectory())) throw new AssertionError("Godot changed cwd");
                 System.out.println("NATIVE_CWD " + before);
                 if (args[0].equals("explicit")) Application.launch(DirectApplication.class);
             }

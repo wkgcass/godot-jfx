@@ -18,9 +18,19 @@ public final class Main {
 }
 ```
 
-宿主在内存中创建空场景树，在根窗口上挂载 JavaFXHost。初始 `res://` 为空，不搜索应用目录、当前目录或上级目录中的 Godot 工程。默认使用 `mobile` 渲染器和 safe 渲染线程模式，启动窗口保持隐藏直到首次呈现。
+宿主在内存中创建空场景树，在根窗口上挂载 JavaFXHost。初始 `res://` 为空，不搜索应用目录、当前目录或上级目录中的 Godot 工程。默认使用 `mobile` 渲染器（Windows 为 D3D12，macOS 为 Metal）和 safe 渲染线程模式，启动窗口保持隐藏直到首次呈现。
 
 Windows 创建引擎实例时调用一次 `DisableProcessWindowsGhosting()`，使 Windows 停止为未响应窗口创建替代窗口。该设置对整个 JVM 进程有效，持续到进程退出。
+
+普通 JavaFX 应用和 VFX Demo 均可在 `-jar` 或主类名之前传入 JVM 属性来选择驱动，无需工程文件。例如：
+
+```powershell
+java "-Djavafx.godot.driver=d3d12" -jar app.jar
+java "-Djavafx.godot.driver=vulkan" -jar app.jar
+java "-Djavafx.godot.driver=opengl" -jar app.jar
+```
+
+Windows 默认使用 `d3d12`，macOS 默认使用 `metal`，两平台均可用 `opengl` 指定 OpenGL。普通应用从 JVM 属性读取驱动，省略时使用平台默认值。Demo 的 `--driver` 在 JavaFX 自动启动前设置同一属性，优先于命令行中的 `-Djavafx.godot.driver`。启动时按所选驱动设置 Godot 的渲染方法和图形 API。空字符串、未知值、跨平台驱动以及实际驱动不匹配都会导致启动失败。日志中的 `GODOT_LIBRARY_DRIVER` 记录 Godot 的实际名称，例如 `d3d12` 或 `opengl3`。
 
 | JavaFX 操作 | 可观察行为 |
 | --- | --- |
@@ -35,7 +45,7 @@ Windows 创建引擎实例时调用一次 `DisableProcessWindowsGhosting()`，�
 
 Java 启动器若找到该资源，就把字节交给引擎。引擎启动空场景树后，将包挂载到 `res://`，再通知 JavaFX 就绪。包中的主场景、自动加载与窗口设置不会接管宿主。场景在 GodotView 请求时实例化到该控件自己的 SubViewport。损坏的包报告资源挂载失败。该约定支持一个应用级资源包，作者负责在导出时收齐场景依赖。
 
-应用可以在 Toolkit 启动前通过 `GodotRuntime.init(new GodotRuntime.Options(project, renderer, startupWindow))` 选择导入好的工程目录或文件系统 PCK。显式指定工程会采用该工程的启动配置，优先于 JAR 中的场景包。省略 `project` 即使用空场景树。显示类型、窗口句柄和操作系统文件名都未进入公共接口。
+自动启动的应用可通过 `-Djavafx.godot.project=<路径>` 选择导入好的工程目录或文件系统 PCK。显式指定工程会采用该工程的启动配置，优先于 JAR 中的场景包。省略 `project` 即使用空场景树。显示类型、窗口句柄和操作系统文件名都未进入公共接口。
 
 ## 构建与加载
 

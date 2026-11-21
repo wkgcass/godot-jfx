@@ -48,7 +48,7 @@ releases all owned GPU resources. The GPU capture was inspected. Reopening a tit
 Stage while only secondary layers survive still depends on decorated logical-window
 support; this test uses UNDECORATED secondary Stages.
 
-The isolated scene directory is exercised by `test-host-lifetime.ps1 -Runtime -Renderer mobile`.
+The isolated scene directory is exercised by `test-host-lifetime.ps1 -Runtime -Driver d3d12`.
 
 This probe exposed lost final disposal commands at normal probe return. FrameQueue
 now distinguishes finish (reject new submissions, wake waiters, retain accepted
@@ -248,7 +248,7 @@ Vulkan, and Vulkan with `-RenderThread separate`. It publishes two overlapping
 targets, updates only the lower layer, removes the upper layer, then removes and
 disposes both targets. Pixel checks cover preserved content and half-opacity
 composition; teardown checks zero owned resources and one native window. Captures
-are `artifacts/reference/window-commands-<renderer>-<thread>-<stage>.png`; the
+are `artifacts/reference/window-commands-<driver>-<thread>-<stage>.png`; the
 OpenGL overlap capture was visually inspected. The C++ protocol suite also covers
 invalid geometry/identity, the 64-layer limit, transactional rejection, and shared
 target retention through the last removal.
@@ -335,7 +335,7 @@ The historical OpenGL/safe, mobile/safe and mobile/separate runs each passed 100
 z ordering, hide/show, moving/resizing beyond host bounds, removal while a draw
 retains the source, destruction of target ObjectIDs after completion, zero surface
 resources after tree removal and exactly one native display-server window. GPU
-captures are artifacts/reference/window-layers-<renderer>-<thread>.png; the GL
+captures are artifacts/reference/window-layers-<driver>-<thread>.png; the GL
 capture was inspected. Existing render-target
 regression pass. These are compositor checks, not modal/input or OS screenshots.
 
@@ -347,5 +347,5 @@ of queued paints, pointer/touch capture during hide/close, and owner closure.
 Then exercise VFX dialogs and standard JavaFX dropdowns end-to-end.
 
 Current compositor diagnostics use `./scripts/test-window-layers.ps1` with
-`-Renderer mobile` or `-Renderer gl_compatibility`, both in safe mode. They do
+`-Driver d3d12` or `-Driver opengl`, both in safe mode. They do
 not restore the old embedded-Stage model. See [TESTS.md](../TESTS.md).

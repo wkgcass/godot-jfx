@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[ValidateSet('wav','mp3','aiff','all')][string]$Codec='wav',[switch]$Runtime)
+param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12',[ValidateSet('wav','mp3','aiff','all')][string]$Codec='wav',[switch]$Runtime)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
@@ -25,7 +25,7 @@ try {
         $env:GODOT_JFX_MEDIA_EXPECT_MS=$expectMs[$kind];$env:GODOT_JFX_MEDIA_TOLERANCE_MS=$toleranceMs[$kind]
         $suffix=if($Runtime){'-runtime'}else{''}
         $codecTag=if($kind -eq 'wav'){''}else{"-$kind"}
-        $log=Join-Path $root "agentdir/logs/media-audio-$Renderer$suffix$codecTag.log"
+        $log=Join-Path $root "agentdir/logs/media-audio-$Driver$suffix$codecTag.log"
         if($Runtime){
             if(!$fixture){
                 $fixture=Join-Path $root 'artifacts/runtime-media-audio'
@@ -37,10 +37,10 @@ try {
                 if($LASTEXITCODE -ne 0){throw "Media audio runtime import failed: $log.import"}
             }
             Push-Location $fixture
-            try { Invoke-GodotFixture --rendering-method $Renderer --render-thread safe *> $log }
+            try { Invoke-GodotFixture -Driver $Driver --render-thread safe *> $log }
             finally {Pop-Location}
         }else{
-            Invoke-GodotFixture --path tests/godot res://media_audio.tscn --rendering-method $Renderer --render-thread safe *> $log
+            Invoke-GodotFixture -Driver $Driver --path tests/godot res://media_audio.tscn --render-thread safe *> $log
         }
         $code=$LASTEXITCODE;$output=Get-Content $log -Raw
         if($code -ne 0 -or $output -notmatch 'MEDIA_AUDIO_PROBE_PASS' -or $output -notmatch 'GODOT_MEDIA_AUDIO_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|Exception)|uncaught:'){throw "Media audio failed ($kind): $log"}

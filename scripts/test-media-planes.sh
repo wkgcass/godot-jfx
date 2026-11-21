@@ -1,19 +1,19 @@
 #!/bin/sh
 # macOS equivalent of test-media-planes.ps1.
-# Usage: test-media-planes.sh [--renderer mobile|gl_compatibility]
+# Usage: test-media-planes.sh [--driver metal|opengl]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in mobile|gl_compatibility) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
@@ -54,10 +54,10 @@ run_watchdog() {
 }
 
 export GODOT_JFX_JDK="$JDK"
-LOG="agentdir/logs/media-planes-$RENDERER.log"
+LOG="agentdir/logs/media-planes-$DRIVER.log"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://media_planes.tscn \
-    --rendering-method "$RENDERER" --render-thread safe --quit-after 3000 || CODE=$?
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://media_planes.tscn \
+    --render-thread safe --quit-after 3000 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'MEDIA_PLANES_PROBE_PASS' "$LOG" \
     || ! grep -q 'GODOT_MEDIA_PLANES_PASS' "$LOG" \

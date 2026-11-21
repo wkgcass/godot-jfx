@@ -4,24 +4,24 @@
 # --robot restores the physical Glass-Robot drive: it moves the real cursor
 # (the terminal needs Accessibility and Screen Recording permissions; keep the
 # desktop idle and the test window frontmost).
-# Usage: test-physical-drag.sh [--renderer gl_compatibility|mobile] [--render-thread safe] [--robot]
+# Usage: test-physical-drag.sh [--driver metal|opengl] [--render-thread safe] [--robot]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="gl_compatibility"
+DRIVER="metal"
 RENDER_THREAD="safe"
 ROBOT=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --robot) ROBOT=1 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -39,14 +39,14 @@ export GODOT_JFX_PHYSICAL_DRAG_ROBOT="$ROBOT"
 export GODOT_JFX_PHYSICAL_DRAG_CAPTURE="$PWD/artifacts/reference/physical-drag-desktop.png"
 SUFFIX=""
 [ "$ROBOT" = "1" ] && SUFFIX="-robot"
-LOG="agentdir/logs/physical_drag-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/physical_drag-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
 # --quit-after is only a hang backstop (the scene has its own 120s deadline):
 # when the window server declines to vsync this session the main loop runs
 # unthrottled and 3600 iterations elapse in a few seconds, killing the test
 # mid-gesture. Keep the frame budget well above the worst-case duration.
-python3 "$FIXTURE_LAUNCHER" --path tests/godot res://physical_drag.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 60000 >"$LOG" 2>&1 || CODE=$?
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://physical_drag.tscn \
+    --render-thread "$RENDER_THREAD" --quit-after 60000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'PHYSICAL_DRAG_PROBE_PASS' "$LOG" \
     || ! grep -q 'GODOT_PHYSICAL_DRAG_PASS' "$LOG" \

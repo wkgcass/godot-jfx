@@ -7,22 +7,22 @@
 #
 # This test moves the real mouse and reads the screen: the terminal needs
 # Accessibility and Screen Recording permissions; keep the desktop idle.
-# Usage: test-drag-drop-external.sh [--renderer mobile|gl_compatibility] [--render-thread safe]
+# Usage: test-drag-drop-external.sh [--driver metal|opengl] [--render-thread safe]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -101,10 +101,10 @@ run_watchdog() {
 export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_HELPER_X=940 GODOT_JFX_HELPER_Y=400
 export GODOT_JFX_HELPER_SRC_X=1300 GODOT_JFX_HELPER_SRC_Y=400
-LOG="agentdir/logs/drag-drop-external-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/drag-drop-external-$DRIVER-$RENDER_THREAD.log"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://drag_drop_external.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 30000 || CODE=$?
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://drag_drop_external.tscn \
+    --render-thread "$RENDER_THREAD" --quit-after 30000 || CODE=$?
 
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_EXTERNAL_DRAG_PASS' "$LOG" \

@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('safe')][string]$RenderThread='safe',[switch]$Host120)
+param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('safe')][string]$RenderThread='safe',[switch]$Host120, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12')
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
@@ -27,9 +27,10 @@ try {
     $suffix=if($Host120){'-host120'}else{''}
     $log="agentdir/logs/vfx-gpu-profile-$RenderThread$suffix.log"
     $hostArgs=if($Host120){@('--disable-vsync','--max-fps','120')}else{@()}
-    Invoke-GodotFixture --path $fixture --rendering-method mobile --render-thread $RenderThread --gpu-profile @hostArgs *> $log
+    Invoke-GodotFixture -Driver $Driver --path $fixture --render-thread $RenderThread --gpu-profile @hostArgs *> $log
     $code=$LASTEXITCODE
     $output=Get-Content $log -Raw
+    Assert-GodotDriver $Driver $log
     if($code -ne 0 -or $output -notmatch 'GODOT_VFX_FRAME_BENCHMARK_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)') {throw "GPU profiling failed (native exit $code): $log"}
     Write-Output "GPU/host profile captured (instrumented, not acceptance FPS): $log"
 } finally {$env:GODOT_JFX_JDK=$savedJdk;$env:GODOT_JFX_PROFILE_COMMANDS=$savedProfile;$env:JAVA_TOOL_OPTIONS=$savedOptions;Pop-Location}

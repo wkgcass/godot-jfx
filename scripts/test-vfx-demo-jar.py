@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run the full Intro JAR in isolation and check that its directory stays portable."""
+import argparse
 import hashlib
 import os
 from pathlib import Path
@@ -10,6 +11,7 @@ import tempfile
 import time
 from zipfile import ZipFile
 
+from godot_driver import DEFAULT_DRIVER, add_driver_argument, check_driver
 from library_test_platform import library, module_paths
 
 
@@ -88,6 +90,9 @@ def check_windows_intro(process, deadline, jar):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_driver_argument(parser)
+    driver = parser.parse_args().driver
     source = ROOT / "artifacts/vfx/libs/vfx-demo.jar"
     with ZipFile(source) as archive:
         entries = set(archive.namelist())
@@ -112,9 +117,11 @@ def main():
     with tempfile.TemporaryDirectory(prefix="VFX Intro ") as directory:
         jar = Path(directory) / source.name
         shutil.copyfile(source, jar)
-        log = ROOT / "agentdir/logs/vfx-demo-jar-isolated.log"
+        suffix = f"-{driver}" if driver else ""
+        log = ROOT / f"agentdir/logs/vfx-demo-jar-isolated{suffix}.log"
         log.parent.mkdir(parents=True, exist_ok=True)
-        args = [java, "-jar", jar.name]
+        options = [f"-Djavafx.godot.driver={driver}"] if driver else []
+        args = [java, *options, "-jar", jar.name]
         if os.name != "nt":
             args.append("--smoke")
         with log.open("wb") as output, subprocess.Popen(
@@ -137,6 +144,7 @@ def main():
                 if run.poll() is None:
                     run.kill()
         stdout = log.read_bytes()
+        check_driver(stdout.decode("utf-8", errors="replace"), driver or DEFAULT_DRIVER, log)
         if run.returncode or b"VFX_DEMO_CLOSED" not in stdout or re.search(
                 rb"(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)|uncaught:", stdout):
             raise AssertionError(f"VFX Demo failed ({run.returncode}), see {log}")

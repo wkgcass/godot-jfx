@@ -1,22 +1,22 @@
 #!/bin/sh
 # macOS equivalent of test-transparent-stage.ps1 (standard scene fixture only; the
 # -Runtime isolated project variant is Windows-specific and not ported).
-# Usage: test-transparent-stage.sh [--renderer mobile|gl_compatibility] [--render-thread safe]
+# Usage: test-transparent-stage.sh [--driver metal|opengl] [--render-thread safe]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -30,10 +30,10 @@ mkdir -p artifacts/reference agentdir/logs
     -encoding UTF-8 -d artifacts/reference tests/reference/TransparentStageProbe.java
 
 export GODOT_JFX_JDK="$JDK"
-LOG="agentdir/logs/transparent_stage-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/transparent_stage-$DRIVER-$RENDER_THREAD.log"
 CODE=0
-python3 "$FIXTURE_LAUNCHER" --path tests/godot res://transparent_stage.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" >"$LOG" 2>&1 || CODE=$?
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://transparent_stage.tscn \
+    --render-thread "$RENDER_THREAD" >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_TRANSPARENT_STAGE_PASS' "$LOG" \
     || ! grep -q 'TRANSPARENT_STAGE_PROBE_PASS' "$LOG" \

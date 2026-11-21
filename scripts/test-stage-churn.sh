@@ -1,17 +1,17 @@
 #!/bin/sh
 # macOS equivalent of test-stage-churn.ps1.
-# Usage: test-stage-churn.sh [--renderer mobile|gl_compatibility] [--render-thread safe] [--cycles N] [--heap-mib N]
+# Usage: test-stage-churn.sh [--driver metal|opengl] [--render-thread safe] [--cycles N] [--heap-mib N]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 RENDER_THREAD="safe"
 CYCLES=36
 HEAP_MIB=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --cycles) CYCLES="$2"; shift ;;
         --heap-mib) HEAP_MIB="$2"; shift ;;
@@ -19,7 +19,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 case "$CYCLES" in ''|*[!0-9]*) echo "invalid cycles: $CYCLES" >&2; exit 2 ;; esac
 case "$HEAP_MIB" in ''|*[!0-9]*) echo "invalid heap mib: $HEAP_MIB" >&2; exit 2 ;; esac
@@ -41,10 +41,10 @@ if [ "$HEAP_MIB" -gt 0 ]; then
     export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Xmx${HEAP_MIB}m"
 fi
 SUFFIX="-$CYCLES-heap$HEAP_MIB"
-LOG="agentdir/logs/stage-churn-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/stage-churn-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
-python3 "$FIXTURE_LAUNCHER" --path tests/godot res://stage_churn.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" >"$LOG" 2>&1 || CODE=$?
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://stage_churn.tscn \
+    --render-thread "$RENDER_THREAD" >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_STAGE_CHURN_PASS' "$LOG" \
     || ! grep -q 'STAGE_CHURN_PROBE_PASS' "$LOG" \
@@ -56,7 +56,7 @@ fi
 # Merge the log samples into the renderer-specific churn report, mirroring the
 # PowerShell sample-count assertions.
 CYCLES="$CYCLES" HEAP_MIB="$HEAP_MIB" LOG="$LOG" \
-OUT_JSON="artifacts/reference/stage-churn-$RENDERER-$RENDER_THREAD$SUFFIX.json" \
+OUT_JSON="artifacts/reference/stage-churn-$DRIVER-$RENDER_THREAD$SUFFIX.json" \
 python3 - <<'PY'
 import json, os, re, sys
 

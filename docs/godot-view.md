@@ -43,11 +43,11 @@ Current verification:
 
 ```powershell
 .\scripts\test-godot-view.ps1
-.\scripts\test-godot-view.ps1 -Renderer mobile
-.\scripts\test-godot-view.ps1 -Renderer mobile -Transform
-.\scripts\test-godot-view.ps1 -Renderer mobile -Transform -Runtime
+.\scripts\test-godot-view.ps1 -Driver d3d12
+.\scripts\test-godot-view.ps1 -Driver d3d12 -Transform
+.\scripts\test-godot-view.ps1 -Driver d3d12 -Transform -Runtime
 .\scripts\test-scene-textures.ps1 -Resize
-.\scripts\test-scene-textures.ps1 -Resize -Renderer mobile
+.\scripts\test-scene-textures.ps1 -Resize -Driver d3d12
 ```
 
 The mixed Stage contains two GodotViews, Chinese Label text and an ordinary

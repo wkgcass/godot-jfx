@@ -7,45 +7,18 @@
 # get_window_icon_info() -> installed=false by design. This script exists only
 # to record that platform gap explicitly instead of silently passing or
 # failing; it does not run the probe.
-# Usage: test-window-icon.sh [--renderer mobile|gl_compatibility] [--render-thread safe]
+# Usage: test-window-icon.sh [--driver metal|opengl] [--render-thread safe]
 set -eu
-echo "SKIP: macOS has no per-window icons (NSApplication owns the dock icon); get_window_icon_info reports installed=false by design"
-exit 0
-cd "$(dirname "$0")/.."
-
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
-
-FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
-[ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
-mkdir -p artifacts/reference agentdir/logs
-
-"$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
-    --add-exports javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED \
-    --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED \
-    -encoding UTF-8 -d artifacts/reference tests/reference/WindowIconProbe.java
-
-export GODOT_JFX_JDK="$JDK"
-LOG="agentdir/logs/window-icon-$RENDERER-$RENDER_THREAD.log"
-CODE=0
-python3 "$FIXTURE_LAUNCHER" --path tests/godot res://window_icon.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" >"$LOG" 2>&1 || CODE=$?
-if [ "$CODE" -ne 0 ] \
-    || ! grep -q 'WINDOW_ICON_PROBE_PASS' "$LOG" \
-    || ! grep -q 'GODOT_WINDOW_ICON_PASS' "$LOG" \
-    || grep -qE '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)|uncaught:' "$LOG"; then
-    echo "Window icon failed: $LOG" >&2
-    exit 1
-fi
-echo "Window icon passed: $LOG"
+echo "SKIP: macOS has no per-window icons (NSApplication owns the dock icon); get_window_icon_info reports installed=false by design"

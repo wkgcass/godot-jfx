@@ -1,23 +1,23 @@
 #!/bin/sh
 # macOS equivalent of test-fxml.ps1.
-# Usage: test-fxml.sh [--renderer mobile|gl_compatibility] [--render-thread safe] [--runtime]
+# Usage: test-fxml.sh [--driver metal|opengl] [--render-thread safe] [--runtime]
 set -u
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 RENDER_THREAD="safe"
 RUNTIME=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --runtime) RUNTIME=1 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -56,7 +56,7 @@ run_watchdog() {
 export GODOT_JFX_JDK="$JDK"
 SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
-LOG="$PWD/agentdir/logs/fxml-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="$PWD/agentdir/logs/fxml-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 if [ "$RUNTIME" -eq 1 ]; then
     FIXTURE="$PWD/artifacts/runtime-fxml"
     mkdir -p "$FIXTURE"
@@ -66,12 +66,12 @@ if [ "$RUNTIME" -eq 1 ]; then
     "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "FXML runtime import failed: $LOG.import" >&2; exit 1; fi
     CODE=0
-    (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" \
-        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD") || CODE=$?
+    (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \
+        --render-thread "$RENDER_THREAD") || CODE=$?
 else
     CODE=0
-    run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://fxml.tscn \
-        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?
+    run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://fxml.tscn \
+        --render-thread "$RENDER_THREAD" || CODE=$?
 fi
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_FXML_PASS' "$LOG" \
@@ -81,6 +81,6 @@ if [ "$CODE" -ne 0 ] \
     exit 1
 fi
 for step in 0 1 2 3; do
-    cp "artifacts/reference/fxml-$step.png" "artifacts/reference/fxml-$RENDERER-$RENDER_THREAD$SUFFIX-$step.png"
+    cp "artifacts/reference/fxml-$step.png" "artifacts/reference/fxml-$DRIVER-$RENDER_THREAD$SUFFIX-$step.png"
 done
 echo "FXML passed: $LOG"

@@ -35,6 +35,24 @@ of the same OS and architecture.
 java -jar artifacts/vfx/libs/vfx-demo.jar
 ```
 
+**Supported graphics drivers**
+
+| Platform | Default driver | Other supported drivers |
+| --- | --- | --- |
+| Windows x64 | `d3d12` (Direct3D 12) | `vulkan`, `opengl` |
+| macOS arm64 | `metal` | `opengl` |
+
+JavaFX applications and the VFX Demo start Godot automatically with the platform default.
+To select a driver, pass `-Djavafx.godot.driver=<driver>` before `-jar` or the main class.
+For example, `java "-Djavafx.godot.driver=vulkan" -jar artifacts/vfx/libs/vfx-demo.jar`
+selects Vulkan on Windows. The Demo also accepts `--driver` after the JAR name, such as
+`java -jar artifacts/vfx/libs/vfx-demo.jar --driver opengl` on either platform.
+Neither form requires a Godot project file.
+
+To confirm the active driver, read the graphics API at the start of the engine’s
+`Using Device` line. For example, `OpenGL API … - Using Device: …` identifies
+OpenGL and the GPU. The corresponding engine marker is `GODOT_LIBRARY_DRIVER opengl3`.
+
 Both `scripts/run-vfx-demo.ps1` and `scripts/run-vfx-demo.sh` launch this JAR
 by default. Add `-Smoke` on Windows or `--smoke` on macOS for a bounded run.
 Build the Windows x64 JAR on Windows and the macOS arm64 JAR on macOS.
@@ -113,11 +131,14 @@ sample and `Lk.mp4` in `agentdir/media/` and reuses each after checking its
 SHA-256. See the [Windows](docs/build-windows.md#tool-installation-paths) and
 [macOS](docs/build-macos.md#toolchain) guides for system prerequisites.
 
-The launcher defaults to Vulkan (`mobile`) with the `safe` render-thread mode.
+On Windows, the launcher, regression runner and individual rendering tests default to Godot D3D12 (`mobile`)
+with `safe` threading. Use `scripts/run-windows-tests.ps1 -Group NonRobot -Test test-godot-view`
+for a focused run. Add `-Driver vulkan` or `-Driver opengl` for another backend,
+`-Driver all` for all three, or `-List` to preview the selected cases.
 The Windows JFX build uses existing MSYS make/cygpath and UCRT64 GCC, builds its pinned
 makedepend helper inside `.tools`, and stages source-built Media libraries into
 the SDK. See build-windows.md for prerequisites and current validation status.
-Use `-Renderer gl_compatibility` for OpenGL. JavaFX hosting supports only
+Use `-Driver opengl` for OpenGL. JavaFX hosting supports only
 Viewport rendering with `safe` threading; the custom RD-direct backend and
 separate-thread host support have been removed. Godot's own RenderingDevice
 remains available to the engine. `-Smoke` runs a bounded startup/close check;
@@ -146,7 +167,7 @@ bridge is compiled into Godot; no separate bridge DLL or godot-cpp dependency is
 used. Build and test logs are in `agentdir/logs`.
 
 The all-page Demo test writes GPU viewport captures to `artifacts/reference/vfx-pages-mobile`.
-After capturing the matching D3D reference, run `python scripts/compare-vfx-pages.py --renderer mobile`
+After capturing the matching D3D reference, run `python scripts/compare-vfx-pages.py --driver metal`
 to generate the paired contact sheet at `artifacts/reference/vfx-comparison-mobile.png`.
 
 ## Current measured results and limits

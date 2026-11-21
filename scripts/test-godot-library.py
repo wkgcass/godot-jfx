@@ -16,6 +16,7 @@ import threading
 import time
 from zipfile import ZipFile
 
+from godot_driver import DEFAULT_DRIVER, ENGINE_DRIVERS, add_driver_argument, check_driver
 from library_test_platform import CLASSIFIER, EDITOR, MEDIA_LIBRARIES, WINDOWS, library, module_paths, system_path
 
 
@@ -99,6 +100,7 @@ class Suite:
         self.cwd = work / "separate working directory"
         self.cwd.mkdir(exist_ok=True)
         self.results = []
+        self.render_driver = None
         self.failed = []
         self.env = {k: v for k, v in os.environ.items()
                     if not k.startswith("GODOT_JFX_") and k not in ("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS")}
@@ -132,6 +134,8 @@ class Suite:
                     engines=1, expected_loops=None, module_path=None):
         props = {"javafx.cachedir": self.work / "native-cache", "javafx.godot.verbose": "true",
                  **(properties or {})}
+        if engines and self.render_driver:
+            props.setdefault("javafx.godot.driver", self.render_driver)
         argv = [self.jdk / "bin/java", "--module-path", module_path or self.modules, "--add-modules", MODULES, *EXPORTS,
                 "--enable-native-access=javafx.graphics,javafx.media", "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8",
                 *(f"-D{k}={v}" for k, v in props.items() if v is not None), "-cp", self.classes, target, *args]
@@ -166,6 +170,10 @@ class Suite:
                     raise RuntimeError(f"{name} timed out, see {output}")
                 time.sleep(.05)
         log = output.read_text(encoding="utf-8", errors="replace")
+        actual_drivers = []
+        if engines:
+            actual, _ = check_driver(log, self.render_driver, output)
+            actual_drivers.append(ENGINE_DRIVERS[actual])
         count = log.count("GODOT_LIBRARY_INSTANCE_CREATED")
         loops = log.count("GODOT_LIBRARY_LOOP renderer=")
         errors = re.findall(r"(?m)^(?:Exception in thread|.* uncaught:|SCRIPT ERROR:|SHADER ERROR:|ERROR:|FATAL ERROR).*", log)
@@ -192,6 +200,7 @@ class Suite:
                              "engines": count, "loops": loops, "command": list(map(str, argv)), "jarHashes": self.hashes,
                              "jdk": (self.work / "jdk.log").read_text().strip(), "moduleSnapshots": snapshots,
                              "renderers": re.findall(r"GODOT_LIBRARY_LOOP renderer=(\w+)", log),
+                             "testDrivers": actual_drivers,
                              "loadedModules": sorted(map(str, paths)), "log": str(output)})
         print(f"PASS {name}", flush=True)
 
@@ -226,8 +235,13 @@ class Suite:
                     damaged.writestr(info, replacement)
         return os.pathsep.join(str(target if jar == source else jar) for jar in self.modules.glob("*.jar"))
 
-    def checks(self, group):
+    def checks(self, group, *, driver=None):
+        # Pin even the concurrent initialization probe to the selected driver.
+        self.render_driver = driver or DEFAULT_DRIVER
         if group in ("render", "media"):
+            if driver and group == "render":
+                self.child("direct-driver", "DirectApplication", expected=["APPLICATION_START", "APPLICATION_STOP"])
+            method = "gl_compatibility" if driver == "opengl" else "mobile"
             refs = self.work / "artifacts/reference"
             refs.mkdir(exist_ok=True, parents=True)
         if group == "launch":
@@ -235,15 +249,28 @@ class Suite:
                 marker = {"init": "HOST_READY", "concurrent": "HOST_READY", "race": "HOST_READY", "explicit": "APPLICATION_STOP",
                           "auto": "APPLICATION_STOP", "startup": "PLATFORM_RESHOW_PASS", "exit": "EXPLICIT_EXIT"}[case]
                 self.child(case, "LibraryLifecycle", case, expected=[marker], code=37 if case == "exit" else 0)
-            self.child("direct", "DirectApplication", expected=["APPLICATION_INIT", "APPLICATION_START", "APPLICATION_STOP"],
+            expected = ["APPLICATION_INIT", "APPLICATION_START", "APPLICATION_STOP"]
+            direct_props = {"javafx.godot.driver": driver}
+            self.child("direct", "DirectApplication", properties=direct_props, expected=expected,
                        loaded=[library("godot"), library("javafx_font")])
+            if not WINDOWS and self.render_driver == "metal":
+                self.child("direct-metal", "DirectApplication", properties={"javafx.godot.driver": "metal"},
+                           expected=["GODOT_LIBRARY_LOOP renderer=mobile",
+                                     "APPLICATION_START", "APPLICATION_STOP"])
             self.child("application-main", "ApplicationWithMain", expected=["APPLICATION_MAIN", "APPLICATION_STOP"])
-            self.child("opengl", "LibraryLifecycle", "opengl", expected=["GODOT_LIBRARY_LOOP renderer=gl_compatibility",
-                       "HOST_READY", "APPLICATION_STOP"])
+            if driver == "opengl":
+                self.child("opengl", "LibraryLifecycle", "opengl", properties={"javafx.godot.driver": None},
+                           expected=["GODOT_LIBRARY_LOOP renderer=gl_compatibility",
+                           "HOST_READY", "APPLICATION_STOP"])
             self.child("exit-fx", "LibraryLifecycle", "exit-fx", expected=["EXPLICIT_FX_EXIT"], code=37)
             self.child("modular", "--module-path", os.pathsep.join(map(str, [self.modules, self.work / "example.fx"])),
                        "--module", "example.fx/example.fx.ModularApplication", expected=["APPLICATION_MODULE_PASS example.fx"])
         elif group == "failures":
+            self.child("invalid-startup-window", "LibraryLifecycle", "startup",
+                       properties={"javafx.godot.startupWindow": "invalid"}, code=1, engines=0,
+                       expected=["Invalid javafx.godot.startupWindow: invalid"])
+            self.child("invalid-driver", "LibraryLifecycle", "failure", properties={"javafx.godot.driver": "invalid"},
+                       expected=["EXPECTED_FAILURE", "Invalid javafx.godot.driver"], code=31, engines=0)
             for case in ("missing", "architecture", "project", "invalid-pack", "attach"):
                 runtime = self.work / ("failure-" + case)
                 runtime.mkdir(exist_ok=True, parents=True)
@@ -282,14 +309,17 @@ class Suite:
             self.pack(project, pack)
             self.child("direct-input", "DirectApplication", properties={"test.input": "true", "javafx.godot.project": pack},
                        expected=["APPLICATION_INIT", "APPLICATION_START", "APPLICATION_INPUT_PASS",
-                       "LIBRARY_VIEW_STAGE_PASS renderer=mobile", "APPLICATION_STOP"], loaded=[library("godot")],
+                       f"LIBRARY_VIEW_STAGE_PASS renderer={method}", "APPLICATION_STOP"], loaded=[library("godot")],
                        env={"GODOT_LIBRARY_CAPTURE": str(refs / "direct-input.png")})
             for case, source in (("directory", project), ("pck", pack)):
-                # The explicit launcher selects the project before Application.launch.
-                self.child("unicode-" + case, "LibraryLifecycle", "explicit", properties={"test.project": source,
-                           "test.input": "true"}, expected=["NATIVE_CWD", "APPLICATION_INPUT_PASS",
-                           "LIBRARY_VIEW_STAGE_PASS renderer=mobile", "APPLICATION_STOP"],
+                expected = ["NATIVE_CWD", "APPLICATION_INPUT_PASS", f"LIBRARY_VIEW_STAGE_PASS renderer={method}", "APPLICATION_STOP"]
+                self.child("unicode-" + case, "DirectApplication", properties={"javafx.godot.project": source,
+                           "test.expectedNativeCwd": self.cwd, "test.input": "true"}, expected=expected,
                            env={"GODOT_LIBRARY_CAPTURE": str(refs / (case + ".png"))})
+                # Keep the public Options.project contract separate from the automatic application.
+                self.child("options-" + case, "LibraryLifecycle", "explicit", properties={"test.project": source,
+                           "test.input": "true"}, expected=expected,
+                           env={"GODOT_LIBRARY_CAPTURE": str(refs / ("options-" + case + ".png"))})
             self.child("effects-reference", "EffectsProbe", properties={**({"prism.order": "d3d"} if WINDOWS else {"glass.platform": "Mac"}),
                        "effects.reference": refs / "d3d-effects.png"}, expected=["EFFECTS_REFERENCE_PASS"], engines=0)
             for name, probe, parent, marker in [
@@ -297,7 +327,7 @@ class Suite:
                 ("effects", "EffectsProbe", "effects_test.gd", "LIBRARY_EFFECT_PIXELS_PASS"),
             ]:
                 project = self.project(name, name + "_observer.gd", parent)
-                self.child(name, "ProbeLauncher", probe, properties={"test.project": project}, expected=[marker])
+                self.child(name, probe, properties={"javafx.godot.project": project}, expected=[marker])
         if group in ("render", "media"):
             for case, sample in [("media", "oracle"), ("media-lk", "lk")]:
                 video = ROOT / subprocess.check_output(
@@ -317,10 +347,11 @@ class Suite:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    add_driver_argument(parser)
     parser.add_argument("--runtime", required=True, type=Path)
     parser.add_argument("--work", type=Path)
     parser.add_argument("--maven", default=shutil.which("mvn") or str(ROOT / ".tools/apache-maven-3.9.9/bin" / ("mvn.cmd" if WINDOWS else "mvn")))
-    parser.add_argument("--group", choices=["prepare", "launch", "failures", "render", "media", "all"], default="all")
+    parser.add_argument("--group", choices=["prepare", "launch", "failures", "lifecycle", "render", "media", "all"], default="all")
     args = parser.parse_args()
     runtime = args.runtime.resolve()
     work = args.work.resolve() if args.work else Path(tempfile.mkdtemp(prefix="Godot 验收 ")).resolve()
@@ -329,10 +360,9 @@ def main():
     hashes = resolve(runtime, work, args.maven)
     suite = Suite(work, Path(os.environ["JAVA_HOME"]), hashes)
     suite.compile()
-    command([suite.jdk / "bin/javac", "--module-path", suite.modules, "--add-modules", MODULES, "-cp", suite.classes,
-             "-d", suite.classes, FIXTURES / "ProbeLauncher.java"], work / "observer-compile.log")
-    for group in (["launch", "failures", "render"] if args.group == "all" else [args.group]):
-        suite.checks(group)
+    groups = {"all": ["launch", "failures", "render"], "lifecycle": ["launch", "failures"]}
+    for group in groups.get(args.group, [args.group]):
+        suite.checks(group, driver=args.driver)
     if suite.failed:
         raise SystemExit("Failed cases: " + ", ".join(suite.failed))
 

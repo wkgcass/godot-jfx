@@ -6,7 +6,7 @@ JavaFX 是 Java 的桌面界面工具：程序用它创建按钮、文字、表�
 
 例如，一段普通 JavaFX 程序创建一个按钮并注册点击回调。按钮的布局、文字、CSS 和回调仍由 JavaFX 处理；按钮画面最终由 Godot 提交给 GPU，点击则从 Godot 的窗口输入返回 JavaFX。VFX 是用来验证这套运行时的真实 JavaFX 控件库和 Demo，不是另一套渲染引擎。
 
-当前平台是 Windows x64 和 macOS arm64（Apple 芯片；`mobile` 渲染器在 Windows 上走 Vulkan、在 macOS 上走 Metal，另有 OpenGL 兼容渲染器）。Media 音视频在范围内；WebKit 网页组件和 3D 不在当前范围。主要功能已实现，但这不表示兼容全部 JavaFX 应用。具体证据和缺口以 [验收状态](acceptance-status.md) 为准。
+当前平台是 Windows x64 和 macOS arm64（Apple 芯片）。图形驱动决定 Godot 用哪套系统接口绘图。Windows 默认用 Direct3D 12（`d3d12`），也支持 `vulkan` 和 `opengl`。macOS 默认用 `metal`，也支持 `opengl`（OpenGL）。Media 音视频在范围内；WebKit 网页组件和 3D 不在当前范围。主要功能已实现，但这不表示兼容全部 JavaFX 应用。具体证据和缺口以 [验收状态](acceptance-status.md) 为准。
 
 ## 先认识这些名字
 
@@ -117,7 +117,7 @@ JavaFX 渲染线程不能直接修改 Godot 的 Node。跨线程通过队列和�
 
 ## 如何理解验证结果
 
-JavaFX 宿主只保留 Viewport＋safe：通过 Godot 视口生成纹理，并在 Godot 主线程提交渲染工作。JavaFX 应用线程和 Prism 渲染线程仍独立运行；GPU 仍可异步执行。此前自行实现的 RD-direct 绘制路径、着色器翻译器和 separate 专用适配已删除。Godot 原生 RenderingDevice（图形设备抽象）仍保留，Vulkan/mobile 的 Viewport 渲染和纹理区域上传继续使用它。OpenGL 兼容渲染器也可用于同一 Viewport 路径。宿主会拒绝 separate 模式；构建和运行不再提供 RD 选择开关。
+JavaFX 宿主只保留 Viewport＋safe：通过 Godot 视口生成纹理，并在 Godot 主线程提交渲染工作。JavaFX 应用线程和 Prism 渲染线程仍独立运行；GPU 仍可异步执行。此前自行实现的 RD-direct 绘制路径、着色器翻译器和 separate 专用适配已删除。Godot 原生 RenderingDevice（图形设备抽象）仍保留，D3D12 和 Vulkan 的 `mobile` 视口 渲染和纹理区域上传继续使用它。OpenGL 兼容渲染器也可用于同一 Viewport 路径。宿主会拒绝 separate 模式；构建和运行不再提供 RD 选择开关。
 
 构建成功证明代码能编译；测试断言证明特定路径；GPU 截图证明读回的画面；原生窗口/真实输入还需要对应的系统级验证。帧率报告也要区分 JavaFX Pulse、MediaView 绘制、Godot 合成和物理显示器刷新，不能把数字混用。
 

@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Profile, [ValidateRange(3,30)][int]$Sweeps = 3)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Profile, [ValidateRange(3,30)][int]$Sweeps = 3)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
@@ -16,8 +16,8 @@ try {
     $env:GODOT_JFX_TABLE_SWEEPS = [string]$Sweeps
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_PROFILE_COMMANDS = if ($Profile) { '1' } else { $null }
-    $log = Join-Path (Get-Location) "agentdir/logs/vfx-table-scroll-$Renderer-$RenderThread$(if ($Sweeps -ne 3) { "-sweeps$Sweeps" }).log"
-    Invoke-GodotFixture --path tests/godot res://vfx_table_scroll.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+    $log = Join-Path (Get-Location) "agentdir/logs/vfx-table-scroll-$Driver-$RenderThread$(if ($Sweeps -ne 3) { "-sweeps$Sweeps" }).log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://vfx_table_scroll.tscn --render-thread $RenderThread *> $log
     $output = Get-Content $log -Raw
     if ($LASTEXITCODE -ne 0 -or $output -notmatch 'GODOT_VFX_TABLE_SCROLL_PASS' -or $output -notmatch 'VFX_TABLE_SCROLL_PROBE_PASS' -or $output -notmatch 'VFX_TABLE_SCROLL_STATS' -or $output -notmatch 'VFX_TABLE_SCROLL_IDLE_STATS' -or $output -notmatch '(?m)^VFX_TABLE_SCROLL pulses=' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|GodotHostStoppedException|uncaught:') { throw "VFX table scroll failed: $log" }
     $expected='VFX_TABLE_SCROLL_BACKEND glass=com.sun.glass.ui.godot.GodotApplication prism=com.sun.prism.godot.GODOTPipeline'

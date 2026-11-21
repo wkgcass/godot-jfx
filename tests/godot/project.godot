@@ -14,4 +14,10 @@ window/size/viewport_height=400
 
 [rendering]
 renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.windows="mobile"
+renderer/rendering_method.macos="mobile"
+rendering_device/driver.windows="d3d12"
+rendering_device/fallback_to_vulkan.windows=false
+rendering_device/fallback_to_opengl3.windows=false
+rendering_device/fallback_to_opengl3.macos=false
 environment/defaults/default_clear_color=Color(0.92, 0.95, 0.98, 1)

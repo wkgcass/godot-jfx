@@ -3,6 +3,15 @@
 set -u
 cd "$(dirname "$0")/.."
 
+DRIVER="metal"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --driver) DRIVER="${2-}"; shift ;;
+        *) echo "unknown arg: $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
@@ -20,7 +29,7 @@ LOG="agentdir/logs/m2-glass-scheduler.log"
 CODE=0
 # Headroom doubled over the Windows run: the frame budget also covers JVM
 # teardown, and this lightweight scene iterates faster on macOS.
-python3 "$FIXTURE_LAUNCHER" --path tests/godot res://scheduler.tscn --quit-after 6000 >"$LOG" 2>&1 || CODE=$?
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://scheduler.tscn --quit-after 6000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'M2_GLASS_SCHEDULER_PASS' "$LOG" \
     || ! grep -q 'GLASS_SCHEDULER_PASS:' "$LOG" \

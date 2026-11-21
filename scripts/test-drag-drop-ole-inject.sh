@@ -9,24 +9,24 @@
 # fixture paths) and drives the same enter/drop state machine the
 # NSDraggingDestination callbacks use.
 #
-# Usage: test-drag-drop-ole-inject.sh [--renderer gl_compatibility|mobile] [--render-thread safe] [--timeout]
+# Usage: test-drag-drop-ole-inject.sh [--driver metal|opengl] [--render-thread safe] [--timeout]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="gl_compatibility"
+DRIVER="metal"
 RENDER_THREAD="safe"
 TIMEOUT=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --timeout) TIMEOUT=1 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -39,14 +39,14 @@ mkdir -p artifacts/reference agentdir/logs
 
 SUFFIX=""
 [ "$TIMEOUT" = 1 ] && SUFFIX="-timeout"
-LOG="agentdir/logs/ole-inject-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/ole-inject-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 
 CODE=0
 (
     export GODOT_JFX_JDK="$JDK"
     export GODOT_JFX_OLE_TIMEOUT="$TIMEOUT"
-    python3 "$FIXTURE_LAUNCHER" --path tests/godot res://ole_inject.tscn \
-        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1
+    python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://ole_inject.tscn \
+        --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1
 ) || CODE=$?
 
 if [ "$TIMEOUT" = 1 ] && ! grep -q 'OLE_TIMEOUT_CANCEL_PASS' "$LOG"; then

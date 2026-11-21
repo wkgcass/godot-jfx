@@ -1,23 +1,23 @@
 #!/bin/sh
 # macOS equivalent of test-vfx-scroll.ps1. --runtime needs the Windows
 # release-template fixture layout and is not ported.
-# Usage: test-vfx-scroll.sh [--renderer mobile|gl_compatibility] [--render-thread safe]
+# Usage: test-vfx-scroll.sh [--driver metal|opengl] [--render-thread safe]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --runtime) echo "--runtime is not ported to macOS yet" >&2; exit 2 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -55,10 +55,10 @@ run_watchdog() {
 }
 
 export GODOT_JFX_JDK="$JDK"
-LOG="agentdir/logs/vfx-scroll-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/vfx-scroll-$DRIVER-$RENDER_THREAD.log"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://vfx_scroll.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://vfx_scroll.tscn \
+    --render-thread "$RENDER_THREAD" || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_VFX_SCROLL_PASS' "$LOG" \
     || ! grep -q 'VFX_SCROLL_PROBE_PASS' "$LOG" \
@@ -67,6 +67,6 @@ if [ "$CODE" -ne 0 ] \
     exit 1
 fi
 for step in 0 1 2 3; do
-    cp "artifacts/reference/vfx-scroll-$step.png" "artifacts/reference/vfx-scroll-$RENDERER-$RENDER_THREAD-$step.png"
+    cp "artifacts/reference/vfx-scroll-$step.png" "artifacts/reference/vfx-scroll-$DRIVER-$RENDER_THREAD-$step.png"
 done
 echo "VFX scroll passed: $LOG"

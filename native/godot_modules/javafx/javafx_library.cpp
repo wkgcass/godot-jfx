@@ -8,6 +8,7 @@
 #include "scene/main/scene_tree.h"
 #include "scene/main/window.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cwchar>
 #include <string>
@@ -64,13 +65,56 @@ GDExtensionBool extension_init(GDExtensionInterfaceGetProcAddress, GDExtensionCl
 	init->deinitialize = [](void *, GDExtensionInitializationLevel) {};
 	return true;
 }
+
+std::string engine_driver(JNIEnv *env, jstring requested) {
+	const String driver = java_string(env, requested);
+
+	if (driver == "opengl") return "opengl3";
+	return driver.utf8().get_data();
+}
+
+GodotInstance *create_instance(std::vector<std::string> &args, const std::string &driver) {
+	if (!driver.empty()) {
+		const std::string method = driver == "opengl3" ? "gl_compatibility" : "mobile";
+		auto set_option = [&](const char *option, const std::string &value) {
+			auto end = std::find(args.begin(), args.end(), "--");
+			auto it = std::find(args.begin(), end, option);
+			if (it == end) {
+				args.insert(end, { option, value });
+			} else if (it + 1 != end) {
+				*(it + 1) = value;
+			} else {
+				return false;
+			}
+			return true;
+		};
+		if (!set_option("--rendering-method", method) || !set_option("--rendering-driver", driver)) return nullptr;
+	}
+	std::vector<char *> argv;
+	for (auto &arg : args) argv.push_back(arg.data());
+	argv.push_back(nullptr);
+	return static_cast<GodotInstance *>(libgodot_create_godot_instance(int(args.size()), argv.data(), extension_init));
+}
+
+bool start_instance(GodotInstance *instance, const std::string &driver) {
+	if (!instance->start()) return false;
+	if (!driver.empty()) {
+		const String actual = OS::get_singleton()->get_current_rendering_driver_name();
+		if (actual != driver.c_str()) {
+			ERR_PRINT("Expected Godot rendering driver " + String(driver.c_str()) + ", got " + actual);
+			return false;
+		}
+		print_line("GODOT_LIBRARY_DRIVER " + actual);
+	}
+	return true;
+}
 }
 
 namespace godot_javafx { extern thread_local JNIEnv *scene_env; }
 
 // Scene-driven integration fixtures use the packaged engine and existing JVM.
 // GDScript owns the host node, the application entry and the final exit code.
-extern "C" JNIEXPORT jint JNICALL Java_com_sun_javafx_tk_godot_GodotSceneFixture_run(JNIEnv *env, jclass, jstring library, jobjectArray arguments) {
+extern "C" JNIEXPORT jint JNICALL Java_com_sun_javafx_tk_godot_GodotSceneFixture_run(JNIEnv *env, jclass, jstring library, jstring requested_driver, jobjectArray arguments) {
 	if (!claim_engine()) {
 		fail(env, "The process already claimed a Godot instance");
 		return 1;
@@ -81,15 +125,13 @@ extern "C" JNIEXPORT jint JNICALL Java_com_sun_javafx_tk_godot_GodotSceneFixture
 		args.emplace_back(java_string(env, arg).utf8().get_data());
 		env->DeleteLocalRef(arg);
 	}
+	const std::string driver = engine_driver(env, requested_driver);
 	if (env->ExceptionCheck()) return 1;
-	std::vector<char *> argv;
-	for (auto &arg : args) argv.push_back(arg.data());
-	argv.push_back(nullptr);
-	auto *instance = static_cast<GodotInstance *>(libgodot_create_godot_instance(int(args.size()), argv.data(), extension_init));
+	auto *instance = create_instance(args, driver);
 	if (!instance) return 1;
 	godot_javafx::scene_env = env;
 	int code = 1;
-	if (instance->start()) {
+	if (start_instance(instance, driver)) {
 #ifdef MACOS_ENABLED
 		while (!javafx_macos_iteration(instance)) {}
 #else
@@ -126,7 +168,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_sun_javafx_tk_godot_LibraryGodotEngin
 
 extern "C" JNIEXPORT void JNICALL Java_com_sun_javafx_tk_godot_LibraryGodotEngine_run(
 		JNIEnv *env, jclass, jclass bridge, jobject ready, jstring library, jstring project,
-		jboolean pack, jstring renderer, jstring startup, jboolean disable_vsync, jint max_fps, jboolean verbose) {
+		jboolean pack, jstring requested_driver, jstring startup, jboolean disable_vsync, jint max_fps, jboolean verbose) {
 	if (!claim_engine()) {
 		fail(env, "create: the process already claimed a Godot instance");
 		return;
@@ -144,20 +186,17 @@ extern "C" JNIEXPORT void JNICALL Java_com_sun_javafx_tk_godot_LibraryGodotEngin
 		args.emplace_back("--max-fps");
 		args.push_back(std::to_string(max_fps));
 	}
-	args.insert(args.end(), { "--rendering-method", java_string(env, renderer).utf8().get_data(),
-		"--render-thread", "safe", "--", ("--javafx-startup=" + startup_mode).utf8().get_data()
+	args.insert(args.end(), { "--render-thread", "safe", "--", ("--javafx-startup=" + startup_mode).utf8().get_data()
 	});
+	const std::string driver = engine_driver(env, requested_driver);
 	if (env->ExceptionCheck()) return;
-	std::vector<char *> argv;
-	for (auto &arg : args) argv.push_back(arg.data());
-	argv.push_back(nullptr);
-	auto *instance = static_cast<GodotInstance *>(libgodot_create_godot_instance(int(args.size()), argv.data(), extension_init));
+	auto *instance = create_instance(args, driver);
 	if (!instance) {
 		fail(env, "create: Godot could not load the project");
 		return;
 	}
 	if (verbose) print_line("GODOT_LIBRARY_INSTANCE_CREATED");
-	if (!instance->start()) {
+	if (!start_instance(instance, driver)) {
 		libgodot_destroy_godot_instance(instance);
 		fail(env, "start: Godot could not start the SceneTree");
 		return;

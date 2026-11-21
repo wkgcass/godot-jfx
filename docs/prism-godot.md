@@ -21,7 +21,7 @@ caching changes are maintained separately from this runtime marker.
 The current backend is Viewport-only and requires safe rendering. The custom
 RD-direct backend, shader translator, optional build flag and capability query
 were removed on 2026-11-13. Godot itself still owns the underlying RenderingDevice
-used by Vulkan/mobile. Dated evidence later in this document describes older
+used by D3D12, Vulkan and Metal with the `mobile` renderer. Dated evidence later in this document describes older
 builds and is not a supported-mode list or current acceptance claim.
 
 GodotTexture is an actual Prism BaseTexture backed by a generation-tagged
@@ -76,7 +76,7 @@ Validation:
 
 ```powershell
 .\scripts\test-bridge.ps1 -PrismTextures
-.\scripts\test-bridge.ps1 -PrismTextures -Renderer mobile
+.\scripts\test-bridge.ps1 -PrismTextures -Driver d3d12
 ```
 
 PrismTextureProbe constructs the production Prism Texture classes, uploads
@@ -86,7 +86,7 @@ and uploads a 1024x1024 direct buffer across two batches. Float coverage checks
 stride/position, finite validation without partial patches, filter flushing,
 16-byte accounting and release. The Godot fixture
 checks six GPU-rendered colors and resource release. Both GL and Vulkan pass;
-godot-prism-textures-<renderer>.png captures were inspected. Logs are
+godot-prism-textures-<driver>.png captures were inspected. Logs are
 m2-bridge-prism-textures.log and m2-bridge-prism-textures-mobile.log.
 
 ## Generated Godot shaders
@@ -106,7 +106,7 @@ The Windows variant sets match existing D3D generation: 212 Prism and
 contents, and Godot parser acceptance for all 262 on both GL and Vulkan.
 It additionally renders generated FillPgram_Color and checks interior,
 exterior and fractional-edge coverage. GPU readbacks are
-godot-generated-shader-<renderer>.png. This is parser coverage for all shaders
+godot-generated-shader-<driver>.png. This is parser coverage for all shaders
 and actual GPU pixel coverage for one mask, not full effect/rendering coverage.
 Sampler/uniform binding, material state and effect render targets are now
 connected through GodotContext; the sections below describe that integration. Stock D3D ReferenceSmoke still passes.
@@ -142,7 +142,7 @@ interpret this surface limitation as absence of all native shader caching.
 The generated-shader fixture checks real overlapping red/green/blue GPU pixels
 after changes to both uniforms and shader source. It repeats 100 clear/draw
 cycles and verifies resource counts return to eight after clear and zero after
-removal on GL and Vulkan. `godot-shader-states-<renderer>.png` records the GPU
+removal on GL and Vulkan. `godot-shader-states-<driver>.png` records the GPU
 readback. The M1 vertex fixture now sets its shader before recording geometry,
 matching the new snapshot semantics. Native dictionary parameters work through
 RenderingServer; standard scene rendering is connected through GodotContext.
@@ -155,7 +155,7 @@ names map via Java texture units to versioned native texture handles. Source is 
 ASCII up to 256 KiB; this includes the generated shaders. Native shader syntax
 compilation still happens on consumption, not during queue admission.
 
-`test-bridge.ps1 -ShaderStates [-Renderer mobile]` exercises actual Java
+`test-bridge.ps1 -ShaderStates [-Driver d3d12]` exercises actual Java
 GodotShader snapshots through JNI, using vec4-array colors and an integer index.
 Two meshes keep their original purple/green output after the Java parameters
 are changed and the Shader disposed. Both backends pass pixel and resource
@@ -184,7 +184,7 @@ the host surface using premultiplied GPU geometry. No scene bitmap is generated.
 
 test-bridge.ps1 -PrismContext invokes production Graphics.fillRect with two
 paints, translation and scaling. GL and Vulkan pass the existing expected-pixel
-checks and host resource release check. Captures are godot-prism-context-<renderer>.png.
+checks and host resource release check. Captures are godot-prism-context-<driver>.png.
 This fixture supplies a test RenderTarget; the separate Stage test below covers
 initial Presentable and GraphicsPipeline integration. Blend modes other than SRC_OVER/SRC, RTTexture,
 blit, perspective/depth and 3D were explicit unsupported operations at this stage
@@ -240,9 +240,9 @@ mixed-monitor/DPI transitions remain unverified;
 see glass-godot.md and acceptance-status.md for current evidence and limitations;
 logical-windows.md describes the superseded embedded-window model.
 
-test-stage.ps1 [-Renderer mobile] runs an ordinary Platform/Stage/Scene with
+test-stage.ps1 [-Driver d3d12] runs an ordinary Platform/Stage/Scene with
 two Rectangle nodes. Both GL and Vulkan pass pixel checks, single-native-window
-ownership and final host-resource release. godot-stage-<renderer>.png captures
+ownership and final host-resource release. godot-stage-<driver>.png captures
 the GPU result; Vulkan was visually inspected. No alternate Prism backend is
 selected. Standard Stage icons now support replacement, clearing and hide/reshow;
 see glass-godot.md for native-pixel verification.
@@ -276,7 +276,7 @@ uninitialized pixels. The default viewport texture remains borrowed, never freed
 as an independently owned texture. A surface can retain and compose such a
 target directly, with no CPU readback in the rendering path.
 
-test-render-targets.ps1 [-Renderer mobile] passes 100 two-target copies on both
+test-render-targets.ps1 [-Driver d3d12] passes 100 two-target copies on both
 backends, checks premultiplied output and verifies target objects disappear after
 the last drawing reference is cleared. The Vulkan GPU capture was inspected.
 Java RTTexture/ledger registration, Prism shader rendering, target switching

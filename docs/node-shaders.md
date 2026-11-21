@@ -60,10 +60,10 @@ Validation command:
 
 ```powershell
 .\scripts\test-node-shaders.ps1
-.\scripts\test-node-shaders.ps1 -Renderer mobile
+.\scripts\test-node-shaders.ps1 -Driver d3d12
 ```
 
-Run `test-node-shaders.ps1 -Renderer mobile` or `-Renderer gl_compatibility`.
+Run `test-node-shaders.ps1 -Driver d3d12` or `-Driver opengl`.
 Both use the same Viewport shader path and safe render-thread mode.
 
 The probe exercises separate parameter instances, 80 parameter changes, a
@@ -88,8 +88,8 @@ work than local repainting. Shader syntax and public API are unchanged.
 After rebuilding JFX, run the independent regression (no VFX dependency):
 
 ```powershell
-.\scripts\test-node-shader-dirty.ps1 -Renderer mobile
-.\scripts\test-node-shader-dirty.ps1 -Renderer gl_compatibility
+.\scripts\test-node-shader-dirty.ps1 -Driver d3d12
+.\scripts\test-node-shader-dirty.ps1 -Driver opengl
 ```
 
 A fixed horizontal-mirror shader receives a rectangle whose opacity animates and
@@ -97,7 +97,7 @@ whose position changes. The host samples actual presented GPU frames, rather tha
 requesting full JavaFX node snapshots: the mirrored rectangle must update, its
 unwarped location must stay empty, and its former location must clear. Both phases
 require repeated samples and teardown requires zero owned host resources. Logs
-and captures use `node-shader-dirty-<renderer>-safe` names under
+and captures use `node-shader-dirty-<driver>-safe` names under
 `agentdir/logs` and `artifacts/reference`. No real mouse or keyboard input is used.
 
 2026-11-12: the regression reproduced the unwarped duplicate before the fix.

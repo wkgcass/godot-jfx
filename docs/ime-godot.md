@@ -61,7 +61,7 @@ Run the injected-event test with:
 
 ```powershell
 .\scripts\test-ime.ps1
-.\scripts\test-ime.ps1 -Renderer mobile
+.\scripts\test-ime.ps1 -Driver d3d12
 ```
 
 It uses a standard TextField and Button, verifies Chinese and supplementary

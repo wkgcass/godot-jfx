@@ -1,17 +1,25 @@
 #!/usr/bin/env python3
 """Launch a scene fixture with the published OpenJFX modules on the classpath."""
+import argparse
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 
+from godot_driver import add_driver_argument, DEFAULT_DRIVER
 from maven_local import test_jars
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def command(args, working_directory):
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    add_driver_argument(parser)
+    options, args = parser.parse_known_args(args)
+    if any(arg.split("=", 1)[0] in ("--renderer", "--rendering-method", "--rendering-driver") for arg in args):
+        parser.error("select the Godot backend with --driver")
+    jvm_options = [f"-Djavafx.godot.driver={options.driver or DEFAULT_DRIVER}"]
     windows = os.name == "nt"
     if not windows and sys.platform != "darwin":
         raise RuntimeError("Scene fixtures require the Windows or macOS platform JARs")
@@ -38,7 +46,7 @@ def command(args, working_directory):
     cp = [*jars, classes, *(vfx / entry for entry in (
         "classes/java/main", "classes/java/test", "resources/main", "resources/test", "dependencies/*"))]
     java = jdk / ("bin/java.exe" if windows else "bin/java")
-    return [str(java), "--enable-native-access=ALL-UNNAMED", "-cp", os.pathsep.join(map(str, cp)),
+    return [str(java), *jvm_options, "--enable-native-access=ALL-UNNAMED", "-cp", os.pathsep.join(map(str, cp)),
             "com.sun.javafx.tk.godot.GodotSceneFixture", *args]
 
 

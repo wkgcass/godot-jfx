@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [switch]$MissingScene, [switch]$Resize)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [switch]$MissingScene, [switch]$Resize)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -15,15 +15,15 @@ try {
     $env:GODOT_JFX_SCENE_MISSING = if ($MissingScene) { '1' } else { '0' }
     $env:GODOT_JFX_SCENE_RESIZE = if ($Resize) { '1' } else { '0' }
     $suffix = if ($MissingScene) { '-missing' } elseif ($Resize) { '-resize' } else { '' }
-    $log = "agentdir/logs/scene-textures-$Renderer$suffix.log"
-    Invoke-GodotFixture --path tests/godot res://scene_textures.tscn --rendering-method $Renderer --quit-after 3000 *> $log
+    $log = "agentdir/logs/scene-textures-$Driver$suffix.log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://scene_textures.tscn --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($MissingScene) {
         if ($result -ne 0 -or $output -notmatch 'SCENE_TEXTURE_FAILURE_PASS' -or $output -match '(?m)^(SCRIPT ERROR:|SHADER ERROR:|Exception)') { throw "Scene failure probe failed. See $log" }
     } else {
         if ($result -ne 0 -or $output -notmatch 'GODOT_SCENE_TEXTURE_PASS' -or $output -notmatch 'SCENE_TEXTURE_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)') { throw "Scene texture probe failed. See $log" }
-        Copy-Item artifacts/reference/godot-scene-textures.png "artifacts/reference/godot-scene-textures-$Renderer$suffix.png"
+        Copy-Item artifacts/reference/godot-scene-textures.png "artifacts/reference/godot-scene-textures-$Driver$suffix.png"
     }
     Write-Output "Scene texture probe passed: $log"
 } finally { $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_SCENE_MISSING = $savedMissing; $env:GODOT_JFX_SCENE_RESIZE = $savedResize; Pop-Location }

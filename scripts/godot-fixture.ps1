@@ -10,22 +10,28 @@ function Get-GodotJfxTestModulePath {
 }
 
 function Get-GodotFixtureLaunch {
-    param([string[]]$EngineArguments, [string]$WorkingDirectory = (Get-Location).Path)
-    $json = & python "$PSScriptRoot/godot-fixture.py" --print-command $WorkingDirectory @EngineArguments
+    param([string[]]$EngineArguments, [string]$WorkingDirectory = (Get-Location).Path,
+          [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12')
+    $Driver = $Driver.ToLowerInvariant()
+    $json = & python "$PSScriptRoot/godot-fixture.py" --print-command $WorkingDirectory --driver $Driver @EngineArguments
     if ($LASTEXITCODE) { throw 'Could not prepare the Java scene launcher' }
     $command = ConvertFrom-Json $json
     [pscustomobject]@{ Java = $command[0]; Arguments = $command[1..($command.Length - 1)] }
 }
 
 function Invoke-GodotFixture {
-    $launch = Get-GodotFixtureLaunch $args
+    [CmdletBinding(PositionalBinding=$false)]
+    param([ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12',
+          [Parameter(ValueFromRemainingArguments)][string[]]$EngineArguments)
+    $launch = Get-GodotFixtureLaunch -Driver $Driver -EngineArguments $EngineArguments
     $prefix = $launch.Arguments
     Invoke-NativeOutput $launch.Java @prefix
 }
 
 function Start-GodotFixture {
-    param([string[]]$ArgumentList, [string]$WorkingDirectory, [string]$Log, [string]$ErrorLog)
-    $launch = Get-GodotFixtureLaunch $ArgumentList $WorkingDirectory
+    param([string[]]$ArgumentList, [string]$WorkingDirectory, [string]$Log, [string]$ErrorLog,
+          [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12')
+    $launch = Get-GodotFixtureLaunch -Driver $Driver -EngineArguments $ArgumentList -WorkingDirectory $WorkingDirectory
     $quoted = foreach ($argument in $launch.Arguments) { '"' + $argument + '"' }
     Start-Process -FilePath $launch.Java -ArgumentList $quoted -WorkingDirectory $WorkingDirectory -WindowStyle Hidden -RedirectStandardOutput $Log -RedirectStandardError $ErrorLog -PassThru
 }

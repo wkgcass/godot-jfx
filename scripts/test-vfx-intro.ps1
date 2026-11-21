@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [switch]$AllPages, [ValidateSet('safe')][string]$RenderThread = 'safe', [int]$PageLimit = 0, [switch]$FreezeFusion)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [switch]$AllPages, [ValidateSet('safe')][string]$RenderThread = 'safe', [int]$PageLimit = 0, [switch]$FreezeFusion)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -24,13 +24,13 @@ try {
     $coverage = if ($AllPages) { '-all-pages' } else { '' }
     if ($PageLimit) { $coverage += "-$PageLimit" }
     if ($FreezeFusion) { $coverage += '-frozen' }
-    $log = "agentdir/logs/vfx-intro-$Renderer-$RenderThread$coverage.log"
-    Invoke-GodotFixture --path tests/godot res://vfx_intro.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 30000 *> $log
+    $log = "agentdir/logs/vfx-intro-$Driver-$RenderThread$coverage.log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://vfx_intro.tscn --render-thread $RenderThread --quit-after 30000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'VFX_INTRO_SMOKE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\.[a-z].*Exception)') { throw "VFX Intro smoke failed. See $log" }
-    Copy-Item artifacts/reference/vfx-intro.png "artifacts/reference/vfx-intro-$Renderer.png"
-    Copy-Item artifacts/reference/vfx-intro-next.png "artifacts/reference/vfx-intro-next-$Renderer.png"
+    Copy-Item artifacts/reference/vfx-intro.png "artifacts/reference/vfx-intro-$Driver.png"
+    Copy-Item artifacts/reference/vfx-intro-next.png "artifacts/reference/vfx-intro-next-$Driver.png"
     Write-Output "VFX Intro smoke passed: $log"
 } finally { $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_VFX_PAGES = $savedPages; $env:GODOT_JFX_VFX_FREEZE = $savedFreeze; Pop-Location }
 

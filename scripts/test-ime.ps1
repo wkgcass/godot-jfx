@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [switch]$SpacedClick)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [switch]$SpacedClick)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -13,8 +13,8 @@ try {
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_IME_SPACED_CLICK = if ($SpacedClick) { '1' } else { '0' }
     $suffix = if ($SpacedClick) { "-spaced" } else { "" }
-    $log = "agentdir/logs/ime-$Renderer$suffix.log"
-    Invoke-GodotFixture --path tests/godot res://ime.tscn --rendering-method $Renderer --quit-after 4000 *> $log
+    $log = "agentdir/logs/ime-$Driver$suffix.log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://ime.tscn --quit-after 4000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'GODOT_IME_PASS' -or $output -notmatch 'IME_PROBE_PASS' -or $output -notmatch 'IME_MOUSE_ORDER_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|Exception|java\.[a-z].*Exception)') { throw "IME probe failed: $log" }

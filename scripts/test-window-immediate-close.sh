@@ -1,23 +1,23 @@
 #!/bin/sh
 # macOS equivalent of test-window-immediate-close.ps1.
-# Usage: test-window-immediate-close.sh [--renderer gl_compatibility|mobile] [--render-thread safe] [--runtime]
+# Usage: test-window-immediate-close.sh [--driver metal|opengl] [--render-thread safe] [--runtime]
 # The isolated project variant is unavailable for this fixture.
 set -u
 cd "$(dirname "$0")/.."
 
-RENDERER="gl_compatibility"
+DRIVER="metal"
 RENDER_THREAD="safe"
 RUNTIME=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --runtime) RUNTIME=1 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 if [ "$RUNTIME" -eq 1 ]; then
     echo "This fixture does not implement --runtime on macOS" >&2
@@ -27,9 +27,9 @@ fi
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 mkdir -p agentdir/logs
 
-LOG="agentdir/logs/window-immediate-close-$RENDERER-$RENDER_THREAD.log"
-python3 "$FIXTURE_LAUNCHER" --path tests/godot res://window_immediate_close.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 300 > "$LOG" 2>&1
+LOG="agentdir/logs/window-immediate-close-$DRIVER-$RENDER_THREAD.log"
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://window_immediate_close.tscn \
+    --render-thread "$RENDER_THREAD" --quit-after 300 > "$LOG" 2>&1
 CODE=$?
 CYCLES=$(grep -c 'WINDOW_IMMEDIATE_CLOSE_CYCLE ' "$LOG" || true)
 if [ "$CODE" -ne 0 ] \

@@ -7,6 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS = os.name == "nt"
+
 if not WINDOWS and sys.platform != "darwin":
     raise RuntimeError("The packaged engine tests require Windows x64 or macOS arm64")
 CLASSIFIER = "win" if WINDOWS else "mac-aarch64"

@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe')
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe')
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -11,8 +11,8 @@ try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.graphics,javafx.controls --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/ScrollWheelProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Scroll wheel probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
-    $log = Join-Path $root "agentdir/logs/scroll_wheel-$Renderer-$RenderThread.log"
-    Invoke-GodotFixture --path tests/godot res://scroll_wheel.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 2400 *> $log
+    $log = Join-Path $root "agentdir/logs/scroll_wheel-$Driver-$RenderThread.log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://scroll_wheel.tscn --render-thread $RenderThread --quit-after 2400 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'SCROLL_WHEEL_PROBE_PASS' -or $output -notmatch 'GODOT_SCROLL_WHEEL_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)|uncaught:') { throw "Scroll wheel test failed: $log" }

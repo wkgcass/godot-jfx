@@ -1,6 +1,6 @@
 ﻿#Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [string]$VisualStudio=$(if ($env:VSINSTALLDIR) { $env:VSINSTALLDIR } else { Join-Path $env:ProgramFiles 'Microsoft Visual Studio/2022/Community' }))
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [string]$VisualStudio=$(if ($env:VSINSTALLDIR) { $env:VSINSTALLDIR } else { Join-Path $env:ProgramFiles 'Microsoft Visual Studio/2022/Community' }))
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -57,7 +57,7 @@ try {
     $env:GODOT_JFX_HELPER_X = '940'; $env:GODOT_JFX_HELPER_Y = '400'
     $env:GODOT_JFX_HELPER_SRC_X = '1300'; $env:GODOT_JFX_HELPER_SRC_Y = '400'
     $suffix = if($Runtime){'-runtime'}else{''}
-    $log = Join-Path $root "agentdir/logs/drag-drop-external-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path $root "agentdir/logs/drag-drop-external-$Driver-$RenderThread$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path $root 'artifacts/runtime-dnd-external'
         New-Item -ItemType Directory -Force $fixture | Out-Null
@@ -67,10 +67,10 @@ try {
         & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if ($LASTEXITCODE -ne 0) { throw "External drag runtime import failed: $log.import" }
         Push-Location $fixture
-        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread $RenderThread --quit-after 30000 *> $log }
+        try { Invoke-GodotFixture -Driver $Driver --render-thread $RenderThread --quit-after 30000 *> $log }
         finally { Pop-Location }
     } else {
-        Invoke-GodotFixture --path tests/godot res://drag_drop_external.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 30000 *> $log
+        Invoke-GodotFixture -Driver $Driver --path tests/godot res://drag_drop_external.tscn --render-thread $RenderThread --quit-after 30000 *> $log
     }
     $result = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw

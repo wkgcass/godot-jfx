@@ -14,6 +14,7 @@ import tempfile
 import time
 from zipfile import ZipFile
 
+from godot_driver import DEFAULT_DRIVER, add_driver_argument, check_driver
 from library_test_platform import (CLASSIFIER, EDITOR, ENGINE, MEDIA_LIBRARIES, SDK_NATIVES,
                                    WINDOWS, library, module_paths, system_path)
 
@@ -81,7 +82,7 @@ def build(work, runtime, name, pack=None):
     return jar
 
 
-def launch(work, jar, name, args, markers, extra_env=None, expected_error=None, native_cache=None):
+def launch(work, jar, name, args, markers, extra_env=None, expected_error=None, native_cache=None, driver=None):
     # The application receives no JFX flags, extra class path or runtime directory.
     jdk = Path(os.environ["JAVA_HOME"])
     env = {k: v for k, v in os.environ.items() if not k.startswith("GODOT_")
@@ -90,6 +91,8 @@ def launch(work, jar, name, args, markers, extra_env=None, expected_error=None, 
     log = work / (name + ".log")
     loaded = set()
     jvm_options = ["-Dglass.platform=Mac", f"-Djavafx.cachedir={native_cache}"] if native_cache else []
+    if driver:
+        jvm_options.append(f"-Djavafx.godot.driver={driver}")
     with log.open("wb") as stream, subprocess.Popen([jdk / "bin/java", *jvm_options, "-jar", jar.name, *args],
             cwd=jar.parent, env=env | (extra_env or {}), stdout=stream, stderr=subprocess.STDOUT) as proc:
         deadline = time.monotonic() + 55
@@ -100,6 +103,8 @@ def launch(work, jar, name, args, markers, extra_env=None, expected_error=None, 
                 raise TimeoutError(f"{name} timed out, see {log}")
             time.sleep(.05)
     output = log.read_text(encoding="utf-8", errors="replace")
+    if not native_cache:
+        check_driver(output, driver, log)
     if expected_error:
         if proc.returncode == 0 or expected_error not in output or "SHADOW_STAGE_PASS" in output:
             raise AssertionError(f"{name}: expected startup failure, see {log}")
@@ -134,9 +139,12 @@ def launch(work, jar, name, args, markers, extra_env=None, expected_error=None, 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    add_driver_argument(parser)
     parser.add_argument("--runtime", type=Path, required=True)
     parser.add_argument("--work", type=Path)
     args = parser.parse_args()
+    if args.driver is None:
+        args.driver = DEFAULT_DRIVER
     work = args.work.resolve() if args.work else Path(tempfile.mkdtemp(prefix="JavaFX Shadow ")).resolve()
     work.mkdir(parents=True, exist_ok=True)
     print(f"Evidence: {work}", flush=True)
@@ -148,17 +156,17 @@ def main():
     shutil.copyfile(ROOT / "tests/reference/MediaVideoProbe.java", reference / "MediaVideoProbe.java")
     runtime = args.runtime.resolve()
     jar = build(work, runtime, "stage")
-    launch(work, jar, "plain-stage", [], ["SHADOW_STAGE_PASS"])
+    launch(work, jar, "plain-stage", [], ["SHADOW_STAGE_PASS"], driver=args.driver)
     if set(jar.parent.iterdir()) != {jar}:
         raise AssertionError("Projectless startup wrote files beside the application JAR")
     (jar.parent / "project.godot").write_text('config_version=5\n[application]\nrun/main_scene="res://absent.tscn"\n')
-    launch(work, jar, "foreign-project", [], ["SHADOW_STAGE_PASS"])
+    launch(work, jar, "foreign-project", [], ["SHADOW_STAGE_PASS"], driver=args.driver)
     video = ROOT / subprocess.check_output(
         [sys.executable, ROOT / "scripts/setup-env.py", "--sample-path", "oracle"], text=True).strip()
     jar = build(work, runtime, "media")
     launch(work, jar, "media", [], ["MEDIA_VIDEO_CONTROLS_PASS", "MEDIA_VIDEO_PROBE_PASS"], {
         "GODOT_JFX_MEDIA_FILE": str(video),
-        "GODOT_JFX_MEDIA_CAPTURE": str(work / "media.png")})
+        "GODOT_JFX_MEDIA_CAPTURE": str(work / "media.png")}, driver=args.driver)
     if not WINDOWS:
         # Native Glass uses OpenJFX's ordinary library cache. Exercise its
         # first extraction, reuse and two JVMs extracting into one empty cache.
@@ -175,11 +183,11 @@ def main():
                 check.result()
     jar = build(work, runtime, "scenes", export_scene(work))
     launch(work, jar, "bundled-view", ["view"], ["LIBRARY_VIEW_STAGE_PASS", "APPLICATION_INPUT_PASS", "APPLICATION_STOP"],
-           {"GODOT_LIBRARY_CAPTURE": str(work / "view.png")})
+           {"GODOT_LIBRARY_CAPTURE": str(work / "view.png")}, driver=args.driver)
     invalid = work / "invalid.pck"
     invalid.write_bytes(b"Invalid resource pack")
     jar = build(work, runtime, "invalid", invalid)
-    launch(work, jar, "invalid-bundled-pack", [], [], expected_error="resources: could not mount bundled")
+    launch(work, jar, "invalid-bundled-pack", [], [], expected_error="resources: could not mount bundled", driver=args.driver)
 
 
 if __name__ == "__main__":

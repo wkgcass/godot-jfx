@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[ValidateSet('safe')][string]$RenderThread='safe')
+param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12',[ValidateSet('safe')][string]$RenderThread='safe')
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
@@ -45,8 +45,8 @@ public static class StartupWindows {
         $mode=$case.Split('-')[0]
         $env:GODOT_JFX_STARTUP_CANCEL=$(if($case.EndsWith('-cancel')){'1'}else{'0'})
         $env:GODOT_JFX_STARTUP=$mode
-        $prefix="agentdir/logs/startup-$case-$Renderer-$RenderThread"
-        $process=Start-GodotFixture -WorkingDirectory (Get-Location).Path -ArgumentList @('--path','tests/godot','res://startup.tscn','--rendering-method',$Renderer,'--render-thread',$RenderThread) -Log "$prefix.log" -ErrorLog "$prefix.err.log"
+        $prefix="agentdir/logs/startup-$case-$Driver-$RenderThread"
+        $process=Start-GodotFixture -Driver $Driver -WorkingDirectory (Get-Location).Path -ArgumentList @('--path','tests/godot','res://startup.tscn','--render-thread',$RenderThread) -Log "$prefix.log" -ErrorLog "$prefix.err.log"
         $watch=[Diagnostics.Stopwatch]::StartNew()
         $visible=$false
         try {
@@ -62,7 +62,7 @@ public static class StartupWindows {
             $process.WaitForExit()
             $output=(Get-Content "$prefix.log" -Raw)+(Get-Content "$prefix.err.log" -Raw)
             if($process.ExitCode -ne 0 -or -not $visible -or $output -notmatch "STARTUP_PASS mode=$mode" -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|Exception)'){throw "Startup test failed: $prefix.log"}
-            Write-Output "STARTUP_PASS $case $Renderer $RenderThread (native visibility sampled every 20 ms)"
+            Write-Output "STARTUP_PASS $case $Driver $RenderThread (native visibility sampled every 20 ms)"
         } finally {
             if(-not $process.HasExited){Stop-Process -Id $process.Id -Force}
             $process.Dispose()

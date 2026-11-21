@@ -1,19 +1,19 @@
 #!/bin/sh
 # macOS equivalent of test-native-churn.ps1.
 # Usage: test-native-churn.sh [--kind Idle|SubViewport|Window|JavaFXNativeWindow]
-#                             [--renderer gl_compatibility|mobile] [--render-thread safe]
+#                             [--driver metal|opengl] [--render-thread safe]
 #                             [--static-range-limit-bytes N]
 set -u
 cd "$(dirname "$0")/.."
 
 KIND="Window"
-RENDERER="gl_compatibility"
+DRIVER="metal"
 RENDER_THREAD="safe"
 STATIC_LIMIT=-1
 while [ $# -gt 0 ]; do
     case "$1" in
         --kind) KIND="$2"; shift ;;
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --static-range-limit-bytes) STATIC_LIMIT="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
@@ -21,17 +21,17 @@ while [ $# -gt 0 ]; do
     shift
 done
 case "$KIND" in Idle|SubViewport|Window|JavaFXNativeWindow) ;; *) echo "invalid kind: $KIND" >&2; exit 2 ;; esac
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 PY="$(command -v python3)" || { echo "python3 not found" >&2; exit 1; }
 mkdir -p agentdir/logs artifacts/reference
 
-LOG="agentdir/logs/native-churn-$KIND-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/native-churn-$KIND-$DRIVER-$RENDER_THREAD.log"
 GODOT_JFX_NATIVE_CHURN_KIND="$KIND" \
-    python3 "$FIXTURE_LAUNCHER" --path tests/godot res://native_churn.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 12000 > "$LOG" 2>&1
+    python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://native_churn.tscn \
+    --render-thread "$RENDER_THREAD" --quit-after 12000 > "$LOG" 2>&1
 CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'NATIVE_CHURN_PASS' "$LOG" \
@@ -40,7 +40,7 @@ if [ "$CODE" -ne 0 ] \
     exit 1
 fi
 
-REPORT="artifacts/reference/native-churn-$KIND-$RENDERER-$RENDER_THREAD.json"
+REPORT="artifacts/reference/native-churn-$KIND-$DRIVER-$RENDER_THREAD.json"
 STATIC_LIMIT="$STATIC_LIMIT" "$PY" - "$LOG" "$REPORT" <<'EOF'
 import json, os, sys
 

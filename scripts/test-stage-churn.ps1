@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('gl_compatibility','mobile')][string]$Renderer='mobile',[ValidateSet('safe')][string]$RenderThread='safe',[ValidateRange(6,1000)][int]$Cycles=36,[ValidateRange(0,4096)][int]$HeapMiB=0)
+param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12',[ValidateSet('safe')][string]$RenderThread='safe',[ValidateRange(6,1000)][int]$Cycles=36,[ValidateRange(0,4096)][int]$HeapMiB=0)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
@@ -14,8 +14,8 @@ try {
     $env:GODOT_JFX_CHURN_CYCLES="$Cycles"
     if($HeapMiB -gt 0) {$env:JAVA_TOOL_OPTIONS="$savedOptions -Xmx${HeapMiB}m"}
     $suffix="-$Cycles-heap$HeapMiB"
-    $log="agentdir/logs/stage-churn-$Renderer-$RenderThread$suffix.log"
-    Invoke-GodotFixture --path tests/godot res://stage_churn.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+    $log="agentdir/logs/stage-churn-$Driver-$RenderThread$suffix.log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://stage_churn.tscn --render-thread $RenderThread *> $log
     $output=Get-Content $log -Raw
     if($LASTEXITCODE -ne 0 -or $output -notmatch 'GODOT_STAGE_CHURN_PASS' -or $output -notmatch 'STAGE_CHURN_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|GodotHostStoppedException|uncaught:') {throw "Stage churn failed: $log"}
     $javaSamples=@([regex]::Matches($output,'STAGE_CHURN_JAVA cycle=(\d+) heap_used=(\d+) gc_count=(\d+) collected_stages=(\d+)') | ForEach-Object {
@@ -26,6 +26,6 @@ try {
     $nativeSamples=@([regex]::Matches($output,'(?m)^STAGE_CHURN_RESOURCES (\{[^\r\n]+\})') | ForEach-Object {$_.Groups[1].Value | ConvertFrom-Json})
     if($nativeSamples.Count -ne $Cycles+1) {throw 'Stage churn native sample count differs'}
     $report | Add-Member -NotePropertyMembers @{samples=$nativeSamples; java_samples=$javaSamples; heap_limit_mib=$HeapMiB} -Force
-    $report | ConvertTo-Json -Depth 8 | Set-Content "artifacts/reference/stage-churn-$Renderer-$RenderThread$suffix.json"
+    $report | ConvertTo-Json -Depth 8 | Set-Content "artifacts/reference/stage-churn-$Driver-$RenderThread$suffix.json"
     Write-Output "Stage churn passed: $log"
 } finally {$env:GODOT_JFX_JDK=$savedJdk;$env:GODOT_JFX_CHURN_CYCLES=$savedCycles;$env:JAVA_TOOL_OPTIONS=$savedOptions;Pop-Location}

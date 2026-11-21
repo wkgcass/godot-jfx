@@ -1,12 +1,12 @@
 #!/bin/sh
 # macOS equivalent of test-readback.ps1.
-# Usage: test-readback.sh [--renderer gl_compatibility|mobile] [--render-thread safe]
+# Usage: test-readback.sh [--driver metal|opengl] [--render-thread safe]
 #        [--snapshot] [--stop-during-read] [--runtime] [--snapshot-stress]
 set -u
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="gl_compatibility"
+DRIVER="metal"
 RENDER_THREAD="safe"
 SNAPSHOT=0
 STOP=0
@@ -14,7 +14,7 @@ RUNTIME=0
 STRESS=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --snapshot) SNAPSHOT=1 ;;
         --stop-during-read) STOP=1 ;;
@@ -24,7 +24,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 if [ "$STRESS" -eq 1 ]; then SNAPSHOT=1; fi
 if [ "$SNAPSHOT" -eq 1 ] && [ "$STOP" -eq 1 ]; then
@@ -58,7 +58,7 @@ SUFFIX=""
 [ "$STRESS" -eq 1 ] && SUFFIX="$SUFFIX-stress"
 [ "$STOP" -eq 1 ] && SUFFIX="$SUFFIX-stop"
 [ "$RUNTIME" -eq 1 ] && SUFFIX="$SUFFIX-runtime"
-LOG="$PWD/agentdir/logs/readback-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="$PWD/agentdir/logs/readback-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 if [ "$RUNTIME" -eq 1 ]; then
     FIXTURE="$PWD/artifacts/runtime-readback"
     mkdir -p "$FIXTURE"
@@ -68,12 +68,12 @@ if [ "$RUNTIME" -eq 1 ]; then
     "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Readback runtime fixture import failed: $LOG.import" >&2; exit 1; fi
     CODE=0
-    (cd "$FIXTURE" && python3 "$FIXTURE_LAUNCHER" \
-        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1) || CODE=$?
+    (cd "$FIXTURE" && python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \
+        --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1) || CODE=$?
 else
     CODE=0
-    python3 "$FIXTURE_LAUNCHER" --path tests/godot res://readback.tscn \
-        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
+    python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://readback.tscn \
+        --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
 fi
 if [ "$STOP" -eq 1 ] && ! grep -q 'READBACK_STOP_OBSERVED_PENDING_REQUEST' "$LOG"; then
     echo "Pending readback stop was not exercised: $LOG" >&2

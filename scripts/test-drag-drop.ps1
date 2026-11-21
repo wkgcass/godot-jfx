@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Robot)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Robot)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -13,8 +13,8 @@ try {
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_ROBOT_DRAG = if($Robot){'1'}else{'0'}
     $suffix = if($Robot){'-robot'}else{''}
-    $log = "agentdir/logs/drag-drop-$Renderer-$RenderThread$suffix.log"
-    Invoke-GodotFixture --path tests/godot res://drag_drop.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 10000 *> $log
+    $log = "agentdir/logs/drag-drop-$Driver-$RenderThread$suffix.log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://drag_drop.tscn --render-thread $RenderThread --quit-after 10000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'GODOT_DRAG_DROP_PASS' -or $output -notmatch 'DRAG_DROP_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)') { throw "Drag/drop test failed: $log" }

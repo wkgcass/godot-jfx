@@ -1,23 +1,23 @@
 #!/bin/sh
 # macOS equivalent of test-vfx-dialog.ps1.
-# Usage: test-vfx-dialog.sh [--renderer gl_compatibility|mobile] [--render-thread safe] [--inject-failure]
+# Usage: test-vfx-dialog.sh [--driver metal|opengl] [--render-thread safe] [--inject-failure]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="gl_compatibility"
+DRIVER="metal"
 RENDER_THREAD="safe"
 FAILURE=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --inject-failure) FAILURE=1 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -56,10 +56,10 @@ export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_VFX_FAILURE="$FAILURE"
 SUFFIX=""
 [ "$FAILURE" -eq 1 ] && SUFFIX="-failure"
-LOG="agentdir/logs/vfx-dialog-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/vfx-dialog-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://vfx_dialog.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 20000 || CODE=$?
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://vfx_dialog.tscn \
+    --render-thread "$RENDER_THREAD" --quit-after 20000 || CODE=$?
 if [ "$FAILURE" -eq 1 ]; then
     UNEXPECTED=$(grep -E '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\.[a-z].*(Exception|Error))|RejectedExecutionException|RenderJob.run: internal exception|Suppressed:|Caused by:' "$LOG" \
         | grep -vF 'ERROR: Java application failed; see JVM exception in the host log' \
@@ -83,6 +83,6 @@ if [ "$CODE" -ne 0 ] \
     exit 1
 fi
 for step in 0 1 2 3 4; do
-    cp "artifacts/reference/vfx-dialog-$step.png" "artifacts/reference/vfx-dialog-$RENDERER-$RENDER_THREAD-$step.png"
+    cp "artifacts/reference/vfx-dialog-$step.png" "artifacts/reference/vfx-dialog-$DRIVER-$RENDER_THREAD-$step.png"
 done
 echo "VFX dialog passed: $LOG"

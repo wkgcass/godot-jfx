@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',[switch]$Runtime,[ValidateRange(24,240)][int]$Cycles=24,[switch]$NativeD3D,[ValidateSet(0,30,60)][int]$SettleSeconds=0,[switch]$HandleTypes,[switch]$AudioOnly,[switch]$Providers)
+param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12',[switch]$Runtime,[ValidateRange(24,240)][int]$Cycles=24,[switch]$NativeD3D,[ValidateSet(0,30,60)][int]$SettleSeconds=0,[switch]$HandleTypes,[switch]$AudioOnly,[switch]$Providers)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
@@ -14,9 +14,10 @@ $savedAudioOnly=$env:GODOT_JFX_MEDIA_AUDIO_ONLY
 $savedProviders=$env:GODOT_JFX_MEDIA_PROVIDERS
 Push-Location $root
 try {
+    if ($NativeD3D -and $PSBoundParameters.ContainsKey('Driver')) { throw 'Driver selects Godot. Omit it for the native JavaFX comparison.' }
     if($Providers){$HandleTypes=$true}
     if($NativeD3D -and $Runtime){throw 'Choose native D3D or Godot Runtime'}
-    $backend=if($NativeD3D){'Native JavaFX / Windows Glass / D3D (comparison only)'}elseif($Runtime){"Godot DLL (isolated project) / Glass-Godot / Prism-Godot / $Renderer"}else{"Godot DLL / Glass-Godot / Prism-Godot / $Renderer"}
+    $backend=if($NativeD3D){'Native JavaFX / Windows Glass / D3D (comparison only)'}elseif($Runtime){"Godot DLL (isolated project) / Glass-Godot / Prism-Godot / $Driver"}else{"Godot DLL / Glass-Godot / Prism-Godot / $Driver"}
     Write-Output "Media churn backend: $backend"
     if($AudioOnly){
         $relative = & python "$PSScriptRoot/prepare-audio-fixtures.py" churn
@@ -43,7 +44,7 @@ try {
     if($SettleSeconds){$suffix+="-idle$SettleSeconds"}
     if($HandleTypes){$suffix+='-types'}
     if($Providers){$suffix+='-providers'}
-    $log=Join-Path $root "agentdir/logs/media-churn-$Renderer$suffix.log"
+    $log=Join-Path $root "agentdir/logs/media-churn-$Driver$suffix.log"
     # The Godot fixture owns its timeout and normal shutdown. No process manipulation.
     if($NativeD3D){
         & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media --enable-native-access=javafx.graphics,javafx.media,ALL-UNNAMED '-Dprism.order=d3d' -cp artifacts/reference MediaChurnProbe *> $log
@@ -56,10 +57,10 @@ try {
         & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if($LASTEXITCODE -ne 0){throw "Media churn runtime import failed: $log.import"}
         Push-Location $fixture
-        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread safe *> $log }
+        try { Invoke-GodotFixture -Driver $Driver --render-thread safe *> $log }
         finally {Pop-Location}
     }else{
-        Invoke-GodotFixture --path tests/godot res://media_churn.tscn --rendering-method $Renderer --render-thread safe *> $log
+        Invoke-GodotFixture -Driver $Driver --path tests/godot res://media_churn.tscn --render-thread safe *> $log
     }
     $code=$LASTEXITCODE
     $output=Get-Content $log -Raw
@@ -76,7 +77,7 @@ try {
         $aacStable=$LASTEXITCODE -eq 0
     }
     $staticAvailable=@($native | Where-Object {$_.static_bytes -gt 0}).Count -gt 0
-    @{aac_registration_stable=$aacStable;providers=[bool]$Providers;audio_only=[bool]$AudioOnly;handle_types=[bool]$HandleTypes;playback_and_cleanup_passed=$passed;resource_growth_acceptance='requires separate trend analysis';cycles=$Cycles;runtime=[bool]$Runtime;native_d3d=[bool]$NativeD3D;renderer=$Renderer;settle_seconds=$SettleSeconds;idle_samples=$idleSamples;forced_gc=$false;heap_limit_mib=256;process_memory_sampled=$true;process_samples=$processSamples;static_memory_available=$staticAvailable;native_samples=$native;java_samples=$java} | ConvertTo-Json -Depth 6 | Set-Content "artifacts/reference/media-churn-$Renderer$suffix.json"
+    @{aac_registration_stable=$aacStable;providers=[bool]$Providers;audio_only=[bool]$AudioOnly;handle_types=[bool]$HandleTypes;playback_and_cleanup_passed=$passed;resource_growth_acceptance='requires separate trend analysis';cycles=$Cycles;runtime=[bool]$Runtime;native_d3d=[bool]$NativeD3D;driver=$Driver;settle_seconds=$SettleSeconds;idle_samples=$idleSamples;forced_gc=$false;heap_limit_mib=256;process_memory_sampled=$true;process_samples=$processSamples;static_memory_available=$staticAvailable;native_samples=$native;java_samples=$java} | ConvertTo-Json -Depth 6 | Set-Content "artifacts/reference/media-churn-$Driver$suffix.json"
     if(!$passed){throw "Media churn failed: $log"}
     if($aacStable -eq $false){throw "Media churn retained AAC decoder registrations: $log.aac-check"}
     Write-Output "Media churn passed: $log"

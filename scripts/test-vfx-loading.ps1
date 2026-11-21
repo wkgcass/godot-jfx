@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [switch]$Cancel)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [switch]$Cancel)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
@@ -14,7 +14,7 @@ try {
     $env:GODOT_JFX_LOADING_CANCEL = if ($Cancel) { '1' } else { '0' }
     $suffix = if ($Runtime) { '-runtime' } else { '' }
     if ($Cancel) { $suffix += '-cancel' }
-    $log = Join-Path (Get-Location) "agentdir/logs/vfx-loading-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path (Get-Location) "agentdir/logs/vfx-loading-$Driver-$RenderThread$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path (Get-Location) 'artifacts/runtime-vfx-loading'
         New-Item -ItemType Directory -Force $fixture | Out-Null
@@ -24,13 +24,13 @@ try {
         & .\godot\bin\godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if ($LASTEXITCODE -ne 0) { throw "VFX loading runtime import failed: $log.import" }
         Push-Location $fixture
-        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread $RenderThread *> $log }
+        try { Invoke-GodotFixture -Driver $Driver --render-thread $RenderThread *> $log }
         finally { Pop-Location }
     } else {
-        Invoke-GodotFixture --path tests/godot res://vfx_loading.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+        Invoke-GodotFixture -Driver $Driver --path tests/godot res://vfx_loading.tscn --render-thread $RenderThread *> $log
     }
     $output = Get-Content $log -Raw
     if ($LASTEXITCODE -ne 0 -or $output -notmatch 'GODOT_VFX_LOADING_PASS' -or $output -notmatch 'VFX_LOADING_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|GodotHostStoppedException|uncaught:') { throw "VFX loading failed: $log" }
-    foreach ($step in 0..2) { Copy-Item "artifacts/reference/vfx-loading-$step.png" "artifacts/reference/vfx-loading-$Renderer-$RenderThread$suffix-$step.png" }
+    foreach ($step in 0..2) { Copy-Item "artifacts/reference/vfx-loading-$step.png" "artifacts/reference/vfx-loading-$Driver-$RenderThread$suffix-$step.png" }
     Write-Output "VFX loading passed: $log"
 } finally { $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_LOADING_CANCEL = $savedCancel; Pop-Location }

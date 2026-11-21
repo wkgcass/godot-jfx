@@ -10,6 +10,8 @@ import subprocess
 import sys
 import time
 
+from godot_driver import MACOS_DRIVERS, check_case_logs
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 DESKTOP = {"robot", "drag-drop-external", "native-ime", "hover-demo"}
@@ -31,14 +33,14 @@ VARIANTS = {
 DEFAULTS = {"media-audio": "--codec all", "vfx-intro": "--all-pages"}
 
 
-def cases(group, renderers):
+def cases(group, drivers):
     if group == "NonRobot":
-        for script in ("test-godot-library", "test-shadow-jar", "test-vfx-demo-jar"):
-            args = [] if script.endswith("demo-jar") else ["--runtime", str(ROOT / "artifacts/godot-library")]
-            yield [str(SCRIPTS / (script + ".py")), *args], {}
-        for renderer in renderers:
-            args = ["--disable-vsync", "--max-fps", "60"] if renderer == "gl_compatibility" else []
-            yield [str(SCRIPTS / "run-vfx-demo.sh"), "--smoke", "--renderer", renderer, *args], {}
+        for driver in drivers:
+            for script in ("test-godot-library", "test-shadow-jar", "test-vfx-demo-jar"):
+                args = [] if script.endswith("demo-jar") else ["--runtime", str(ROOT / "artifacts/godot-library")]
+                yield [str(SCRIPTS / (script + ".py")), *args, "--driver", driver], {}
+            args = ["--disable-vsync", "--max-fps", "60"] if driver == "opengl" else []
+            yield [str(SCRIPTS / "run-vfx-demo.sh"), "--smoke", "--driver", driver, *args], {}
 
     for script in sorted(SCRIPTS.glob("test-*.sh")):
         name = script.stem[5:]
@@ -53,23 +55,28 @@ def cases(group, renderers):
             variants.extend(VARIANTS.get(name, []))
             if name in RUNTIME:
                 variants.append("--runtime")
-        backends = renderers if "--renderer)" in script.read_text() and name != "window-icon" else [None]
-        for renderer in backends:
+        takes_driver = "--driver)" in script.read_text() and name != "window-icon"
+        if name == "render-mode-rejection":
+            if "opengl" in drivers:
+                yield [str(script), "--driver", "opengl"], {}
+            continue
+        backends = drivers if takes_driver else [None]
+        for driver in backends:
             for variant in variants:
-                args = ["--renderer", renderer] if renderer else []
+                args = ["--driver", driver] if takes_driver else []
                 args.extend(variant.split())
-                yield [str(script), *args], {"GODOT_JFX_DRAG_MODE": "robot"} if robot and name == "vfx-table-scroll" else {}
+                extra = {"GODOT_JFX_DRAG_MODE": "robot"} if robot and name == "vfx-table-scroll" else {}
+                yield [str(script), *args], extra
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--group", choices=["NonRobot", "Robot"], default="NonRobot")
-    parser.add_argument("--renderer", choices=["mobile", "gl_compatibility", "both"], default="both")
+    parser.add_argument("--driver", choices=[*MACOS_DRIVERS, "all"], default="metal")
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--results", type=Path)
     args = parser.parse_args()
-    renderers = ["mobile", "gl_compatibility"] if args.renderer == "both" else [args.renderer]
-    tests = list(cases(args.group, renderers))
+    tests = list(cases(args.group, MACOS_DRIVERS if args.driver == "all" else [args.driver]))
     if args.list:
         for command, env in tests:
             print(*[f"{k}={v}" for k, v in env.items()], *command)
@@ -89,12 +96,17 @@ def main():
         for index, (command, extra) in enumerate(tests, 1):
             name = Path(command[0]).stem
             if name in ("test-godot-library", "test-shadow-jar"):
-                command += ["--work", str(output.resolve() / name)]
+                command += ["--work", str(output.resolve() / f"{index:03}-{name}")]
             log = output / f"{index:03}-{name}.log"
-            options = " ".join(command[1:])
+            options = " ".join([*(f"{k}={v}" for k, v in extra.items()), *command[1:]])
+            child_env = env | extra
             print(f"[{index}/{len(tests)}] {name} {options}", flush=True)
             start = time.monotonic()
-            with log.open("w") as stream, subprocess.Popen(command, cwd=ROOT, env=env | extra, start_new_session=True,
+            started_ns = time.time_ns()
+            python_test = command[0].endswith(".py")
+            if python_test:
+                command = [sys.executable, *command]
+            with log.open("w") as stream, subprocess.Popen(command, cwd=ROOT, env=child_env, start_new_session=True,
                     stdout=stream, stderr=subprocess.STDOUT) as child:
                 try:
                     code = child.wait(timeout=1500 if name in ("test-vfx-soak", "test-godot-library", "test-shadow-jar") else 600)
@@ -105,6 +117,17 @@ def main():
                     os.killpg(child.pid, signal.SIGKILL)
                     raise
             status = "FAIL" if code else "SKIP" if log.read_text(errors="replace").startswith("SKIP:") else "PASS"
+            if status == "PASS" and not python_test and "--driver" in command:
+                driver = command[command.index("--driver") + 1]
+                case_logs = (p for p in (ROOT / "agentdir/logs").glob("*.log")
+                             if p != log.resolve() and p.stat().st_mtime_ns >= started_ns)
+                try:
+                    evidence = check_case_logs(case_logs, driver)
+                except (AssertionError, OSError) as error:
+                    evidence = [str(error)]
+                    status, code = "FAIL", 1
+                with log.open("a") as stream:
+                    print(*evidence, sep="\n", file=stream)
             writer.writerow([name, options, status, code, round(time.monotonic()-start, 1), log.name])
             results.flush()
             failed |= code != 0

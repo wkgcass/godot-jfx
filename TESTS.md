@@ -8,16 +8,18 @@
 
 ## 跨平台待验证清单
 
-macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。带 `--renderer <后端>` 的用例分别运行 `mobile`（Metal）和 `gl_compatibility`（OpenGL），使用 safe 模式，GUI 测试串行执行。每个入口均须正常退出、退出码为 0，并满足脚本原有 PASS 与错误检查。
+macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。日常只运行本次改动相关的 Metal 用例；清单中明确要求 OpenGL 或双后端的条目按所列参数验证。GUI 测试使用 safe 模式并串行执行。正向用例须正常退出、退出码为 0，并满足脚本原有 PASS 与错误检查。
 
 | 目标平台与待验证内容 | 验证入口与参数 | 通过条件及已知限制 |
 | --- | --- | --- |
+| macOS arm64，无项目 JavaFX 应用和 Demo 选择驱动 | 在 Mac 上重建 Godot 共享库、JavaFX SDK 并重新打包。用默认 logo 与 `--no-godot-logo` 分别启动 Demo，核对自动启动后的窗口。运行 `./scripts/test-godot-library.py --runtime artifacts/godot-library --group launch` 和 `./scripts/test-vfx-demo-jar.py`，再运行 `java -Djavafx.godot.driver=metal -jar artifacts/vfx/libs/vfx-demo.jar --smoke`，并分别将属性改为 `opengl`、`d3d12`、`vulkan` 复测。 | 省略属性时，Demo 的引擎日志报告 Metal，默认显示启动 logo，传 `--no-godot-logo` 时首帧直接显示应用，窗口均正常关闭。显式 Metal 时普通应用的 `direct-metal` 用例通过，Demo 的 `Using Device` 行以 `Metal ` 开头，并输出 `VFX_DEMO_CLOSED`。显式 OpenGL 时设备行以 `OpenGL API ` 开头，Demo 正常关闭。显式 D3D12 和 Vulkan 均须报驱动不支持并以非零状态退出。 |
+| macOS arm64，默认 Metal 与双后端回归 | 分别用 `--list` 预览 NonRobot 和 Robot 的无参数驱动选择、`--driver opengl` 和 `--driver all`。实跑无驱动参数的 `./scripts/test-m1.sh`、`./scripts/test-glass-window.sh --runtime` 和 `./scripts/test-godot-view.sh`；再运行 `./scripts/test-godot-view.sh --driver opengl`。按下文双后端命令验收两个分组，Robot 须先获授权。 | 默认计划只选 Metal，直接启动的场景及独立项目日志报告 Metal，无 OpenGL 回退。双后端计划中的适用用例各跑两次；发布测试分别记录驱动。两种后端的 `Using Device` 行分别以 `Metal ` 和 `OpenGL API ` 开头，原有像素、资源、Shadow 消费和 Demo 关闭断言均通过。OpenGL 专项只在明确选择时运行。 |
 | macOS arm64，仓库内构建依赖 | 在新的工作区提供 Python 3.13，在未设置 `ANT_HOME` 的 shell 中连续两次运行 `./scripts/setup-env.py`。使用仓库的 JDK 运行 Ant 和 Maven 的版本命令，执行 `./.tools/pyenv/bin/scons --version`、`./.tools/pyenv/bin/python -c 'import zstandard, PIL'` 和 `./scripts/clean.py --target jfx` | 首次按父仓库记录的提交初始化缺少的 Godot、JFX、VFX 子模块，第二次保留已有子模块检出和本地修改。首次安装 Temurin 25、Ant 1.10.15、Maven 3.9.9、SCons 4.11.x 及两个 Python 包，第二次复用已有安装。版本与导入检查、JFX 清理均成功。 |
 | macOS arm64，项目清理 | 在临时构建工作区按 macOS 构建说明生成产物，运行场景测试及其 `--runtime` 模式，再依次运行 `./scripts/clean.py --dry-run` 和 `./scripts/clean.py` | 预览以仓库 Gradle wrapper 的 `--stop` 开始。实跑停止仓库 daemon，成功执行 `cleanAll --no-problems-report --no-daemon` 后删除 JFX 和 buildSrc 的 `.gradle/`，打包清理删除 VFX 构建和 Shadow 测试的 `.gradle/`。Godot 两个目标、`godot/bin`、四个状态文件、`godot/`、`scripts/` 和 `native/` 下的 `__pycache__/`、JFX SDK、`jfx/build/reports`、`jfx/buildSrc/build`、打包输出、生成的测试项目及源夹具的 `tests/godot/.godot/` 均已清理。缺少 Windows 的 `msvc_capture.log` 时清理也应成功。生成的 `artifacts/reference/` 整体删除。仓库 `.gradle-cache/`、`tests/godot`、工具、Maven 仓库和 `agentdir/` 下的验收归档保留。 |
-| macOS arm64，Maven Local 开发测试 | 编好 Godot 共享库和带 Media 的 JFX SDK 后直接运行 `./scripts/maven_local.py install`，依次运行 `./scripts/test-scroll-settings.sh`、`./scripts/test-screen-layout.sh`、`./scripts/test-render-command-validation.sh` 和 `./scripts/test-startup.sh --renderer mobile` | 三个探针和启动场景均通过，`./scripts/maven_local.py module-path` 只列出本项目 `.m2/repository` 内六个模块，graphics 和 media 使用 mac-aarch64。 |
+| macOS arm64，Maven Local 开发测试 | 编好 Godot 共享库和带 Media 的 JFX SDK 后直接运行 `./scripts/maven_local.py install`，依次运行 `./scripts/test-scroll-settings.sh`、`./scripts/test-screen-layout.sh`、`./scripts/test-render-command-validation.sh` 和 `./scripts/test-startup.sh --driver metal` | 三个探针和启动场景均通过，`./scripts/maven_local.py module-path` 只列出本项目 `.m2/repository` 内六个模块，graphics 和 media 使用 mac-aarch64。 |
 | macOS arm64，新的 Maven 坐标与上游基线版本 | `./scripts/build-vfx.sh`，随后依次运行 `./scripts/test-godot-library.py --runtime artifacts/godot-library` 和 `./scripts/test-shadow-jar.py --runtime artifacts/godot-library` | 六个 `io.vproxy:godot-jfx-*` 构件的版本与根目录 `release.properties` 生成的版本一致，graphics 和 media 解析到 `mac-aarch64`，Demo 构建和两项消费测试通过。 |
 | macOS arm64，Retina 与混合缩放多屏下的共享窗口夹具 | 在 Retina 单屏和不同缩放双屏环境运行 `test-logical-windows.sh`、`test-window-order.sh`、`test-window-composition.sh`，将主窗口置于屏幕交界附近，覆盖子窗口落在另一屏的情况；记录各窗口所在屏幕、缩放和位置 | 核对窗口尺寸、相对位置、输入坐标与 GPU 像素。当前部分断言用主窗口屏幕缩放计算子窗口采样点，可能误判；如需修正，应依据各窗口实际坐标与渲染尺寸。缺少对应显示器环境时保留该范围的待办。 |
-| macOS arm64，独立 IME 窗口的点击坐标 | 获得 Robot 授权后，在 Retina 屏运行 `./scripts/test-native-ime.sh --renderer mobile` 和 `--renderer gl_compatibility` | 从已显示的子窗口尺寸换算点击位置，焦点离开输入框后取消预编辑，按钮动作完成，根文本与资源清理断言通过，并恢复光标。 |
+| macOS arm64，独立 IME 窗口的点击坐标 | 获得 Robot 授权后，在 Retina 屏运行 `./scripts/test-native-ime.sh --driver metal` 和 `--driver opengl` | 从已显示的子窗口尺寸换算点击位置，焦点离开输入框后取消预编辑，按钮动作完成，根文本与资源清理断言通过，并恢复光标。 |
 
 ## Viewport＋safe 支持边界
 
@@ -49,9 +51,9 @@ Shadow 脚本通过 Gradle Wrapper 和 Shadow 插件在独立目录构建消费�
 
 当前宿主只支持 Viewport＋safe；渲染器仍可选择 mobile 或 gl_compatibility。
 RD-direct 实现、编译开关、专用探针和 separate 专用运行路径已删除。
-`test-render-mode-rejection.ps1` 故意直接传入 Godot 的 separate 参数，要求
+`test-render-mode-rejection.ps1 -Driver opengl` 故意直接传入 Godot 的 separate 参数，要求
 宿主在登记 JavaFX 桥接和启动应用前拒绝，输出唯一的预期错误，并释放全部宿主资源。
-负向夹具使用 OpenGL；不运行已撤销宿主支持的 Vulkan/separate 引擎清理路径。
+此负向夹具仅适用于 OpenGL。直接运行时省略驱动会报告 SKIP。
 其他测试的 `-RenderThread` 仅接受 safe；`-RD` 与 `-JavaFXRDDirect` 已移除。
 历史日志中的 RD/separate 结果不能作为本次构建的验收证据。
 
@@ -68,7 +70,7 @@ false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PAS
 
 先执行 `build-vfx.ps1` 更新 Demo 类（包括内嵌着色器），再运行
 `test-vfx-blackhole.ps1`（默认 mobile/safe/Viewport）；
-`-Renderer gl_compatibility` 验证 OpenGL；仅支持 safe 线程模式。
+`-Driver opengl` 验证 OpenGL；仅支持 safe 线程模式。
 需要源码 Editor、SDK、已发布的 Windows 平台 JAR 和 VFX 产物，不需要真实键鼠授权。
 
 夹具检查实际 Intro 抽屉菜单末尾的复选框、效果只附着于内容 VSceneGroup、
@@ -77,7 +79,7 @@ false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PAS
 透明边缘保持；退出后检查窗口与
 宿主资源释放。必须同时有 `VFX_BLACKHOLE_PROBE_PASS`、`GODOT_VFX_BLACKHOLE_PASS`
 且无异常或着色器错误。`-NativeD3D` 只验证原生对照中不添加该选项，不代表 Godot
-特效通过。日志和逐步截图使用 `vfx-blackhole-<renderer>-safe` 前缀。
+特效通过。日志和逐步截图使用 `vfx-blackhole-<driver>-safe` 前缀。
 
 ## 运行前
 
@@ -99,28 +101,58 @@ J-only 测试不需要启动 Godot，但其内部 API/模块补丁依赖本地 S
 
 GPU/GUI 测试串行执行；性能测试期间保持窗口前台，不进行其他操作，不同时构建或运行重负载。多数功能测试使用宿主注入输入，不需要人工点按钮，也不能据此宣布真实鼠标/IME/触摸验收完成。
 
+| 平台 | 单项测试与 Demo 的驱动参数 | 省略时 | 完整回归矩阵 |
+| --- | --- | --- | --- |
+| Windows | `-Driver d3d12`、`-Driver vulkan`、`-Driver opengl` | D3D12 | `run-windows-tests.ps1 -Driver all` |
+| macOS | `--driver metal`、`--driver opengl` | Metal | `run-macos-tests.py --driver all` |
+
+Demo、Shader 和 Effect 观察器，以及 Unicode 路径的目录和 PCK 验收，均由标准 JavaFX 入口自动启动 Godot。仅 `LibraryLifecycle` 的专用 API 用例显式初始化，以检查重复调用、并发、失败传播和冲突配置。
+
+Python 发布验收脚本在两平台均使用 `--driver`。普通 JavaFX 应用使用 `-Djavafx.godot.driver=<驱动>`，Demo JAR 也接受 `-jar vfx-demo.jar --driver <驱动>`。引擎日志使用 Godot 原生名称，`opengl` 对应 `opengl3`。原生 JavaFX 对照通过 `-NativeD3D` 或 `-Backend d3d` 启动，该档省略 Godot 的 `-Driver`。
+
 Windows DLL 回归用 `./scripts/run-windows-tests.ps1 -Group NonRobot` 或获得授权后的 `-Group Robot`。两组都支持 `-List` 预览。Robot 组包含系统虚拟键盘、原生 IME、文件对话框、外部拖放和显式物理输入档，即使没有移动鼠标，只要入口会唤起触摸键盘也归入这一组。虚拟键盘的 `-CompileOnly` 只编译，`test-tabtip-result.cmd` 使用模拟接口，均不请求系统键盘。NonRobot 也运行上节的模块路径、Shadow 和完整 Demo JAR 三个 Python 验收入口。
+
+**Windows 回归耗时较长。除非明确指定，优先用 `-Test` 选择与改动相关的用例，只跑 Godot D3D12。** NonRobot、Robot 和适用的单项渲染测试均默认只跑 D3D12。显式传 `-Driver vulkan` 或 `-Driver opengl` 可单测其他驱动，`-Driver all` 才会把适用的场景、模块路径绘制、Shadow 消费者和隔离 Demo JAR 在三个驱动上串行各跑一次。D3D12 和 Vulkan 使用 `mobile`，OpenGL 使用 `gl_compatibility`。完整分组中的无 GPU 单元测试和启动/故障契约只跑一次。OpenGL 启动契约和 separate 负向用例随 OpenGL 或完整矩阵运行。原生 JavaFX 的 D3D 对照只提供参考图。
+
+```powershell
+.\scripts\run-windows-tests.ps1 -Group NonRobot -List
+.\scripts\run-windows-tests.ps1 -Group NonRobot -Test test-godot-view
+.\scripts\run-windows-tests.ps1 -Group NonRobot -Test test-godot-view -Driver vulkan
+.\scripts\run-windows-tests.ps1 -Group NonRobot -Test test-godot-view -Driver opengl
+.\scripts\run-windows-tests.ps1 -Group NonRobot -Driver all
+.\scripts\run-windows-tests.ps1 -Group Robot -Driver all  # 须先获真实输入授权
+```
+
+默认的 `-Cases All` 还覆盖支持 `-Runtime` 的独立项目和专项渲染场景，包括 GodotView 变换、命令批次边界、快照读回、媒体样本和窗口生命周期。用 `-Cases Default` 或 `-Cases Variants` 可分别运行基础用例或专项用例；`-List` 打印实际参数。可调的循环次数、采样时长和性能分析开关沿用各入口的专项说明。
+
+运行前重新构建并发布 Godot 共享库，然后用 `python scripts/maven_local.py install --runtime artifacts/godot-library` 刷新本地测试模块。场景夹具、模块路径应用、Shadow 消费者和 Demo JAR 均用 JVM 属性 `-Djavafx.godot.driver=<驱动>` 选择驱动。脚本的 `-Driver` 或 `--driver` 会传入该属性；单项脚本与回归运行器共用同一启动入口。Windows 和 macOS 的回归运行器从本用例新写入的场景日志逐份检查 `Using Device` 行，同一用例启动多个夹具时分别核对。用例日志保留设备原文。模块路径、Shadow 和 Demo JAR 测试直接核对各自 JVM 的启动日志。原生 JavaFX 对照、纯 CPU 测试和引擎启动前即被拒绝的配置无需设备行。结果目录的 `results.csv` 按用例和驱动记录退出码、耗时及日志位置；场景日志和截图按驱动分别留存。三个 Python 发布测试的日志给出各自的验收位置。
 
 **前台与真实输入要求要分别判断**：Godot 合成输入和模块测试钩子不占用真实键鼠，但是否允许失焦取决于夹具；只有明确注明免前台的测试（如 ole-inject）才可据此后台运行。性能比较始终要求保持焦点并避免其他重负载。Robot 物理夹具会占用输入设备，须先获得用户授权、保持桌面空闲；同一会话中已有明确授权且未撤销时不必重复询问，开始前说明会操作真实输入。原生 IME 夹具（`test-native-ime.ps1` / `test-native-ime.sh`）调用 `DisplayServer.warp_mouse` 移动系统光标，运行非物理输入测试时须排除整个入口。文件对话框专项使用限定本轮进程/标题的系统消息驱动，具体方式见该节。GPU/GUI 测试仍串行执行。
 
-表中命令选择 Vulkan（`mobile`）时已显式传参；未列参数使用脚本默认值。`gl_compatibility` 是 OpenGL。**可选参数以表中“可选公共参数”及后文该测试的专项说明为准**：`-RenderThread safe`、`-Runtime` 并非所有脚本支持。`-Jdk` 用于覆盖 JDK 路径。RenderThread 固定为 safe。
+在 Windows 上直接运行适用的场景脚本（例如 `.\scripts\test-godot-view.ps1`）默认使用 D3D12，包括带 `-Runtime` 的独立项目。单项可直接传 `-Driver vulkan` 或 `-Driver opengl`。用回归运行器的 `-Test` 配合 `-Driver all` 可让同一单项跑三后端。**可选参数以表中“可选公共参数”及后文该测试的专项说明为准**：`-RenderThread safe`、`-Runtime` 并非所有脚本支持。`-Jdk` 用于覆盖 JDK 路径。RenderThread 固定为 safe。
+
+**Windows 和 macOS 均以 Godot 的 `Using Device` 设备行判定实际驱动。** 每次需要验收驱动的引擎启动都须输出一条设备行。行首的 `D3D12`、`Vulkan`、`Metal`、`OpenGL API` 分别对应 `d3d12`、`vulkan`、`metal`、`opengl`。设备行缺失、重复、API 无法识别、与预期不符，或宿主标记 `GODOT_LIBRARY_DRIVER` 缺失或不一致，均判失败。M1、网格变换、生成着色器、渲染线程退出和 Demo 启动脚本单独运行时也执行这项检查。
 
 ## macOS arm64 入口
 
-全量回归从仓库根目录执行。两个分组均按顺序运行 Metal 和 OpenGL，记录每项的参数、退出码、耗时与日志。仅支持一种后端的脚本按其自身配置执行。
+**macOS 回归耗时较长。NonRobot、Robot 和适用的单项测试默认只跑 Metal。** 平时从仓库根目录直接运行与改动相关的单项。需要 OpenGL 时，分组和单项均用 `--driver opengl`。OpenGL 专用的 separate 拒绝测试须显式运行 `./scripts/test-render-mode-rejection.sh --driver opengl`；无参数时报告 SKIP。
 
 ```sh
 ./scripts/run-macos-tests.py --group NonRobot
 ./scripts/run-macos-tests.py --group Robot
+
+# 完整双后端回归，逐组串行执行；Robot 需要真实输入授权
+./scripts/run-macos-tests.py --group NonRobot --driver all
+./scripts/run-macos-tests.py --group Robot --driver all
 ```
 
-NonRobot 包括 module path、独立 Shadow 消费者和完整 VFX Demo JAR。Robot 包括真实跨应用拖放、IME 光标、桌面像素和 VFX 表格拖动。运行 Robot 须授权真实输入，并给启动 Java 的应用辅助功能和屏幕录制权限。每组的结果在 `agentdir/logs/macos-<分组>-<时间>/results.csv`。窗口图标的系统级跳过单独标为 SKIP。可用 `--list` 查看命令或用 `--renderer mobile|gl_compatibility` 选择一个后端。
+NonRobot 包括模块路径、独立 Shadow 消费者和完整 VFX Demo JAR。Robot 包括真实跨应用拖放、IME 光标、桌面像素和 VFX 表格拖动。运行 Robot 须授权真实输入，并给启动 Java 的应用辅助功能和屏幕录制权限。每组的结果在 `agentdir/logs/macos-<分组>-<时间>/results.csv`。可加 `--list` 预览计划。双后端运行时，不依赖渲染驱动的单项脚本只列一次，窗口图标的系统级跳过单独标为 SKIP。
 
 macOS 上每个测试的入口是与 Windows 版同名的 `scripts/test-*.sh`（`test-protocol.cmd`/`test-bounded-lru.cmd` 的对应物为同名 `.sh`，用 clang 代替 MSVC），在仓库根目录用 sh 执行。判定标记、日志位置与通过语义和对应 ps1 完全一致；前文各表的用途说明、断言与限制仍然适用，本节只列差异。
 
-前置条件与上文缩写表对应：G 为本机发布的 `mac-aarch64` 平台 JAR 和导入测试资源的源码编辑器，`--runtime` 档从隔离的项目目录加载同一引擎库；J 为 `JAVA_HOME` 指向的 JDK 25（未设置时脚本回退到仓库内 `.tools/jdk-25`，Temurin 25.0.5 arm64）和本仓库 `jfx/build/sdk`（mac 的 dylib 在 `lib/`）；M 已并入 mac 的单次 Gradle SDK 构建（AVFoundation 后端，见 [build-macos.md](docs/build-macos.md)），没有单独的 Media 构建脚本；V 为 `./scripts/build-vfx.sh` 的产物。`--renderer mobile` 在本机 M1 的共享库中报告 Metal 3.1，`--renderer gl_compatibility` 走 OpenGL 4.1；未构建 Vulkan（未安装 MoltenVK）。
+前置条件与上文缩写表对应：G 为本机发布的 `mac-aarch64` 平台 JAR 和导入测试资源的源码编辑器，`--runtime` 档从隔离的项目目录加载同一引擎库；J 为 `JAVA_HOME` 指向的 JDK 25（未设置时脚本回退到仓库内 `.tools/jdk-25`，Temurin 25.0.5 arm64）和本仓库 `jfx/build/sdk`（mac 的 dylib 在 `lib/`）；M 已并入 mac 的单次 Gradle SDK 构建（AVFoundation 后端，见 [build-macos.md](docs/build-macos.md)），没有单独的 Media 构建脚本；V 为 `./scripts/build-vfx.sh` 的产物。`--driver metal` 在本机 M1 的共享库中报告 Metal 3.1，`--driver opengl` 走 OpenGL 4.1；未构建 Vulkan（未安装 MoltenVK）。
 
-PowerShell 开关对应小写长选项：`-Renderer mobile` → `--renderer mobile`、`-RenderThread safe` → `--render-thread safe`、`-Runtime` → `--runtime`；`-Jdk` 由 `JAVA_HOME` 环境变量代替。多数支持 `--runtime` 的脚本在 macOS 沿用该档；Media 与部分 VFX 脚本的 `--runtime`/`--native-d3d`/`--handle-types`/`--providers` 未移植，脚本显式报错退出（exit 2），这表示档位不可用，不是功能失败。
+PowerShell 开关对应小写长选项：`-Driver d3d12` → `--driver metal`、`-RenderThread safe` → `--render-thread safe`、`-Runtime` → `--runtime`；`-Jdk` 由 `JAVA_HOME` 环境变量代替。多数支持 `--runtime` 的脚本在 macOS 沿用该档；Media 与部分 VFX 脚本的 `--runtime`/`--native-d3d`/`--handle-types`/`--providers` 未移植，脚本显式报错退出（exit 2），这表示档位不可用，不是功能失败。
 
 以下为 macOS 的夹具行为和实机观察。当前 JAR 构建的结果见[验收记录](docs/acceptance-status.md#macos-arm64-verification-scope)。
 
@@ -137,11 +169,11 @@ PowerShell 开关对应小写长选项：`-Renderer mobile` → `--renderer mobi
 ## 拖放专项
 
 ```powershell
-.\scripts\test-drag-drop.ps1 -Renderer mobile
-.\scripts\test-drag-drop.ps1 -Renderer gl_compatibility -RenderThread safe
+.\scripts\test-drag-drop.ps1 -Driver d3d12
+.\scripts\test-drag-drop.ps1 -Driver opengl -RenderThread safe
 ```
 
-前置条件为 G+J，需要构建修改后的 OpenJFX SDK。脚本使用 Godot 输入注入（按窗口 ID 投递，不要求窗口前台或置顶，可在其他应用持焦点时后台运行），不修改系统剪贴板；不需要创建拖放文件，文件列表只传递路径，不读取文件内容。可选参数为 `-Jdk`、`-Renderer`、`-RenderThread`、`-Robot`。
+前置条件为 G+J，需要构建修改后的 OpenJFX SDK。脚本使用 Godot 输入注入（按窗口 ID 投递，不要求窗口前台或置顶，可在其他应用持焦点时后台运行），不修改系统剪贴板；不需要创建拖放文件，文件列表只传递路径，不读取文件内容。可选参数为 `-Jdk`、`-Driver`、`-RenderThread`、`-Robot`。
 
 观察器验证 COPY/MOVE/LINK、同窗口及独立 Stage 间传输，核对中文文本、HTML、RTF、URL、文件列表和自定义格式；同时检查拒绝、Escape 取消、源窗口/目标窗口隐藏时的完成事件及最终资源清理。首个用例将后续移动和释放放在同一批宿主输入中，以检验嵌套拖放循环不会遗失已排队事件。脚本必须同时获得 `DRAG_DROP_PROBE_PASS` 和 `GODOT_DRAG_DROP_PASS`，无异常或 ERROR。
 
@@ -151,19 +183,19 @@ PowerShell 开关对应小写长选项：`-Renderer mobile` → `--renderer mobi
 
 ```powershell
 .\scripts\test-drag-drop-external.ps1
-.\scripts\test-drag-drop-external.ps1 -Renderer gl_compatibility
+.\scripts\test-drag-drop-external.ps1 -Driver opengl
 .\scripts\test-drag-drop-external.ps1 -Runtime
 ```
 
-前置条件为 G+J。`-Runtime` 从隔离的场景目录启动同一 DLL。脚本编译并启动两个由 `tests/native/dnd_helper.cpp` 编译到 `artifacts/native-tests/dnd_helper.exe` 的 Win32 OLE 端点（一个接受放入的 IDropTarget，一个在按下时发起 DoDragDrop 的源），由 Java 观察器用 Robot 驱动真实鼠标完成三个阶段：向外部进程拖出 text+URL+文件列表、从外部进程拖入三格式数据、Escape 取消拖出。helper 窗口按系统 DPI 缩放放置（FX 逻辑坐标 × 缩放 = 物理像素），均为置顶窗口。观察器在拖出时设置 `Dragboard.setDragView(8×6, 偏移 5,3)`，判定要求 helper 日志记录的放入负载与预期完全一致（含 `application/x-godot-custom-*` 自定义格式双向负载）、DragEnter 日志包含与设置一致的 shell `DragImageBits`（尺寸与偏移，证明拖放预览图经 IDragSourceHelper 注册并可跨进程观察）、源端完成效果为 COPY、观察器打印 `EXTERNAL_DRAG_PROBE_PASS`、宿主打印 `GODOT_EXTERNAL_DRAG_PASS` 且无 ERROR。`-RenderThread`/`-Renderer` 与 `-Jdk` 可用。
+前置条件为 G+J。`-Runtime` 从隔离的场景目录启动同一 DLL。脚本编译并启动两个由 `tests/native/dnd_helper.cpp` 编译到 `artifacts/native-tests/dnd_helper.exe` 的 Win32 OLE 端点（一个接受放入的 IDropTarget，一个在按下时发起 DoDragDrop 的源），由 Java 观察器用 Robot 驱动真实鼠标完成三个阶段：向外部进程拖出 text+URL+文件列表、从外部进程拖入三格式数据、Escape 取消拖出。helper 窗口按系统 DPI 缩放放置（FX 逻辑坐标 × 缩放 = 物理像素），均为置顶窗口。观察器在拖出时设置 `Dragboard.setDragView(8×6, 偏移 5,3)`，判定要求 helper 日志记录的放入负载与预期完全一致（含 `application/x-godot-custom-*` 自定义格式双向负载）、DragEnter 日志包含与设置一致的 shell `DragImageBits`（尺寸与偏移，证明拖放预览图经 IDragSourceHelper 注册并可跨进程观察）、源端完成效果为 COPY、观察器打印 `EXTERNAL_DRAG_PROBE_PASS`、宿主打印 `GODOT_EXTERNAL_DRAG_PASS` 且无 ERROR。`-RenderThread`/`-Driver` 与 `-Jdk` 可用。
 
 外部探针的 FX 驱动调用设有 10 秒超时，回调异常会使测试失败；退出时停止并回收驱动线程，逐项尝试释放输入、恢复原鼠标位置和关闭窗口，清理失败不输出 PASS。脚本恢复调用前的 helper 坐标环境变量。实际运行仍需有效用户授权和空闲桌面；不据此证明所有外部应用兼容。
 
 macOS 等价入口（同样三阶段、同样需要授权与空闲桌面）：
 
 ```sh
-./scripts/test-drag-drop-external.sh --renderer mobile
-./scripts/test-drag-drop-external.sh --renderer gl_compatibility
+./scripts/test-drag-drop-external.sh --driver metal
+./scripts/test-drag-drop-external.sh --driver opengl
 ```
 
 脚本编译 `tests/native/dnd_helper_macos.mm` 为 Cocoa helper（一个 NSPasteboard 放入目标、一个 mouseDragged 起拖源，均为无边框置顶 NSPanel），探针同为 `ExternalDragProbe`。macOS 与 Windows 的机制差异已在实现侧对齐：AppKit 只在真实 mouseDragged 事件分发内启动的 `NSDraggingSession` 才能跟踪物理按键，因此宿主的拖出会话推迟到下一次真实拖动事件启动（探针在 OLE 交接位置后多走两步微小移动触发，Windows 下为无害空操作）；若按键在任何拖动事件前释放，挂起的启动被取消并回报 effect 0。自定义格式在拖放路径发布为 UTI 孪生名 `application.x-godot-custom-*`（macOS 26 的 NSPasteboardItem 拒绝含 `/` 的非 UTI 类型串），入站提取时解码回 MIME 名；文件以 per-item NSURL writer 承载，跨进程序列化会静默丢弃路径不存在的文件项，脚本因此在 /tmp 下创建真实夹具文件并在退出时删除（Windows 可用不存在的 C:/ 路径）。helper 判定串与 Windows 相同（放入负载完全一致、DragEnter 观察到 8×6 预览图、源端 COPY）；预览偏移在 NSDraggingInfo 不可观测，mac 判定只覆盖尺寸。
@@ -174,9 +206,9 @@ macOS 等价入口（同样三阶段、同样需要授权与空闲桌面）：
 .\scripts\test-drag-drop-ole-inject.ps1
 ```
 
-前置条件为 G+J，不移动系统鼠标、不要求测试窗口前台（窗口仍需可见、会话解锁）。宿主用模块自己的 OLE 源 `DataObject` 装入 text/URL/文件列表/自定义格式负载，直接调用真实的入站拖放委托（DragEnter→Drop），观察器断言 Dragboard 读回与写入完全一致（`OLE_INJECT_PROBE_PASS` + `GODOT_OLE_INJECT_PASS`，无 ERROR）。它验证 OLE DataObject 的格式暴露、`extract`/自定义格式发现（EnumFormatEtc 枚举）和 FX 分发；跨进程 COM 封送和模态 OLE 循环仍由上面的 Robot 夹具负责。可选参数为 `-Jdk`、`-Renderer`、`-RenderThread`。
+前置条件为 G+J，不移动系统鼠标、不要求测试窗口前台（窗口仍需可见、会话解锁）。宿主用模块自己的 OLE 源 `DataObject` 装入 text/URL/文件列表/自定义格式负载，直接调用真实的入站拖放委托（DragEnter→Drop），观察器断言 Dragboard 读回与写入完全一致（`OLE_INJECT_PROBE_PASS` + `GODOT_OLE_INJECT_PASS`，无 ERROR）。它验证 OLE DataObject 的格式暴露、`extract`/自定义格式发现（EnumFormatEtc 枚举）和 FX 分发；跨进程 COM 封送和模态 OLE 循环仍由上面的 Robot 夹具负责。可选参数为 `-Jdk`、`-Driver`、`-RenderThread`。
 
-macOS 等价入口为 `sh scripts/test-drag-drop-ole-inject.sh`（`--renderer`、`--render-thread`、`--timeout` 参数同名小写），夹具与判定标记不变；宿主改用私有 NSPasteboard 发布负载并驱动同一入站状态机。它不验证真实 NSDraggingSession 跨进程手势。
+macOS 等价入口为 `sh scripts/test-drag-drop-ole-inject.sh`（`--driver`、`--render-thread`、`--timeout` 参数同名小写），夹具与判定标记不变；宿主改用私有 NSPasteboard 发布负载并驱动同一入站状态机。它不验证真实 NSDraggingSession 跨进程手势。
 
 拖放预览图注册机制的原生组件测试：
 
@@ -191,37 +223,37 @@ macOS 等价入口为 `sh scripts/test-drag-drop-ole-inject.sh`（`--renderer`�
 ## Robot 桌面专项
 
 ```powershell
-.\scripts\test-robot.ps1 -Renderer mobile
-.\scripts\test-robot.ps1 -Renderer gl_compatibility
-.\scripts\test-robot.ps1 -Renderer mobile -Runtime
+.\scripts\test-robot.ps1 -Driver d3d12
+.\scripts\test-robot.ps1 -Driver opengl
+.\scripts\test-robot.ps1 -Driver d3d12 -Runtime
 ```
 
-前置：G+J，Runtime 模式额外准备 Runtime。必须是已解锁的交互桌面；测试使用置顶窗口并移动系统鼠标，期间不要操作其他窗口。它使用真实 Windows 输入合成，不是 Godot 注入，不修改剪贴板。测试结束释放按键/鼠标按钮并恢复原鼠标位置。可选参数：`-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime`。
+前置：G+J，Runtime 模式额外准备 Runtime。必须是已解锁的交互桌面；测试使用置顶窗口并移动系统鼠标，期间不要操作其他窗口。它使用真实 Windows 输入合成，不是 Godot 注入，不修改剪贴板。测试结束释放按键/鼠标按钮并恢复原鼠标位置。可选参数：`-Jdk`、`-Driver`、`-RenderThread`、`-Runtime`。
 
-测试验证 Shift+A 输入、Enter 提交后保持 A、Escape 关闭可能遮挡按钮的 IME 候选界面、按钮点击、滚轮方向、鼠标坐标、桌面像素、HiDPI 下缩放/原生尺寸截图、目标图像复用、100 次重复截图、非法参数拒绝以及 FX 线程约束。验收要求 `ROBOT_PROBE_PASS` 和 `GODOT_ROBOT_PASS`，无错误；查看 `artifacts/reference/robot-desktop.png`，应有 A、按钮、蓝色方块。日志为 `robot-<renderer>-<thread>[-runtime].log`。
+测试验证 Shift+A 输入、Enter 提交后保持 A、Escape 关闭可能遮挡按钮的 IME 候选界面、按钮点击、滚轮方向、鼠标坐标、桌面像素、HiDPI 下缩放/原生尺寸截图、目标图像复用、100 次重复截图、非法参数拒绝以及 FX 线程约束。验收要求 `ROBOT_PROBE_PASS` 和 `GODOT_ROBOT_PASS`，无错误；查看 `artifacts/reference/robot-desktop.png`，应有 A、按钮、蓝色方块。日志为 `robot-<driver>-<thread>[-runtime].log`。
 
 Windows 可能拒绝后台进程抢前台，`Stage.isFocused()` 单独不能证明系统输入会送给测试窗口。测试在输入前检查桌面色块；候选界面遮挡、其他置顶窗口或锁屏可能导致失败，不能改用宿主注入来冒充通过。当前记录为单屏 2× DPI，不代表混合 DPI、真实键盘/触摸或全部 IME 行为通过。
 
-macOS 入口为 `./scripts/test-robot.sh [--renderer mobile|gl_compatibility]`（小写长选项），双渲染器均已通过。macOS 侧鼠标移动经真实 CGEvent 投递（Glass MacRobot），按 `com.apple.swipescrolldirection` 补偿自然滚动，目标坐标钳制到显示器边界；按键只用静态 US QWERTY 表以避免非主线程 TSM 调用。需要终端具备辅助功能与屏幕录制权限；本机验证时 scale=1，HiDPI（2x）下的截图/坐标路径未验证。
+macOS 入口为 `./scripts/test-robot.sh [--driver metal|opengl]`（小写长选项），双渲染器均已通过。macOS 侧鼠标移动经真实 CGEvent 投递（Glass MacRobot），按 `com.apple.swipescrolldirection` 补偿自然滚动，目标坐标钳制到显示器边界；按键只用静态 US QWERTY 表以避免非主线程 TSM 调用。需要终端具备辅助功能与屏幕录制权限；本机验证时 scale=1，HiDPI（2x）下的截图/坐标路径未验证。
 
 ## Windows 原生文件对话框专项
 
 ```powershell
-.\scripts\test-file-dialog.ps1 -Renderer mobile
-.\scripts\test-file-dialog.ps1 -Renderer gl_compatibility
-.\scripts\test-file-dialog.ps1 -Renderer mobile -Runtime
-.\scripts\test-file-dialog.ps1 -Renderer mobile -StopHost
+.\scripts\test-file-dialog.ps1 -Driver d3d12
+.\scripts\test-file-dialog.ps1 -Driver opengl
+.\scripts\test-file-dialog.ps1 -Driver d3d12 -Runtime
+.\scripts\test-file-dialog.ps1 -Driver d3d12 -StopHost
 ```
 
-两种场景档均需要 G+J 和可显示系统对话框的 Windows 交互桌面。可选参数：`-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime`、`-StopHost`。串行运行，不要手动关闭或操作测试对话框。
+两种场景档均需要 G+J 和可显示系统对话框的 Windows 交互桌面。可选参数：`-Jdk`、`-Driver`、`-RenderThread`、`-Runtime`、`-StopHost`。串行运行，不要手动关闭或操作测试对话框。
 
 常规模式验证单选、多选、保存路径、目录选择、无 owner 取消和关闭 owner 后取消。检查扩展名过滤器对象、打开期间 Pulse 继续、原生窗口所属关系、整个 owner 链禁用及恢复、最终资源清零。脚本在 `artifacts/reference/dialog-fixtures` 创建 a.txt/b.txt 测试文件；保存用例只选择 chosen.new 路径，不写入该文件，该路径应不存在。
 
-原生驱动仅操作带本轮随机标题且属于测试进程的 Windows 对话框，通过按钮通知确认或取消；这不代表物理鼠标验收。StopHost 模式先确认原生对话框出现，再停止宿主，要求取消返回和资源清理完成。必须同时获得 `FILE_DIALOG_PROBE_PASS`、`FILE_DIALOG_NATIVE_PASS`、`GODOT_FILE_DIALOG_PASS`，StopHost 还要求 `FILE_DIALOG_HOST_STOP_RETURNED`；进程正常退出且无异常或 ERROR。日志为 `file-dialog-<renderer>-<thread>[-runtime][-stop].log`，以及 `.native` 和 `.stderr` 附属文件。
+原生驱动仅操作带本轮随机标题且属于测试进程的 Windows 对话框，通过按钮通知确认或取消；这不代表物理鼠标验收。StopHost 模式先确认原生对话框出现，再停止宿主，要求取消返回和资源清理完成。必须同时获得 `FILE_DIALOG_PROBE_PASS`、`FILE_DIALOG_NATIVE_PASS`、`GODOT_FILE_DIALOG_PASS`，StopHost 还要求 `FILE_DIALOG_HOST_STOP_RETURNED`；进程正常退出且无异常或 ERROR。日志为 `file-dialog-<driver>-<thread>[-runtime][-stop].log`，以及 `.native` 和 `.stderr` 附属文件。
 
 当前只允许同时存在一个文件/目录选择器，重入调用会明确抛出异常；此测试不证明并发选择器、所有 Shell 扩展或物理输入兼容性。
 
-macOS 等价入口为 `sh scripts/test-file-dialog.sh`（`--renderer`、`--render-thread`、`--stop-host`）。真实面板需要辅助功能权限和真实键盘输入，因此该脚本启用模块测试钩子（`GODOT_JFX_DIALOG_HOOK=1`），由宿主按同一 submit/poll/cancel 契约确定性地应答；FileDialogProbe 的 Java 断言（结果路径、过滤器身份、取消语义、模态期间 FX 循环存活）不变，判定要求 `FILE_DIALOG_PROBE_PASS`、`GODOT_FILE_DIALOG_PASS`，`--stop-host` 另要求 `FILE_DIALOG_HOST_STOP_RETURNED`。它不验证面板外观、sheet 归属或物理键盘操作，也没有 Windows 原生驱动对对话框窗口类和 owner 链的断言。
+macOS 等价入口为 `sh scripts/test-file-dialog.sh`（`--driver`、`--render-thread`、`--stop-host`）。真实面板需要辅助功能权限和真实键盘输入，因此该脚本启用模块测试钩子（`GODOT_JFX_DIALOG_HOOK=1`），由宿主按同一 submit/poll/cancel 契约确定性地应答；FileDialogProbe 的 Java 断言（结果路径、过滤器身份、取消语义、模态期间 FX 循环存活）不变，判定要求 `FILE_DIALOG_PROBE_PASS`、`GODOT_FILE_DIALOG_PASS`，`--stop-host` 另要求 `FILE_DIALOG_HOST_STOP_RETURNED`。它不验证面板外观、sheet 归属或物理键盘操作，也没有 Windows 原生驱动对对话框窗口类和 owner 链的断言。
 
 ## 如何判定通过
 
@@ -271,7 +303,7 @@ Java 调用、宿主 tick 和清理均通过也不能证明系统键盘已显示
 .\scripts\test-drag-drop-ole-inject.ps1 -Timeout
 ```
 
-编码器专项前置 J，不启动窗口或 JVM 宿主；重复非法 NaN/Z/溢出变换必须拒绝且不修改帧，之后有效几何必须先注册再引用；还验证调用方数组修改、确定性哈希槽碰撞、1024 条目和 32 MiB 数据上限、闲置释放后重新接纳几何（测试通过反射隔离编码逻辑，不证明 GPU 生命周期），要求 `RENDER_COMMAND_VALIDATION_PASS`。OLE `-Timeout` 前置 G+J，使用已有模块注入入口；阻塞 FX 线程让 Enter/Drop 过期，恢复后不得收到过期事件，随后正常拖放必须仍能通过，额外要求 `OLE_TIMEOUT_CANCEL_PASS`。日志为 `ole-inject-<renderer>-<thread>-timeout.log`。这不证明已开始执行的用户事件处理器可被撤销，也不替代真实 OLE 手势验收。
+编码器专项前置 J，不启动窗口或 JVM 宿主；重复非法 NaN/Z/溢出变换必须拒绝且不修改帧，之后有效几何必须先注册再引用；还验证调用方数组修改、确定性哈希槽碰撞、1024 条目和 32 MiB 数据上限、闲置释放后重新接纳几何（测试通过反射隔离编码逻辑，不证明 GPU 生命周期），要求 `RENDER_COMMAND_VALIDATION_PASS`。OLE `-Timeout` 前置 G+J，使用已有模块注入入口；阻塞 FX 线程让 Enter/Drop 过期，恢复后不得收到过期事件，随后正常拖放必须仍能通过，额外要求 `OLE_TIMEOUT_CANCEL_PASS`。日志为 `ole-inject-<driver>-<thread>-timeout.log`。这不证明已开始执行的用户事件处理器可被撤销，也不替代真实 OLE 手势验收。
 
 图片池专项前置 J；使用内存中的测试图片和 Renderer，不启动图形设备、不依赖 GC 时机。脚本分别运行 FIFO/LIFO，验证空引用、丢失图片及连续失效条目之后的可用图片仍被复用，并保持相同尺寸图片的选择顺序；还强制先检查失效候选，验证其锁归零、有效图像 checkout/checkIn 锁配对及再次复用；要求不发生额外分配且两次均有 `IMAGE_POOL_REUSE_PASS`。日志 `image-pool-reuse-0.log`（FIFO）、`image-pool-reuse-1.log`（LIFO），支持 `-Jdk`，运行后恢复原 `GODOT_JFX_IMAGE_POOL_LIFO`。
 
@@ -287,13 +319,13 @@ Java 调用、宿主 tick 和清理均通过也不能证明系统键盘已显示
 
 ```powershell
 .\scripts\test-protocol.cmd
-.\scripts\test-native-stage.ps1 -Renderer mobile
-.\scripts\test-effects.ps1 -Renderer mobile
-.\scripts\test-godot-view.ps1 -Renderer mobile -Transform
-.\scripts\test-media-planes.ps1 -Renderer mobile
+.\scripts\test-native-stage.ps1 -Driver d3d12
+.\scripts\test-effects.ps1 -Driver d3d12
+.\scripts\test-godot-view.ps1 -Driver d3d12 -Transform
+.\scripts\test-media-planes.ps1 -Driver d3d12
 .\scripts\test-media-video.ps1
 .\scripts\test-media-churn.ps1 -Cycles 24 -Providers
-.\scripts\test-vfx-intro.ps1 -Renderer mobile -AllPages
+.\scripts\test-vfx-intro.ps1 -Driver d3d12 -AllPages
 ```
 
 改动窗口/输入优先查窗口组，改动纹理/着色器优先查 GPU 组，改动 Media 生命周期要跑 churn；只改文档无需重跑整个 GUI 测试集。
@@ -309,112 +341,112 @@ Java 调用、宿主 tick 和清理均通过也不能证明系统键盘已显示
 | 启动命令 | 用途 / 特殊前置条件 | 验收方式 | 可选公共参数 |
 | --- | --- | --- | --- |
 | `.\scripts\test-protocol.cmd` | 批次解码、资源事务、队列背压与并发。前置：MSVC/Windows SDK；无需启动 JVM/GPU。 | 原生断言及 FRAME_PROTOCOL_PASS，包含 10000 并发帧；输入时钟与帧/队列时钟隔离、输入 tick 合并、超时不产生 tick、stop/finish 后输入等待返回终止状态。 | 无 |
-| `.\scripts\test-m1.ps1 -Renderer mobile` | Godot 自定义模块基础绘制与资源。前置：G；无 Java 探针。 | GPU 像素、清空命令后保留可复用几何、退出场景树后资源和几何缓存归零（含 100 次创建/销毁），以及 M1 完成标记。 | `-Renderer` |
-| `.\scripts\test-bridge.ps1 -Renderer mobile` | JVM/JNI、批量命令和纹理通路。前置：G+J；各模式分开运行。 | 检查宿主没有注册旧的 JVM 创建方法，再运行 Java 与宿主双侧断言；Encoded 模式必须实际观察到背压。 | `-Jdk`、`-Renderer`、`-RenderThread` |
+| `.\scripts\test-m1.ps1 -Driver d3d12` | Godot 自定义模块基础绘制与资源。前置：G；无 Java 探针。 | GPU 像素、清空命令后保留可复用几何、退出场景树后资源和几何缓存归零（含 100 次创建/销毁），以及 M1 完成标记。 | `-Driver` |
+| `.\scripts\test-bridge.ps1 -Driver d3d12` | JVM/JNI、批量命令和纹理通路。前置：G+J；各模式分开运行。 | 检查宿主没有注册旧的 JVM 创建方法，再运行 Java 与宿主双侧断言；Encoded 模式必须实际观察到背压。 | `-Jdk`、`-Driver`、`-RenderThread` |
 | `.\scripts\test-glass-scheduler.ps1` | Glass 事件线程、队列与调度。前置：G+J。 | 线程/执行顺序等探针断言及双侧 PASS；Glass 退出后保持宿主运行，检查输入和帧接收线程均在 2.5 秒内结束，并检查运行时拖入回调已注册、退出后静态引用已解除。独立队列取消夹具在异常路径也停止循环、释放闩锁并等待测试线程退出。 | `-Jdk` |
 | `.\scripts\test-glass-window.ps1` | Glass 基础窗口适配。前置：G+J。 | 窗口状态和宿主/Java 完成断言。 | `-Jdk`、`-Runtime` |
 | `.\scripts\test-pulse-stop.ps1` | Pulse 停止竞争与关闭后的通知。前置：J；脚本在 artifacts 编译模块补丁。 | 停止语义的 Java 断言；不是 GPU 测试。 | `-Jdk` |
 | `.\scripts\test-timer-cadence.ps1` | 定时器节奏与时间计算。前置：J。 | Java 时序断言；不是显示 FPS 测试。 | `-Jdk` |
-| `.\scripts\test-host-stop.ps1 -Renderer mobile` | 宿主主动停止时窗口、渲染任务和等待者清理。前置：G+J。 | 窗口 peer 关闭、Application 返回、pipeline pool_bytes=0，无未处理异常。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-host-lifetime.ps1 -Renderer mobile` | 宿主节点与 Java 探针的生命周期。前置：G+J。 | 生命周期及释放断言、双侧 PASS。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-failure-shutdown.ps1 -Renderer mobile` | 注入异常后退出、嵌套事件循环解锁。前置：G+J；预期故障测试。 | 必须观察指定异常和内外层循环返回；脚本排除非预期错误。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-host-stop.ps1 -Driver d3d12` | 宿主主动停止时窗口、渲染任务和等待者清理。前置：G+J。 | 窗口 peer 关闭、Application 返回、pipeline pool_bytes=0，无未处理异常。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-host-lifetime.ps1 -Driver d3d12` | 宿主节点与 Java 探针的生命周期。前置：G+J。 | 生命周期及释放断言、双侧 PASS。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-failure-shutdown.ps1 -Driver d3d12` | 注入异常后退出、嵌套事件循环解锁。前置：G+J；预期故障测试。 | 必须观察指定异常和内外层循环返回；脚本排除非预期错误。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
 | `.\scripts\test-render-thread-shutdown.ps1` | Godot 渲染线程停止和退出。前置：G；可测试 Runtime。 | 脚本逐个运行线程模式，检查退出状态和日志。 | `-Runtime` |
-| `.\scripts\test-input-cancel.ps1 -Renderer mobile` | 失焦时取消按键、按钮、触摸保持状态。前置：G+J；按独立原生窗口 ID 和 DPI 缩放后的局部坐标注入，等待焦点就绪。首轮失焦后故意不补发原窗口鼠标释放，检查焦点返回时移动不带旧按钮位；仅在按下前注入定位移动，松开前不额外注入拖动；不操作真实鼠标/键盘。 | 取消/释放事件、无意外拖动、后续点击仍可激活及资源释放断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-input-lifecycle.ps1 -Renderer mobile` | 输入对象与窗口生命周期交错。前置：G+J；隐藏/关闭后重建原生 peer，迟到释放送至主窗口，随后恢复手势。 | 事件/lifecycle 断言及双侧 PASS。 | `-Jdk`、`-Renderer`、`-RenderThread` |
+| `.\scripts\test-input-cancel.ps1 -Driver d3d12` | 失焦时取消按键、按钮、触摸保持状态。前置：G+J；按独立原生窗口 ID 和 DPI 缩放后的局部坐标注入，等待焦点就绪。首轮失焦后故意不补发原窗口鼠标释放，检查焦点返回时移动不带旧按钮位；仅在按下前注入定位移动，松开前不额外注入拖动；不操作真实鼠标/键盘。 | 取消/释放事件、无意外拖动、后续点击仍可激活及资源释放断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-input-lifecycle.ps1 -Driver d3d12` | 输入对象与窗口生命周期交错。前置：G+J；隐藏/关闭后重建原生 peer，迟到释放送至主窗口，随后恢复手势。 | 事件/lifecycle 断言及双侧 PASS。 | `-Jdk`、`-Driver`、`-RenderThread` |
 | `.\scripts\test-texture-cancellation.ps1` | 宿主已停止时纹理销毁的 Java 账本清理。前置：J；编译 GodotTexture 模块补丁。 | 取消路径不破坏资源池清理的断言。 | `-Jdk` |
 
 ### 窗口、屏幕与输入
 
 | 启动命令 | 用途 / 特殊前置条件 | 验收方式 | 可选公共参数 |
 | --- | --- | --- | --- |
-| `.\scripts\test-native-windows.ps1 -Renderer mobile` | 直接验证 Godot 原生窗口管理。前置：G。 | 创建、属性、所有者及生命周期等宿主断言。 | `-Renderer`、`-RenderThread` |
-| `.\scripts\test-native-window-bridge.ps1 -Renderer mobile` | JNI 原生窗口请求与状态快照。前置：G+J。 | Java/宿主请求、确认和生命周期断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-native-window-pixels.ps1 -Renderer mobile` | 多原生窗口的 GPU 内容。前置：G+J。 | 各窗口像素与资源释放断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-native-stage.ps1 -Renderer mobile` | 标准 JavaFX Stage 映射独立原生窗口。前置：G+J。 | 窗口独立性、显示及生命周期断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-native-stage-input.ps1 -Renderer mobile` | 窗口身份与重叠 Stage 输入路由。前置：G+J。 | 输入应到达正确 Stage；注入事件，不是物理设备验收。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-native-ime.ps1 -Renderer mobile` | 多个原生窗口的输入法状态隔离；会移动真实光标，须获授权。前置：G+J。 | 组合/提交/取消等注入断言；不证明候选窗口真实位置。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-native-order.ps1 -Renderer mobile` | 原生窗口顺序、所有者和前后关系。前置：G+J。 | 顺序与状态断言，无异常。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-native-exit.ps1 -Renderer mobile` | 重复创建原生窗口后退出。前置：G；12 轮。 | 必须记录 12 个周期及 NATIVE_EXIT_PASS。 | `-Renderer`、`-RenderThread` |
-| `.\scripts\test-native-churn.ps1 -Renderer mobile` | 隔离 Godot Window/SubViewport 的资源增长。前置：G；Kind 可选 Idle/SubViewport/Window/JavaFXNativeWindow。 | 181 个样本及完成标记；仅传入非负 StaticRangeLimitBytes 才启用静态内存范围门槛。 | `-Renderer`、`-RenderThread` |
-| `.\scripts\test-stage.ps1 -Renderer mobile` | 普通 Stage/Scene 基础绘图。前置：G+J。 | 画面像素、单窗口基础路径及释放断言。 | `-Jdk`、`-Renderer` |
-| `.\scripts\test-stage-churn.ps1 -Renderer mobile` | 重复创建销毁 JavaFX Stage。前置：G+J；Cycles 6–1000，HeapMiB 可限 Java 堆。 | Java 周期样本为 Cycles，原生为 Cycles+1；资源/退出断言；无强制 GC。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-transparent-stage.ps1 -Renderer mobile` | 透明 Scene/Stage 的空白区与边缘 alpha。前置：G+J；宿主项目允许逐像素透明。 | GPU alpha 和清理断言；不验收用户放弃的白线。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-render-scale.ps1 -Renderer mobile` | 逻辑尺寸与像素尺寸、渲染缩放。前置：G+J。 | 缩放后布局/像素断言；不代替跨真实显示器移动。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-screens.ps1 -Renderer mobile` | 从宿主枚举屏幕到 JavaFX。前置：G+J。 | 屏幕快照、坐标/工作区等断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
+| `.\scripts\test-native-windows.ps1 -Driver d3d12` | 直接验证 Godot 原生窗口管理。前置：G。 | 创建、属性、所有者及生命周期等宿主断言。 | `-Driver`、`-RenderThread` |
+| `.\scripts\test-native-window-bridge.ps1 -Driver d3d12` | JNI 原生窗口请求与状态快照。前置：G+J。 | Java/宿主请求、确认和生命周期断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-native-window-pixels.ps1 -Driver d3d12` | 多原生窗口的 GPU 内容。前置：G+J。 | 各窗口像素与资源释放断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-native-stage.ps1 -Driver d3d12` | 标准 JavaFX Stage 映射独立原生窗口。前置：G+J。 | 窗口独立性、显示及生命周期断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-native-stage-input.ps1 -Driver d3d12` | 窗口身份与重叠 Stage 输入路由。前置：G+J。 | 输入应到达正确 Stage；注入事件，不是物理设备验收。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-native-ime.ps1 -Driver d3d12` | 多个原生窗口的输入法状态隔离；会移动真实光标，须获授权。前置：G+J。 | 组合/提交/取消等注入断言；不证明候选窗口真实位置。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-native-order.ps1 -Driver d3d12` | 原生窗口顺序、所有者和前后关系。前置：G+J。 | 顺序与状态断言，无异常。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-native-exit.ps1 -Driver d3d12` | 重复创建原生窗口后退出。前置：G；12 轮。 | 必须记录 12 个周期及 NATIVE_EXIT_PASS。 | `-Driver`、`-RenderThread` |
+| `.\scripts\test-native-churn.ps1 -Driver d3d12` | 隔离 Godot Window/SubViewport 的资源增长。前置：G；Kind 可选 Idle/SubViewport/Window/JavaFXNativeWindow。 | 181 个样本及完成标记；仅传入非负 StaticRangeLimitBytes 才启用静态内存范围门槛。 | `-Driver`、`-RenderThread` |
+| `.\scripts\test-stage.ps1 -Driver d3d12` | 普通 Stage/Scene 基础绘图。前置：G+J。 | 画面像素、单窗口基础路径及释放断言。 | `-Jdk`、`-Driver` |
+| `.\scripts\test-stage-churn.ps1 -Driver d3d12` | 重复创建销毁 JavaFX Stage。前置：G+J；Cycles 6–1000，HeapMiB 可限 Java 堆。 | Java 周期样本为 Cycles，原生为 Cycles+1；资源/退出断言；无强制 GC。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-transparent-stage.ps1 -Driver d3d12` | 透明 Scene/Stage 的空白区与边缘 alpha。前置：G+J；宿主项目允许逐像素透明。 | GPU alpha 和清理断言；不验收用户放弃的白线。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-render-scale.ps1 -Driver d3d12` | 逻辑尺寸与像素尺寸、渲染缩放。前置：G+J。 | 缩放后布局/像素断言；不代替跨真实显示器移动。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-screens.ps1 -Driver d3d12` | 从宿主枚举屏幕到 JavaFX。前置：G+J。 | 屏幕快照、坐标/工作区等断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
 | `.\scripts\test-screen-layout.ps1` | 屏幕布局计算。前置：J。 | 纯 Java 布局边界断言；不要求真实多显示器。 | `-Jdk` |
-| `.\scripts\test-ime.ps1 -Renderer mobile` | 输入法组合文本基础桥接。前置：G+J。 | 合成文本、提交/取消等注入断言。 | `-Jdk`、`-Renderer` |
-| `.\scripts\test-image-cursor.ps1 -Renderer mobile` | 自定义图像光标与热点。前置：G+J。 | 图像/热点/生命周期断言；`CURSOR_RESTORE_ONCE_PASS` 检查退出后应用新设光标不被宿主析构覆盖。使用合成输入，不移动真实鼠标；不等于所有桌面外观已人工确认。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-resize-cursor.ps1 -Renderer gl_compatibility` | JavaFX 光标形状命令与宿主 OS 光标、Viewport 默认光标的同步（resize 把手悬停不还原成箭头）。前置：G+J。 | 按实际窗口尺寸换算 400×300 逻辑场景坐标；悬停/离开的光标形状断言及双侧 PASS。Godot 合成输入，不移动真实鼠标。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-window-drag.ps1 -Renderer gl_compatibility` | 标题栏拖拽窗口跟随滞后（输入唤醒 + frame_pre_draw 第二应用点）。前置：G+J。完全合成输入；探针只读光标位置并把测试窗口放到避开光标的屏幕另一侧，不移动鼠标。 | 每步最多等待 40 帧，最终位置误差不超过 3 像素；DRAG_LAG_AVG/MAX 为测量值，没有额外低延迟门槛。双侧 PASS、资源归零，脚本创建输出目录并恢复 JDK 环境变量。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-scroll-wheel.ps1 -Renderer gl_compatibility` | 滚轮速率契约：Windows 宿主读取系统 SPI_GETWHEELSCROLLLINES/CHARS，Java 侧按 40px/行换算，与原生 Win Glass 一致；macOS 宿主上报 kind-17 滚动记录（滚轮行 delta / 触控板 pan 点 delta），Java 侧按原生 MacGestureSupport 的 10px 倍率换算，与原生 Mac Glass 一致。前置：G+J。 | 逐事件换算校验，第三次事件分发完成后按三个 delta 累加并限制到可滚动范围，位移误差 ≤0.01 px；要求完整 SCROLL_RESULT、双侧 PASS 且无脚本/Shader 错误。不修改系统滚轮设置。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-physical-drag.ps1 -Renderer gl_compatibility` | 按下后指针快速逃出窗口的 press-drag-release 连续性（宿主重放按住按钮位、按住期间抑制进出事件）。前置：G+J。默认合成模式：GDScript 按探针标题指令注入按下/移动/释放（坐标冲出窗口边界，等价于光标逃出），不移动真实鼠标、不需要前台；断言拖动/缩放精确跟随路径和（合成坐标无 OS 屏幕钳制）且无中断手势的无按键 MOUSE_MOVED。加 `-Robot` 走 Glass Robot 物理档（需桌面空闲、窗口前台）：覆盖合成无法到达的 OS 投递语义（光标屏幕边缘钳制、WM 进出通知抑制），期望按钳制后的实际光标位置推导。双侧 PASS。 | PHYS_DRAG/PHYS_RESIZE 事件计数与跟随断言、PHYS_TRACE 无 gesture-killer；FX 调用异常传回驱动线程，超时/中断取消尚未执行的任务，关闭后等待驱动线程停止；带按键 MOUSE_EXITED 是 Quantum 拾取变化的标准合成（原生同款），不算中断。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Robot` |
-| `.\scripts\test-window-icon.ps1 -Renderer mobile` | Stage 图标设置、替换和清除。前置：G+J。 | 原生图标像素、透明度、窗口独立性及释放断言。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-clipboard.ps1 -Renderer mobile` | 文本、HTML、RTF、Unicode URL、文件列表(CF_HDROP)、图片(CF_DIB)、ANSI-only URL 回退与自定义格式(application/x-godot-custom-*)的系统剪贴板互通。前置：G+J；见剪贴板特别说明。 | Java 与原生对端的格式、内容断言均通过，宿主正常退出。 | `-Jdk`、`-Renderer`、`-Runtime` |
+| `.\scripts\test-ime.ps1 -Driver d3d12` | 输入法组合文本基础桥接。前置：G+J。 | 合成文本、提交/取消等注入断言。 | `-Jdk`、`-Driver` |
+| `.\scripts\test-image-cursor.ps1 -Driver d3d12` | 自定义图像光标与热点。前置：G+J。 | 图像/热点/生命周期断言；`CURSOR_RESTORE_ONCE_PASS` 检查退出后应用新设光标不被宿主析构覆盖。使用合成输入，不移动真实鼠标；不等于所有桌面外观已人工确认。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-resize-cursor.ps1` | JavaFX 光标形状命令与宿主 OS 光标、Viewport 默认光标的同步（resize 把手悬停不还原成箭头）。前置：G+J。 | 按实际窗口尺寸换算 400×300 逻辑场景坐标；悬停/离开的光标形状断言及双侧 PASS。Godot 合成输入，不移动真实鼠标。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-window-drag.ps1` | 标题栏拖拽窗口跟随滞后（输入唤醒 + frame_pre_draw 第二应用点）。前置：G+J。完全合成输入；探针只读光标位置并把测试窗口放到避开光标的屏幕另一侧，不移动鼠标。 | 每步最多等待 40 帧，最终位置误差不超过 3 像素；DRAG_LAG_AVG/MAX 为测量值，没有额外低延迟门槛。双侧 PASS、资源归零，脚本创建输出目录并恢复 JDK 环境变量。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-scroll-wheel.ps1` | 滚轮速率契约：Windows 宿主读取系统 SPI_GETWHEELSCROLLLINES/CHARS，Java 侧按 40px/行换算，与原生 Win Glass 一致；macOS 宿主上报 kind-17 滚动记录（滚轮行 delta / 触控板 pan 点 delta），Java 侧按原生 MacGestureSupport 的 10px 倍率换算，与原生 Mac Glass 一致。前置：G+J。 | 逐事件换算校验，第三次事件分发完成后按三个 delta 累加并限制到可滚动范围，位移误差 ≤0.01 px；要求完整 SCROLL_RESULT、双侧 PASS 且无脚本/Shader 错误。不修改系统滚轮设置。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-physical-drag.ps1` | 按下后指针快速逃出窗口的 press-drag-release 连续性（宿主重放按住按钮位、按住期间抑制进出事件）。前置：G+J。默认合成模式：GDScript 按探针标题指令注入按下/移动/释放（坐标冲出窗口边界，等价于光标逃出），不移动真实鼠标、不需要前台；断言拖动/缩放精确跟随路径和（合成坐标无 OS 屏幕钳制）且无中断手势的无按键 MOUSE_MOVED。加 `-Robot` 走 Glass Robot 物理档（需桌面空闲、窗口前台）：覆盖合成无法到达的 OS 投递语义（光标屏幕边缘钳制、WM 进出通知抑制），期望按钳制后的实际光标位置推导。双侧 PASS。 | PHYS_DRAG/PHYS_RESIZE 事件计数与跟随断言、PHYS_TRACE 无 gesture-killer；FX 调用异常传回驱动线程，超时/中断取消尚未执行的任务，关闭后等待驱动线程停止；带按键 MOUSE_EXITED 是 Quantum 拾取变化的标准合成（原生同款），不算中断。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Robot` |
+| `.\scripts\test-window-icon.ps1 -Driver d3d12` | Stage 图标设置、替换和清除。前置：G+J。 | 原生图标像素、透明度、窗口独立性及释放断言。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-clipboard.ps1 -Driver d3d12` | 文本、HTML、RTF、Unicode URL、文件列表(CF_HDROP)、图片(CF_DIB)、ANSI-only URL 回退与自定义格式(application/x-godot-custom-*)的系统剪贴板互通。前置：G+J；见剪贴板特别说明。 | Java 与原生对端的格式、内容断言均通过，宿主正常退出。 | `-Jdk`、`-Driver`、`-Runtime` |
 | `.\scripts\test-virtual-keyboard.ps1 -Robot` | 虚拟键盘 `_requestInput`/`_releaseInput` 到 Windows 触摸键盘(TabTip)的调用链路，正常运行会请求系统键盘。前置：G+J；`-CompileOnly` 只需 J，编译后退出，不调用系统键盘。 | Java 调用不抛异常、宿主 tick 必须实际前进、等待 FX 清理完成后输出 `VIRTUAL_KEYBOARD_PASS`；超时/中断取消尚未运行的任务，退出尝试释放输入请求并关闭 Stage，宿主移除后资源归零。原生失败记首次 WARNING；PASS 不证明 OS 调用成功或键盘可见/关闭，须另行设备验收。后续系统链路已运行，关闭请求出现拒绝访问 HRESULT；详见上文记录，不能以 Java PASS 证明键盘实际关闭。 | `-Jdk`、`-CompileOnly` |
-| `.\scripts\test-popups.ps1 -Renderer mobile` | 弹出控件的基本显示与交互。前置：G+J。 | Popup 内容、交互和生命周期断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-popup-bounds.ps1 -Renderer mobile` | Popup 屏幕边界约束。前置：G+J。 | 位置/边界规则断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-popup-edge.ps1 -Renderer mobile` | 靠近边缘时 Popup 定位与自动修正。前置：G+J。 | 边缘放置和 autoFix 相关断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-nested-menu.ps1 -Renderer mobile` | 嵌套菜单与事件循环。前置：G+J。 | 子菜单交互/返回及清理断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-modals.ps1 -Renderer mobile` | 窗口模态、所有者和交互阻止。前置：G+J。 | 应被阻止/允许的输入与模态释放断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
+| `.\scripts\test-popups.ps1 -Driver d3d12` | 弹出控件的基本显示与交互。前置：G+J。 | Popup 内容、交互和生命周期断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-popup-bounds.ps1 -Driver d3d12` | Popup 屏幕边界约束。前置：G+J。 | 位置/边界规则断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-popup-edge.ps1 -Driver d3d12` | 靠近边缘时 Popup 定位与自动修正。前置：G+J。 | 边缘放置和 autoFix 相关断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-nested-menu.ps1 -Driver d3d12` | 嵌套菜单与事件循环。前置：G+J。 | 子菜单交互/返回及清理断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-modals.ps1 -Driver d3d12` | 窗口模态、所有者和交互阻止。前置：G+J。 | 应被阻止/允许的输入与模态释放断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
 
 ### 历史窗口与底层合成诊断
 
 | 启动命令 | 用途 / 特殊前置条件 | 验收方式 | 可选公共参数 |
 | --- | --- | --- | --- |
-| `.\scripts\test-logical-windows.ps1 -Renderer mobile` | 主窗与次级原生 Stage 的独立画面、按窗口寻址输入、位置及透明度。前置：G+J。 | 验证两个窗口的 GPU 像素、动作计数、隐藏与重显及清理。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-window-layers.ps1 -Renderer mobile` | 原生窗口层绘制基础。前置：G；底层诊断。 | 图层像素/顺序及清理断言。 | `-Renderer`、`-RenderThread` |
-| `.\scripts\test-window-commands.ps1 -Renderer mobile` | 窗口相关批次命令。前置：G+J；底层诊断。 | 编码和宿主消费结果断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-window-composition.ps1 -Renderer mobile` | 独立原生窗口接收 Prism Presentable。前置：G+J。 | 合成内容、保留/释放等断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-window-lifecycle.ps1 -Renderer mobile` | 窗口发布、隐藏和销毁。前置：G+J；历史/底层覆盖。 | 生命周期与清理断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-window-order.ps1 -Renderer mobile` | 重叠的独立 Stage 的系统层序及顶层窗口像素。前置：G+J。 | 十阶段窗口层序、像素与资源清理断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-window-resize.ps1 -Renderer mobile` | 发布目标随窗口尺寸变化。前置：G+J；底层覆盖。 | 连续 resize 的画面/资源断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
+| `.\scripts\test-logical-windows.ps1 -Driver d3d12` | 主窗与次级原生 Stage 的独立画面、按窗口寻址输入、位置及透明度。前置：G+J。 | 验证两个窗口的 GPU 像素、动作计数、隐藏与重显及清理。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-window-layers.ps1 -Driver d3d12` | 原生窗口层绘制基础。前置：G；底层诊断。 | 图层像素/顺序及清理断言。 | `-Driver`、`-RenderThread` |
+| `.\scripts\test-window-commands.ps1 -Driver d3d12` | 窗口相关批次命令。前置：G+J；底层诊断。 | 编码和宿主消费结果断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-window-composition.ps1 -Driver d3d12` | 独立原生窗口接收 Prism Presentable。前置：G+J。 | 合成内容、保留/释放等断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-window-lifecycle.ps1 -Driver d3d12` | 窗口发布、隐藏和销毁。前置：G+J；历史/底层覆盖。 | 生命周期与清理断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-window-order.ps1 -Driver d3d12` | 重叠的独立 Stage 的系统层序及顶层窗口像素。前置：G+J。 | 十阶段窗口层序、像素与资源清理断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-window-resize.ps1 -Driver d3d12` | 发布目标随窗口尺寸变化。前置：G+J；底层覆盖。 | 连续 resize 的画面/资源断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
 
 ### GPU 绘制、Shader、Effect 与嵌入场景
 
 | 启动命令 | 用途 / 特殊前置条件 | 验收方式 | 可选公共参数 |
 | --- | --- | --- | --- |
-| `.\scripts\test-shaders.ps1 -Renderer mobile` | 生成 Shader 的完整性与 Godot 解析。前置：G+J；需要 JFX 构建生成资源。 | 与 D3D 变体集合及 SDK 内容一致；全部解析，部分像素检查，退出场景树后资源及几何缓存归零。 | `-Renderer` |
+| `.\scripts\test-shaders.ps1 -Driver d3d12` | 生成 Shader 的完整性与 Godot 解析。前置：G+J；需要 JFX 构建生成资源。 | 与 D3D 变体集合及 SDK 内容一致；全部解析，部分像素检查，退出场景树后资源及几何缓存归零。 | `-Driver` |
 | `.\scripts\test-shader-state.ps1` | Java Shader 描述符、常量与快照。前置：J。 | ShaderStateProbe 断言；不证明所有 GPU shader 编译成功。 | `-Jdk` |
 | `.\scripts\test-shader-source-cache.ps1` | Shader 源码编码缓存。前置：J。 | 缓存命中/边界等 Java 断言。 | `-Jdk` |
-| `.\scripts\test-texture-lookup.ps1 -Renderer mobile` | Godot 纹理查询/生命周期诊断。前置：G。 | TEXTURE_LOOKUP_PASS 及无非预期错误。 | `-Renderer`、`-RenderThread` |
-| `.\scripts\test-render-targets.ps1 -Renderer mobile` | 离屏渲染目标、采样和释放。前置：G。 | GPU 颜色/复制及生命周期断言。 | `-Renderer`、`-RenderThread` |
-| `.\scripts\test-mesh-transform.ps1 -Renderer mobile` | QUADS 局部顶点随变换命令绘制（离屏 pass 与 surface 共享命令项两条路径，含变换复位）。前置：G；无 Java 探针。 | MESH_TRANSFORM_PROBE_PASS 与像素边界断言。 | `-Renderer` |
-| `.\scripts\test-blit.ps1 -Renderer mobile` | GPU 目标间复制。前置：G+J。 | 复制区域和目标像素断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-composite.ps1 -Renderer mobile` | 透明度与合成模式。前置：G+J。 | 对照合成公式的颜色/alpha 及清理断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-composite-edges.ps1 -Renderer mobile` | 抗锯齿/像素边缘合成对照。前置：G+J；会先运行原生 D3D。 | 20 组布局一致、每个像素在脚本容差内。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-effects.ps1 -Renderer mobile` | JavaFX Effect 与原生输出对照。前置：G+J；先运行 D3D 参考。 | 效果集合、图像容差和宿主完成断言。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-readback.ps1 -Renderer mobile` | 显式 GPU 读回、snapshot 与停止。前置：G+J；特殊模式见下文。 | 像素、buffer、snapshot 或中断路径对应断言。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-node-shaders.ps1 -Renderer mobile` | 指定 Node/子树的 Godot Shader。前置：G+J。 | uniform、裁剪、透明度、子树隔离及 GPU 像素断言。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-scene-views.ps1 -Renderer mobile` | Godot SubViewport 场景原生基础。前置：G。 | 场景渲染、混合和生命周期断言。 | `-Renderer` |
-| `.\scripts\test-scene-textures.ps1 -Renderer mobile` | 场景纹理命令、resize 和加载失败。前置：G+J；MissingScene 是预期故障模式。 | 正常像素/身份保持；等待只统计实际推进的 host tick，每段 10 秒总期限；故障模式要求明确失败传播标记。 | `-Jdk`、`-Renderer`、`-Resize`、`-MissingScene` |
-| `.\scripts\test-hover-flicker.ps1 -Renderer mobile` | Viewport 呈现侧悬停回归。前置：G+J+V（探针使用 FusionButton）。默认合成模式：GDScript 按探针标题注入 motion 事件（HOLD 停按钮中心、GAP 移出窗口），不动真实鼠标、不需要置顶；加 `-Robot` 走 Glass Robot 物理档（真实 OS 光标停留在按钮，需桌面空闲、窗口置顶，运行期间勿操作鼠标）。 | 逐帧采样画面，普通按钮悬停色缺失帧 >5% 失败；FusionButton 要求六轮 HOLD/GAP 各有越过 23 帧过渡期的样本，稳定期亮/暗错误比例 >5% 失败。按当前屏幕缩放映射坐标；120 秒宿主期限、Java 侧每次 FX 调用 10 秒超时；FX 异常向主线程传播，退出时停止动画、尝试恢复 Robot 原光标位置并关闭窗口，清理成功后才输出 Java PASS；宿主节点移除后资源必须为零，要求 HOVER_RESOURCE_CLEANUP_PASS。JVM 失败和日志 ERROR/SHADER ERROR 均失败，要求 HOVER_FUSION_PIXEL_PASS。批量提交期呈现竞态（悬停闪回/拖动顿挫同类）回归门。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Robot` |
-| `.\scripts\repro-hover-manual.ps1` | 带 HOVER_TAP/HOVER_SAMPLE 启动 VFX，用户操作并关窗后汇总；前置 G+J+V。`-LogPath` 只分析已有日志，无窗口/构建依赖。 | 诊断入口，无功能 PASS；恒定亮度可能是静态内容，时间相近也不能单独证明因果。原生非零退出或错误日志明确失败。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-NoSample`、`-LogPath` |
-| `.\scripts\test-godot-view.ps1 -Renderer mobile` | JavaFX GodotView 布局、场景与输入。前置：G+J；Transform 模式另跑 D3D 参考。 | 场景像素、透明度/裁剪、输入坐标和资源释放断言。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-fxml.ps1 -Renderer mobile` | FXML 加载与标准控件集成。前置：G+J；FXML 资源由脚本安排。 | 控制器、include、资源、输入、多窗口及画面断言。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-texture-lookup.ps1 -Driver d3d12` | Godot 纹理查询/生命周期诊断。前置：G。 | TEXTURE_LOOKUP_PASS 及无非预期错误。 | `-Driver`、`-RenderThread` |
+| `.\scripts\test-render-targets.ps1 -Driver d3d12` | 离屏渲染目标、采样和释放。前置：G。 | GPU 颜色/复制及生命周期断言。 | `-Driver`、`-RenderThread` |
+| `.\scripts\test-mesh-transform.ps1 -Driver d3d12` | QUADS 局部顶点随变换命令绘制（离屏 pass 与 surface 共享命令项两条路径，含变换复位）。前置：G；无 Java 探针。 | MESH_TRANSFORM_PROBE_PASS 与像素边界断言。 | `-Driver` |
+| `.\scripts\test-blit.ps1 -Driver d3d12` | GPU 目标间复制。前置：G+J。 | 复制区域和目标像素断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-composite.ps1 -Driver d3d12` | 透明度与合成模式。前置：G+J。 | 对照合成公式的颜色/alpha 及清理断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-composite-edges.ps1 -Driver d3d12` | 抗锯齿/像素边缘合成对照。前置：G+J；会先运行原生 D3D。 | 20 组布局一致、每个像素在脚本容差内。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-effects.ps1 -Driver d3d12` | JavaFX Effect 与原生输出对照。前置：G+J；先运行 D3D 参考。 | 效果集合、图像容差和宿主完成断言。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-readback.ps1 -Driver d3d12` | 显式 GPU 读回、snapshot 与停止。前置：G+J；特殊模式见下文。 | 像素、buffer、snapshot 或中断路径对应断言。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-node-shaders.ps1 -Driver d3d12` | 指定 Node/子树的 Godot Shader。前置：G+J。 | uniform、裁剪、透明度、子树隔离及 GPU 像素断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-scene-views.ps1 -Driver d3d12` | Godot SubViewport 场景原生基础。前置：G。 | 场景渲染、混合和生命周期断言。 | `-Driver` |
+| `.\scripts\test-scene-textures.ps1 -Driver d3d12` | 场景纹理命令、resize 和加载失败。前置：G+J；MissingScene 是预期故障模式。 | 正常像素/身份保持；等待只统计实际推进的 host tick，每段 10 秒总期限；故障模式要求明确失败传播标记。 | `-Jdk`、`-Driver`、`-Resize`、`-MissingScene` |
+| `.\scripts\test-hover-flicker.ps1 -Driver d3d12` | Viewport 呈现侧悬停回归。前置：G+J+V（探针使用 FusionButton）。默认合成模式：GDScript 按探针标题注入 motion 事件（HOLD 停按钮中心、GAP 移出窗口），不动真实鼠标、不需要置顶；加 `-Robot` 走 Glass Robot 物理档（真实 OS 光标停留在按钮，需桌面空闲、窗口置顶，运行期间勿操作鼠标）。 | 逐帧采样画面，普通按钮悬停色缺失帧 >5% 失败；FusionButton 要求六轮 HOLD/GAP 各有越过 23 帧过渡期的样本，稳定期亮/暗错误比例 >5% 失败。按当前屏幕缩放映射坐标；120 秒宿主期限、Java 侧每次 FX 调用 10 秒超时；FX 异常向主线程传播，退出时停止动画、尝试恢复 Robot 原光标位置并关闭窗口，清理成功后才输出 Java PASS；宿主节点移除后资源必须为零，要求 HOVER_RESOURCE_CLEANUP_PASS。JVM 失败和日志 ERROR/SHADER ERROR 均失败，要求 HOVER_FUSION_PIXEL_PASS。批量提交期呈现竞态（悬停闪回/拖动顿挫同类）回归门。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Robot` |
+| `.\scripts\repro-hover-manual.ps1` | 带 HOVER_TAP/HOVER_SAMPLE 启动 VFX，用户操作并关窗后汇总；前置 G+J+V。`-LogPath` 只分析已有日志，无窗口/构建依赖。 | 诊断入口，无功能 PASS；恒定亮度可能是静态内容，时间相近也不能单独证明因果。原生非零退出或错误日志明确失败。 | `-Jdk`、`-Driver`、`-RenderThread`、`-NoSample`、`-LogPath` |
+| `.\scripts\test-godot-view.ps1 -Driver d3d12` | JavaFX GodotView 布局、场景与输入。前置：G+J；Transform 模式另跑 D3D 参考。 | 场景像素、透明度/裁剪、输入坐标和资源释放断言。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-fxml.ps1 -Driver d3d12` | FXML 加载与标准控件集成。前置：G+J；FXML 资源由脚本安排。 | 控制器、include、资源、输入、多窗口及画面断言。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
 
 ### Media
 
 | 启动命令 | 用途 / 特殊前置条件 | 验收方式 | 可选公共参数 |
 | --- | --- | --- | --- |
-| `.\scripts\test-media-planes.ps1 -Renderer mobile` | YUV/R8、alpha、stride、padding 与 packed 上传。前置：G+J；合成帧，不需真实 MP4。 | GPU 色值、透明度、可见边界和 hold/release 断言。 | `-Jdk`、`-Renderer` |
-| `.\scripts\test-media-audio.ps1 -Renderer mobile` | 音频播放控制。前置：G+J+M；WAV 由 Python 生成两秒静音，`-Codec mp3/aiff/all` 改用 MSVC 编译的 `tests/native/make_audio_fixture.cpp` 本地编码 2 秒 440 Hz 样本（MP3 走 Media Foundation，AIFF 为手写容器）。 | 有限元数据时长(±容差，MP3 允许编码器 padding)、AudioTrack、暂停、有限播放时钟、seek、结束与销毁；回调/清理异常导致失败，AIFF 写入及关闭错误不输出生成 PASS。全程静音，不证明实际听感。 | `-Jdk`、`-Renderer`、`-Runtime`、`-Codec` |
-| `.\scripts\test-media-video.ps1 -Renderer mobile` | 真实 MP4 播放和 MediaView 控制。前置：G+J+M，运行 `python scripts/setup-env.py` 准备样本。默认使用 Oracle，另可选用 1080p 无音轨的 Lk。 | 画面、暂停/seek/EOS/stop/replay、逐像素缩放、裁剪、半透明与清理断言。 | `-Jdk`、`-Renderer`、`-Runtime`、`-NativeD3D`、`-Sample oracle\|lk` |
-| `.\scripts\test-media-churn.ps1 -Renderer mobile` | 循环创建/销毁播放器和视频纹理。前置：G+J+M；先准备 MP4，或 AudioOnly 自动生成 PCM。 | 样本数、播放和清理检查；Providers 增加 AAC 稳定断言，进程内存另做趋势分析。 | `-Jdk`、`-Renderer`、`-Runtime` |
+| `.\scripts\test-media-planes.ps1 -Driver d3d12` | YUV/R8、alpha、stride、padding 与 packed 上传。前置：G+J；合成帧，不需真实 MP4。 | GPU 色值、透明度、可见边界和 hold/release 断言。 | `-Jdk`、`-Driver` |
+| `.\scripts\test-media-audio.ps1 -Driver d3d12` | 音频播放控制。前置：G+J+M；WAV 由 Python 生成两秒静音，`-Codec mp3/aiff/all` 改用 MSVC 编译的 `tests/native/make_audio_fixture.cpp` 本地编码 2 秒 440 Hz 样本（MP3 走 Media Foundation，AIFF 为手写容器）。 | 有限元数据时长(±容差，MP3 允许编码器 padding)、AudioTrack、暂停、有限播放时钟、seek、结束与销毁；回调/清理异常导致失败，AIFF 写入及关闭错误不输出生成 PASS。全程静音，不证明实际听感。 | `-Jdk`、`-Driver`、`-Runtime`、`-Codec` |
+| `.\scripts\test-media-video.ps1 -Driver d3d12` | 真实 MP4 播放和 MediaView 控制。前置：G+J+M，运行 `python scripts/setup-env.py` 准备样本。默认使用 Oracle，另可选用 1080p 无音轨的 Lk。 | 画面、暂停/seek/EOS/stop/replay、逐像素缩放、裁剪、半透明与清理断言。 | `-Jdk`、`-Driver`、`-Runtime`、`-NativeD3D`、`-Sample oracle\|lk` |
+| `.\scripts\test-media-churn.ps1 -Driver d3d12` | 循环创建/销毁播放器和视频纹理。前置：G+J+M；先准备 MP4，或 AudioOnly 自动生成 PCM。 | 样本数、播放和清理检查；Providers 增加 AAC 稳定断言，进程内存另做趋势分析。 | `-Jdk`、`-Driver`、`-Runtime` |
 
 ### VFX 真实 Demo
 
 | 启动命令 | 用途 / 特殊前置条件 | 验收方式 | 可选公共参数 |
 | --- | --- | --- | --- |
-| `.\scripts\test-vfx-intro.ps1 -Renderer mobile` | 真实 Demo 启动、导航和页面截图。前置：G+J+V。 | 导航/画面观察器与宿主完成；AllPages 产出页面 manifest，截图还需审查。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-vfx-dialog.ps1 -Renderer mobile` | 真实 Demo 对话框及故障退出。前置：G+J+V；InjectFailure 为预期异常。 | 普通交互/清理断言，或指定故障和退出路径通过。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-vfx-stage.ps1 -Renderer mobile` | 真实 Demo 的 Stage 与退出。前置：G+J+V；Abrupt 检查提前退出。 | 窗口行为或突然退出的专用标记，无意外异常。 | `-Jdk`、`-Renderer`、`-RenderThread` |
-| `.\scripts\test-vfx-window-controls.ps1 -Renderer mobile` | Demo 窗口按钮、尺寸与状态。前置：G+J+V。 | 原始按钮触发的窗口状态/清理断言。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-vfx-table.ps1 -Renderer mobile` | Demo 表格添加、选择与文本编辑。前置：G+J+V。 | 行数、编辑内容、焦点及画面相关断言。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-vfx-table-scroll.ps1 -Renderer mobile` | 大表格页（50 行×7 列）拖拽滚动性能夹具：空闲窗口 + 默认 96 脉冲锯齿拖动；`-Sweeps 3..30` 每次往返方向段包含 32 脉冲，最多 960，保留全部帧间隔。默认直接驱动视口自身的 DragHandler（不用 OS 输入）；`GODOT_JFX_DRAG_MODE=real` 走完整合成输入管线（`GODOT_JFX_REAL_EVENTS`/帧 可调），`=robot` 用 Glass Robot 移动物理光标（需窗口前台，仅诊断用）。前置：G+J+V。 | `VFX_TABLE_SCROLL(_IDLE)` 排序后帧间隔分位数（GAPS_MS 保留采样时间顺序）；可选 GODOT_JFX_STACK_SAMPLE 必须为正整数毫秒，启用时只作诊断；位移断言（≥200px）、`VFX_TABLE_SCROLL(_IDLE)_STATS` 宿主计数（离屏 pass/encode/presentations/quads 命中，`-Profile` 时含命令级分解）、资源清零。空闲/拖动分别报告 measured_ticks 与 unfocused_ticks；GROWTH 每 8 个拖动 tick 采样并包含首尾。lifetime_max_* 为进程累计最大值，不是区间差值。旧版 unfocused_ticks 只计空闲阶段，不能证明拖动阶段后台运行；robot 模式仍须前台，退出/失败时尝试释放按钮并恢复光标；执行前须获得用户许可，并保持桌面空闲；已有授权仅适用于相应会话，其他会话需确认授权仍有效。GODOT_JFX_DRAG_AXIS=h 选择水平可滚动视口，direct/real 均沿 X 轴驱动；默认纵向。两轴都要求所选轴累计位移 ≥200px。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Profile`、`-Sweeps` |
-| `.\scripts\test-vfx-scroll.ps1 -Renderer mobile` | Demo 横向拖动和表格滚动。前置：G+J+V。 | 滚动位置、几何、像素变化和恢复断言。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-vfx-loading.ps1 -Renderer mobile` | Demo 后台加载、完成与取消。前置：G+J+V；Cancel 选择取消分支。 | 原始进度/完成或取消消息、独立窗口及关闭后状态断言。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-vfx-animation.ps1 -Renderer mobile` | Demo 动画图选择、播放与停止。前置：G+J+V；TimingOnly 不验 GPU 运动。 | 正常模式必须有 GPU 运动证据和端点断言；计时模式只证明其计时路径。 | `-Jdk`、`-Renderer`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-vfx-soak.ps1 -Renderer mobile` | 真实 Demo 多轮前进/后退导航与内存采样。前置：G+J+V；Rounds 1–20，HeapMiB 128–4096；会启动并监视进程，超时/异常清理可终止自身测试进程。 | 完整导航样本、完成及清理；内存是否稳定还须分析 JSON。 | `-Jdk`、`-Renderer` |
+| `.\scripts\test-vfx-intro.ps1 -Driver d3d12` | 真实 Demo 启动、导航和页面截图。前置：G+J+V。 | 导航/画面观察器与宿主完成；AllPages 产出页面 manifest，截图还需审查。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-vfx-dialog.ps1 -Driver d3d12` | 真实 Demo 对话框及故障退出。前置：G+J+V；InjectFailure 为预期异常。 | 普通交互/清理断言，或指定故障和退出路径通过。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-vfx-stage.ps1 -Driver d3d12` | 真实 Demo 的 Stage 与退出。前置：G+J+V；Abrupt 检查提前退出。 | 窗口行为或突然退出的专用标记，无意外异常。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-vfx-window-controls.ps1 -Driver d3d12` | Demo 窗口按钮、尺寸与状态。前置：G+J+V。 | 原始按钮触发的窗口状态/清理断言。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-vfx-table.ps1 -Driver d3d12` | Demo 表格添加、选择与文本编辑。前置：G+J+V。 | 行数、编辑内容、焦点及画面相关断言。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-vfx-table-scroll.ps1 -Driver d3d12` | 大表格页（50 行×7 列）拖拽滚动性能夹具：空闲窗口 + 默认 96 脉冲锯齿拖动；`-Sweeps 3..30` 每次往返方向段包含 32 脉冲，最多 960，保留全部帧间隔。默认直接驱动视口自身的 DragHandler（不用 OS 输入）；`GODOT_JFX_DRAG_MODE=real` 走完整合成输入管线（`GODOT_JFX_REAL_EVENTS`/帧 可调），`=robot` 用 Glass Robot 移动物理光标（需窗口前台，仅诊断用）。前置：G+J+V。 | `VFX_TABLE_SCROLL(_IDLE)` 排序后帧间隔分位数（GAPS_MS 保留采样时间顺序）；可选 GODOT_JFX_STACK_SAMPLE 必须为正整数毫秒，启用时只作诊断；位移断言（≥200px）、`VFX_TABLE_SCROLL(_IDLE)_STATS` 宿主计数（离屏 pass/encode/presentations/quads 命中，`-Profile` 时含命令级分解）、资源清零。空闲/拖动分别报告 measured_ticks 与 unfocused_ticks；GROWTH 每 8 个拖动 tick 采样并包含首尾。lifetime_max_* 为进程累计最大值，不是区间差值。旧版 unfocused_ticks 只计空闲阶段，不能证明拖动阶段后台运行；robot 模式仍须前台，退出/失败时尝试释放按钮并恢复光标；执行前须获得用户许可，并保持桌面空闲；已有授权仅适用于相应会话，其他会话需确认授权仍有效。GODOT_JFX_DRAG_AXIS=h 选择水平可滚动视口，direct/real 均沿 X 轴驱动；默认纵向。两轴都要求所选轴累计位移 ≥200px。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Profile`、`-Sweeps` |
+| `.\scripts\test-vfx-scroll.ps1 -Driver d3d12` | Demo 横向拖动和表格滚动。前置：G+J+V。 | 滚动位置、几何、像素变化和恢复断言。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-vfx-loading.ps1 -Driver d3d12` | Demo 后台加载、完成与取消。前置：G+J+V；Cancel 选择取消分支。 | 原始进度/完成或取消消息、独立窗口及关闭后状态断言。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-vfx-animation.ps1 -Driver d3d12` | Demo 动画图选择、播放与停止。前置：G+J+V；TimingOnly 不验 GPU 运动。 | 正常模式必须有 GPU 运动证据和端点断言；计时模式只证明其计时路径。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
+| `.\scripts\test-vfx-soak.ps1 -Driver d3d12` | 真实 Demo 多轮前进/后退导航与内存采样。前置：G+J+V；Rounds 1–20，HeapMiB 128–4096；会启动并监视进程，超时/异常清理可终止自身测试进程。 | 完整导航样本、完成及清理；内存是否稳定还须分析 JSON。 | `-Jdk`、`-Driver` |
 
 ## 特殊模式与前置条件
 
@@ -423,20 +455,20 @@ Java 调用、宿主 tick 和清理均通过也不能证明系统键盘已显示
 下列是分别执行的命令，不要把所有开关堆在一次运行中：
 
 ```powershell
-.\scripts\test-bridge.ps1 -Encoded -Renderer mobile
-.\scripts\test-bridge.ps1 -StopFromHost -Renderer mobile
-.\scripts\test-bridge.ps1 -Textures -Renderer mobile
-.\scripts\test-bridge.ps1 -PrismTextures -Renderer mobile
-.\scripts\test-bridge.ps1 -ShaderStates -Renderer mobile
-.\scripts\test-bridge.ps1 -PrismContext -Renderer mobile
-.\scripts\test-readback.ps1 -Renderer mobile -Snapshot
-.\scripts\test-readback.ps1 -Renderer mobile -SnapshotStress
-.\scripts\test-readback.ps1 -Renderer mobile -StopDuringRead
-.\scripts\test-scene-textures.ps1 -Renderer mobile -Resize
-.\scripts\test-scene-textures.ps1 -Renderer mobile -MissingScene
-.\scripts\test-failure-shutdown.ps1 -Renderer mobile -Probe FailureApplicationProbe
-.\scripts\test-vfx-dialog.ps1 -Renderer mobile -InjectFailure
-.\scripts\test-vfx-stage.ps1 -Renderer mobile -Abrupt
+.\scripts\test-bridge.ps1 -Encoded -Driver d3d12
+.\scripts\test-bridge.ps1 -StopFromHost -Driver d3d12
+.\scripts\test-bridge.ps1 -Textures -Driver d3d12
+.\scripts\test-bridge.ps1 -PrismTextures -Driver d3d12
+.\scripts\test-bridge.ps1 -ShaderStates -Driver d3d12
+.\scripts\test-bridge.ps1 -PrismContext -Driver d3d12
+.\scripts\test-readback.ps1 -Driver d3d12 -Snapshot
+.\scripts\test-readback.ps1 -Driver d3d12 -SnapshotStress
+.\scripts\test-readback.ps1 -Driver d3d12 -StopDuringRead
+.\scripts\test-scene-textures.ps1 -Driver d3d12 -Resize
+.\scripts\test-scene-textures.ps1 -Driver d3d12 -MissingScene
+.\scripts\test-failure-shutdown.ps1 -Driver d3d12 -Probe FailureApplicationProbe
+.\scripts\test-vfx-dialog.ps1 -Driver d3d12 -InjectFailure
+.\scripts\test-vfx-stage.ps1 -Driver d3d12 -Abrupt
 ```
 
 `Encoded` 验批量编码与背压；`Textures` 验原生命令纹理路径；`PrismTextures` 验生产 Prism Texture；`ShaderStates` 验绘制状态；`PrismContext` 验 Graphics 绘制。读回的 `SnapshotStress` 隐含 `Snapshot`，不能与 `StopDuringRead` 组合。`FailureShutdownProbe` 是 failure-shutdown 的默认 Probe，另一个 Probe 用于 Application 异常路径。故障测试应由脚本的白名单判断，不能看到 ERROR 就直接认定失败，也不能忽略额外异常。
@@ -477,12 +509,12 @@ python scripts/setup-env.py
 ### VFX 页面与交互
 
 ```powershell
-.\scripts\test-vfx-intro.ps1 -AllPages -Renderer mobile
-.\scripts\test-vfx-intro.ps1 -AllPages -PageLimit 5 -Renderer mobile
-.\scripts\test-vfx-loading.ps1 -Cancel -Renderer mobile -RenderThread safe
-.\scripts\test-vfx-animation.ps1 -Renderer mobile -RenderThread safe
-.\scripts\test-vfx-animation.ps1 -TimingOnly -Renderer mobile -RenderThread safe
-.\scripts\test-vfx-soak.ps1 -Renderer mobile -Rounds 3 -HeapMiB 256
+.\scripts\test-vfx-intro.ps1 -AllPages -Driver d3d12
+.\scripts\test-vfx-intro.ps1 -AllPages -PageLimit 5 -Driver d3d12
+.\scripts\test-vfx-loading.ps1 -Cancel -Driver d3d12 -RenderThread safe
+.\scripts\test-vfx-animation.ps1 -Driver d3d12 -RenderThread safe
+.\scripts\test-vfx-animation.ps1 -TimingOnly -Driver d3d12 -RenderThread safe
+.\scripts\test-vfx-soak.ps1 -Driver d3d12 -Rounds 3 -HeapMiB 256
 ```
 
 `PageLimit` 要求 `AllPages`，且不能少于 3 或大于实际页数。`FreezeFusion` 仅是冻结 Fusion 动画的图像差异诊断，不可代替真实动画验收；若使用它，参考截图也必须相同设置。`TimingOnly` 明确不验 GPU 运动。soak 会生成进程、Java 和原生资源报告，但“导航通过”不等于“内存趋势通过”；脚本还会在超时/异常清理时结束自己启动的测试进程，需与不强杀的 Media churn 区分。
@@ -490,11 +522,11 @@ python scripts/setup-env.py
 ### 原生资源隔离与有限 Java 堆
 
 ```powershell
-.\scripts\test-native-churn.ps1 -Kind Idle -Renderer mobile
-.\scripts\test-native-churn.ps1 -Kind SubViewport -Renderer mobile
-.\scripts\test-native-churn.ps1 -Kind Window -Renderer mobile
-.\scripts\test-native-churn.ps1 -Kind JavaFXNativeWindow -Renderer mobile
-.\scripts\test-stage-churn.ps1 -Renderer mobile -Cycles 180 -HeapMiB 128
+.\scripts\test-native-churn.ps1 -Kind Idle -Driver d3d12
+.\scripts\test-native-churn.ps1 -Kind SubViewport -Driver d3d12
+.\scripts\test-native-churn.ps1 -Kind Window -Driver d3d12
+.\scripts\test-native-churn.ps1 -Kind JavaFXNativeWindow -Driver d3d12
+.\scripts\test-stage-churn.ps1 -Driver d3d12 -Cycles 180 -HeapMiB 128
 ```
 
 原生 churn 的 `StaticRangeLimitBytes` 默认 -1，不设内存范围门槛；如设置，应根据需要检验的回归定义合理阈值，不能为了通过随意增大。共享库的 release 构建中某些静态内存计数不可用，读到零不代表没有分配。
@@ -513,25 +545,25 @@ GPU 时间戳回收有限制，零值不表示没有 GPU 开销。窗口 GPU 样
 | 命令 | 用途与特殊前置条件 | 如何验收/解释 |
 | --- | --- | --- |
 | `.\scripts\make-media-fixture.ps1` | 需要 MSVC、Windows SDK、`jfx/build/windows_tools.properties`；本地编码器生成 16 秒 1920×1080 H.264 60 FPS 样本 | 构建及编码成功；独立 reader 验格式和 960 个样本，生成 MP4/hash JSON；不是播放性能证明 |
-| `.\scripts\benchmark-media-frames.ps1 -Native60` | G+J+M；先按上一行准备视频和校验清单；默认 Godot/Vulkan/safe、Rate=1 | 实际 Glass/Prism 身份正确、无失焦；Native60/Rate1 要求绘制 ≥55 FPS，Godot 另要求合成 ≥55 FPS 且背压为零 |
+| `.\scripts\benchmark-media-frames.ps1 -Native60` | G+J+M；先按上一行准备视频和校验清单；默认 Godot/D3D12/safe、Rate=1 | 实际 Glass/Prism 身份正确、无失焦；Native60/Rate1 要求绘制 ≥55 FPS，Godot 另要求合成 ≥55 FPS 且背压为零 |
 | `.\scripts\benchmark-media-frames.ps1 -Native60 -Runtime -ClockSkew -Sample 12` | 追加 Runtime；ClockSkew 测媒体时钟与最新帧时间戳；Sample 0–20 区分文件 | 相同 FPS 门槛；时钟差是软件取样，不是物理音画同步；生成样本没有音轨 |
 | `.\scripts\benchmark-media-frames.ps1 -Backend d3d -Native60 -NoVSync -Sample 19` | J+M；原生 JavaFX 对照，NoVSync 传 `prism.vsync=false` | 不能作为 Godot 验收；不同 VSync 条件不能混作公平后端对照 |
 | `.\scripts\benchmark-media-frames.ps1 -Rate 2 -Sample 12` | G+J+M；使用 Oracle 30 FPS MP4，加速播放到约 60 FPS | 观察输出，不是原生编码 60 FPS 验收；普通模式没有 Native60 的 ≥55 门槛 |
-| `.\scripts\benchmark-vfx-frames.ps1 -Backend safe` | G+J+V；保持前台，默认 Vulkan | 输出十轮动画的 Pulse、P95/P99/最大间隔和宿主合成率；脚本完成不自动保证 ≥60 FPS，应另核对焦点/背压 |
+| `.\scripts\benchmark-vfx-frames.ps1 -Backend safe` | G+J+V；保持前台，默认 Godot D3D12 | 输出十轮动画的 Pulse、P95/P99/最大间隔和宿主合成率；脚本完成不自动保证 ≥60 FPS，应另核对焦点/背压 |
 | `.\scripts\benchmark-vfx-frames.ps1 -Backend d3d` | J+V；原生对照 | 原生 Pulse 与 Godot composition 是不同计数，不能直接当相同的物理帧率 |
 | `.\scripts\benchmark-vfx-frames.ps1 -Backend safe -Trace` | G+J+V；加入逐帧/原生命令统计 | 要求额外 trace 标记齐全；观测可能扰动性能，需与无 Trace 测量区分 |
-| `.\scripts\benchmark-vfx-transitions.ps1 -Renderer mobile -Backend safe` | G+J+V；35 页前进/后退共 68 次翻页的逐页帧率 | 输出每页脉冲 FPS/p50/p95/max 与汇总及宿主计数；必须有 Godot 后端标记、双侧 PASS、RESOURCE_CLEANUP_PASS（宿主移除后资源归零）和正整数 TARGET_SWITCHES（进程累计，不是计时区间差值）；重表格页受单帧内容成本限制，不是 60 FPS 门槛测试 |
-| `.\scripts\profile-vfx-gpu.ps1` | G+J+V；Vulkan GPU profiling 专用场景 | 检查 profile 输出，作为瓶颈定位，不是默认性能验收 |
+| `.\scripts\benchmark-vfx-transitions.ps1 -Driver d3d12 -Backend safe` | G+J+V；35 页前进/后退共 68 次翻页的逐页帧率 | 输出每页脉冲 FPS/p50/p95/max 与汇总及宿主计数；必须有 Godot 后端标记、双侧 PASS、RESOURCE_CLEANUP_PASS（宿主移除后资源归零）和正整数 TARGET_SWITCHES（进程累计，不是计时区间差值）；重表格页受单帧内容成本限制，不是 60 FPS 门槛测试 |
+| `.\scripts\profile-vfx-gpu.ps1` | G+J+V；默认 D3D12，可用 `-Driver vulkan` 或 `-Driver opengl` 采样 | 检查 profile 输出，作为瓶颈定位，不是默认性能验收 |
 | `.\scripts\capture-vfx-reference.ps1` | J+V；用本地 SDK 的 D3D 捕获基线页面 | 记录 D3D 页面与 manifest，不能证明 Godot 画面对齐 |
-| `python scripts/compare-vfx-pages.py --renderer mobile` | Python + Pillow；先完成匹配页数、缩放的 D3D 基线与 Godot AllPages 截图 | 生成配对图和差异统计，人工核对布局/缺失；随机数据和动画不是自动失败依据 |
+| `python scripts/compare-vfx-pages.py --driver d3d12` | Python + Pillow；先完成匹配页数、缩放的 D3D 基线与 Godot AllPages 截图 | 生成配对图和差异统计，人工核对布局/缺失；随机数据和动画不是自动失败依据 |
 | `python scripts/analyze-frame-trace.py agentdir/logs/vfx-frame-benchmark-safe-trace.log` | 先完成对应 Trace benchmark | 检查 trace 完整性并统计；计时区间有重叠，不能直接求和 |
 | `python scripts/analyze-media-churn.py artifacts/reference/media-churn-mobile-cycles24-process-types-providers.json` | 完成同参数 Media churn；按实际生成文件名调整 | 验样本序号/进程、分段趋势、idle 等；斜率单独不能证明是否泄漏 |
 | `python scripts/analyze-media-handles.py agentdir/logs/media-churn-mobile-cycles24-process-types-providers.log --require-stable-aac` | 日志含完整 churn 和 Providers 信息 | AAC 不能比首个采样继续累计；缺少数据或增长会失败，不覆盖所有内存资源 |
 | `python scripts/analyze-vfx-soak.py artifacts/reference/vfx-soak-mobile-3-heap256.json` | 完成 soak，需核对其打印的实际 JSON 路径 | 统计各轮/主页/进程趋势；采样 console launcher 而非真实引擎的结果无效 |
 
-Media 性能脚本还支持 `-FramePhases`、`-ClockSkew`、`-NoVSync`；后端固定 Vulkan，不接受 `-Renderer`。Runtime 不能与 D3D 组合。FramePhases 是 Godot 帧阶段诊断。当前 Native60 样本只有 16 秒，**不要与 Rate=2 组合做十秒测量**：预热后剩余媒体长度不足。VFX 的 `-Host120` 和 `-MailboxFps 60/120/240` 是调度诊断；Mailbox 只允许 Vulkan Godot，不能与 Host120 或 D3D 组合。不要把这些开关作为默认性能条件。
+Media 性能脚本还支持 `-FramePhases`、`-ClockSkew`、`-NoVSync`；Godot 模式默认使用 D3D12，支持 `-Driver d3d12|vulkan|opengl`。Runtime 不能与 D3D 组合。FramePhases 是 Godot 帧阶段诊断。当前 Native60 样本只有 16 秒，**不要与 Rate=2 组合做十秒测量**：预热后剩余媒体长度不足。VFX 的 `-Host120` 和 `-MailboxFps 60/120/240` 是调度诊断；Mailbox 须显式传 `-Driver vulkan`，不能与 Host120 或 D3D 组合。不要把这些开关作为默认性能条件。
 
-复现前三页的 Fusion 边框诊断时，依次运行 `.\scripts\capture-vfx-reference.ps1 -FreezeFusion -PageLimit 3`、`.\scripts\test-vfx-intro.ps1 -Renderer mobile -AllPages -FreezeFusion -PageLimit 3` 和 `python scripts/compare-vfx-pages.py --renderer mobile --frozen`。常规全页验收保留动画。
+复现前三页的 Fusion 边框诊断时，依次运行 `.\scripts\capture-vfx-reference.ps1 -FreezeFusion -PageLimit 3`、`.\scripts\test-vfx-intro.ps1 -Driver d3d12 -AllPages -FreezeFusion -PageLimit 3` 和 `python scripts/compare-vfx-pages.py --driver d3d12 --frozen`。常规全页验收保留动画。
 
 ## 没有包装脚本的诊断探针
 
@@ -546,7 +578,7 @@ Media 性能脚本还支持 `-FramePhases`、`-ClockSkew`、`-NoVSync`；后端�
 
 # 只有 Godot 的帧循环，不加载 JavaFX，用于区分宿主自身的节奏
 . .\scripts\godot-fixture.ps1
-Invoke-GodotFixture --path tests/godot --script res://host_frame_probe.gd --rendering-method mobile --render-thread safe
+Invoke-GodotFixture -Driver d3d12 --path tests/godot --script res://host_frame_probe.gd --render-thread safe
 ```
 
 句柄探针打印自进程类型统计；MF 探针无参数时检查 24 对启动/关闭，传文件时增加 Source Reader 创建/释放，要求 HRESULT 成功及 `MF_LIFECYCLE_PROBE_PASS`。它不读取播放中的全部样本，不代表完整解码链路。宿主帧探针输出配置和 `HOST_FRAME_RESULT`；它不是 JavaFX 性能门槛测试。
@@ -571,11 +603,11 @@ VFX 翻页基准可用 `GODOT_JFX_STACK_SAMPLE` 启用采样；必须是正整�
 ### Mesh 缓存预算与命令保留
 
 - `.\scripts\test-bounded-lru.cmd`：仅需 MSVC。以 `/W4 /WX` 编译独立测试，验证哈希桶碰撞、内容候选拒绝、LRU 淘汰、字节/条目预算、替换计费、资源释放、插入分配失败回滚及整数溢出边界；要求退出码 0 和 `BOUNDED_LRU_PASS`。不启动 GUI。
-- `.\scripts\test-mesh-transform.ps1 -Renderer gl_compatibility -CachePressure`（也可 `-Renderer mobile`）：前置 G。先提交可见图形，再提交 4097 个不同的屏外图形挤出旧缓存，断言缓存限于 4096 项且最早图形仍正确显示；额外目标必须共享 4096 项预算，销毁额外目标后原目标缓存仍在，最后目标释放后新目标从空缓存开始。要求 `SHARED_TARGET_MESH_CACHE_PASS`、`SHARED_TARGET_MESH_RELEASE_PASS`、`MESH_TRANSFORM_PROBE_PASS` 且无 ERROR。该档强制开启 Mesh 缓存，结束后恢复环境。日志为 `mesh-transform-<renderer>-cache-pressure.log`。不操作真实输入设备。
+- `.\scripts\test-mesh-transform.ps1 -CachePressure`（可加 `-Driver opengl`）：前置 G。先提交可见图形，再提交 4097 个不同的屏外图形挤出旧缓存，断言缓存限于 4096 项且最早图形仍正确显示；额外目标必须共享 4096 项预算，销毁额外目标后原目标缓存仍在，最后目标释放后新目标从空缓存开始。要求 `SHARED_TARGET_MESH_CACHE_PASS`、`SHARED_TARGET_MESH_RELEASE_PASS`、`MESH_TRANSFORM_PROBE_PASS` 且无 ERROR。该档强制开启 Mesh 缓存，结束后恢复环境。日志为 `mesh-transform-<driver>-cache-pressure.log`。不操作真实输入设备。
 
 ### 原生窗口立即关闭竞态
 
-`.\scripts\test-window-immediate-close.ps1` 默认使用 OpenGL / safe，可选 `-Renderer mobile`、`-RenderThread safe`、`-Runtime`。前置条件为 G。Runtime 档在 artifacts 建立独立项目，由源码 Editor 导入后通过发布的 DLL 运行。连续 32 次创建不可聚焦的原生 Window、切换 VSync 并立即关闭，中间不等待帧或渲染同步；随后等待渲染队列消费。必须有 32 个周期记录、`WINDOW_IMMEDIATE_CLOSE_PASS`、退出码 0 且无 ERROR。日志 `window-immediate-close-<renderer>-<thread>[-runtime].log`。此测试会短暂创建窗口，但不操作真实鼠标或键盘。
+`.\scripts\test-window-immediate-close.ps1` 默认使用 D3D12 / safe，可选 `-Driver opengl`、`-RenderThread safe`、`-Runtime`。前置条件为 G。Runtime 档在 artifacts 建立独立项目，由源码 Editor 导入后通过发布的 DLL 运行。连续 32 次创建不可聚焦的原生 Window、切换 VSync 并立即关闭，中间不等待帧或渲染同步；随后等待渲染队列消费。必须有 32 个周期记录、`WINDOW_IMMEDIATE_CLOSE_PASS`、退出码 0 且无 ERROR。日志 `window-immediate-close-<driver>-<thread>[-runtime].log`。此测试会短暂创建窗口，但不操作真实鼠标或键盘。
 
 ## LCD 着色器加载检查
 
@@ -583,7 +615,7 @@ VFX 翻页基准可用 `GODOT_JFX_STACK_SAMPLE` 启用采样；必须是正整�
 
 ## LCD 重叠文字对照
 
-`.\scripts\test-lcd-overlap.ps1 [-RenderThread safe]` 需要 G+J，使用 Vulkan/mobile + Viewport。两次运行分别启用原有 LCDBuffer 路径和屏幕采样路径，绘制同位置错开的蓝/红、绿/黑中英文 LCD 文字。两次都是 Godot 后端，不是原生 D3D 对照。脚本要求每次 Java/宿主完成标记及无错误，截图等待新一帧绘制完成，空图像或 PNG 保存失败立即报错；第二次全图 RGBA 差异不超过 2/255、图像包含足够文字像素，并打印 `LCD_OVERLAP_DIFF_PASS`。日志为 `lcd-overlap-<thread>-0/1.log`，截图为 `lcd-overlap-0/1.png`。退出确认使用 Godot 合成点击，不移动真实鼠标或键盘；测试串行运行，期间保持显示缩放和字体环境一致。该夹具覆盖相邻文字节点重叠，不是全部字体或 LCD 兼容性证明。
+`.\scripts\test-lcd-overlap.ps1 [-RenderThread safe]` 需要 G+J，默认使用 D3D12/mobile + Viewport。两次运行分别启用原有 LCDBuffer 路径和屏幕采样路径，绘制同位置错开的蓝/红、绿/黑中英文 LCD 文字。两次都是 Godot 后端，不是原生 D3D 对照。脚本要求每次 Java/宿主完成标记及无错误，截图等待新一帧绘制完成，空图像或 PNG 保存失败立即报错；第二次全图 RGBA 差异不超过 2/255、图像包含足够文字像素，并打印 `LCD_OVERLAP_DIFF_PASS`。日志为 `lcd-overlap-<thread>-0/1.log`，截图为 `lcd-overlap-0/1.png`。退出确认使用 Godot 合成点击，不移动真实鼠标或键盘；测试串行运行，期间保持显示缩放和字体环境一致。该夹具覆盖相邻文字节点重叠，不是全部字体或 LCD 兼容性证明。
 
 ## 已排队纹理版本
 
@@ -591,10 +623,10 @@ VFX 翻页基准可用 `GODOT_JFX_STACK_SAMPLE` 启用采样；必须是正整�
 
 ### 显式 FPS 限制保护
 
-`test-pacing-cap.ps1 -Renderer mobile`（也支持 gl_compatibility、-Jdk）需要源码
+`test-pacing-cap.ps1 -Driver d3d12`（也支持 gl_compatibility、-Jdk）需要源码
 G+J。夹具把 Engine.max_fps 设为 30、VSync 设为开启，让 JVM 存活
 6.5 秒，超过回退采样周期；要求设置均未被覆盖、无回退日志、Java 与宿主 PASS。
-结束恢复夹具原设置，无真实键鼠输入。日志 agentdir/logs/pacing-cap-<renderer>-<mode>.log。
+结束恢复夹具原设置，无真实键鼠输入。日志 agentdir/logs/pacing-cap-<driver>-<mode>.log。
 `-Mode cap` 为默认；`-Mode restore` 用每帧 40 ms 的受控延迟触发真实回退，要求
 Java 结束后及宿主移除后都恢复 max_fps=0、VSync 开启；`-Mode override` 在回退后
 主动改成 47 FPS，要求停止后保留 47、恢复 VSync。后两模式需要显示器刷新率
@@ -602,8 +634,8 @@ Java 结束后及宿主移除后都恢复 max_fps=0、VSync 开启；`-Mode over
 
 ### 网格缓存淘汰后的绘制生命周期
 
-`test-mesh-transform.ps1 -Renderer gl_compatibility -CachePressure`
-（或 mobile）同时挤出 surface 与离屏 target 的初始网格，再检查它们的像素仍正确。
+`test-mesh-transform.ps1 -CachePressure`
+同时挤出 surface 与离屏 target 的初始网格，再检查它们的像素仍正确。
 缓存应保持 4096 项。可在当前进程设置 `GODOT_JFX_SLOT_REUSE=0` 验证不复用槽的
 路径，结束后恢复原值；此测试不操作真实键鼠。它覆盖缓存淘汰时的已记录绘制，
 不代表 GPU 分配失败测试。
@@ -698,15 +730,15 @@ Java/宿主协议连续复用同一离屏目标：显式红色、参数省略后
 
 ## 菜单打开后渲染进展
 
-`.\scripts\test-menu-click.ps1 -Renderer mobile -RenderThread safe` 需要 G+J+V，
+`.\scripts\test-menu-click.ps1 -Driver d3d12 -RenderThread safe` 需要 G+J+V，
 固定使用 Viewport＋safe，默认渲染器为 mobile。探针最大化原始 VFX Demo，
 浏览六页，然后由 Godot 按当前屏幕缩放合成菜单点击，不操作真实鼠标/键盘。
 测试用回调包装器调用原菜单动作并记录其成功次数（必须恰好一次），保持业务
 动作不变；六秒后正常结束，宿主还要求完成渲染序号及合成提交数相对点击前增加。
 Java/宿主 PASS、退出码 0、无 ERROR/SHADER ERROR/异常才通过。FX 定时器有
 45 秒期限，独立宿主循环有 60 秒期限；无阻塞 FX sleep 或后台无限 latch 等待。
-日志 `agentdir/logs/menu-click-<renderer>-<thread>.log`。它检查菜单动作与后续
-渲染进展，不证明菜单所有像素或物理鼠标交互。可选 `-Jdk`、`-Renderer`、`-RenderThread`。
+日志 `agentdir/logs/menu-click-<driver>-<thread>.log`。它检查菜单动作与后续
+渲染进展，不证明菜单所有像素或物理鼠标交互。可选 `-Jdk`、`-Driver`、`-RenderThread`。
 
 窗口拖动夹具 `WindowDragProbe` 为避开实际光标只读取当前位置；成功创建的
 Glass Robot 在读取结束或异常时通过 finally 释放。它不移动真实鼠标，实际拖动
@@ -716,7 +748,7 @@ Glass Robot 在读取结束或异常时通过 finally 释放。它不移动真�
 ## 真实 Demo 的 LoadingStage 按钮悬停
 
 `.\scripts\test-hover-demo.ps1 -CompileOnly` 仅编译；需要 J+V，不启动窗口或操作输入。
-实际运行使用 `.\scripts\test-hover-demo.ps1 -Renderer mobile -RenderThread safe -Robot`，
+实际运行使用 `.\scripts\test-hover-demo.ps1 -Driver d3d12 -RenderThread safe -Robot`，
 前置 G+J+V，**必须事先征得用户同意并保持桌面空闲**。该夹具仍为真实鼠标路径，
 不以合成输入替代八轮渐进靠近、2.5 秒保持、渐进移出与 1.2 秒间隔。
 
@@ -725,9 +757,9 @@ Java 侧所有节点访问在 FX 线程，调用等待有 10 秒期限，退出�
 （HOLD 跳过前 31 帧；GAP 的 VFX 退出过渡是墙钟驱动，按 GAP 标题首次出现后 500ms
 跳过，避免帧率下降时过渡跨越更多帧被误判）；固定亮度阈值 0.30、稳定期亮/暗错误
 比例不得超过 5%。退出码 0、HOVER_DEMO_PASS、HOVER_DEMO_PIXEL_PASS 及无错误日志才
-通过。macOS 入口为 `./scripts/test-hover-demo.sh --renderer mobile|gl_compatibility`
+通过。macOS 入口为 `./scripts/test-hover-demo.sh --driver metal|opengl`
 （双渲染器已通过）。日志
-`agentdir/logs/hover-demo-<renderer>-<thread>.log`，异常亮度图像位于 artifacts/reference。
+`agentdir/logs/hover-demo-<driver>-<thread>.log`，异常亮度图像位于 artifacts/reference。
 早期记录仅有编译和解析；后续 `hover-demo-mobile-safe.log` 包含 Java 与像素通过标记（hold=861、gap=511），这不是 separate 模式的证明。逐帧读回/事件日志不能作为 FPS 基准。
 
 Stage 渲染测试 `test-stage.ps1` 的像素映射使用浮点捕获宽度比例，只在图像坐标
@@ -793,7 +825,7 @@ OLE 注入观察器在创建场景前创建并关闭临时 DND ClipboardAssistan
 `agentdir/logs/scroll-settings.log`；支持 `-Jdk`。不启动窗口、不修改系统滚轮
 设置，也不操作输入设备；它不证明所有设置下 JavaFX 控件的实际滚动效果。
 
-IME 输入回归的 `test-ime.ps1 -Renderer mobile -SpacedClick` 在每次合成按钮事件后
+IME 输入回归的 `test-ime.ps1 -Driver d3d12 -SpacedClick` 在每次合成按钮事件后
 等待两帧，用于隔离输入记录/组合文本路径，日志增加 `-spaced` 后缀。默认不加
 参数，保留同帧 press/release。2026-11-10 默认路径曾发现焦点/IME 回调重入导致
 release 先于 press，现已限制同步 IME 分派范围并通过 mobile/GL 默认回归；
@@ -823,12 +855,12 @@ PATH/INCLUDE/LIB，播放不继承编译器搜索路径。原来不存在的变�
 `test-node-shaders.ps1 -Jdk D:\jdk-25.0.3+9` also requires the identity shader to
 preserve fine black/white stripes at 2x snapshot scale, reporting
 `NODE_SHADER_HIDPI_IDENTITY_PASS`. This detects whole-subtree downsampling even
-when the shader itself leaves every pixel unchanged. Use `-Renderer mobile` or
-`-Renderer gl_compatibility`; both renderers use Viewport with safe threading.
+when the shader itself leaves every pixel unchanged. Use `-Driver d3d12` or
+`-Driver opengl`; both renderers use Viewport with safe threading.
 
 ## VFX click ripple effect
 
-After `build-vfx.ps1`, run `test-vfx-ripple.ps1` (mobile/safe/Viewport), `-Renderer gl_compatibility`, or `-NativeD3D`. Require `VFX_RIPPLE_PROBE_PASS`
+After `build-vfx.ps1`, run `test-vfx-ripple.ps1` (mobile/safe/Viewport), `-Driver opengl`, or `-NativeD3D`. Require `VFX_RIPPLE_PROBE_PASS`
 and, for Godot, `GODOT_VFX_RIPPLE_PASS`, with no shader/runtime errors.
 The fixture verifies the menu checkbox and Scene-root scope, coexistence with
 blackhole, left-only click positions and overlap, idle/expired restoration, GPU animation, transparent corners,
@@ -856,6 +888,6 @@ operate physical input devices. See
 a partial upload before any draw must preserve untouched pixels, and a second
 partial upload must preserve the revision retained by the first queued draw.
 Both RGBA8 and floating-point RGBA textures are checked.
-This runs in both the default texture case and `-ViewportState`, using safe threading. Add `-Renderer gl_compatibility -ViewportState` for
+This runs in both the default texture case and `-ViewportState`, using safe threading. Add `-Driver opengl -ViewportState` for
 OpenGL patch coverage. Region uploads default on; referenced textures still
 use the immutable-revision path.

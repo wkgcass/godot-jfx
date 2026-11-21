@@ -1,17 +1,17 @@
 #!/bin/sh
 # macOS equivalent of test-vfx-animation.ps1. --runtime needs the Windows
 # release-template fixture layout and is not ported.
-# Usage: test-vfx-animation.sh [--renderer mobile|gl_compatibility] [--render-thread safe] [--timing-only]
+# Usage: test-vfx-animation.sh [--driver metal|opengl] [--render-thread safe] [--timing-only]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 RENDER_THREAD="safe"
 TIMING_ONLY=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --timing-only) TIMING_ONLY=1 ;;
         --runtime) echo "--runtime is not ported to macOS yet" >&2; exit 2 ;;
@@ -19,7 +19,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -58,10 +58,10 @@ export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_ANIMATION_TIMING_ONLY="$TIMING_ONLY"
 SUFFIX=""
 [ "$TIMING_ONLY" -eq 1 ] && SUFFIX="-timing-only"
-LOG="agentdir/logs/vfx-animation-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/vfx-animation-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://vfx_animation.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://vfx_animation.tscn \
+    --render-thread "$RENDER_THREAD" || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_VFX_ANIMATION_PASS' "$LOG" \
     || ! grep -q 'VFX_ANIMATION_PROBE_PASS' "$LOG" \
@@ -75,10 +75,10 @@ if [ "$TIMING_ONLY" -eq 1 ]; then
     exit 0
 fi
 for step in 0 1 2 3 4 5 6 7; do
-    cp "artifacts/reference/vfx-animation-$step.png" "artifacts/reference/vfx-animation-$RENDERER-$RENDER_THREAD-$step.png"
+    cp "artifacts/reference/vfx-animation-$step.png" "artifacts/reference/vfx-animation-$DRIVER-$RENDER_THREAD-$step.png"
 done
 grep -q 'VFX_ANIMATION_GPU_MOTION' "$LOG" || { echo "No GPU motion evidence: $LOG" >&2; exit 1; }
 for file in motion-start.png motion.json; do
-    cp "artifacts/reference/vfx-animation-$file" "artifacts/reference/vfx-animation-$RENDERER-$RENDER_THREAD-$file"
+    cp "artifacts/reference/vfx-animation-$file" "artifacts/reference/vfx-animation-$DRIVER-$RENDER_THREAD-$file"
 done
 echo "VFX animation passed: $LOG"

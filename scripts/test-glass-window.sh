@@ -1,18 +1,21 @@
 #!/bin/sh
 # macOS equivalent of test-glass-window.ps1.
-# Usage: test-glass-window.sh [--runtime]
+# Usage: test-glass-window.sh [--driver metal|opengl] [--runtime]
 set -u
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
 RUNTIME=0
+DRIVER="metal"
 while [ $# -gt 0 ]; do
     case "$1" in
+        --driver) DRIVER="${2-}"; shift ;;
         --runtime) RUNTIME=1 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
@@ -56,10 +59,10 @@ if [ "$RUNTIME" -eq 1 ]; then
     sed 's|res://main.tscn|res://window.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
     "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Runtime fixture import failed. See $LOG.import" >&2; exit 1; fi
-    (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" \
+    (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \
         --quit-after 3000) || CODE=$?
 else
-    run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://window.tscn \
+    run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://window.tscn \
         --quit-after 3000 || CODE=$?
 fi
 if [ "$CODE" -ne 0 ] \

@@ -7,7 +7,7 @@
 > for current commands.
 
 
-The VFX Demo requests `GodotRuntime.StartupWindow.LOGO` before launching JavaFX.
+The VFX Demo sets `javafx.godot.startupWindow` before JavaFX starts the host automatically. Its default is `logo`; ordinary applications default to `hidden`.
 The native window stays hidden while the engine starts.
 The first JavaFX window requested with `show()` becomes the startup window:
 its current size, position, title and decorations are used for the Godot logo.
@@ -19,7 +19,7 @@ Application input is withheld for this window while the startup layer is active;
 window close requests remain available. Later shows do not repeat the logo.
 Hiding or destroying the startup window cancels its pending startup display.
 
-Use `scripts/run-vfx-demo.ps1 -NoGodotLogo` or `scripts/run-vfx-demo.sh --no-godot-logo` to select `StartupWindow.HIDDEN`. The first completed JavaFX frame reveals the application. Applications can select either mode with `GodotRuntime.Options`. The logo uses Godot's built-in splash image centered at its original size.
+Use `scripts/run-vfx-demo.ps1 -NoGodotLogo` or `scripts/run-vfx-demo.sh --no-godot-logo` to select `hidden`. The first completed JavaFX frame reveals the application. Applications can pass `-Djavafx.godot.startupWindow=hidden|normal|logo` before the JAR or main class. The logo uses Godot's built-in splash image centered at its original size.
 
 ## Validation
 
@@ -28,7 +28,7 @@ Build the shared engine, SDK and platform JARs, then run:
 ```powershell
 .\scripts\test-startup.ps1
 .\scripts\test-startup.ps1 -RenderThread safe
-.\scripts\test-startup.ps1 -Renderer gl_compatibility
+.\scripts\test-startup.ps1 -Driver opengl
 .\scripts\run-vfx-demo.ps1 -Smoke -NoGodotLogo
 ```
 
@@ -42,5 +42,5 @@ It samples visible Godot HWNDs every 20 ms to reject the initial validation
 window. This sampling cannot exclude visibility changes shorter than 20 ms;
 GPU readback also does not prove physical monitor presentation timing.
 No physical keyboard or mouse input is generated. Logs use
-`agentdir/logs/startup-<mode>-<renderer>-<thread>`; the logo readback is
+`agentdir/logs/startup-<mode>-<driver>-<thread>`; the logo readback is
 `artifacts/reference/startup-logo.png`. Require `STARTUP_PASS` and no errors.

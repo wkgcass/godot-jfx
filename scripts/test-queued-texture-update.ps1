@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$BatchBoundary, [switch]$ViewportState)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$BatchBoundary, [switch]$ViewportState)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -22,8 +22,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Queued texture update probe compilation failed' }
     if($BatchBoundary){$env:JAVA_TOOL_OPTIONS="$savedJvm --add-opens=javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED"}
     $env:GODOT_JFX_JDK = $Jdk
-    $log = "agentdir/logs/queued-texture-update-$Renderer-$RenderThread$(if($BatchBoundary){'-boundary'})$(if($ViewportState){'-viewport-state'}).log"
-    Invoke-GodotFixture --path tests/godot res://queued_texture_update.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 10000 *> $log
+    $log = "agentdir/logs/queued-texture-update-$Driver-$RenderThread$(if($BatchBoundary){'-boundary'})$(if($ViewportState){'-viewport-state'}).log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://queued_texture_update.tscn --render-thread $RenderThread --quit-after 10000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($output -notmatch 'PARTIAL_TEXTURE_UPDATE_PASS') { throw 'Partial texture update check incomplete' }

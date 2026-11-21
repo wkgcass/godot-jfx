@@ -2,7 +2,7 @@
 
 本清单以引入自定义 JavaFX 宿主之前的源码为基线，列出此后新增的 Java ↔ Godot 桥接方法。正文记录当前接口，历史表保留已移除的入口。
 
-**Downcall** 指 Java 调原生代码，**upcall** 指原生代码调 Java。产品有 **38 个 JNI downcall**（4 个引擎入口、34 个动态注册方法）和 **3 种 JNI upcall**。场景测试夹具额外声明 2 个 downcall、增加 1 种 upcall，并复用产品的 macOS 主线程回调。下表按 Java 声明写出参数类型、名称、顺序和返回类型，省略 JVM 自动传入的 `JNIEnv*` 和类引用。计数单位是方法或回调用途；一次 `submit` 可以包含多条绘制命令，一次输入读取也可以返回多条事件。
+**Downcall** 指 Java 调原生代码，**upcall** 指原生代码调 Java。产品有 **38 个 JNI downcall**（4 个引擎入口、34 个动态注册方法）和 **3 种 JNI upcall**。场景测试夹具额外声明 2 个 downcall、增加 1 种 upcall，并复用产品的 Java 驱动解析逻辑和 macOS 主线程回调。下表按 Java 声明写出参数类型、名称、顺序和返回类型，省略 JVM 自动传入的 `JNIEnv*` 和类引用。计数单位是方法或回调用途；一次 `submit` 可以包含多条绘制命令，一次输入读取也可以返回多条事件。
 
 频率按源码中的调用点定性分级。**高**表示随帧、连续输入或注明的活动密集调用；**中**表示随复制、窗口变更、截图等按需操作或定期采样调用；**低**表示仅在启动、退出、异常处理或少数专用场景调用。测试表按运行探针时的频率评估，历史表按移除前的实现评估。单次耗时和每秒调用次数需另行测量。
 
@@ -30,18 +30,20 @@
 
 | 方法及参数 | 返回类型与含义 | 平台与实际路径 | 频率与触发条件 |
 | --- | --- | --- | --- |
-| `run(Class<?> bridge, Runnable ready, String library, String project, boolean pack, String renderer, String startup, boolean disableVsync, int maxFps, boolean verbose)` | `void`。创建并驱动引擎，退出主循环、清理后返回。桥接注册成功后先调用 `ready.run()`。 | 两边共用。Windows 在 Java 创建的宿主线程驱动引擎；macOS 切到 AppKit 主线程。 | **低** · 每次启动引擎一次，调用持续到引擎退出。 |
+| `run(Class<?> bridge, Runnable ready, String library, String project, boolean pack, String driver, String startup, boolean disableVsync, int maxFps, boolean verbose)` | `void`。创建并驱动引擎，退出主循环、清理后返回。桥接注册成功后先调用 `ready.run()`。 | 两边共用。Windows 在 Java 创建的宿主线程驱动引擎；macOS 切到 AppKit 主线程。 | **低** · 每次启动引擎一次，调用持续到引擎退出。 |
 | `requestStop()` | `void`。设置停止标志；引擎线程随后退出主循环。 | 两边共用 | **低** · 关闭已加载的引擎时请求停止。 |
 | `mountScenePack(byte[] contents)` | `void`。挂载内存中的 PCK 场景包，失败抛异常。 | 两边共用 | **低** · 无外部项目且 JAR 含场景包时，在启动阶段挂载一次。 |
 | `runOnAppKitThread(Runnable callback)` | `void`。仅 macOS，在 AppKit 主线程执行回调，完成后返回，异常传回调用方。 | macOS 专用。Windows 直接执行 Java 的 loop.run()。 | **低** · macOS 启动引擎循环时调用一次。 |
 
-`library` 是已加载的引擎库路径。`project` 为 null 时以无项目模式启动；有值时，`pack` 区分 PCK 和项目目录。`renderer`、`startup` 选择渲染器和启动窗口策略，`maxFps > 0` 时传入帧率上限。[Java 声明与实参](../jfx/modules/javafx.graphics/src/main/java/com/sun/javafx/tk/godot/LibraryGodotEngine.java) · [原生引擎入口](../native/godot_modules/javafx/javafx_library.cpp) · [AppKit 入口](../native/godot_modules/javafx/javafx_library_macos.mm)
+`library` 是已加载的引擎库路径。`project` 为 null 时以无项目模式启动；有值时，`pack` 区分 PCK 和项目目录。`driver`、`startup` 指定驱动和启动窗口策略，`maxFps > 0` 时传入帧率上限。[Java 声明与实参](../jfx/modules/javafx.graphics/src/main/java/com/sun/javafx/tk/godot/LibraryGodotEngine.java) · [原生引擎入口](../native/godot_modules/javafx/javafx_library.cpp) · [AppKit 入口](../native/godot_modules/javafx/javafx_library_macos.mm)
+
+普通应用的 `LibraryGodotEngine.run` 和场景夹具的 `GodotSceneFixture.run` 共用驱动选择逻辑。Java 在进入 JNI 前解析选项、JVM 属性和平台默认值，将选定的驱动传入原生代码。原生端据此选择 Godot 渲染方法。启动后核对实际驱动并输出 `GODOT_LIBRARY_DRIVER`，回退导致启动失败。
 
 ### 绘制、调度与输入（GodotBridge，8 个）
 
 | 方法及参数 | 返回类型与含义 | 平台与实际路径 | 频率与触发条件 |
 | --- | --- | --- | --- |
-| `submit(ByteBuffer frame, int byteLength)` | `boolean`。从直接缓冲区复制并校验命令批次。`true` 表示已入队，`false` 表示队列已满，可用同一序号重试。非法批次或宿主停止会抛异常。 | 两边共用。共用批次和队列；mobile 后端在 Windows 用 Vulkan，在 macOS 用 Metal。 | **高** · 每个非空绘制批次提交一次，一帧可有多个批次；队列满时重试。 |
+| `submit(ByteBuffer frame, int byteLength)` | `boolean`。从直接缓冲区复制并校验命令批次。`true` 表示已入队，`false` 表示队列已满，可用同一序号重试。非法批次或宿主停止会抛异常。 | 两边共用。共用批次和队列；mobile 在 Windows 可使用 Vulkan 或 D3D12，在 macOS 使用 Metal。 | **高** · 每个非空绘制批次提交一次，一帧可有多个批次；队列满时重试。 |
 | `readPixels(long handle, long sequence, int x, int y, int width, int height)` | `int[]`。在指定渲染序号完成后读回目标矩形，逐行紧排 ARGB_PRE 像素。读回等待遇宿主停止可返回 null。 | 两边共用 | **中** · 应用请求快照或显式读回像素时调用；连续截图时可升高。 |
 | `awaitTick(long after, int timeoutMillis)` | `long`。宿主通用唤醒计数。 | 两边共用 | **中** · 默认在遇到背压、等待窗口创建或输入法确认时调用。设置 `GODOT_JFX_FRAME_PULSE=0` 后为高，调度线程循环调用。 |
 | `awaitFrameTick(long after, int timeoutMillis)` | `long`。宿主帧计数。 | 两边共用。Windows 外拖时 OLE 模态循环可暂停宿主帧通知；macOS 外拖会话异步运行。 | **高** · 默认帧接收线程持续等待，收到宿主帧通知或超时后再次调用。 |
@@ -113,7 +115,7 @@
 
 | 方向 | GodotSceneFixture 方法及参数 | 返回类型与含义 | 平台与实际路径 | 频率与触发条件 |
 | --- | --- | --- | --- | --- |
-| Downcall | `run(String library, String[] arguments)` | `int`。以共享库路径和引擎参数运行夹具，正常返回 Godot 退出码；原生创建或启动失败可返回 1。 | 两边共用。Windows 从夹具 main 直接进入，macOS 由 AppKit 主线程进入。 | **低** · 每次场景夹具启动一次。 |
+| Downcall | `run(String library, String driver, String[] arguments)` | `int`。以共享库路径、驱动和引擎参数运行夹具，正常返回 Godot 退出码；原生创建或启动失败可返回 1。 | 两边共用。Windows 从夹具 main 直接进入，macOS 由 AppKit 主线程进入。 | **低** · 每次场景夹具启动一次。 |
 | Downcall，仅 macOS | `runOnAppKitThread(Runnable loop)` | `void`。复用上述 AppKit 主线程回调；夹具在 Java 闭包内保存 `run` 的退出码。 | macOS 专用。Windows 夹具直接调用 run。 | **低** · macOS 夹具启动时切到主线程一次。 |
 | Upcall | `runProbe(String mainClass)` | `void`。宿主的夹具工作线程传入探针主类名；Java 调用其 main 并等待渲染线程退出，失败可抛 Throwable。 | 两边共用 | **低** · 宿主启动指定 Java 探针时调用一次。 |
 
@@ -123,6 +125,7 @@
 
 | 方向 | 当时的 GodotBridge 方法及参数 | 返回类型与含义 | 平台与实际路径 | 频率与触发条件 |
 | --- | --- | --- | --- | --- |
+| Upcall | `System.getProperty("javafx.godot.driver")` | `String`。曾从原生端查询 JVM 驱动属性。 | 两平台的库和场景启动现由 Java 传入解析好的驱动。 | **低** · 原为每次引擎启动一次。 |
 | Downcall | `clipboardWriteText(String text)` | `void`。将 Unicode 纯文本写入 Windows 剪贴板。 | Windows 专用。macOS 移植前已删除。 | **低** · 移除前的 Glass 常规写入已走多格式入口，未见产品调用点。 |
 | Downcall | `clipboardHasText()` | `boolean`。Windows 剪贴板提供 Unicode 文本格式时返回 true。 | Windows 专用。macOS 移植前已删除。 | **低** · 移除前的 Glass 枚举已走格式位掩码，未见产品调用点。 |
 | Downcall | `isRDDirectCompiled()` | `boolean`。宿主在编译时启用旧 RD-direct 后端时返回 true。 | Windows 专用。macOS 移植前已删除。 | **低** · 旧管线启动诊断或构建能力探针查询时调用。 |

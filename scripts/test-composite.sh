@@ -1,21 +1,21 @@
 #!/bin/sh
 # macOS equivalent of test-composite.ps1.
-# Usage: test-composite.sh [--renderer gl_compatibility|mobile] [--render-thread safe]
+# Usage: test-composite.sh [--driver metal|opengl] [--render-thread safe]
 set -u
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="gl_compatibility"
+DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -33,10 +33,10 @@ mkdir -p artifacts/reference agentdir/logs
     -encoding UTF-8 -d artifacts/reference tests/reference/CompositeProbe.java || { echo "Composite probe compilation failed" >&2; exit 1; }
 
 export GODOT_JFX_JDK="$JDK"
-LOG="agentdir/logs/composite-$RENDERER-$RENDER_THREAD.log"
+LOG="agentdir/logs/composite-$DRIVER-$RENDER_THREAD.log"
 CODE=0
-python3 "$FIXTURE_LAUNCHER" --path tests/godot res://composite.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://composite.tscn \
+    --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'COMPOSITE_PROBE_PASS' "$LOG" \
     || ! grep -q 'GODOT_COMPOSITE_PASS' "$LOG" \
@@ -44,5 +44,5 @@ if [ "$CODE" -ne 0 ] \
     echo "Composite test failed: $LOG" >&2
     exit 1
 fi
-cp artifacts/reference/godot-composite.png "artifacts/reference/godot-composite-$RENDERER-$RENDER_THREAD.png"
+cp artifacts/reference/godot-composite.png "artifacts/reference/godot-composite-$DRIVER-$RENDER_THREAD.png"
 echo "Composite passed: $LOG"

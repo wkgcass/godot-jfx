@@ -5,22 +5,22 @@
 # screen-recording permission the system redacts other processes' window
 # names, in which case only the visibility timing is enforced (noted in the
 # output).
-# Usage: test-startup.sh [--renderer mobile|gl_compatibility] [--render-thread safe]
+# Usage: test-startup.sh [--driver metal|opengl] [--render-thread safe]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -40,10 +40,10 @@ now_ms() { python3 -c 'import time; print(int(time.time() * 1000))'; }
 
 run_case() {
     case_name="$1" mode="$2" cancel="$3"
-    prefix="agentdir/logs/startup-$case_name-$RENDERER-$RENDER_THREAD"
+    prefix="agentdir/logs/startup-$case_name-$DRIVER-$RENDER_THREAD"
     GODOT_JFX_JDK="$JDK" GODOT_JFX_STARTUP="$mode" GODOT_JFX_STARTUP_CANCEL="$cancel" \
-        python3 "$FIXTURE_LAUNCHER" --path tests/godot res://startup.tscn \
-        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" >"$prefix.log" 2>&1 &
+        python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://startup.tscn \
+        --render-thread "$RENDER_THREAD" >"$prefix.log" 2>&1 &
     pid=$!
     start=$(now_ms)
     visible=0
@@ -101,7 +101,7 @@ run_case() {
     if [ "$titles_known" -ne 1 ]; then
         note=" (window titles unavailable: screen-recording permission missing; timing enforced)"
     fi
-    echo "STARTUP_PASS $case_name $RENDERER $RENDER_THREAD (native visibility sampled every 20 ms)$note"
+    echo "STARTUP_PASS $case_name $DRIVER $RENDER_THREAD (native visibility sampled every 20 ms)$note"
 }
 
 for case_spec in "logo logo 0" "hidden hidden 0" "logo-cancel logo 1" "hidden-cancel hidden 1"; do

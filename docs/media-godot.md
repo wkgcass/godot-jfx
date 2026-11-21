@@ -95,7 +95,7 @@ pipeline. Glass and JavaFX continue to handle UI events on their existing thread
 
 ```powershell
 .\scripts\test-media-audio.ps1
-.\scripts\test-media-audio.ps1 -Renderer gl_compatibility
+.\scripts\test-media-audio.ps1 -Driver opengl
 .\scripts\test-media-audio.ps1 -Runtime
 .\scripts\test-media-audio.ps1 -Codec all
 ```
@@ -132,9 +132,9 @@ Allocation does not upload the first frame twice; the media handler owns upload.
 
 ```powershell
 .\scripts\test-media-planes.ps1
-.\scripts\test-media-planes.ps1 -Renderer gl_compatibility
+.\scripts\test-media-planes.ps1 -Driver opengl
 .\scripts\test-media-video.ps1
-.\scripts\test-media-video.ps1 -Renderer gl_compatibility
+.\scripts\test-media-video.ps1 -Driver opengl
 .\scripts\test-media-video.ps1 -Runtime
 .\scripts\test-media-video.ps1 -NativeD3D
 ```

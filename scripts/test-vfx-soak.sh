@@ -3,24 +3,24 @@
 # (RSS, standing in for working set) and /dev/fd counts instead of the Windows
 # process APIs; the pass criteria (navigation samples, completion, cleanup)
 # are unchanged.
-# Usage: test-vfx-soak.sh [--renderer mobile|gl_compatibility] [--rounds 1..20] [--heap-mib 128..4096]
+# Usage: test-vfx-soak.sh [--driver metal|opengl] [--rounds 1..20] [--heap-mib 128..4096]
 set -u
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 ROUNDS=3
 HEAP=256
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --rounds) ROUNDS="$2"; shift ;;
         --heap-mib) HEAP="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in mobile|gl_compatibility) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 [ "$ROUNDS" -ge 1 ] && [ "$ROUNDS" -le 20 ] || { echo "invalid rounds: $ROUNDS" >&2; exit 2; }
 [ "$HEAP" -ge 128 ] && [ "$HEAP" -le 4096 ] || { echo "invalid heap MiB: $HEAP" >&2; exit 2; }
 
@@ -42,13 +42,13 @@ export GODOT_JFX_VFX_SOAK=1
 export GODOT_JFX_VFX_FREEZE=0
 export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Xmx${HEAP}m"
 
-STEM="vfx-soak-$RENDERER-$ROUNDS-heap$HEAP"
+STEM="vfx-soak-$DRIVER-$ROUNDS-heap$HEAP"
 LOG="agentdir/logs/$STEM.log"
 ERR="agentdir/logs/$STEM.stderr.log"
 TIMEOUT=$((120 + ROUNDS * PAGES * 8))
 
-python3 "$FIXTURE_LAUNCHER" --path tests/godot res://vfx_soak.tscn \
-    --rendering-method "$RENDERER" --render-thread safe >"$LOG" 2>"$ERR" &
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://vfx_soak.tscn \
+    --render-thread safe >"$LOG" 2>"$ERR" &
 PID=$!
 SAMPLES=""
 ELAPSED=0

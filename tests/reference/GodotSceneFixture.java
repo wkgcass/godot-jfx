@@ -7,7 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public final class GodotSceneFixture {
-    private static native int run(String library, String[] arguments);
+    private static native int run(String library, String driver, String[] arguments);
 
     private static native void runOnAppKitThread(Runnable loop);
 
@@ -28,13 +28,14 @@ public final class GodotSceneFixture {
             if (!options.contains("--")) options.add("--");
             options.add("--javafx-startup=" + startup);
         }
+        String driver = GodotBootstrap.resolveDriver(null);
         String[] engineArguments = options.toArray(String[]::new);
         if (System.getProperty("os.name").startsWith("Mac")) {
             int[] result = {1};
-            runOnAppKitThread(() -> result[0] = run(library, engineArguments));
+            runOnAppKitThread(() -> result[0] = run(library, driver, engineArguments));
             System.exit(result[0]);
         }
-        System.exit(run(library, engineArguments));
+        System.exit(run(library, driver, engineArguments));
     }
 
     private static void runProbe(String mainClass) throws Throwable {

@@ -1,13 +1,13 @@
 #!/bin/sh
 # macOS equivalent of test-bridge.ps1. Each probe is a separate mode; run the
 # script once per mode exactly like the Windows switches.
-# Usage: test-bridge.sh [--renderer gl_compatibility|mobile] [--render-thread safe]
+# Usage: test-bridge.sh [--driver metal|opengl] [--render-thread safe]
 #        [--stop-from-host|--encoded|--textures|--prism-textures|--shader-states|--prism-context]
 set -u
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="gl_compatibility"
+DRIVER="metal"
 RENDER_THREAD="safe"
 STOP_FROM_HOST=0
 ENCODED=0
@@ -17,7 +17,7 @@ SHADER_STATES=0
 PRISM_CONTEXT=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --stop-from-host) STOP_FROM_HOST=1 ;;
         --encoded) ENCODED=1 ;;
@@ -29,7 +29,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 MODES=$((STOP_FROM_HOST + ENCODED + TEXTURES + PRISM_TEXTURES + SHADER_STATES + PRISM_CONTEXT))
@@ -42,7 +42,7 @@ SUFFIX=""
 [ "$PRISM_TEXTURES" -eq 1 ] && SUFFIX="$SUFFIX-prism-textures"
 [ "$SHADER_STATES" -eq 1 ] && SUFFIX="$SUFFIX-shaders"
 [ "$PRISM_CONTEXT" -eq 1 ] && SUFFIX="$SUFFIX-context"
-[ "$RENDERER" != "gl_compatibility" ] && SUFFIX="$SUFFIX-$RENDERER"
+SUFFIX="$SUFFIX-$DRIVER"
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
@@ -72,8 +72,8 @@ export GODOT_JFX_TEST_PRISM_TEXTURES="$PRISM_TEXTURES"
 
 LOG="agentdir/logs/m2-bridge$SUFFIX.log"
 CODE=0
-python3 "$FIXTURE_LAUNCHER" --path tests/godot res://bridge.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://bridge.tscn \
+    --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'M2_BRIDGE_PASS' "$LOG" \
     || ! grep -q 'BRIDGE_PROBE_PASS' "$LOG" \
@@ -90,15 +90,15 @@ if [ "$ENCODED" -eq 1 ] && ! grep -q 'ENCODER_BACKPRESSURE_OBSERVED' "$LOG"; the
     exit 1
 fi
 if [ "$TEXTURES" -eq 1 ]; then
-    cp artifacts/reference/godot-texture-versions.png "artifacts/reference/godot-texture-versions-$RENDERER.png"
+    cp artifacts/reference/godot-texture-versions.png "artifacts/reference/godot-texture-versions-$DRIVER.png"
 fi
 if [ "$PRISM_TEXTURES" -eq 1 ]; then
-    cp artifacts/reference/godot-prism-textures.png "artifacts/reference/godot-prism-textures-$RENDERER.png"
+    cp artifacts/reference/godot-prism-textures.png "artifacts/reference/godot-prism-textures-$DRIVER.png"
 fi
 if [ "$SHADER_STATES" -eq 1 ]; then
-    cp artifacts/reference/godot-shader-bridge.png "artifacts/reference/godot-shader-bridge-$RENDERER.png"
+    cp artifacts/reference/godot-shader-bridge.png "artifacts/reference/godot-shader-bridge-$DRIVER.png"
 fi
 if [ "$PRISM_CONTEXT" -eq 1 ]; then
-    cp artifacts/reference/godot-prism-context.png "artifacts/reference/godot-prism-context-$RENDERER.png"
+    cp artifacts/reference/godot-prism-context.png "artifacts/reference/godot-prism-context-$DRIVER.png"
 fi
 echo "M2 bridge test passed. Log: $LOG"

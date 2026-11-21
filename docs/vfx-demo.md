@@ -4,7 +4,13 @@ Launch the full interactive Demo with `java -jar artifacts/vfx/libs/vfx-demo.jar
 Build it on the target platform with `scripts/build-vfx.ps1` or `./scripts/build-vfx.sh`
 after the shared Godot library and Media-enabled SDK are available. The JAR contains
 the original Intro application, its pages, images, Godot shader controls and
-platform-native libraries. Both run scripts select this JAR by default.
+platform-native libraries. Both run scripts select this JAR by default. Their driver options pass the same JVM property. Use `./scripts/run-vfx-demo.ps1 -Driver d3d12 -Smoke` on Windows or `./scripts/run-vfx-demo.sh --driver metal --smoke` on macOS.
+On Windows, the Demo defaults to D3D12. To choose another driver, run
+`java "-Djavafx.godot.driver=vulkan" -jar artifacts/vfx/libs/vfx-demo.jar`
+or pass `--driver opengl` after the Demo JAR name for OpenGL. The Demo CLI takes
+precedence over the JVM property. JavaFX starts the host automatically after the Demo configures the driver and startup window.
+On macOS, omit the property for the Metal default or use
+`java -Djavafx.godot.driver=metal -jar artifacts/vfx/libs/vfx-demo.jar` to request Metal explicitly.
 To check startup and shutdown, add `--smoke` to the JAR command. This starts the
 same Intro UI, checks the visible Stage and its menu, then sends a close request.
 [Windows build](build-windows.md) · [macOS build](build-macos.md).
@@ -58,7 +64,7 @@ their original JavaFX hit-testing positions while their rendered pixels move.
 ```powershell
 .\scripts\build-vfx.ps1
 .\scripts\test-vfx-ripple.ps1
-.\scripts\test-vfx-ripple.ps1 -Renderer gl_compatibility
+.\scripts\test-vfx-ripple.ps1 -Driver opengl
 .\scripts\test-vfx-ripple.ps1 -NativeD3D
 ```
 
@@ -123,7 +129,7 @@ ordinary JavaFX the control is absent.
 .\scripts\build-vfx.ps1
 .\scripts\run-vfx-demo.ps1
 .\scripts\test-vfx-blackhole.ps1
-.\scripts\test-vfx-blackhole.ps1 -Renderer gl_compatibility
+.\scripts\test-vfx-blackhole.ps1 -Driver opengl
 .\scripts\test-vfx-blackhole.ps1 -NativeD3D
 ```
 
@@ -135,9 +141,11 @@ disable, and mapping after resize. An edge marker verifies distortion inside
 the group when the pointer is outside it, while title bar pixels remain unchanged.
 It also checks Scene exit/reentry and final host
 resource cleanup. Captures are under `artifacts/reference/vfx-blackhole-*` and
-logs under `agentdir/logs/vfx-blackhole-*`. The D3D case only checks that the
-unsupported control is absent. These checks are not physical-input or
-frame-rate acceptance.
+logs under `agentdir/logs/vfx-blackhole-*`. The Windows regression matrix runs
+the pixel checks on Godot D3D12, Vulkan and OpenGL. The separate `-NativeD3D`
+case checks that the Godot-only control is absent on the standard JavaFX pipeline.
+See [current Windows results](acceptance-status.md#validation-evidence) for
+the per-driver outcome.
 
 2026-11-12 validation of the pure lens shader and checkbox: the source VFX build
 and the complete fixture pass on
@@ -162,7 +170,7 @@ monotonic progress reaching 1.0, automatic loading-window closure and the origin
 "loading complete" message. Loader and alert must have distinct independent
 native identities; final window/presentation drain and zero owned resources are
 required. OpenGL/safe, Vulkan/separate and packaged Runtime Vulkan/separate pass.
-The loading/complete GPU captures were inspected. Run with `-Renderer`,
+The loading/complete GPU captures were inspected. Run with `-Driver`,
 `-RenderThread` and optionally `-Runtime`; outputs use the `vfx-loading-` prefix.
 `-Cancel` additionally clicks the original loading-window CloseButton before
 completion and requires the localized cancellation alert. It waits 500 ms for
@@ -200,7 +208,7 @@ OpenGL/safe, Vulkan/separate and packaged Runtime Vulkan/separate pass at 200% s
 Captures of committed Chinese
 text and sorted rows were inspected. This is injected character input, not native
 IME composition, and does not cover multi-column sorting, horizontal scrolling or
-all table variants. Run `scripts/test-vfx-table.ps1` with `-Renderer`, `-RenderThread`
+all table variants. Run `scripts/test-vfx-table.ps1` with `-Driver`, `-RenderThread`
 and optionally `-Runtime`; logs and PNGs use the `vfx-table-` prefix under artifacts.
 
 2026-11-02 native-window update: VfxDialogProbe now uses the target JavaFX window's
@@ -227,7 +235,7 @@ Run from the workspace root:
 .\scripts\build-windows.ps1 -Target jfx
 .\scripts\build-vfx.ps1
 .\scripts\test-vfx-intro.ps1
-.\scripts\test-vfx-intro.ps1 -Renderer mobile
+.\scripts\test-vfx-intro.ps1 -Driver d3d12
 .\scripts\test-vfx-intro.ps1 -AllPages
 .\scripts\capture-vfx-reference.ps1
 ```
@@ -243,8 +251,8 @@ For interactive use, `java -jar artifacts/vfx/libs/vfx-demo.jar` runs
 `VfxDemoMain`, which initializes the packaged engine and calls the original
 `io.vproxy.vfx.intro.IntroMain`. The scene tests use the published platform
 JARs and compiled observers on the Java classpath. Logs are
-agentdir/logs/vfx-build.log and vfx-intro-<renderer>.log. Captures are
-artifacts/reference/vfx-intro-<renderer>.png and vfx-intro-next-<renderer>.png.
+agentdir/logs/vfx-build.log and vfx-intro-<driver>.log. Captures are
+artifacts/reference/vfx-intro-<driver>.png and vfx-intro-next-<driver>.png.
 
 Both GL compatibility and Vulkan mobile pass startup, the application's own
 Next navigation (411 changed central samples on GL), one native window and
@@ -260,9 +268,9 @@ only after a queued render job. Navigation still uses the Demo's Next button
 through host mouse input. Fixed-delay clicking proved insufficient on LCD-heavy
 table pages; it could miss pages and capture an older frame. The observer makes
 those failures visible rather than counting clicks as visited pages. Captures
-and a completion manifest are saved in artifacts/reference/vfx-pages-<renderer>.
-All-page logs use vfx-intro-<renderer>-all-pages.log. The two-page smoke stores its
-manifest in vfx-smoke-<renderer>, so later smoke runs cannot replace the all-page
+and a completion manifest are saved in artifacts/reference/vfx-pages-godot-<driver>.
+All-page logs use vfx-intro-<driver>-all-pages.log. The two-page smoke stores its
+manifest in vfx-smoke-godot-<driver>, so later smoke runs cannot replace the all-page
 completion record. Earlier runs used a shared log/manifest location.
 
 The reference helper renders all 35 original scenes using this SDK's Windows
@@ -300,9 +308,9 @@ windows do not repeat the logo. See [startup behavior and tests](startup-window.
 
 ## macOS arm64
 
-The macOS runners are `scripts/test-vfx-*.sh` with `--renderer/--render-thread`
+The macOS runners are `scripts/test-vfx-*.sh` with `--driver/--render-thread`
 arguments matching the PowerShell switches. The interactive launcher is
-`scripts/run-vfx-demo.sh` (`--smoke`, `--renderer`, `--disable-vsync`,
+`scripts/run-vfx-demo.sh` (`--smoke`, `--driver`, `--disable-vsync`,
 `--max-fps`), equivalent to `run-vfx-demo.ps1`, and the VFX classes are built
 and packaged with `./scripts/build-vfx.sh` instead of
 `build-vfx.ps1`. VStage emulates maximize on macOS

@@ -55,38 +55,40 @@ mac 上 Media 由这一次 Gradle SDK 构建启用（AVFoundation 后端），�
 ```powershell
 # 首选直接启动本平台完整 Demo JAR；两个 run-vfx-demo 脚本默认也启动此 JAR
 java -jar artifacts/vfx/libs/vfx-demo.jar
-# 记录日志，使用 Viewport + safe 和默认 Vulkan/mobile 渲染器
+# 记录日志，使用 Viewport + safe 和默认 D3D12/mobile 渲染器
 .\scripts\run-vfx-demo.ps1
 # 有界启动/关闭检查
 .\scripts\run-vfx-demo.ps1 -Smoke
+# 为本次启动显式选择 Godot 驱动
+.\scripts\run-vfx-demo.ps1 -Driver vulkan -Smoke
 # 诊断后端（不代表每个测试都接受这些参数）
-.\scripts\run-vfx-demo.ps1 -Renderer gl_compatibility
+.\scripts\run-vfx-demo.ps1 -Driver opengl
 # 关闭 swapchain vsync 改用 CPU pacing（MaxFps 缺省 60，可填实际刷新率）
 .\scripts\run-vfx-demo.ps1 -DisableVsync -MaxFps 60
 
 python scripts/maven_local.py install           # 将场景与探针依赖安装到本项目的 .m2/repository
 .\scripts\test-protocol.cmd
-.\scripts\test-media-planes.ps1 -Renderer mobile
+.\scripts\test-media-planes.ps1 -Driver d3d12
 .\scripts\test-media-video.ps1
-.\scripts\test-godot-view.ps1 -Renderer mobile -Transform
-.\scripts\test-vfx-intro.ps1 -Renderer mobile -AllPages
+.\scripts\test-godot-view.ps1 -Driver d3d12 -Transform
+.\scripts\test-vfx-intro.ps1 -Driver d3d12 -AllPages
 ```
 
 macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 
 ```sh
-./scripts/run-vfx-demo.sh                     # --smoke / --renderer mobile|gl_compatibility / --disable-vsync / --max-fps 60
+./scripts/run-vfx-demo.sh                     # --smoke / --driver metal|opengl / --disable-vsync / --max-fps 60
 ./scripts/maven_local.py install
 ./scripts/test-protocol.sh
-./scripts/test-media-planes.sh --renderer mobile
+./scripts/test-media-planes.sh --driver metal
 ./scripts/test-media-video.sh
-./scripts/test-godot-view.sh --renderer mobile --transform
-./scripts/test-vfx-intro.sh --renderer mobile --all-pages
+./scripts/test-godot-view.sh --driver metal --transform
+./scripts/test-vfx-intro.sh --driver metal --all-pages
 ```
 
 场景测试用 classpath 加载本机发布的平台 JAR，由同一 Java 进程加载 `godot.dll` 或 `libgodot.dylib` 并运行夹具。准备好源码 Editor、Godot 共享库和启用 Media 的 SDK 后，运行 `.\scripts\build-vfx.ps1` 一并刷新发行包。Editor 用于导入/导出资源；`-Runtime` 使用单独的夹具项目目录。Windows 非 Robot 组也包含模块路径、Shadow 和 Demo JAR 消费验收。
 
-按改动范围选测试，详见 TESTS.md。GUI 和性能测试串行运行，保持测试窗口前台，不与构建或其他 GPU 重负载并行。默认 VFX/Media 基准为 Godot；显式 `-Backend d3d` 或 `-NativeD3D` 是原生 JavaFX 对照，不能当作 Godot 验收。
+按改动范围选测试，详见 TESTS.md。Windows 回归分组和适用的单项测试均默认只跑 Godot D3D12。回归耗时较长，平时优先用 `-Test` 选择相关用例。NonRobot 和 Robot 两组均支持 `-Driver vulkan`、`-Driver opengl` 和三后端矩阵 `-Driver all`，用 `-List` 可预览。macOS 的分组和适用单项默认只跑 Metal，显式用 `--driver opengl` 选择 OpenGL，或用 `--driver all` 跑双后端。GUI 和性能测试串行运行，保持测试窗口前台，不与构建或其他 GPU 重负载并行。默认 VFX/Media 基准为 Godot；显式 `-Backend d3d` 或 `-NativeD3D` 是原生 JavaFX 对照，不能当作 Godot 验收。
 
 ## 不应破坏的约束
 

@@ -2,23 +2,23 @@
 # macOS equivalent of test-media-video.ps1. The -NativeD3D and -Runtime modes
 # are Windows-only and are not ported; the scene fixture keeps the same
 # checks.
-# Usage: test-media-video.sh [--renderer mobile|gl_compatibility] [--sample oracle|lk]
+# Usage: test-media-video.sh [--driver metal|opengl] [--sample oracle|lk]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 SAMPLE="oracle"
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --sample) SAMPLE="$2"; shift ;;
         --runtime|--native-d3d) echo "$1 is not ported to macOS" >&2; exit 2 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in mobile|gl_compatibility) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
@@ -55,11 +55,11 @@ run_watchdog() {
 
 export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_MEDIA_FILE="$PWD/$VIDEO"
-export GODOT_JFX_MEDIA_CAPTURE="$PWD/artifacts/reference/media-video-$RENDERER$suffix.png"
-LOG="agentdir/logs/media-video-$RENDERER$suffix.log"
+export GODOT_JFX_MEDIA_CAPTURE="$PWD/artifacts/reference/media-video-$DRIVER$suffix.png"
+LOG="agentdir/logs/media-video-$DRIVER$suffix.log"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://media_video.tscn \
-    --rendering-method "$RENDERER" --render-thread safe || CODE=$?
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://media_video.tscn \
+    --render-thread safe || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'MEDIA_VIDEO_PROBE_PASS' "$LOG" \
     || ! grep -q 'MEDIA_VIDEO_CONTROLS_PASS' "$LOG" \

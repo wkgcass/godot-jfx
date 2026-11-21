@@ -1,7 +1,7 @@
 ﻿#Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk = $env:JAVA_HOME,
-    [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',
+    [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12',
     [switch]$Runtime)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
@@ -108,7 +108,7 @@ try {
     }).AddArgument($syncPath).AddArgument((Join-Path $root 'tests/reference/ClipboardSnapshot.cs'))
     $exchange=$clipShell.BeginInvoke(); $exchangePending=$true
     $suffix=if($Runtime){'-runtime'}else{''}
-    $log = Join-Path $root "agentdir/logs/clipboard-$Renderer$suffix.log"
+    $log = Join-Path $root "agentdir/logs/clipboard-$Driver$suffix.log"
     if($Runtime){
         $fixture=Join-Path $root 'artifacts/runtime-clipboard'
         New-Item -ItemType Directory -Force $fixture | Out-Null
@@ -118,10 +118,10 @@ try {
         & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if($LASTEXITCODE -ne 0){throw "Clipboard runtime import failed: $log.import"}
         Push-Location $fixture
-        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread safe --quit-after 3000 *> $log }
+        try { Invoke-GodotFixture -Driver $Driver --render-thread safe --quit-after 3000 *> $log }
         finally { Pop-Location }
     }else{
-        Invoke-GodotFixture --path tests/godot res://clipboard.tscn --rendering-method $Renderer --render-thread safe --quit-after 3000 *> $log
+        Invoke-GodotFixture -Driver $Driver --path tests/godot res://clipboard.tscn --render-thread safe --quit-after 3000 *> $log
     }
     $result = $LASTEXITCODE
     try { $exchangeOutput=$clipShell.EndInvoke($exchange) } finally { $exchangePending=$false }

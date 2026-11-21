@@ -1,7 +1,7 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
 param([string]$Jdk=$env:JAVA_HOME,
-    [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile',
+    [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12',
     [ValidateRange(1,20)][int]$Rounds=3,
     [ValidateRange(128,4096)][int]$HeapMiB=256)
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -19,12 +19,12 @@ try {
     $env:GODOT_JFX_JDK=$Jdk;$env:GODOT_JFX_VFX_PAGES="$pages";$env:GODOT_JFX_VFX_ROUNDS="$Rounds"
     $env:GODOT_JFX_VFX_SOAK='1';$env:GODOT_JFX_VFX_FREEZE='0'
     $env:JAVA_TOOL_OPTIONS="$($saved['JAVA_TOOL_OPTIONS']) -Xmx${HeapMiB}m"
-    $stem="vfx-soak-$Renderer-$Rounds-heap$HeapMiB"
+    $stem="vfx-soak-$Driver-$Rounds-heap$HeapMiB"
     $log=Join-Path $root "agentdir/logs/$stem.log"
     $err=Join-Path $root "agentdir/logs/$stem.stderr.log"
     # Sample the Java process that has loaded the engine DLL.
     $engine=Join-Path $Jdk 'bin/java.exe'
-    $process=Start-GodotFixture -ArgumentList @('--path','tests/godot','res://vfx_soak.tscn','--rendering-method',$Renderer,'--render-thread','safe') -WorkingDirectory $root -Log $log -ErrorLog $err
+    $process=Start-GodotFixture -Driver $Driver -ArgumentList @('--path','tests/godot','res://vfx_soak.tscn','--render-thread','safe') -WorkingDirectory $root -Log $log -ErrorLog $err
     $samples=[Collections.Generic.List[object]]::new()
     $watch=[Diagnostics.Stopwatch]::StartNew()
     while(!$process.WaitForExit(1000)) {

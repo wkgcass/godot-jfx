@@ -6,3 +6,9 @@ function Invoke-NativeOutput {
     $PSNativeCommandUseErrorActionPreference = $false
     & $program @args 2>&1 | ForEach-Object { $_.ToString() }
 }
+
+function Assert-GodotDriver {
+    param([string]$Driver, [string]$Log)
+    & python "$PSScriptRoot/godot_driver.py" --driver $Driver.ToLowerInvariant() $Log
+    if ($LASTEXITCODE) { throw "Godot driver verification failed: $Log" }
+}

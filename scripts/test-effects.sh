@@ -3,24 +3,24 @@
 # stock macOS Prism pipeline (Metal by default) instead of D3D; the Godot
 # scene still reads artifacts/reference/d3d-effects.png, so the reference
 # keeps that file name.
-# Usage: test-effects.sh [--renderer gl_compatibility|mobile] [--render-thread safe] [--runtime]
+# Usage: test-effects.sh [--driver metal|opengl] [--render-thread safe] [--runtime]
 set -u
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="gl_compatibility"
+DRIVER="metal"
 RENDER_THREAD="safe"
 RUNTIME=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --runtime) RUNTIME=1 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -44,7 +44,7 @@ fi
 export GODOT_JFX_JDK="$JDK"
 SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
-LOG="$PWD/agentdir/logs/effects-$RENDERER$SUFFIX.log"
+LOG="$PWD/agentdir/logs/effects-$DRIVER$SUFFIX.log"
 if [ "$RUNTIME" -eq 1 ]; then
     FIXTURE="$PWD/artifacts/runtime-effects"
     mkdir -p "$FIXTURE"
@@ -54,16 +54,16 @@ if [ "$RUNTIME" -eq 1 ]; then
     "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Effects runtime import failed: $LOG.import" >&2; exit 1; fi
     CODE=0
-    (cd "$FIXTURE" && python3 "$FIXTURE_LAUNCHER" \
-        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1) || CODE=$?
+    (cd "$FIXTURE" && python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \
+        --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1) || CODE=$?
 else
     CODE=0
-    python3 "$FIXTURE_LAUNCHER" --path tests/godot res://effects.tscn \
-        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
+    python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://effects.tscn \
+        --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
 fi
 echo "EFFECTS_NATIVE_EXIT_CODE $CODE" >>"$LOG"
 if [ -f artifacts/reference/godot-effects.png ]; then
-    cp artifacts/reference/godot-effects.png "artifacts/reference/godot-effects-$RENDERER$SUFFIX.png"
+    cp artifacts/reference/godot-effects.png "artifacts/reference/godot-effects-$DRIVER$SUFFIX.png"
 fi
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_EFFECTS_PASS' "$LOG" \

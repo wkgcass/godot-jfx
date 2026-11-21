@@ -1,7 +1,7 @@
 # VFX frame benchmarks and diagnostics
 
-The supported host path is **Viewport + safe**. Renderer choices are `mobile`
-and `gl_compatibility`; native JavaFX/D3D runs are explicit comparisons. No
+The supported host path is **Viewport + safe**. Windows driver choices are `d3d12` (default),
+`vulkan` and `opengl`; native JavaFX/D3D runs are explicit comparisons. No
 performance environment variables are required for the Demo or ordinary tests.
 Run GUI measurements serially with the test window focused, without concurrent
 builds or GPU-heavy work. Historical RD/separate measurements are in
@@ -21,8 +21,8 @@ builds or GPU-heavy work. Historical RD/separate measurements are in
 | `./scripts/profile-vfx-loading.ps1` | Ripple animation plus a LoadingStage/alert window; pulse rate per phase |
 | `./scripts/profile-vfx-gpu.ps1` | Built-in Godot GPU profile plus host command timing; diagnostic project uses 8192 timestamp slots |
 
-`-Renderer gl_compatibility` is accepted by the frame, transition, table and menu
-wrappers. `profile-vfx-gpu.ps1` uses mobile. See [TESTS.md](../TESTS.md) for
+The frame, transition, table, menu and GPU profiling scripts accept `-Driver`.
+The mailbox diagnostic requires `-Driver vulkan`. See [TESTS.md](../TESTS.md) for
 additional options, prerequisites and physical-input fixtures.
 
 For a frame trace:
@@ -63,7 +63,7 @@ The menu profile runs five five-second phases: closed idle, initial opening,
 open-menu ripples, closed-menu ripples and repeated opening/closing. Ripples
 spawn every 0.5 seconds; the final phase toggles the menu every 0.7 seconds
 with ripples off. `MENU_PERF` reports pulse rate, p95/max gaps and focus loss.
-Current logs are `agentdir/logs/vfx-menu-<renderer>-safe-<default|full>.log`.
+Current logs are `agentdir/logs/vfx-menu-<driver>-safe-<default|full>.log`.
 
 Small patches update only dirty rectangles of unreferenced GPU textures.
 Referenced textures receive a new immutable revision. Packed pixels are uploaded

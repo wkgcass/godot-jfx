@@ -24,7 +24,7 @@ prerequisite; do not run SCons concurrently in the same checkout):
 .\scripts\build-windows.ps1 -Target godot-library
 .\scripts\stage-godot-library.ps1
 .\scripts\test-m1.ps1
-.\scripts\test-m1.ps1 -Renderer mobile
+.\scripts\test-m1.ps1 -Driver d3d12
 ```
 
 `JavaFXRenderSurface` is a main-thread resource owner with an offscreen
@@ -86,7 +86,7 @@ Each surface now owns eight baseline RIDs (viewport, canvas, draw item,
 presentation item, and two shader/material pairs), plus an optional image,
 background item and one mesh per quad batch. Clear releases meshes; exit
 releases all owned resources. The existing 100-cycle test now includes mesh
-creation and disposal. GPU captures are godot-prism-vertices-<renderer>.png.
+creation and disposal. GPU captures are godot-prism-vertices-<driver>.png.
 This validates vertex transport, not stock Prism shaders or JavaFX controls.
 
 Source textures additionally support transparent allocation and region

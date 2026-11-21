@@ -1,18 +1,18 @@
 #!/bin/sh
 # macOS equivalent of test-queued-texture-update.ps1.
-# Usage: test-queued-texture-update.sh [--renderer mobile|gl_compatibility] [--render-thread safe]
+# Usage: test-queued-texture-update.sh [--driver metal|opengl] [--render-thread safe]
 #        [--batch-boundary] [--viewport-state]
 set -u
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 RENDER_THREAD="safe"
 BATCH=0
 VIEWPORT=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --batch-boundary) BATCH=1 ;;
         --viewport-state) VIEWPORT=1 ;;
@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 if [ "$BATCH" -eq 1 ] && [ "$VIEWPORT" -eq 1 ]; then
     echo "Choose one fixture mode" >&2
@@ -49,10 +49,10 @@ export GODOT_JFX_JDK="$JDK"
 SUFFIX=""
 [ "$BATCH" -eq 1 ] && SUFFIX="-boundary"
 [ "$VIEWPORT" -eq 1 ] && SUFFIX="$SUFFIX-viewport-state"
-LOG="agentdir/logs/queued-texture-update-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/queued-texture-update-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
-python3 "$FIXTURE_LAUNCHER" --path tests/godot res://queued_texture_update.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 10000 >"$LOG" 2>&1 || CODE=$?
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://queued_texture_update.tscn \
+    --render-thread "$RENDER_THREAD" --quit-after 10000 >"$LOG" 2>&1 || CODE=$?
 if ! grep -q 'PARTIAL_TEXTURE_UPDATE_PASS' "$LOG"; then
     echo "Partial texture update check incomplete: $LOG" >&2
     exit 1

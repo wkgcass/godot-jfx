@@ -46,11 +46,12 @@ For a module-path development run, resolve one JAR for each module. Use the Wind
 & "$env:JAVA_HOME/bin/java.exe" --module-path 'D:\myapp\target\modules' --add-modules javafx.controls,javafx.media --enable-native-access=javafx.graphics,javafx.media -cp 'D:\myapp\classes' example.MyApplication
 ```
 
-The default host starts with an empty scene tree, uses `mobile` and hides the window until its first presentation. An application using GodotView can include `META-INF/godot-jfx/scenes.pck` as a resource. An explicit imported directory or PCK remains available for applications that intend to launch an existing Godot project. [Library specification](godot-library-spec.md).
+The default host starts with an empty scene tree, uses `mobile` with Direct3D 12 and hides the window until its first presentation. An application using GodotView can include `META-INF/godot-jfx/scenes.pck` as a resource. An explicit imported directory or PCK remains available for applications that intend to launch an existing Godot project. [Library specification](godot-library-spec.md).
 
-```java
-GodotRuntime.init(new GodotRuntime.Options(projectPath, "mobile",
-        GodotRuntime.StartupWindow.LOGO));
+For example, select a project and show the startup logo with ordinary JavaFX startup:
+
+```powershell
+java "-Djavafx.godot.project=D:\myapp\scenes.pck" "-Djavafx.godot.startupWindow=logo" -jar app.jar
 ```
 
 An application module requires `javafx.controls` and exports its Application package to `javafx.graphics`. Resolve `javafx.media` when using Media. `-Dprism.order=d3d` selects the stock Windows backend for control runs. Supply its Windows native directory using `-Djava.library.path` when consuming Maven jars outside the SDK.
@@ -124,7 +125,7 @@ The JavaFX module now builds only the Viewport host, with safe rendering.
 There is no `-JavaFXRDDirect`/`javafx_rd_direct` build option or backend capability
 JNI query. Build logs are `godot-editor.log` and `godot-library.log`.
 Rebuild both the host and local JFX SDK after this removal. Godot's RenderingDevice
-and Vulkan/OpenGL renderer implementations remain enabled; the host still targets
+and D3D12, Vulkan and OpenGL renderer implementations remain enabled; the host still targets
 Windows x64 as the reference platform, with macOS arm64 now ported separately
 (see [build-macos.md](build-macos.md)); Linux remains unvalidated.
 
@@ -203,7 +204,12 @@ Build the `godot-library` target and the Media-enabled JavaFX SDK, then run
 complete Intro Demo. Launch it with `java -jar artifacts/vfx/libs/vfx-demo.jar`.
 `.\scripts\run-vfx-demo.ps1` starts the same JAR and records a log.
 The default launch uses
-Vulkan/safe and ordinary VSync. Secondary Stages use independent native windows.
+D3D12/safe and ordinary VSync. To select a driver for a single JVM, run
+`java "-Djavafx.godot.driver=vulkan" -jar app.jar`. Valid values are
+`d3d12`, `vulkan` and `opengl`. The property also works for the VFX Demo
+and takes precedence over project settings. An explicit driver in GodotRuntime.Options takes priority over the JVM property.
+The Java host also applies the selected driver to applications that load a custom project.
+Secondary Stages use independent native windows.
 Only `safe` is supported by the JavaFX host.
 
 Host-frame pulses, batched passes, direct offscreen/final-target draws and

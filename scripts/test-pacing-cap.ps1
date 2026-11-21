@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('mobile','gl_compatibility')][string]$Renderer='mobile', [ValidateSet('cap','restore','override')][string]$Mode='cap')
+param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('cap','restore','override')][string]$Mode='cap')
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $savedJdk=$env:GODOT_JFX_JDK
@@ -14,8 +14,8 @@ try {
     $env:GODOT_JFX_JDK=$Jdk
     $env:GODOT_JFX_VSYNC_FALLBACK='1'
     $env:GODOT_JFX_TEST_PACING_MODE=$Mode
-    $log="agentdir/logs/pacing-cap-$Renderer-$Mode.log"
-    Invoke-GodotFixture --path tests/godot res://pacing_cap.tscn --rendering-method $Renderer *> $log
+    $log="agentdir/logs/pacing-cap-$Driver-$Mode.log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://pacing_cap.tscn *> $log
     $code=$LASTEXITCODE
     $output=Get-Content $log -Raw
     if($code -ne 0 -or $output -notmatch '(?m)^PACING_CAP_PASS' -or $output -notmatch 'PACING_CAP_JAVA_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|Exception)' -or (($Mode -eq 'cap') -eq ($output -match 'JAVAFX_VSYNC_FALLBACK'))){throw "Pacing cap test failed: $log"}

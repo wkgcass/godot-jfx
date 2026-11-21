@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [string]$Jdk = $env:JAVA_HOME,
-    [ValidateSet('mobile','gl_compatibility')][string]$Renderer = 'mobile',
+    [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12',
     [ValidateSet('safe')][string]$RenderThread = 'safe'
 )
 . "$PSScriptRoot/godot-fixture.ps1"
@@ -18,8 +18,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Loading performance probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_PROFILE_COMMANDS = '1'
-    $log = "agentdir/logs/vfx-loading-perf-$Renderer-$RenderThread.log"
-    Invoke-GodotFixture --path tests/godot res://vfx_loading_perf.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+    $log = "agentdir/logs/vfx-loading-perf-$Driver-$RenderThread.log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://vfx_loading_perf.tscn --render-thread $RenderThread *> $log
     $code = $LASTEXITCODE
     $output = Get-Content -LiteralPath $log -Raw
     if ($code -ne 0 -or $output -notmatch 'VFX_LOADING_PERF_PASS' -or $output -notmatch 'GODOT_VFX_LOADING_PERF_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)|uncaught:|AssertionError') {

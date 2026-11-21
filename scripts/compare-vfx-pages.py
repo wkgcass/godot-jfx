@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """Visual triage, not a pass/fail oracle (Demo data includes time and randomness)."""
+from godot_driver import DEFAULT_DRIVER, add_driver_argument
 import argparse
 import json
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageChops, ImageStat
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--renderer", default="gl_compatibility")
+add_driver_argument(parser)
 parser.add_argument("--frozen", action="store_true", help="Compare diagnostic captures with FusionButton animation disabled")
 args = parser.parse_args()
+driver = args.driver or DEFAULT_DRIVER
 root = Path(__file__).resolve().parents[1] / "artifacts/reference"
-actual = root / ("vfx-pages-" + ("frozen-" if args.frozen else "") + args.renderer)
+actual = root / ("vfx-pages-" + ("frozen-" if args.frozen else "") + "godot-" + driver)
 reference = root / ("vfx-pages-d3d" + ("-frozen" if args.frozen else ""))
-suffix = args.renderer + ("-frozen" if args.frozen else "")
+suffix = driver + ("-frozen" if args.frozen else "")
 records = []
 manifest = json.loads((actual / "run.json").read_text(encoding="utf-8"))
 if manifest["status"] != "passed":

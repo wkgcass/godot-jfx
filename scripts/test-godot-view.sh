@@ -1,18 +1,18 @@
 #!/bin/sh
 # macOS equivalent of test-godot-view.ps1. The transform clip reference run
 # uses the stock macOS Prism pipeline (Metal by default) instead of D3D.
-# Usage: test-godot-view.sh [--renderer gl_compatibility|mobile] [--render-thread safe] [--transform] [--runtime]
+# Usage: test-godot-view.sh [--driver metal|opengl] [--render-thread safe] [--transform] [--runtime]
 set -u
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="gl_compatibility"
+DRIVER="metal"
 RENDER_THREAD="safe"
 TRANSFORM=0
 RUNTIME=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --transform) TRANSFORM=1 ;;
         --runtime) RUNTIME=1 ;;
@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -49,7 +49,7 @@ export GODOT_JFX_TEST_VIEW_TRANSFORM="$TRANSFORM"
 SUFFIX=""
 [ "$TRANSFORM" -eq 1 ] && SUFFIX="-transform"
 [ "$RUNTIME" -eq 1 ] && SUFFIX="$SUFFIX-runtime"
-LOG="$PWD/agentdir/logs/godot-view-$RENDERER$SUFFIX.log"
+LOG="$PWD/agentdir/logs/godot-view-$DRIVER$SUFFIX.log"
 if [ "$RUNTIME" -eq 1 ]; then
     FIXTURE="$PWD/artifacts/runtime-godot-view"
     mkdir -p "$FIXTURE"
@@ -61,12 +61,12 @@ if [ "$RUNTIME" -eq 1 ]; then
     "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "GodotView runtime import failed: $LOG.import" >&2; exit 1; fi
     CODE=0
-    (cd "$FIXTURE" && python3 "$FIXTURE_LAUNCHER" \
-        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 4000 >"$LOG" 2>&1) || CODE=$?
+    (cd "$FIXTURE" && python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \
+        --render-thread "$RENDER_THREAD" --quit-after 4000 >"$LOG" 2>&1) || CODE=$?
 else
     CODE=0
-    python3 "$FIXTURE_LAUNCHER" --path tests/godot res://godot_view.tscn \
-        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 4000 >"$LOG" 2>&1 || CODE=$?
+    python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://godot_view.tscn \
+        --render-thread "$RENDER_THREAD" --quit-after 4000 >"$LOG" 2>&1 || CODE=$?
 fi
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_VIEW_PASS' "$LOG" \
@@ -75,5 +75,5 @@ if [ "$CODE" -ne 0 ] \
     echo "GodotView probe failed. See $LOG" >&2
     exit 1
 fi
-cp artifacts/reference/godot-view.png "artifacts/reference/godot-view-$RENDERER$SUFFIX.png"
+cp artifacts/reference/godot-view.png "artifacts/reference/godot-view-$DRIVER$SUFFIX.png"
 echo "GodotView probe passed: $LOG"

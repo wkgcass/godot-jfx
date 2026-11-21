@@ -1,19 +1,19 @@
 #!/bin/sh
 # macOS equivalent of test-vfx-intro.ps1.
-# Usage: test-vfx-intro.sh [--renderer gl_compatibility|mobile] [--render-thread safe]
+# Usage: test-vfx-intro.sh [--driver metal|opengl] [--render-thread safe]
 #        [--all-pages] [--page-limit N] [--freeze-fusion]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="gl_compatibility"
+DRIVER="metal"
 RENDER_THREAD="safe"
 ALL_PAGES=0
 PAGE_LIMIT=0
 FREEZE=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --all-pages) ALL_PAGES=1 ;;
         --page-limit) PAGE_LIMIT="$2"; shift ;;
@@ -22,7 +22,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -55,7 +55,7 @@ COVERAGE=""
 [ "$ALL_PAGES" -eq 1 ] && COVERAGE="-all-pages"
 [ "$PAGE_LIMIT" -ne 0 ] && COVERAGE="$COVERAGE-$PAGE_LIMIT"
 [ "$FREEZE" -eq 1 ] && COVERAGE="$COVERAGE-frozen"
-LOG="agentdir/logs/vfx-intro-$RENDERER-$RENDER_THREAD$COVERAGE.log"
+LOG="agentdir/logs/vfx-intro-$DRIVER-$RENDER_THREAD$COVERAGE.log"
 
 run_watchdog() {
     wlog="$1"; limit="$2"; shift 2
@@ -80,14 +80,14 @@ run_watchdog() {
 
 export GODOT_JFX_JDK="$JDK"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://vfx_intro.tscn \
-    --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" --quit-after 30000 || CODE=$?
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://vfx_intro.tscn \
+    --render-thread "$RENDER_THREAD" --quit-after 30000 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'VFX_INTRO_SMOKE_PASS' "$LOG" \
     || grep -qE '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\.[a-z].*Exception)' "$LOG"; then
     echo "VFX Intro smoke failed. See $LOG" >&2
     exit 1
 fi
-cp artifacts/reference/vfx-intro.png "artifacts/reference/vfx-intro-$RENDERER.png"
-cp artifacts/reference/vfx-intro-next.png "artifacts/reference/vfx-intro-next-$RENDERER.png"
+cp artifacts/reference/vfx-intro.png "artifacts/reference/vfx-intro-$DRIVER.png"
+cp artifacts/reference/vfx-intro-next.png "artifacts/reference/vfx-intro-next-$DRIVER.png"
 echo "VFX Intro smoke passed: $LOG"

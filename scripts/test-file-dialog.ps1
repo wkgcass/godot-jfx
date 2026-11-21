@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [switch]$StopHost)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [switch]$StopHost)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -24,7 +24,7 @@ try {
     $env:GODOT_JFX_DIALOG_READY=$readyPath
     $driver = [FileDialogDriver]::Start($env:GODOT_JFX_DIALOG_TOKEN,$cancel.Token,[bool]$StopHost,$env:GODOT_JFX_DIALOG_READY)
     $suffix=$(if($Runtime){'-runtime'}else{''})+$(if($StopHost){'-stop'}else{''})
-    $log = Join-Path $root "agentdir/logs/file-dialog-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path $root "agentdir/logs/file-dialog-$Driver-$RenderThread$suffix.log"
     if($Runtime) {
         $fixture=Join-Path $root 'artifacts/runtime-file-dialog'
         New-Item -ItemType Directory -Force $fixture | Out-Null
@@ -34,13 +34,13 @@ try {
         & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if($LASTEXITCODE -ne 0) { throw "File dialog runtime import failed: $log.import" }
         $directory=$fixture
-        $arguments=@('--rendering-method',$Renderer,'--render-thread',$RenderThread)
+        $arguments=@('--render-thread',$RenderThread)
     } else {
         $directory=$root
-        $arguments=@('--path','tests/godot','res://file_dialog.tscn','--rendering-method',$Renderer,'--render-thread',$RenderThread)
+        $arguments=@('--path','tests/godot','res://file_dialog.tscn','--render-thread',$RenderThread)
     }
     $err="$log.stderr"
-    $process=Start-GodotFixture -ArgumentList $arguments -WorkingDirectory $directory -Log $log -ErrorLog $err
+    $process=Start-GodotFixture -Driver $Driver -ArgumentList $arguments -WorkingDirectory $directory -Log $log -ErrorLog $err
     $watch=[Diagnostics.Stopwatch]::StartNew()
     while(!$process.WaitForExit(250)) {
         if($driver.IsFaulted) { $null=$driver.GetAwaiter().GetResult() }

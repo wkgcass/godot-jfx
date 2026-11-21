@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Robot)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Robot)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -15,11 +15,11 @@ try {
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_PHYSICAL_DRAG_ROBOT = if($Robot){'1'}else{'0'}
     $env:GODOT_JFX_PHYSICAL_DRAG_CAPTURE = Join-Path $root 'artifacts/reference/physical-drag-desktop.png'
-    $log = Join-Path $root "agentdir/logs/physical_drag-$Renderer-$RenderThread$(if($Robot){'-robot'}else{''}).log"
+    $log = Join-Path $root "agentdir/logs/physical_drag-$Driver-$RenderThread$(if($Robot){'-robot'}else{''}).log"
     # Default synthetic mode injects the gesture host-side and never touches
     # the OS cursor. -Robot restores the physical Glass-Robot drive: keep the
     # desktop idle and the test window in the foreground for that one.
-    Invoke-GodotFixture --path tests/godot res://physical_drag.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3600 *> $log
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://physical_drag.tscn --render-thread $RenderThread --quit-after 3600 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'PHYSICAL_DRAG_PROBE_PASS' -or $output -notmatch 'GODOT_PHYSICAL_DRAG_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|Exception)') { throw "Physical drag test failed: $log" }

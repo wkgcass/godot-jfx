@@ -1,23 +1,23 @@
 #!/bin/sh
 # macOS equivalent of test-host-stop.ps1.
-# Usage: test-host-stop.sh [--renderer gl_compatibility|mobile] [--render-thread safe] [--runtime]
+# Usage: test-host-stop.sh [--driver metal|opengl] [--render-thread safe] [--runtime]
 set -u
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 RENDER_THREAD="safe"
 RUNTIME=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --runtime) RUNTIME=1 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -58,7 +58,7 @@ run_watchdog() {
 export GODOT_JFX_JDK="$JDK"
 SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
-LOG="$PWD/agentdir/logs/host-stop-$RENDERER-$RENDER_THREAD$SUFFIX.log"
+LOG="$PWD/agentdir/logs/host-stop-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
 if [ "$RUNTIME" -eq 1 ]; then
     FIXTURE="$PWD/artifacts/runtime-host-stop"
@@ -67,11 +67,11 @@ if [ "$RUNTIME" -eq 1 ]; then
     sed 's|res://main.tscn|res://host_stop.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
     "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Host stop runtime import failed: $LOG.import" >&2; exit 1; fi
-    (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" \
-        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD") || CODE=$?
+    (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \
+        --render-thread "$RENDER_THREAD") || CODE=$?
 else
-    run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://host_stop.tscn \
-        --rendering-method "$RENDERER" --render-thread "$RENDER_THREAD" || CODE=$?
+    run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://host_stop.tscn \
+        --render-thread "$RENDER_THREAD" || CODE=$?
 fi
 # Covers native/Glass destruction, application return and renderer/pool cleanup,
 # and rejects leaked cancellation exceptions as well as ordinary failures.

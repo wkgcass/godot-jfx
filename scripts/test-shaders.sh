@@ -1,18 +1,18 @@
 #!/bin/sh
 # macOS equivalent of test-shaders.ps1.
-# Usage: test-shaders.sh [--renderer gl_compatibility|mobile]
+# Usage: test-shaders.sh [--driver metal|opengl]
 set -u
 cd "$(dirname "$0")/.."
 
-RENDERER="gl_compatibility"
+DRIVER="metal"
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in gl_compatibility|mobile) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 PY=".tools/pyenv/bin/python3"
@@ -51,16 +51,17 @@ print('SHADER_COVERAGE_PASS')
 EOF
 [ $? -eq 0 ] || exit 1
 
-LOG="agentdir/logs/godot-shaders-$RENDERER.log"
+LOG="agentdir/logs/godot-shaders-$DRIVER.log"
 CODE=0
-python3 "$FIXTURE_LAUNCHER" --path tests/godot res://shaders.tscn \
-    --rendering-method "$RENDERER" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://shaders.tscn \
+    --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
+    || ! python3 scripts/godot_driver.py --driver "$DRIVER" "$LOG" \
     || ! grep -q 'GODOT_SHADER_PASS count=' "$LOG" \
     || grep -qE '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:)' "$LOG"; then
     echo "Generated shader validation failed. See $LOG" >&2
     exit 1
 fi
-cp artifacts/reference/godot-generated-shader.png "artifacts/reference/godot-generated-shader-$RENDERER.png"
-cp artifacts/reference/godot-shader-states.png "artifacts/reference/godot-shader-states-$RENDERER.png"
-echo "Generated shader validation passed on $RENDERER. Log: $LOG"
+cp artifacts/reference/godot-generated-shader.png "artifacts/reference/godot-generated-shader-$DRIVER.png"
+cp artifacts/reference/godot-shader-states.png "artifacts/reference/godot-shader-states-$DRIVER.png"
+echo "Generated shader validation passed on $DRIVER. Log: $LOG"

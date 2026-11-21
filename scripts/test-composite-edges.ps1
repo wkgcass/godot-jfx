@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe')
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe')
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -15,9 +15,9 @@ try {
     & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.graphics @exports '-Dprism.order=d3d' "-Dedges.output=$reference" -cp artifacts/reference CompositeEdgeProbe *> agentdir/logs/composite-edges-d3d.log
     if ($LASTEXITCODE -ne 0 -or (Get-Content agentdir/logs/composite-edges-d3d.log -Raw) -notmatch 'COMPOSITE_EDGE_PROBE_PASS D3DPipeline') { throw 'D3D edge reference failed' }
     $env:GODOT_JFX_JDK = $Jdk
-    $env:GODOT_JFX_EDGE_OUTPUT = Join-Path $root "artifacts/reference/composite-edges-$Renderer-$RenderThread.txt"
-    $log = "agentdir/logs/composite-edges-$Renderer-$RenderThread.log"
-    Invoke-GodotFixture --path tests/godot res://composite_edges.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 3000 *> $log
+    $env:GODOT_JFX_EDGE_OUTPUT = Join-Path $root "artifacts/reference/composite-edges-$Driver-$RenderThread.txt"
+    $log = "agentdir/logs/composite-edges-$Driver-$RenderThread.log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://composite_edges.tscn --render-thread $RenderThread --quit-after 3000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($result -ne 0 -or $output -notmatch 'GODOT_COMPOSITE_EDGES_PASS' -or $output -notmatch 'COMPOSITE_EDGE_PROBE_PASS GodotPipeline' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)') { throw "Edge probe failed: $log" }

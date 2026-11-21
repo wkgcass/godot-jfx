@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Robot, [switch]$CompileOnly)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Robot, [switch]$CompileOnly)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 if (!$CompileOnly -and !$Robot) { throw 'This test moves the real mouse. Obtain user consent, then pass -Robot; use -CompileOnly for compilation.' }
@@ -17,8 +17,8 @@ try {
     if ($CompileOnly) { Write-Output 'Hover demo compilation passed; physical run not performed'; return }
     $env:GODOT_JFX_HOVER_DEMO_ROBOT = '1'
     $env:GODOT_JFX_JDK = $Jdk
-    $log = "agentdir/logs/hover-demo-$Renderer-$RenderThread.log"
-    Invoke-GodotFixture --path tests/godot res://hover_demo.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+    $log = "agentdir/logs/hover-demo-$Driver-$RenderThread.log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://hover_demo.tscn --render-thread $RenderThread *> $log
     $code = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($code -ne 0 -or $output -notmatch 'HOVER_DEMO_PASS' -or $output -notmatch 'HOVER_DEMO_PIXEL_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|uncaught:') { throw "Hover demo probe failed. See $log" }

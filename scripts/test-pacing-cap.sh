@@ -1,21 +1,21 @@
 #!/bin/sh
 # macOS equivalent of test-pacing-cap.ps1.
-# Usage: test-pacing-cap.sh [--renderer mobile|gl_compatibility] [--mode cap|restore|override]
+# Usage: test-pacing-cap.sh [--driver metal|opengl] [--mode cap|restore|override]
 set -u
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-RENDERER="mobile"
+DRIVER="metal"
 MODE="cap"
 while [ $# -gt 0 ]; do
     case "$1" in
-        --renderer) RENDERER="$2"; shift ;;
+        --driver) DRIVER="${2-}"; shift ;;
         --mode) MODE="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$RENDERER" in mobile|gl_compatibility) ;; *) echo "invalid renderer: $RENDERER" >&2; exit 2 ;; esac
+case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$MODE" in cap|restore|override) ;; *) echo "invalid mode: $MODE" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -49,10 +49,10 @@ run_watchdog() {
 export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_VSYNC_FALLBACK="1"
 export GODOT_JFX_TEST_PACING_MODE="$MODE"
-LOG="agentdir/logs/pacing-cap-$RENDERER-$MODE.log"
+LOG="agentdir/logs/pacing-cap-$DRIVER-$MODE.log"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --path tests/godot res://pacing_cap.tscn \
-    --rendering-method "$RENDERER" || CODE=$?
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://pacing_cap.tscn \
+    || CODE=$?
 # The vsync-fallback banner must be absent exactly in cap mode.
 FALLBACK_SEEN=0
 grep -q 'JAVAFX_VSYNC_FALLBACK' "$LOG" && FALLBACK_SEEN=1

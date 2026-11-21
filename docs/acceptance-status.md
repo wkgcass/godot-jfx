@@ -1,6 +1,6 @@
 # Acceptance status
 
-Last checked on Windows x64 and macOS arm64 on 2026-11-19. This page describes the supported configuration and
+Last cross-platform review on 2026-11-19. This page describes the supported configuration and
 validation limits. Earlier implementation rounds and removed-mode measurements
 are historical evidence in [progress](../agentdir/docs/progress.md) and Git history; current
 commands are in [TESTS.md](../TESTS.md).
@@ -12,8 +12,8 @@ Tests write logs under `agentdir/logs/` and captures under `artifacts/reference/
 Windows x64 and macOS arm64 have source-built platform JARs. See the platform sections below for execution evidence.
 Both platforms build the Godot Editor and shared library with `accesskit=no`,
 which disables Godot's screen-reader integration.
-JavaFX hosting uses **Viewport + safe**, with Godot `mobile` (Vulkan on the
-validated Windows configuration, Metal 3.1 in the packaged macOS library on M1) or `gl_compatibility`
+JavaFX hosting uses **Viewport + safe**, with Godot `mobile` (D3D12 by default
+on Windows, Vulkan when selected, Metal 3.1 in the packaged macOS library on M1) or `gl_compatibility`
 (OpenGL). The custom
 RD-direct backend, translator, build/runtime switches and dedicated probes are
 removed, as are separate-thread host adaptations. Godot's own RenderingDevice
@@ -32,6 +32,85 @@ reflection/virtual callbacks and resource-lifetime fixes are retained.
 
 ## Validation evidence
 
+On 2026-11-21, after the public driver names changed to `d3d12` and `opengl`,
+the rebuilt Windows M1 pixel test and Demo smoke launch passed on D3D12,
+Vulkan and OpenGL. The Demo also used D3D12 with no driver argument. An ordinary
+module-path JavaFX application accepted both new JVM property values and
+reported the native drivers `d3d12` and `opengl3`. See
+`agentdir/logs/driver-rename-20261121-225048/` and
+`agentdir/logs/windows-NonRobot-20261121-225028/`.
+
+The Windows VFX Demo now relies on JavaFX automatic startup. On 2026-11-21
+the rebuilt Demo JAR completed smoke runs with the default D3D12 driver, Vulkan
+selected by JVM property and OpenGL selected by the Demo argument. A test scene
+observed the engine receive `logo` by default and `hidden` with `--no-godot-logo`.
+The default module-path run also exercised automatic startup with an imported
+directory, a PCK and the shader and effect observers. Evidence is under
+`agentdir/logs/auto-start-20261121-223340/`.
+
+On 2026-11-21, Windows x64 was rebuilt from the local driver-interface changes
+on root `6eea3f2`, JFX `c77a14c82f` and Godot `25d1e624eb`. The M1 pixel
+fixture, render-thread shutdown and the VFX Demo smoke launch passed with each
+of D3D12, Vulkan and OpenGL. The OpenGL-only rejection case passed in the full
+driver plan. The default module-path suite passed 28 cases and the explicit
+OpenGL launch group passed 12, including programmatic driver selection. The
+standalone Shadow consumer passed five OpenGL cases. The isolated Demo JAR
+passed both with no driver argument (D3D12) and with Vulkan. The three-page
+frozen VFX comparison used separate Godot D3D12 and native JavaFX captures. Driver markers and results are in
+`agentdir/logs/windows-NonRobot-20261121-220156/`,
+`agentdir/logs/windows-NonRobot-20261121-221353/` and
+`agentdir/logs/driver-interface-20261121-220439/`.
+
+On 2026-11-21, the standalone Windows M1, Glass window (`-Runtime`) and
+GodotView tests passed with no driver or renderer argument. Each engine log
+reported D3D12 12_0. The module-path launch group passed all 11 cases,
+including conflicting concurrent initialization and a plain JavaFX launch.
+Its evidence is in `agentdir/logs/windows-standalone-default-20261121-214954/module-path/`.
+
+The Windows D3D12 regression on 2026-11-21 used the public JVM driver property
+for the M1 pixel fixture, render-thread shutdown, nine module-path cases, five
+Shadow consumer cases, the isolated Demo JAR and the Demo smoke launcher. All
+passed. The M1 fixture also confirmed D3D12 when its scene arguments requested
+`gl_compatibility`. Results are under `agentdir/logs/unified-driver-20261121-213049/`.
+
+On 2026-11-21 a projectless JavaFX Shadow JAR, a module-path Application with
+no main method and the isolated VFX Demo each launched on Windows using all three Godot drivers. Logs confirmed the
+requested backend on the Intel Arc B390. The Shadow JAR and Demo also used
+D3D12 when the property was omitted. Empty and unknown values failed at startup.
+The per-application logs are under `agentdir/logs/public-driver-20261121-210501/`.
+
+After switching the Windows default to D3D12 on 2026-11-21, a rebuilt,
+isolated VFX Demo JAR launched with plain `java -jar` reported D3D12 12_0
+on the Intel Arc B390 and passed the window and shutdown checks. The standalone
+render-thread shutdown test and the default runner's M1 pixel test also passed.
+See `agentdir/logs/vfx-demo-jar-isolated.log` for the default launch.
+
+On 2026-11-21 the Windows driver matrix ran the source-built DLL from the
+platform JAR on an Intel Arc B390. Godot reported D3D12 feature level 12_0
+and Vulkan 1.4.330 with `mobile`, and OpenGL 3.3.0 with `gl_compatibility`.
+The checkout was based on `6eea3f2` with the local driver-matrix and
+AccessKit changes. Each driver passed the 35-page VFX Intro run, the
+three-round soak with zero host-owned resources at exit, module-path
+rendering, Shadow consumers and the isolated Demo JAR.
+
+Of 454 NonRobot cases, 449 passed on the first run. Vulkan clipboard HTML,
+modal focus restoration and snapshot stress passed on retry, as did D3D12
+clipboard HTML in the standalone fixture project. The OpenGL VFX blackhole
+probe failed twice. Its first run lost the distortion after a drag and its
+retry showed no distortion at the initial pointer position. In both failing
+captures the pixels matched the unwarped snapshot. D3D12 and Vulkan passed
+the same assertions. A diagnostic OpenGL run recorded the expected JavaFX
+pointer events and lens centers and passed. The original probe then passed
+without changes. The cause of the intermittent distortion failure remains open.
+
+All 42 Robot cases passed on their first run. The touch-keyboard fixture
+verified Java calls, continued host ticks and cleanup. Windows denied a keyboard
+close request, and the fixture does not verify system keyboard visibility.
+In total, 491 of 496 entries passed on their first run and all 496 passed at
+least once (158 per driver and 22 run once). The local report at
+`agentdir/logs/windows-NonRobot-matrix-1795256112868/matrix-summary.csv`
+records initial and final exit codes, attempt counts and log paths.
+
 On 2026-11-21 the Windows Editor and packaged shared library both reported
 `DisplayServer.FEATURE_ACCESSIBILITY_SCREEN_READER` as unavailable with the
 Windows display driver, OpenGL and `--accessibility always`. The rebuilt VFX
@@ -40,6 +119,11 @@ Demo passed the Vulkan startup and close check.
 Windows x64 passed the six-module Maven packaging checks, all 27 module-path cases, five Shadow consumers and the isolated VFX Demo JAR test. In the November 19 regression, two of 108 NonRobot entries passed on retry after a fixture rename failed. All ten Robot entries passed. [Historical verification](../agentdir/docs/acceptance-status.md).
 
 ## macOS arm64 verification scope
+
+The macOS launchers and test matrix accept `metal` (default) and `opengl`.
+The shell argument forwarding and both regression plans were checked on Windows.
+Rebuilding the matching SDK, engine and JARs and running each driver on Apple
+silicon remain pending. [macOS verification checklist](../TESTS.md#跨平台待验证清单)
 
 On Apple M1 the tested publication was `28-godot.4:mac-aarch64`. The packaged Demo, 27 module-path cases and nine Shadow cases passed. NonRobot recorded 263 passes and the expected window-icon skip. All 16 Robot cases passed. The three-round soak released all host-owned resources on exit, but resource counts rose between rounds. Verification of the new Maven coordinates on macOS remains tracked in [TESTS.md](../TESTS.md).
 

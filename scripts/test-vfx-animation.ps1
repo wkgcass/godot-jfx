@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [switch]$TimingOnly)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime, [switch]$TimingOnly)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
@@ -14,7 +14,7 @@ try {
     $env:GODOT_JFX_JDK = $Jdk
     $suffix = if ($Runtime) { '-runtime' } else { '' }
     if ($TimingOnly) { $suffix += '-timing-only' }
-    $log = Join-Path (Get-Location) "agentdir/logs/vfx-animation-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path (Get-Location) "agentdir/logs/vfx-animation-$Driver-$RenderThread$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path (Get-Location) 'artifacts/runtime-vfx-animation'
         New-Item -ItemType Directory -Force $fixture | Out-Null
@@ -24,10 +24,10 @@ try {
         & .\godot\bin\godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if ($LASTEXITCODE -ne 0) { throw "VFX animation runtime import failed: $log.import" }
         Push-Location $fixture
-        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread $RenderThread *> $log }
+        try { Invoke-GodotFixture -Driver $Driver --render-thread $RenderThread *> $log }
         finally { Pop-Location }
     } else {
-        Invoke-GodotFixture --path tests/godot res://vfx_animation.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+        Invoke-GodotFixture -Driver $Driver --path tests/godot res://vfx_animation.tscn --render-thread $RenderThread *> $log
     }
     $output = Get-Content $log -Raw
     if ($LASTEXITCODE -ne 0 -or $output -notmatch 'GODOT_VFX_ANIMATION_PASS' -or $output -notmatch 'VFX_ANIMATION_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|GodotHostStoppedException|uncaught:') { throw "VFX animation failed: $log" }
@@ -36,8 +36,8 @@ try {
         Write-Output "Animation timing control completed (no GPU-motion acceptance): $log"
         return
     }
-    foreach ($step in 0..7) { Copy-Item "artifacts/reference/vfx-animation-$step.png" "artifacts/reference/vfx-animation-$Renderer-$RenderThread$suffix-$step.png" }
+    foreach ($step in 0..7) { Copy-Item "artifacts/reference/vfx-animation-$step.png" "artifacts/reference/vfx-animation-$Driver-$RenderThread$suffix-$step.png" }
     if ($output -notmatch 'VFX_ANIMATION_GPU_MOTION') { throw "No GPU motion evidence: $log" }
-    foreach ($file in 'motion-start.png','motion.json') { Copy-Item "artifacts/reference/vfx-animation-$file" "artifacts/reference/vfx-animation-$Renderer-$RenderThread$suffix-$file" }
+    foreach ($file in 'motion-start.png','motion.json') { Copy-Item "artifacts/reference/vfx-animation-$file" "artifacts/reference/vfx-animation-$Driver-$RenderThread$suffix-$file" }
     Write-Output "VFX animation passed: $log"
 } finally { $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_ANIMATION_TIMING_ONLY = $savedTiming; Pop-Location }

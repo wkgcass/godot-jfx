@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$InjectFailure)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$InjectFailure)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -14,8 +14,8 @@ try {
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_VFX_FAILURE = if ($InjectFailure) { '1' } else { '0' }
     $suffix = if ($InjectFailure) { '-failure' } else { '' }
-    $log = "agentdir/logs/vfx-dialog-$Renderer-$RenderThread$suffix.log"
-    Invoke-GodotFixture --path tests/godot res://vfx_dialog.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 20000 *> $log
+    $log = "agentdir/logs/vfx-dialog-$Driver-$RenderThread$suffix.log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://vfx_dialog.tscn --render-thread $RenderThread --quit-after 20000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($InjectFailure) {
@@ -25,6 +25,6 @@ try {
         return
     }
     if ($result -ne 0 -or $output -notmatch 'GODOT_VFX_DIALOG_PASS' -or $output -notmatch 'VFX_DIALOG_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\.[a-z].*Exception)') { throw "VFX dialog test failed: $log" }
-    foreach ($step in 0..4) { Copy-Item "artifacts/reference/vfx-dialog-$step.png" "artifacts/reference/vfx-dialog-$Renderer-$RenderThread-$step.png" }
+    foreach ($step in 0..4) { Copy-Item "artifacts/reference/vfx-dialog-$step.png" "artifacts/reference/vfx-dialog-$Driver-$RenderThread-$step.png" }
     Write-Output "VFX dialog passed: $log"
 } finally { $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_VFX_FAILURE = $savedFailure; Pop-Location }

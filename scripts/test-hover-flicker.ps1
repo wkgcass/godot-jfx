@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'mobile', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Robot)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Robot)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -15,8 +15,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Hover flicker probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
     $env:GODOT_JFX_HOVER_ROBOT = if($Robot){'1'}else{'0'}
-    $log = "agentdir/logs/hover-flicker-$Renderer-$RenderThread$(if($Robot){'-robot'}else{''}).log"
-    Invoke-GodotFixture --path tests/godot res://hover_flicker.tscn --rendering-method $Renderer --render-thread $RenderThread *> $log
+    $log = "agentdir/logs/hover-flicker-$Driver-$RenderThread$(if($Robot){'-robot'}else{''}).log"
+    Invoke-GodotFixture -Driver $Driver --path tests/godot res://hover_flicker.tscn --render-thread $RenderThread *> $log
     $code = $LASTEXITCODE
     $output = Get-Content $log -Raw
     if ($code -ne 0 -or $output -notmatch 'HOVER_PIXEL_STATS' -or $output -notmatch 'HOVER_FLICKER_PASS' -or $output -notmatch 'HOVER_FUSION_PIXEL_PASS' -or $output -notmatch 'HOVER_RESOURCE_CLEANUP_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|uncaught:') { throw "Hover flicker probe failed. See $log" }

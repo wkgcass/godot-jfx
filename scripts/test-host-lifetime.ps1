@@ -1,6 +1,6 @@
 #Requires -Version 7.4.1
 [CmdletBinding()]
-param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('gl_compatibility','mobile')][string]$Renderer = 'gl_compatibility', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime)
+param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][string]$Driver = 'd3d12', [ValidateSet('safe')][string]$RenderThread = 'safe', [switch]$Runtime)
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -11,7 +11,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Host lifetime probe compilation failed' }
     $env:GODOT_JFX_JDK = $Jdk
     $suffix = if ($Runtime) { '-runtime' } else { '' }
-    $log = Join-Path $root "agentdir/logs/host-lifetime-$Renderer-$RenderThread$suffix.log"
+    $log = Join-Path $root "agentdir/logs/host-lifetime-$Driver-$RenderThread$suffix.log"
     if ($Runtime) {
         $fixture = Join-Path $root 'artifacts/runtime-host-lifetime'
         New-Item -ItemType Directory -Force $fixture | Out-Null
@@ -21,10 +21,10 @@ try {
         & .\godot\bin\godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> "$log.import"
         if ($LASTEXITCODE -ne 0) { throw "Runtime fixture import failed: $log.import" }
         Push-Location $fixture
-        try { Invoke-GodotFixture --rendering-method $Renderer --render-thread $RenderThread --quit-after 10000 *> $log }
+        try { Invoke-GodotFixture -Driver $Driver --render-thread $RenderThread --quit-after 10000 *> $log }
         finally { Pop-Location }
     } else {
-        Invoke-GodotFixture --path tests/godot res://host_lifetime.tscn --rendering-method $Renderer --render-thread $RenderThread --quit-after 10000 *> $log
+        Invoke-GodotFixture -Driver $Driver --path tests/godot res://host_lifetime.tscn --render-thread $RenderThread --quit-after 10000 *> $log
     }
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
