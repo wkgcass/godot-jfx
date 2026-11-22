@@ -34,4 +34,6 @@ java -jar demo/001-3d-in-javafx/build/libs/001-3d-in-javafx.jar
 - [场景脚本](godot/tetrahedron.gd) 为本控件的 SubViewport 创建独立的 3D 世界并开启 3D 绘制。Godot 生成四个三角面，自转只更新模型，拖动只更新相机。[坐标轴](godot/axes.gd) 把世界坐标的三个正方向投影到相机平面上。
 - JavaFX 采样 GodotView 的视口纹理。示例使用仓库默认的渲染器，Windows 为 D3D12/mobile，macOS 为 Metal/mobile。
 
-Windows x64 已在 Intel Arc B390 上用 D3D12、Vulkan、OpenGL 运行最终 JAR，触发 JavaFX 按钮和合成拖动事件，并比较场景截图。三个驱动都观察到暂停时模型像素稳定、拖动时模型与坐标轴一起改变视角、恢复自转后坐标轴保持稳定。macOS arm64 尚待实机验证。
+Windows x64 已在 Intel Arc B390 上用 D3D12、Vulkan、OpenGL 运行最终 JAR，触发 JavaFX 按钮和合成拖动事件，并比较场景截图。三个驱动都观察到暂停时模型像素稳定、拖动时模型与坐标轴一起改变视角、恢复自转后坐标轴保持稳定。
+
+macOS arm64 已在 Apple M1 上构建独立 JAR，用默认 Metal 后端启动并确认「彩色三棱锥」窗口可见。暂停、恢复和拖动视角仍待手动验证。

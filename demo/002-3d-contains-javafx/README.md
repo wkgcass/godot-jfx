@@ -46,4 +46,6 @@ java -jar demo/002-3d-contains-javafx/build/libs/002-3d-contains-javafx.jar
 
 运行 `java -jar demo/002-3d-contains-javafx/build/libs/002-3d-contains-javafx.jar --smoke`，成功时正常关闭并输出 `ROOM_SMOKE_PASS`。用例通过 Godot 合成输入验证鼠标环顾、先按 W 再按左键及先按左键再按 W 时同时走动、转向和点击，待机禁用、面板外点击，以及 VFX 按钮悬停后的鼠标捕获、Esc 释放、再次捕获和窗口失焦释放。设置环境变量 `VFX_ROOM_PREVIEW` 为 PNG 的绝对输出路径，可在测试时保存起始画面。[交互用例](godot/smoke.gd)
 
-Windows x64 已在 Intel Arc B390 上分别通过 D3D12、Vulkan 和 OpenGL 检查。macOS arm64 的 Retina 坐标映射和鼠标捕获仍需实机验证。
+Windows x64 已在 Intel Arc B390 上分别通过 D3D12、Vulkan 和 OpenGL 检查。
+
+macOS arm64 已在 Apple M1 上用默认 Metal 后端通过 `--smoke`（`ROOM_SMOKE_PASS`），并确认普通启动后「栖居 · 房间控制」窗口可见。本次使用 1920 × 1080 显示器。真实鼠标捕获和 Retina 坐标映射仍待手动验证。

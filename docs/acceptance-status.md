@@ -120,6 +120,8 @@ Windows x64 passed the six-module Maven packaging checks, all 27 module-path cas
 
 ## macOS arm64 verification scope
 
+On 2026-11-22, a clean source checkout at `64fff7e` (Godot `e6f83ddcd`, JFX `e3f57378`) was rebuilt on Apple M1 with JDK 25.0.5. After staging the modules, `./scripts/test-godot-library.py --runtime artifacts/godot-library --group scene-message` passed on Metal 3.1. JavaFX rejected the invalid calls, the Godot main thread received all five messages in order, including the duplicate, and the application exited with code 0. The log and result are in `agentdir/logs/macos-64fff7e-demos/scene-message/{scene-message.log,results.json}`.
+
 The macOS launchers and test matrix accept `metal` (default) and `opengl`.
 The 2026-11-22 cold rebuild on Apple M1 produced the arm64 Godot Editor, shared library, Media-enabled SDK and standalone Demo JAR. The source checkout was `5a65cc6` with local macOS changes, Godot `25d1e624` and JFX `19e43307`. Build logs are in `agentdir/logs/macos-rebuild-{godot-editor,godot-library,jfx,vfx}.log`.
 
