@@ -33,13 +33,13 @@
 .\scripts\build-vfx.ps1
 ```
 
-macOS arm64 在仓库根目录用 shell 执行（工具链准备详见 [build-macos.md](docs/build-macos.md)；JDK 25 在 `.tools/jdk-25`，SCons 在 `.tools/pyenv`，需要 Xcode 与 `xcodebuild -downloadComponent MetalToolchain` 安装的 Metal 工具链）：
+在 macOS arm64 上，从仓库根目录用 `zsh -ic '命令'` 执行 Java 相关的构建、运行和测试命令，让交互式 shell 加载用户配置的 `JAVA_HOME`。该变量应指向 arm64 JDK 25，也可用 `--jdk DIRECTORY` 为本次调用指定 JDK。SCons 在 `.tools/pyenv`，Xcode 和 Metal 工具链的安装见 [build-macos.md](docs/build-macos.md)。
 
 ```sh
 ./scripts/build-macos.sh --target godot-editor
-./scripts/build-macos.sh --target godot-library
-./scripts/build-macos.sh --target jfx
-./scripts/build-vfx.sh
+zsh -ic './scripts/build-macos.sh --target godot-library'
+zsh -ic './scripts/build-macos.sh --target jfx'
+zsh -ic './scripts/build-vfx.sh'
 ```
 
 mac 上 Media 由这一次 Gradle SDK 构建启用（AVFoundation 后端），没有单独的 Media 构建脚本；渲染器 `mobile` 使用 Metal（本机 M1 的发行库报告 Metal 3.1）、`gl_compatibility` 走 OpenGL 4.1，未构建 Vulkan（未安装 MoltenVK）。
