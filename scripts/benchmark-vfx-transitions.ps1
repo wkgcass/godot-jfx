@@ -4,7 +4,7 @@ param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('safe')][string]$Backend='safe',
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
-$savedJdk=$env:GODOT_JFX_JDK
+$savedJdk=$env:JAVA_HOME
 try {
     New-Item -ItemType Directory -Force artifacts/reference,agentdir/logs | Out-Null
     Write-Output "VFX transition backend: Godot DLL / Glass-Godot / Prism-Godot / $Driver / $Backend"
@@ -12,7 +12,7 @@ try {
     $classpath='artifacts/reference;artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/resources/main;artifacts/vfx/resources/test;artifacts/vfx/dependencies/*'
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls @exports -cp $classpath -encoding UTF-8 -d artifacts/reference tests/reference/ThreadStackSampler.java tests/reference/VfxTransitionProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Transition probe compilation failed' }
-    $env:GODOT_JFX_JDK=$Jdk
+    $env:JAVA_HOME=$Jdk
     $log="agentdir/logs/vfx-transition-$Driver-$Backend.log"
     Invoke-GodotFixture -Driver $Driver --path tests/godot res://vfx_transition.tscn --render-thread $Backend *> $log
     $code=$LASTEXITCODE
@@ -22,4 +22,4 @@ try {
     if(!$output.Contains($expected)){throw "Unexpected Glass/Prism backend: $log"}
     if($output -notmatch '(?m)^VFX_TRANSITION_TARGET_SWITCHES ([0-9]+)\r?$' -or [long]$Matches[1] -le 0){throw "Missing or empty Prism target-switch diagnostic: $log"}
     $output -split "`r?`n" | Where-Object { $_ -match '^VFX_TRANSITION_' }
-} finally { $env:GODOT_JFX_JDK=$savedJdk; Pop-Location }
+} finally { $env:JAVA_HOME=$savedJdk; Pop-Location }

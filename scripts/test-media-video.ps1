@@ -4,7 +4,7 @@ param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d12','vulkan','opengl')][strin
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-$savedCapture=$env:GODOT_JFX_MEDIA_CAPTURE;$savedJdk=$env:GODOT_JFX_JDK;$savedFile=$env:GODOT_JFX_MEDIA_FILE
+$savedCapture=$env:GODOT_JFX_MEDIA_CAPTURE;$savedJdk=$env:JAVA_HOME;$savedFile=$env:GODOT_JFX_MEDIA_FILE
 Push-Location $root
 try {
     if ($NativeD3D -and $PSBoundParameters.ContainsKey('Driver')) { throw 'Driver selects Godot. Omit it for the native JavaFX comparison.' }
@@ -19,7 +19,7 @@ try {
     $videoFile = Join-Path $root $relative
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media,javafx.swing -d artifacts/reference tests/reference/MediaVideoProbe.java
     if($LASTEXITCODE -ne 0){throw 'Media video probe compilation failed'}
-    $env:GODOT_JFX_JDK=$Jdk;$env:GODOT_JFX_MEDIA_FILE=$videoFile
+    $env:JAVA_HOME=$Jdk;$env:GODOT_JFX_MEDIA_FILE=$videoFile
     $suffix=if($NativeD3D){'-d3d'}elseif($Runtime){'-runtime'}else{''}
     if ($Sample -eq 'lk') { $suffix += '-lk' }
     $env:GODOT_JFX_MEDIA_CAPTURE=Join-Path $root "artifacts/reference/media-video-$Driver$suffix.png"
@@ -43,5 +43,5 @@ try {
     $code=$LASTEXITCODE;$output=Get-Content $log -Raw
     if($code -ne 0 -or $output -notmatch 'MEDIA_VIDEO_PROBE_PASS' -or $output -notmatch 'MEDIA_VIDEO_CONTROLS_PASS' -or (!$NativeD3D -and $output -notmatch 'GODOT_MEDIA_VIDEO_PASS') -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)|uncaught:'){throw "Media video failed: $log"}
     Write-Output "Source Media video playback passed: $log"
-} finally {$env:GODOT_JFX_MEDIA_CAPTURE=$savedCapture;$env:GODOT_JFX_JDK=$savedJdk;$env:GODOT_JFX_MEDIA_FILE=$savedFile;Pop-Location}
+} finally {$env:GODOT_JFX_MEDIA_CAPTURE=$savedCapture;$env:JAVA_HOME=$savedJdk;$env:GODOT_JFX_MEDIA_FILE=$savedFile;Pop-Location}
 

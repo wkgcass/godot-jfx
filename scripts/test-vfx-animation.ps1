@@ -4,14 +4,14 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedTiming = $env:GODOT_JFX_ANIMATION_TIMING_ONLY
 try {
     $env:GODOT_JFX_ANIMATION_TIMING_ONLY = if ($TimingOnly) { '1' } else { '0' }
     $classpath = 'artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/dependencies/*'
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED -cp $classpath -encoding UTF-8 -d artifacts/reference tests/reference/VfxAnimationProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'VFX animation probe compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $suffix = if ($Runtime) { '-runtime' } else { '' }
     if ($TimingOnly) { $suffix += '-timing-only' }
     $log = Join-Path (Get-Location) "agentdir/logs/vfx-animation-$Driver-$RenderThread$suffix.log"
@@ -40,4 +40,4 @@ try {
     if ($output -notmatch 'VFX_ANIMATION_GPU_MOTION') { throw "No GPU motion evidence: $log" }
     foreach ($file in 'motion-start.png','motion.json') { Copy-Item "artifacts/reference/vfx-animation-$file" "artifacts/reference/vfx-animation-$Driver-$RenderThread$suffix-$file" }
     Write-Output "VFX animation passed: $log"
-} finally { $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_ANIMATION_TIMING_ONLY = $savedTiming; Pop-Location }
+} finally { $env:JAVA_HOME = $savedJdk; $env:GODOT_JFX_ANIMATION_TIMING_ONLY = $savedTiming; Pop-Location }

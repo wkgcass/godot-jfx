@@ -1,7 +1,8 @@
 #!/bin/sh
 # macOS equivalent of test-texture-lookup.ps1.
-# Usage: test-texture-lookup.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-texture-lookup.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 DRIVER="metal"

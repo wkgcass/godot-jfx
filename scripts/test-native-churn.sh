@@ -1,9 +1,10 @@
 #!/bin/sh
 # macOS equivalent of test-native-churn.ps1.
-# Usage: test-native-churn.sh [--kind Idle|SubViewport|Window|JavaFXNativeWindow]
+# Usage: test-native-churn.sh [--kind Idle|SubViewport|Window|JavaFXNativeWindow] [--jdk DIRECTORY]
 #                             [--driver metal|opengl] [--render-thread safe]
 #                             [--static-range-limit-bytes N]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 KIND="Window"

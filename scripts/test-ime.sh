@@ -1,11 +1,12 @@
 #!/bin/sh
 # macOS equivalent of test-ime.ps1. The -SpacedClick variant is folded into a
 # flag for parity; default matches the ps1 default run.
-# Usage: test-ime.sh [--driver metal|opengl] [--spaced-click]
+# Usage: test-ime.sh [--driver metal|opengl] [--spaced-click] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 SPACED_CLICK=0
 while [ $# -gt 0 ]; do
@@ -26,7 +27,6 @@ mkdir -p artifacts/reference agentdir/logs
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
     -encoding UTF-8 -d artifacts/reference tests/reference/ImeProbe.java
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_IME_SPACED_CLICK="$SPACED_CLICK"
 SUFFIX=""
 if [ "$SPACED_CLICK" = "1" ]; then SUFFIX="-spaced"; fi

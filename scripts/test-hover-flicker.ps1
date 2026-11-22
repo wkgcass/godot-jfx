@@ -4,7 +4,7 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedRobot = $env:GODOT_JFX_HOVER_ROBOT
 Push-Location $root
 try {
@@ -13,7 +13,7 @@ try {
     $vfxCp = @("$vfxBase/classes/java/main", "$vfxBase/classes/java/test", "$vfxBase/resources/main", "$vfxBase/resources/test") + (Get-ChildItem "$vfxBase/dependencies" -Filter *.jar | ForEach-Object { $_.FullName })
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED -cp ($vfxCp -join ';') -encoding UTF-8 -d artifacts/reference tests/reference/HoverFlickerProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Hover flicker probe compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_HOVER_ROBOT = if($Robot){'1'}else{'0'}
     $log = "agentdir/logs/hover-flicker-$Driver-$RenderThread$(if($Robot){'-robot'}else{''}).log"
     Invoke-GodotFixture -Driver $Driver --path tests/godot res://hover_flicker.tscn --render-thread $RenderThread *> $log
@@ -21,4 +21,4 @@ try {
     $output = Get-Content $log -Raw
     if ($code -ne 0 -or $output -notmatch 'HOVER_PIXEL_STATS' -or $output -notmatch 'HOVER_FLICKER_PASS' -or $output -notmatch 'HOVER_FUSION_PIXEL_PASS' -or $output -notmatch 'HOVER_RESOURCE_CLEANUP_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|uncaught:') { throw "Hover flicker probe failed. See $log" }
     Write-Output "Hover flicker probe passed: $log"
-} finally { $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_HOVER_ROBOT = $savedRobot; Pop-Location }
+} finally { $env:JAVA_HOME = $savedJdk; $env:GODOT_JFX_HOVER_ROBOT = $savedRobot; Pop-Location }

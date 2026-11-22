@@ -4,13 +4,13 @@ param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d12','vulkan','opengl')][strin
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
-$savedJdk=$env:GODOT_JFX_JDK
+$savedJdk=$env:JAVA_HOME
 $savedCycles=$env:GODOT_JFX_CHURN_CYCLES
 $savedOptions=$env:JAVA_TOOL_OPTIONS
 try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED --add-exports javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED -d artifacts/reference tests/reference/StageChurnProbe.java
     if($LASTEXITCODE -ne 0) {throw 'Stage churn probe compilation failed'}
-    $env:GODOT_JFX_JDK=$Jdk
+    $env:JAVA_HOME=$Jdk
     $env:GODOT_JFX_CHURN_CYCLES="$Cycles"
     if($HeapMiB -gt 0) {$env:JAVA_TOOL_OPTIONS="$savedOptions -Xmx${HeapMiB}m"}
     $suffix="-$Cycles-heap$HeapMiB"
@@ -28,4 +28,4 @@ try {
     $report | Add-Member -NotePropertyMembers @{samples=$nativeSamples; java_samples=$javaSamples; heap_limit_mib=$HeapMiB} -Force
     $report | ConvertTo-Json -Depth 8 | Set-Content "artifacts/reference/stage-churn-$Driver-$RenderThread$suffix.json"
     Write-Output "Stage churn passed: $log"
-} finally {$env:GODOT_JFX_JDK=$savedJdk;$env:GODOT_JFX_CHURN_CYCLES=$savedCycles;$env:JAVA_TOOL_OPTIONS=$savedOptions;Pop-Location}
+} finally {$env:JAVA_HOME=$savedJdk;$env:GODOT_JFX_CHURN_CYCLES=$savedCycles;$env:JAVA_TOOL_OPTIONS=$savedOptions;Pop-Location}

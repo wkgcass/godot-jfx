@@ -2,11 +2,12 @@
 # macOS equivalent of test-composite-edges.ps1. The native reference run uses
 # the stock macOS Prism pipeline (Metal by default) instead of D3D; the pixel
 # comparison against the Godot pipeline keeps the same per-channel tolerance.
-# Usage: test-composite-edges.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-composite-edges.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
@@ -46,7 +47,6 @@ if [ "$CODE" -ne 0 ] \
     exit 1
 fi
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_EDGE_OUTPUT="$PWD/artifacts/reference/composite-edges-$DRIVER-$RENDER_THREAD.txt"
 LOG="agentdir/logs/composite-edges-$DRIVER-$RENDER_THREAD.log"
 CODE=0

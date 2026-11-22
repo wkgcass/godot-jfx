@@ -3,6 +3,7 @@
 import argparse
 import re
 
+from jdk_home import add_jdk_argument, configure_jdk
 from macos_probe import GRAPHICS, LOGS, ROOT, compile_probe, isolated_project, native_probe, require, scene_probe
 
 PROBES = {
@@ -19,6 +20,7 @@ def main():
     commands = parser.add_subparsers(dest="mode", required=True)
     for mode in PROBES:
         p = commands.add_parser(mode)
+        add_jdk_argument(p)
         backend = p.add_mutually_exclusive_group()
         backend.add_argument("--driver", choices=["metal", "opengl"])
         if mode == "frames":
@@ -29,6 +31,7 @@ def main():
         if mode == "menu":
             p.add_argument("--full-uploads", action="store_true")
     args = parser.parse_args()
+    configure_jdk(args.jdk)
     driver = args.driver or "metal"
     native = getattr(args, "native", False)
     host120 = getattr(args, "host120", False)

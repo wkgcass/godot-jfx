@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of test-vfx-dialog.ps1.
-# Usage: test-vfx-dialog.sh [--driver metal|opengl] [--render-thread safe] [--inject-failure]
+# Usage: test-vfx-dialog.sh [--driver metal|opengl] [--render-thread safe] [--inject-failure] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 FAILURE=0
@@ -52,7 +53,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_VFX_FAILURE="$FAILURE"
 SUFFIX=""
 [ "$FAILURE" -eq 1 ] && SUFFIX="-failure"

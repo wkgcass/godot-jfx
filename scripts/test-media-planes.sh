@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of test-media-planes.ps1.
-# Usage: test-media-planes.sh [--driver metal|opengl]
+# Usage: test-media-planes.sh [--driver metal|opengl] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -53,7 +54,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 LOG="agentdir/logs/media-planes-$DRIVER.log"
 CODE=0
 run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://media_planes.tscn \

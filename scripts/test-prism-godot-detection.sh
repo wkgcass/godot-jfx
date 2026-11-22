@@ -1,7 +1,8 @@
 #!/bin/sh
 set -e
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 if [ ! -x "$JDK/bin/javac" ]; then
     echo "javac not found under $JDK" >&2
     exit 1

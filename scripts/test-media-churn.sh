@@ -1,9 +1,10 @@
 #!/bin/sh
 # macOS Media churn using the source-built platform JAR.
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 runtime=""
 DRIVER=""
 NATIVE=0
@@ -80,7 +81,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_MEDIA_FILE="$PWD/$VIDEO"
 export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Xmx256m --enable-native-access=ALL-UNNAMED"
 export GODOT_JFX_MEDIA_CYCLES="$CYCLES"

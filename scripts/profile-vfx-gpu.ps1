@@ -4,7 +4,7 @@ param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('safe')][string]$RenderThread='sa
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
-$savedJdk=$env:GODOT_JFX_JDK
+$savedJdk=$env:JAVA_HOME
 $savedProfile=$env:GODOT_JFX_PROFILE_COMMANDS
 $savedOptions=$env:JAVA_TOOL_OPTIONS
 try {
@@ -22,7 +22,7 @@ try {
     & ./godot/bin/godot.windows.editor.x86_64.console.exe --headless --path $fixture --editor --import *> $importLog
     if ($LASTEXITCODE) { throw "GPU profile fixture import failed: $importLog" }
     $env:JAVA_TOOL_OPTIONS="$savedOptions $($exports -join ' ')"
-    $env:GODOT_JFX_JDK=$Jdk
+    $env:JAVA_HOME=$Jdk
     $env:GODOT_JFX_PROFILE_COMMANDS='1'
     $suffix=if($Host120){'-host120'}else{''}
     $log="agentdir/logs/vfx-gpu-profile-$RenderThread$suffix.log"
@@ -33,4 +33,4 @@ try {
     Assert-GodotDriver $Driver $log
     if($code -ne 0 -or $output -notmatch 'GODOT_VFX_FRAME_BENCHMARK_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)') {throw "GPU profiling failed (native exit $code): $log"}
     Write-Output "GPU/host profile captured (instrumented, not acceptance FPS): $log"
-} finally {$env:GODOT_JFX_JDK=$savedJdk;$env:GODOT_JFX_PROFILE_COMMANDS=$savedProfile;$env:JAVA_TOOL_OPTIONS=$savedOptions;Pop-Location}
+} finally {$env:JAVA_HOME=$savedJdk;$env:GODOT_JFX_PROFILE_COMMANDS=$savedProfile;$env:JAVA_TOOL_OPTIONS=$savedOptions;Pop-Location}

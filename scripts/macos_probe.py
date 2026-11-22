@@ -6,13 +6,13 @@ import shutil
 import subprocess
 import sys
 
+from jdk_home import configure_jdk
 from godot_driver import check_driver
 
 ROOT = Path(__file__).resolve().parents[1]
 SDK = ROOT / "jfx/build/sdk/lib"
 OUT = ROOT / "artifacts/reference"
 LOGS = ROOT / "agentdir/logs"
-JDK = Path(os.environ.get("JAVA_HOME") or ROOT / ".tools/jdk-25/Contents/Home")
 CP = os.pathsep.join(map(str, [OUT, *(ROOT / "artifacts/vfx" / path for path in (
     "classes/java/main", "classes/java/test", "resources/main", "resources/test", "dependencies/*"))]))
 GRAPHICS = ["javafx.graphics/com.sun.prism", "javafx.graphics/com.sun.glass.ui"]
@@ -22,7 +22,7 @@ MEDIA = ["javafx.media/com.sun.media.jfxmedia" + suffix for suffix in ("", ".con
 def compile_probe(*classes, modules="javafx.controls", exports=()):
     OUT.mkdir(parents=True, exist_ok=True)
     LOGS.mkdir(parents=True, exist_ok=True)
-    subprocess.run([JDK / "bin/javac", "--module-path", SDK, "--add-modules", modules,
+    subprocess.run([configure_jdk() / "bin/javac", "--module-path", SDK, "--add-modules", modules,
                     *(f"--add-exports={p}=ALL-UNNAMED" for p in exports), "-encoding", "UTF-8",
                     "-cp", CP, "-d", OUT, *(ROOT / "tests/reference" / (c + ".java") for c in classes)], check=True)
 
@@ -69,6 +69,6 @@ def scene_probe(scene, driver, log, env=None, args=(), project=None):
 
 
 def native_probe(name, log, modules, options=(), env=None):
-    return run([JDK / "bin/java", "-Dglass.platform=Mac", "-Dprism.order=mtl", "--module-path", SDK,
+    return run([configure_jdk() / "bin/java", "-Dglass.platform=Mac", "-Dprism.order=mtl", "--module-path", SDK,
                 "--add-modules", modules, "--enable-native-access=javafx.graphics,ALL-UNNAMED" +
                 (",javafx.media" if "javafx.media" in modules else ""), *options, "-cp", CP, name], log, env)

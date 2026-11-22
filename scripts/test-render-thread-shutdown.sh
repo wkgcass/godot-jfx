@@ -1,7 +1,8 @@
 #!/bin/sh
 # macOS equivalent of test-render-thread-shutdown.ps1.
-# Usage: test-render-thread-shutdown.sh [--driver metal|opengl] [--runtime]
+# Usage: test-render-thread-shutdown.sh [--driver metal|opengl] [--runtime] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 runtime=""

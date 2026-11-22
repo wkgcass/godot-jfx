@@ -1,7 +1,8 @@
 #!/bin/sh
 # macOS equivalent of test-window-layers.ps1.
-# Usage: test-window-layers.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-window-layers.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 DRIVER="metal"

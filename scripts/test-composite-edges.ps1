@@ -4,7 +4,7 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedOutput = $env:GODOT_JFX_EDGE_OUTPUT
 Push-Location $root
 try {
@@ -14,7 +14,7 @@ try {
     $reference = Join-Path $root 'artifacts/reference/composite-edges-d3d.txt'
     & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.graphics @exports '-Dprism.order=d3d' "-Dedges.output=$reference" -cp artifacts/reference CompositeEdgeProbe *> agentdir/logs/composite-edges-d3d.log
     if ($LASTEXITCODE -ne 0 -or (Get-Content agentdir/logs/composite-edges-d3d.log -Raw) -notmatch 'COMPOSITE_EDGE_PROBE_PASS D3DPipeline') { throw 'D3D edge reference failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_EDGE_OUTPUT = Join-Path $root "artifacts/reference/composite-edges-$Driver-$RenderThread.txt"
     $log = "agentdir/logs/composite-edges-$Driver-$RenderThread.log"
     Invoke-GodotFixture -Driver $Driver --path tests/godot res://composite_edges.tscn --render-thread $RenderThread --quit-after 3000 *> $log
@@ -42,4 +42,4 @@ try {
     [IO.File]::WriteAllLines((Join-Path $root "$log.diff"), [string[]]$differences)
     if ($differences.Count -ne 0) { throw "Composite edge comparison has $($differences.Count) differing pixels; see $log.diff" }
     Write-Output "Composite edge D3D comparison passed: $log"
-} finally { $env:GODOT_JFX_JDK=$savedJdk; $env:GODOT_JFX_EDGE_OUTPUT=$savedOutput; Pop-Location }
+} finally { $env:JAVA_HOME=$savedJdk; $env:GODOT_JFX_EDGE_OUTPUT=$savedOutput; Pop-Location }

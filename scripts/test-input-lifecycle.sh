@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of test-input-lifecycle.ps1.
-# Usage: test-input-lifecycle.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-input-lifecycle.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
@@ -25,7 +26,6 @@ mkdir -p artifacts/reference agentdir/logs
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     -encoding UTF-8 -d artifacts/reference tests/reference/InputLifecycleProbe.java
 
-export GODOT_JFX_JDK="$JDK"
 LOG="agentdir/logs/input-lifecycle-$DRIVER-$RENDER_THREAD.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://input_lifecycle.tscn \

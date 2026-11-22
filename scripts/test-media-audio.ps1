@@ -4,7 +4,7 @@ param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d12','vulkan','opengl')][strin
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-$savedJdk=$env:GODOT_JFX_JDK;$savedFile=$env:GODOT_JFX_MEDIA_FILE
+$savedJdk=$env:JAVA_HOME;$savedFile=$env:GODOT_JFX_MEDIA_FILE
 $savedExpect=$env:GODOT_JFX_MEDIA_EXPECT_MS;$savedTolerance=$env:GODOT_JFX_MEDIA_TOLERANCE_MS
 Push-Location $root
 try {
@@ -17,7 +17,7 @@ try {
     $expectMs=@{'wav'='2000';'mp3'='2000';'aiff'='2000'}
     # MP3 frames add encoder padding around the 2 s signal; allow for it.
     $toleranceMs=@{'wav'='50';'mp3'='300';'aiff'='50'}
-    $env:GODOT_JFX_JDK=$Jdk
+    $env:JAVA_HOME=$Jdk
     $fixture=$null
     for($i=0; $i -lt $codecs.Count; $i++){
         $kind=$codecs[$i]
@@ -47,7 +47,7 @@ try {
         Write-Output "Source Media audio playback passed ($kind): $log"
     }
 } finally {
-    $env:GODOT_JFX_JDK=$savedJdk;$env:GODOT_JFX_MEDIA_FILE=$savedFile
+    $env:JAVA_HOME=$savedJdk;$env:GODOT_JFX_MEDIA_FILE=$savedFile
     $env:GODOT_JFX_MEDIA_EXPECT_MS=$savedExpect;$env:GODOT_JFX_MEDIA_TOLERANCE_MS=$savedTolerance
     Pop-Location
 }

@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of test-glass-window.ps1.
-# Usage: test-glass-window.sh [--driver metal|opengl] [--runtime]
+# Usage: test-glass-window.sh [--driver metal|opengl] [--runtime] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 RUNTIME=0
 DRIVER="metal"
 while [ $# -gt 0 ]; do
@@ -48,7 +49,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 LOG="$PWD/agentdir/logs/m2-glass-window.log"
 CODE=0
 if [ "$RUNTIME" -eq 1 ]; then

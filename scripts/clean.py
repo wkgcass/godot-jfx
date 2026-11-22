@@ -9,6 +9,8 @@ import shutil
 import subprocess
 import sys
 
+from jdk_home import add_jdk_argument, configure_jdk
+
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGETS = ("godot-editor", "godot-library", "jfx", "packages", "test-projects")
@@ -60,18 +62,19 @@ def run_command(label, command, cwd, env, dry_run):
         subprocess.run(command, cwd=cwd, env=env, check=True)
 
 
-def clean(target, dry_run):
+def clean(target, dry_run, jdk=None):
     targets = TARGETS if target == "all" else (target,)
     env = os.environ.copy()
-    if sys.platform == "darwin":
-        env["JAVA_HOME"] = env.get("JAVA_HOME") or str(ROOT / ".tools/jdk-25/Contents/Home")
-        if "jfx" in targets:
+    uses_gradle = "jfx" in targets or (target == "packages" and any((ROOT / p).exists() for p in PACKAGE_GRADLE_DIRS))
+    if uses_gradle or "godot-library" in targets:
+        env["JAVA_HOME"] = str(configure_jdk(jdk))
+        if sys.platform == "darwin" and "jfx" in targets:
             env["ANT_HOME"] = env.get("ANT_HOME") or str(ROOT / ".tools/apache-ant-1.10.15")
             ant = Path(env["ANT_HOME"]) / "bin/ant"
             if not dry_run and not os.access(ant, os.X_OK):
                 raise ValueError(f"Missing executable {ant}. Run scripts/setup-env.py or set ANT_HOME before cleaning.")
 
-    if "jfx" in targets or (target == "packages" and any((ROOT / p).exists() for p in PACKAGE_GRADLE_DIRS)):
+    if uses_gradle:
         env["GRADLE_USER_HOME"] = str(ROOT / ".gradle-cache")
         wrapper = ROOT / "jfx" / ("gradlew.bat" if os.name == "nt" else "gradlew")
         run_command("gradle stop", [str(wrapper), "--stop"], ROOT / "jfx", env, dry_run)
@@ -113,10 +116,11 @@ def clean(target, dry_run):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    add_jdk_argument(parser)
     parser.add_argument("--target", choices=("all", *TARGETS), default="all")
     parser.add_argument("--dry-run", action="store_true", help="Print commands and paths without running them")
     args = parser.parse_args()
     try:
-        clean(args.target, args.dry_run)
+        clean(args.target, args.dry_run, args.jdk)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Clean failed: {error}\n")

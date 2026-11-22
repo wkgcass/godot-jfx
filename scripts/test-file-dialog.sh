@@ -13,11 +13,12 @@
 # FileDialogProbe assertions are unchanged: FileChooser results, filter
 # identity, cancel semantics and FX-loop liveness during the modal chooser.
 #
-# Usage: test-file-dialog.sh [--driver metal|opengl] [--render-thread safe] [--stop-host]
+# Usage: test-file-dialog.sh [--driver metal|opengl] [--render-thread safe] [--stop-host] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 runtime=""
 DRIVER="metal"
 RENDER_THREAD="safe"
@@ -53,7 +54,6 @@ LOG="agentdir/logs/file-dialog-$DRIVER-$RENDER_THREAD$SUFFIX$runtime.log"
 
 CODE=0
 (
-    export GODOT_JFX_JDK="$JDK"
     export GODOT_JFX_DIALOG_TOKEN="$TOKEN"
     export GODOT_JFX_DIALOG_HOOK=1
     export GODOT_JFX_DIALOG_STOP="$STOP_HOST"

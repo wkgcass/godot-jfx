@@ -3,11 +3,12 @@
 # (host-side motion injection). --robot drives the real OS cursor via the
 # Glass Robot: the terminal needs Accessibility and Screen Recording
 # permissions; keep the desktop idle and the test window frontmost.
-# Usage: test-hover-flicker.sh [--driver metal|opengl] [--render-thread safe] [--robot]
+# Usage: test-hover-flicker.sh [--driver metal|opengl] [--render-thread safe] [--robot] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 ROBOT=0
@@ -55,7 +56,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_HOVER_ROBOT="$ROBOT"
 SUFFIX=""
 [ "$ROBOT" = "1" ] && SUFFIX="-robot"

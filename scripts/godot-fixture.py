@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+from jdk_home import add_jdk_argument, configure_jdk
 from godot_driver import add_driver_argument, DEFAULT_DRIVER
 from maven_local import test_jars
 
@@ -16,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def command(args, working_directory):
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    add_jdk_argument(parser)
     add_driver_argument(parser)
     if sys.platform == "darwin":
         parser.add_argument("--runtime", action="store_true", help="import just the selected standalone scene")
@@ -26,10 +28,7 @@ def command(args, working_directory):
     windows = os.name == "nt"
     if not windows and sys.platform != "darwin":
         raise RuntimeError("Scene fixtures require the Windows or macOS platform JARs")
-    java_home = os.environ.get("GODOT_JFX_JDK") or os.environ.get("JAVA_HOME")
-    if windows and not java_home:
-        raise ValueError("Set JAVA_HOME to the source build JDK")
-    jdk = Path(java_home or ROOT / ".tools/jdk-25/Contents/Home")
+    jdk = configure_jdk(options.jdk)
     jars = test_jars()
     classes = ROOT / "artifacts/reference"
     classes.mkdir(exist_ok=True, parents=True)

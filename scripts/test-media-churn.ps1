@@ -4,7 +4,7 @@ param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d12','vulkan','opengl')][strin
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-$savedJdk=$env:GODOT_JFX_JDK
+$savedJdk=$env:JAVA_HOME
 $savedMedia=$env:GODOT_JFX_MEDIA_FILE
 $savedOptions=$env:JAVA_TOOL_OPTIONS
 $savedCycles=$env:GODOT_JFX_MEDIA_CYCLES
@@ -29,7 +29,7 @@ try {
     $videoFile = Join-Path $root $relative
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media -d artifacts/reference tests/reference/CurrentProcessHandles.java tests/reference/CurrentProcessMemory.java tests/reference/MediaChurnProbe.java
     if($LASTEXITCODE -ne 0){throw 'Media churn compilation failed'}
-    $env:GODOT_JFX_JDK=$Jdk
+    $env:JAVA_HOME=$Jdk
     $env:GODOT_JFX_MEDIA_FILE=$videoFile
     $env:JAVA_TOOL_OPTIONS="$savedOptions -Xmx256m --enable-native-access=ALL-UNNAMED"
     $env:GODOT_JFX_MEDIA_CYCLES="$Cycles"
@@ -82,7 +82,7 @@ try {
     if($aacStable -eq $false){throw "Media churn retained AAC decoder registrations: $log.aac-check"}
     Write-Output "Media churn passed: $log"
 }finally{
-    $env:GODOT_JFX_JDK=$savedJdk
+    $env:JAVA_HOME=$savedJdk
     $env:GODOT_JFX_MEDIA_FILE=$savedMedia
     $env:JAVA_TOOL_OPTIONS=$savedOptions
     $env:GODOT_JFX_MEDIA_CYCLES=$savedCycles

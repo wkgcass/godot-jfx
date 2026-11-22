@@ -6,7 +6,7 @@ param([string]$Jdk = $env:JAVA_HOME,
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedSync = $env:GODOT_JFX_CLIPBOARD_SYNC
 $syncPath = Join-Path $root ('artifacts/native-tests/clipboard-' + [Guid]::NewGuid().ToString('N') + '.ready')
 $exchangePending = $false
@@ -20,7 +20,7 @@ Push-Location $root
 try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/ClipboardProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Clipboard probe compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     New-Item -ItemType Directory -Force (Split-Path $syncPath -Parent) | Out-Null
     $env:GODOT_JFX_CLIPBOARD_SYNC = $syncPath
     [void]$clipShell.AddScript({
@@ -137,7 +137,7 @@ try {
         [void]$clipShell.Invoke()
     } finally {
         $clipShell.Dispose(); $clipRunspace.Dispose()
-        $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_CLIPBOARD_SYNC=$savedSync
+        $env:JAVA_HOME = $savedJdk; $env:GODOT_JFX_CLIPBOARD_SYNC=$savedSync
         if(Test-Path -LiteralPath $syncPath){Remove-Item -LiteralPath $syncPath}
         if(Test-Path -LiteralPath ($syncPath+'.external')){Remove-Item -LiteralPath ($syncPath+'.external')}
         if(Test-Path -LiteralPath ($syncPath+'.external2')){Remove-Item -LiteralPath ($syncPath+'.external2')}

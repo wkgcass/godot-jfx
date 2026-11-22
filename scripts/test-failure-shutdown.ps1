@@ -4,13 +4,13 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedProbe = $env:GODOT_JFX_FAILURE_PROBE
 Push-Location $root
 try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference "tests/reference/$Probe.java"
     if ($LASTEXITCODE -ne 0) { throw 'Failure probe compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_FAILURE_PROBE = $Probe
     $suffix = if ($Runtime) { '-runtime' } else { '' }
     $log = Join-Path $root "agentdir/logs/failure-shutdown-$Probe-$Driver-$RenderThread$suffix.log"
@@ -33,4 +33,4 @@ try {
     $unexpected = @(Get-Content $log | Where-Object { $_ -match '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\.[a-z].*(Exception|Error))|RejectedExecutionException|RenderJob.run: internal exception|Suppressed:|Caused by:' -and $_ -ne 'ERROR: Java application failed; see JVM exception in the host log' -and $_ -ne 'Exception in thread "main" java.lang.IllegalStateException: INJECTED_STAGE_FAILURE' })
     if ($result -ne 0 -or $output -notmatch 'GODOT_FAILURE_SHUTDOWN_PASS' -or $output -notmatch 'FAILURE_INNER_LOOP_RETURNED' -or $output -notmatch 'FAILURE_NESTED_LOOP_RETURNED' -or $output -notmatch 'INJECTED_STAGE_FAILURE' -or $unexpected.Count -ne 0) { throw "Failure shutdown test failed: $log" }
     Write-Output "Failure shutdown passed: $log"
-} finally { $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_FAILURE_PROBE = $savedProbe; Pop-Location }
+} finally { $env:JAVA_HOME = $savedJdk; $env:GODOT_JFX_FAILURE_PROBE = $savedProbe; Pop-Location }

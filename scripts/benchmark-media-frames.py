@@ -6,11 +6,13 @@ import json
 import re
 import subprocess
 
+from jdk_home import add_jdk_argument, configure_jdk
 from macos_probe import GRAPHICS, MEDIA, LOGS, ROOT, compile_probe, isolated_project, native_probe, require, scene_probe
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    add_jdk_argument(parser)
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--driver", choices=["metal", "opengl"])
     group.add_argument("--native", action="store_true")
@@ -19,6 +21,7 @@ def main():
     for option in ("clock-skew", "native60", "no-vsync", "frame-phases", "runtime"):
         parser.add_argument("--" + option, action="store_true")
     args = parser.parse_args()
+    configure_jdk(args.jdk)
     if args.native and args.runtime:
         parser.error("--runtime requires Godot")
     driver = args.driver or "metal"

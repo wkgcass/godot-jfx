@@ -1,7 +1,8 @@
 #!/bin/sh
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
-jdk=${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}
+jdk="$JAVA_HOME"
 mkdir -p artifacts/native-tests
 clang++ -std=c++17 -fobjc-arc -framework AppKit -framework UniformTypeIdentifiers -O2 \
     -I native/godot_modules/javafx -I "$jdk/include" -I "$jdk/include/darwin" \

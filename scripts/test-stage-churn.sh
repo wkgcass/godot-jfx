@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of test-stage-churn.ps1.
-# Usage: test-stage-churn.sh [--driver metal|opengl] [--render-thread safe] [--cycles N] [--heap-mib N]
+# Usage: test-stage-churn.sh [--driver metal|opengl] [--render-thread safe] [--cycles N] [--heap-mib N] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 CYCLES=36
@@ -35,7 +36,6 @@ mkdir -p artifacts/reference agentdir/logs
     --add-exports javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED \
     -d artifacts/reference tests/reference/StageChurnProbe.java
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_CHURN_CYCLES="$CYCLES"
 if [ "$HEAP_MIB" -gt 0 ]; then
     export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Xmx${HEAP_MIB}m"

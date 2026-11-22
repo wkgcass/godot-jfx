@@ -1,11 +1,12 @@
 #!/bin/sh
 # macOS equivalent of test-readback.ps1.
-# Usage: test-readback.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-readback.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 #        [--snapshot] [--stop-during-read] [--runtime] [--snapshot-stress]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 SNAPSHOT=0
@@ -49,7 +50,6 @@ EXPORTS="$EXPORTS --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED"
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.graphics \
     -encoding UTF-8 -d artifacts/reference tests/reference/SnapshotProbe.java || { echo "Snapshot compilation failed" >&2; exit 1; }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_SNAPSHOT="$SNAPSHOT"
 export GODOT_JFX_SNAPSHOT_STRESS="$STRESS"
 export GODOT_JFX_READBACK_STOP="$STOP"

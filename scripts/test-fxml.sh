@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of test-fxml.ps1.
-# Usage: test-fxml.sh [--driver metal|opengl] [--render-thread safe] [--runtime]
+# Usage: test-fxml.sh [--driver metal|opengl] [--render-thread safe] [--runtime] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 RUNTIME=0
@@ -53,7 +54,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
 LOG="$PWD/agentdir/logs/fxml-$DRIVER-$RENDER_THREAD$SUFFIX.log"

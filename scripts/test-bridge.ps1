@@ -5,7 +5,7 @@ param([string]$Jdk = $env:JAVA_HOME, [switch]$StopFromHost, [switch]$Encoded, [s
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedStop = $env:GODOT_JFX_TEST_STOP
 $savedEncoded = $env:GODOT_JFX_TEST_ENCODED
 $savedTextures = $env:GODOT_JFX_TEST_TEXTURES
@@ -26,7 +26,7 @@ try {
     New-Item -ItemType Directory -Force artifacts/reference,agentdir/logs | Out-Null
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.graphics --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.impl=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.godot=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.paint=ALL-UNNAMED --add-exports javafx.graphics/com.sun.javafx.geom=ALL-UNNAMED --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/BridgeProbe.java tests/reference/BridgeStopProbe.java tests/reference/RenderCommandsProbe.java tests/reference/TextureCommandsProbe.java tests/reference/PrismTextureProbe.java tests/reference/ShaderCommandsProbe.java tests/reference/PrismContextProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'BridgeProbe compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_TEST_STOP = if ($StopFromHost) { '1' } else { '0' }
     $env:GODOT_JFX_TEST_ENCODED = if ($Encoded) { '1' } else { '0' }
     $env:GODOT_JFX_TEST_TEXTURES = if ($Textures) { '1' } else { '0' }
@@ -55,7 +55,7 @@ try {
     }
     Write-Output "M2 bridge test passed. Log: $log"
 } finally {
-    $env:GODOT_JFX_JDK = $savedJdk
+    $env:JAVA_HOME = $savedJdk
     $env:GODOT_JFX_TEST_STOP = $savedStop
     $env:GODOT_JFX_TEST_ENCODED = $savedEncoded
     $env:GODOT_JFX_TEST_TEXTURES = $savedTextures

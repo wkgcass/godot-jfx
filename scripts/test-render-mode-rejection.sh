@@ -1,6 +1,7 @@
 #!/bin/sh
 # macOS equivalent of test-render-mode-rejection.ps1.
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 driver=metal
 if [ "$#" -ne 0 ]; then
     if [ "$#" -ne 2 ] || [ "$1" != --driver ]; then

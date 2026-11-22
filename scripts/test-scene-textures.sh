@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of test-scene-textures.ps1.
-# Usage: test-scene-textures.sh [--driver metal|opengl] [--missing-scene] [--resize]
+# Usage: test-scene-textures.sh [--driver metal|opengl] [--missing-scene] [--resize] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 MISSING=0
 RESIZE=0
@@ -30,7 +31,6 @@ mkdir -p artifacts/reference agentdir/logs
     --add-exports javafx.graphics/com.sun.prism.godot=ALL-UNNAMED \
     -encoding UTF-8 -d artifacts/reference tests/reference/SceneTextureProbe.java || { echo "Scene texture probe compilation failed" >&2; exit 1; }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_SCENE_MISSING="$MISSING"
 export GODOT_JFX_SCENE_RESIZE="$RESIZE"
 SUFFIX=""

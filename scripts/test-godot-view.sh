@@ -1,11 +1,12 @@
 #!/bin/sh
 # macOS equivalent of test-godot-view.ps1. The transform clip reference run
 # uses the stock macOS Prism pipeline (Metal by default) instead of D3D.
-# Usage: test-godot-view.sh [--driver metal|opengl] [--render-thread safe] [--transform] [--runtime]
+# Usage: test-godot-view.sh [--driver metal|opengl] [--render-thread safe] [--transform] [--runtime] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 TRANSFORM=0
@@ -44,7 +45,6 @@ fi
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
     -encoding UTF-8 -d artifacts/reference tests/reference/GodotViewProbe.java || { echo "GodotView probe compilation failed" >&2; exit 1; }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_TEST_VIEW_TRANSFORM="$TRANSFORM"
 SUFFIX=""
 [ "$TRANSFORM" -eq 1 ] && SUFFIX="-transform"

@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $saved = @{}
-foreach ($name in @('GODOT_JFX_JDK','GODOT_JFX_RIPPLE_OUTPUT')) {
+foreach ($name in @('JAVA_HOME','GODOT_JFX_RIPPLE_OUTPUT')) {
     $saved[$name] = [Environment]::GetEnvironmentVariable($name,'Process')
 }
 Push-Location $root
@@ -20,7 +20,7 @@ try {
     $classpath = 'artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/dependencies/*'
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing -cp $classpath -encoding UTF-8 -d artifacts/reference tests/reference/VfxRippleProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Ripple probe compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $caseName = "$Driver-$RenderThread"
     if ($NativeD3D) { $caseName = 'native-d3d' }
     $env:GODOT_JFX_RIPPLE_OUTPUT = Join-Path $root "artifacts/reference/vfx-ripple-$caseName"

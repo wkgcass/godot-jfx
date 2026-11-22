@@ -4,7 +4,7 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedHelperEnvironment = @{}
 foreach ($name in @('VSINSTALLDIR','GODOT_JFX_HELPER_X','GODOT_JFX_HELPER_Y','GODOT_JFX_HELPER_SRC_X','GODOT_JFX_HELPER_SRC_Y')) {
     $savedHelperEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
@@ -53,7 +53,7 @@ try {
     }
     if (-not $ready) { throw "dnd_helper windows did not initialize: $targetLog / $sourceLog" }
 
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_HELPER_X = '940'; $env:GODOT_JFX_HELPER_Y = '400'
     $env:GODOT_JFX_HELPER_SRC_X = '1300'; $env:GODOT_JFX_HELPER_SRC_Y = '400'
     $suffix = if($Runtime){'-runtime'}else{''}
@@ -96,6 +96,6 @@ try {
     foreach ($entry in $savedHelperEnvironment.GetEnumerator()) {
         if ($null -eq $entry.Value) { Remove-Item -LiteralPath "Env:$($entry.Key)" -ErrorAction SilentlyContinue } else { [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'Process') }
     }
-    $env:GODOT_JFX_JDK = $savedJdk
+    $env:JAVA_HOME = $savedJdk
     Pop-Location
 }

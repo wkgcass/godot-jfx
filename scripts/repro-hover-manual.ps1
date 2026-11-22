@@ -13,7 +13,7 @@ $existingLog = if ($LogPath) { (Resolve-Path -LiteralPath $LogPath).Path } else 
 Push-Location $root
 $saved = @{}
 $settings = @{
-    GODOT_JFX_JDK = $Jdk
+    JAVA_HOME = $Jdk
     GODOT_JFX_DEMO_SMOKE = '0'
     GODOT_JFX_HOVER_TAP = '1'
     GODOT_JFX_HOVER_SAMPLE = $(if ($NoSample) { '0' } else { '1' })

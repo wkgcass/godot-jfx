@@ -1,9 +1,10 @@
 #!/bin/sh
 # macOS Media audio using the source-built platform JAR.
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 runtime=""
 DRIVER="metal"
 CODEC="wav"
@@ -49,7 +50,6 @@ run_watchdog() {
 }
 
 case "$CODEC" in all) CODECS="wav mp3 aiff" ;; *) CODECS="$CODEC" ;; esac
-export GODOT_JFX_JDK="$JDK"
 for kind in $CODECS; do
     media_file=$(./scripts/prepare-audio-fixtures.py "$kind")
     case "$kind" in

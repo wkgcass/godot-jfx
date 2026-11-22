@@ -4,14 +4,14 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedAbrupt = $env:GODOT_JFX_VFX_ABRUPT
 Push-Location $root
 try {
     $classpath = 'artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/dependencies/*'
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED -cp $classpath -encoding UTF-8 -d artifacts/reference tests/reference/VfxStageProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'VFX Stage observer compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_VFX_ABRUPT = if ($Abrupt) { '1' } else { $null }
     $suffix = if ($Abrupt) { '-abrupt' } else { '' }
     $log = "agentdir/logs/vfx-stage-$Driver-$RenderThread$suffix.log"
@@ -26,7 +26,7 @@ try {
     if ($result -ne 0 -or $output -notmatch 'GODOT_VFX_STAGE_PASS' -or $output -notmatch 'VFX_STAGE_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\.[a-z].*Exception|com\.sun\.javafx\.tk\.godot\.GodotHostStoppedException)') { throw "VFX Stage test failed: $log" }
     foreach ($step in 0..11) { Copy-Item "artifacts/reference/vfx-stage-$step.png" "artifacts/reference/vfx-stage-$Driver-$RenderThread-$step.png" }
     Write-Output "VFX Stage passed: $log"
-} finally { $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_VFX_ABRUPT = $savedAbrupt; Pop-Location }
+} finally { $env:JAVA_HOME = $savedJdk; $env:GODOT_JFX_VFX_ABRUPT = $savedAbrupt; Pop-Location }
 
 
 

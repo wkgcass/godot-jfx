@@ -1,9 +1,10 @@
 #!/bin/sh
 # macOS Media video using the source-built platform JAR.
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 runtime=""
 DRIVER=""
 NATIVE=0
@@ -59,7 +60,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_MEDIA_FILE="$PWD/$VIDEO"
 export GODOT_JFX_MEDIA_CAPTURE="$PWD/artifacts/reference/media-video-$BACKEND$runtime$suffix.png"
 LOG="agentdir/logs/media-video-$BACKEND$runtime$suffix.log"

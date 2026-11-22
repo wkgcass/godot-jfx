@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of test-stage.ps1.
-# Usage: test-stage.sh [--driver metal|opengl]
+# Usage: test-stage.sh [--driver metal|opengl] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -23,7 +24,6 @@ mkdir -p artifacts/reference agentdir/logs
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
     -encoding UTF-8 -d artifacts/reference tests/reference/StageProbe.java
 
-export GODOT_JFX_JDK="$JDK"
 LOG="agentdir/logs/stage-$DRIVER.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://stage.tscn \

@@ -1,7 +1,8 @@
 #!/bin/sh
 # macOS equivalent of test-m1.ps1.
-# Usage: test-m1.sh [--driver metal|opengl]
+# Usage: test-m1.sh [--driver metal|opengl] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 DRIVER="metal"

@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import time
 
+from jdk_home import add_jdk_argument, configure_jdk
 from godot_driver import DEFAULT_DRIVER, DEVICE_LINE, DRIVER_MARKER, MACOS_DRIVERS, WINDOWS_DRIVERS, check_driver
 from library_test_platform import ROOT, WINDOWS
 from maven_local import test_jars
@@ -86,12 +87,10 @@ def check_launch(jdk, module_path, work, logs, requested):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    add_jdk_argument(parser)
     parser.add_argument("--driver", choices=[*DRIVERS, "all"], default=DEFAULT_DRIVER)
     args = parser.parse_args()
-    sdk = os.environ.get("JAVA_HOME")
-    if WINDOWS and not sdk:
-        parser.error("Set JAVA_HOME to JDK 25")
-    jdk = Path(sdk or ROOT / ".tools/jdk-25/Contents/Home").resolve()
+    jdk = configure_jdk(args.jdk)
     module_path = os.pathsep.join(map(str, test_jars()))
     log_root = ROOT / "agentdir/logs"
     log_root.mkdir(parents=True, exist_ok=True)

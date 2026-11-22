@@ -1,7 +1,8 @@
 #!/bin/sh
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
-jdk=${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}
+jdk="$JAVA_HOME"
 flags=
 case "$#" in
     0) ;;

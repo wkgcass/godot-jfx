@@ -7,7 +7,7 @@ param([string]$Jdk=$env:JAVA_HOME,
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-$names=@('GODOT_JFX_JDK','GODOT_JFX_VFX_PAGES','GODOT_JFX_VFX_ROUNDS','GODOT_JFX_VFX_SOAK','GODOT_JFX_VFX_FREEZE','JAVA_TOOL_OPTIONS')
+$names=@('JAVA_HOME','GODOT_JFX_VFX_PAGES','GODOT_JFX_VFX_ROUNDS','GODOT_JFX_VFX_SOAK','GODOT_JFX_VFX_FREEZE','JAVA_TOOL_OPTIONS')
 $saved=@{};foreach($name in $names){$saved[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
 $process=$null
 Push-Location $root
@@ -16,7 +16,7 @@ try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED -cp $classpath -encoding UTF-8 -d artifacts/reference tests/reference/VfxNavigationProbe.java
     if($LASTEXITCODE -ne 0){throw 'VFX observer compilation failed'}
     $pages=(Select-String -Path vfx/src/test/java/io/vproxy/vfx/intro/IntroFXMain.java -Pattern 'mainScenes.add\(new').Count
-    $env:GODOT_JFX_JDK=$Jdk;$env:GODOT_JFX_VFX_PAGES="$pages";$env:GODOT_JFX_VFX_ROUNDS="$Rounds"
+    $env:JAVA_HOME=$Jdk;$env:GODOT_JFX_VFX_PAGES="$pages";$env:GODOT_JFX_VFX_ROUNDS="$Rounds"
     $env:GODOT_JFX_VFX_SOAK='1';$env:GODOT_JFX_VFX_FREEZE='0'
     $env:JAVA_TOOL_OPTIONS="$($saved['JAVA_TOOL_OPTIONS']) -Xmx${HeapMiB}m"
     $stem="vfx-soak-$Driver-$Rounds-heap$HeapMiB"

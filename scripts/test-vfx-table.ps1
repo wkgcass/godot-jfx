@@ -4,12 +4,12 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 try {
     $classpath = 'artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/dependencies/*'
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED -cp $classpath -encoding UTF-8 -d artifacts/reference tests/reference/VfxTableProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'VFX table probe compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $suffix = if ($Runtime) { '-runtime' } else { '' }
     $log = Join-Path (Get-Location) "agentdir/logs/vfx-table-$Driver-$RenderThread$suffix.log"
     if ($Runtime) {
@@ -30,4 +30,4 @@ try {
     if ($LASTEXITCODE -ne 0 -or $output -notmatch 'GODOT_VFX_TABLE_PASS' -or $output -notmatch 'VFX_TABLE_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|GodotHostStoppedException|uncaught:') { throw "VFX table failed: $log" }
     foreach ($step in 0..7) { Copy-Item "artifacts/reference/vfx-table-$step.png" "artifacts/reference/vfx-table-$Driver-$RenderThread$suffix-$step.png" }
     Write-Output "VFX table passed: $log"
-} finally { $env:GODOT_JFX_JDK = $savedJdk; Pop-Location }
+} finally { $env:JAVA_HOME = $savedJdk; Pop-Location }

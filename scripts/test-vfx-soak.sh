@@ -3,11 +3,12 @@
 # (RSS, standing in for working set) and /dev/fd counts instead of the Windows
 # process APIs; the pass criteria (navigation samples, completion, cleanup)
 # are unchanged.
-# Usage: test-vfx-soak.sh [--driver metal|opengl] [--rounds 1..20] [--heap-mib 128..4096]
+# Usage: test-vfx-soak.sh [--driver metal|opengl] [--rounds 1..20] [--heap-mib 128..4096] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 ROUNDS=3
 HEAP=256
@@ -35,7 +36,6 @@ CLASSPATH="artifacts/vfx/classes/java/main:artifacts/vfx/classes/java/test:artif
     || { echo "VFX observer compilation failed" >&2; exit 1; }
 
 PAGES=$(grep -c 'mainScenes\.add(new' vfx/src/test/java/io/vproxy/vfx/intro/IntroFXMain.java)
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_VFX_PAGES="$PAGES"
 export GODOT_JFX_VFX_ROUNDS="$ROUNDS"
 export GODOT_JFX_VFX_SOAK=1

@@ -4,7 +4,7 @@ param([string]$Jdk=$env:JAVA_HOME,[ValidateSet('d3d','safe')][string]$Backend='s
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-$savedJdk=$env:GODOT_JFX_JDK;$savedMedia=$env:GODOT_JFX_MEDIA_FILE;$savedOptions=$env:JAVA_TOOL_OPTIONS
+$savedJdk=$env:JAVA_HOME;$savedMedia=$env:GODOT_JFX_MEDIA_FILE;$savedOptions=$env:JAVA_TOOL_OPTIONS
 $savedRate=$env:GODOT_JFX_MEDIA_RATE
 $savedClock=$env:GODOT_JFX_MEDIA_CLOCK
 $savedFixture=$env:GODOT_JFX_MEDIA_FIXTURE
@@ -48,7 +48,7 @@ try {
         [string[]]$javaArgs=if($NoVSync){@('-Dprism.vsync=false')}else{@()}
         & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.media --enable-native-access=javafx.graphics,javafx.media '-Dprism.order=d3d' @javaArgs -cp artifacts/reference MediaFrameBenchmark *> $log
     }else{
-        $env:GODOT_JFX_JDK=$Jdk
+        $env:JAVA_HOME=$Jdk
         $hostArgs=if($NoVSync){@('--disable-vsync')}else{@()}
         if($Runtime){
             $fixture=Join-Path $root 'artifacts/runtime-media-frames'
@@ -84,4 +84,4 @@ try {
         Write-Output 'MEDIA_FRAME_60FPS_ACCEPTANCE_PASS minimum_fps=55'
     }
     Write-Output $output
-}finally{$env:GODOT_JFX_MEDIA_FRAME_PHASES=$savedPhases;$env:GODOT_JFX_MEDIA_FIXTURE=$savedFixture;$env:GODOT_JFX_MEDIA_CLOCK=$savedClock;$env:GODOT_JFX_MEDIA_RATE=$savedRate;$env:GODOT_JFX_JDK=$savedJdk;$env:GODOT_JFX_MEDIA_FILE=$savedMedia;$env:JAVA_TOOL_OPTIONS=$savedOptions;Pop-Location}
+}finally{$env:GODOT_JFX_MEDIA_FRAME_PHASES=$savedPhases;$env:GODOT_JFX_MEDIA_FIXTURE=$savedFixture;$env:GODOT_JFX_MEDIA_CLOCK=$savedClock;$env:GODOT_JFX_MEDIA_RATE=$savedRate;$env:JAVA_HOME=$savedJdk;$env:GODOT_JFX_MEDIA_FILE=$savedMedia;$env:JAVA_TOOL_OPTIONS=$savedOptions;Pop-Location}

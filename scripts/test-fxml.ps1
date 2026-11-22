@@ -4,13 +4,13 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.fxml --add-exports javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/FXMLProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'FXML probe compilation failed' }
     New-Item -ItemType Directory -Force artifacts/reference/fxml | Out-Null
     Copy-Item tests/reference/fxml/* -Destination artifacts/reference/fxml -Force
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $suffix = if ($Runtime) { '-runtime' } else { '' }
     $log = Join-Path (Get-Location) "agentdir/logs/fxml-$Driver-$RenderThread$suffix.log"
     if ($Runtime) {
@@ -31,4 +31,4 @@ try {
     if ($LASTEXITCODE -ne 0 -or $output -notmatch 'GODOT_FXML_PASS' -or $output -notmatch 'FXML_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|GodotHostStoppedException|uncaught:') { throw "FXML failed: $log" }
     foreach ($step in 0..3) { Copy-Item "artifacts/reference/fxml-$step.png" "artifacts/reference/fxml-$Driver-$RenderThread$suffix-$step.png" }
     Write-Output "FXML passed: $log"
-} finally { $env:GODOT_JFX_JDK = $savedJdk; Pop-Location }
+} finally { $env:JAVA_HOME = $savedJdk; Pop-Location }

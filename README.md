@@ -75,7 +75,7 @@ python scripts/setup-env.py
 .\scripts\build-vfx.ps1
 ```
 
-On macOS arm64, run the corresponding commands from the repository root.
+On macOS arm64, set `JAVA_HOME` to your JDK 25 home and run the corresponding commands from the repository root. Java-based commands also accept `--jdk DIRECTORY` for a single invocation.
 
 ```sh
 ./scripts/setup-env.py

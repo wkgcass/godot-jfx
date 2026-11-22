@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of test-pacing-cap.ps1.
-# Usage: test-pacing-cap.sh [--driver metal|opengl] [--mode cap|restore|override]
+# Usage: test-pacing-cap.sh [--driver metal|opengl] [--mode cap|restore|override] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 MODE="cap"
 while [ $# -gt 0 ]; do
@@ -46,7 +47,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_VSYNC_FALLBACK="1"
 export GODOT_JFX_TEST_PACING_MODE="$MODE"
 LOG="agentdir/logs/pacing-cap-$DRIVER-$MODE.log"

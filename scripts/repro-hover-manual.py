@@ -5,9 +5,11 @@ from datetime import datetime
 from pathlib import Path
 import re
 
+from jdk_home import add_jdk_argument, configure_jdk
 from macos_probe import LOGS, scene_probe
 
 parser = argparse.ArgumentParser(description=__doc__)
+add_jdk_argument(parser)
 parser.add_argument("--driver", choices=["metal", "opengl"], default="metal")
 parser.add_argument("--no-sample", action="store_true")
 parser.add_argument("--log-path", type=Path)
@@ -15,6 +17,7 @@ args = parser.parse_args()
 if args.log_path:
     output = args.log_path.read_text(errors="replace")
 else:
+    configure_jdk(args.jdk)
     log = LOGS / f"hover-manual-{datetime.now():%Y%m%d-%H%M%S}.log"
     print(f"Reproduce the hover and close the Demo to finish. Log: {log}", flush=True)
     output = scene_probe("vfx_demo", args.driver, log, {"GODOT_JFX_DEMO_SMOKE": "0", "GODOT_JFX_HOVER_TAP": "1",

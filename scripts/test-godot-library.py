@@ -16,8 +16,9 @@ import threading
 import time
 from zipfile import ZipFile
 
+from jdk_home import add_jdk_argument, configure_jdk
 from godot_driver import DEFAULT_DRIVER, ENGINE_DRIVERS, add_driver_argument, check_driver
-from library_test_platform import CLASSIFIER, EDITOR, MEDIA_LIBRARIES, WINDOWS, configure_jdk, library, module_paths, system_path
+from library_test_platform import CLASSIFIER, EDITOR, MEDIA_LIBRARIES, WINDOWS, library, module_paths, system_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -347,13 +348,14 @@ class Suite:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    add_jdk_argument(parser)
     add_driver_argument(parser)
     parser.add_argument("--runtime", required=True, type=Path)
     parser.add_argument("--work", type=Path)
     parser.add_argument("--maven", default=shutil.which("mvn") or str(ROOT / ".tools/apache-maven-3.9.9/bin" / ("mvn.cmd" if WINDOWS else "mvn")))
     parser.add_argument("--group", choices=["prepare", "launch", "failures", "lifecycle", "render", "media", "all"], default="all")
     args = parser.parse_args()
-    configure_jdk()
+    configure_jdk(args.jdk)
     runtime = args.runtime.resolve()
     work = args.work.resolve() if args.work else Path(tempfile.mkdtemp(prefix="Godot 验收 ")).resolve()
     work.mkdir(parents=True, exist_ok=True)

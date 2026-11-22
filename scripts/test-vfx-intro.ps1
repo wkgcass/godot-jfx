@@ -4,12 +4,12 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedPages = $env:GODOT_JFX_VFX_PAGES
 $savedFreeze = $env:GODOT_JFX_VFX_FREEZE
 Push-Location $root
 try {
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_VFX_FREEZE = if ($FreezeFusion) { '1' } else { '0' }
     $env:GODOT_JFX_VFX_PAGES = if ($AllPages) { (Select-String -Path vfx/src/test/java/io/vproxy/vfx/intro/IntroFXMain.java -Pattern 'mainScenes.add\(new').Count.ToString() } else { '2' }
     if ($PageLimit -ne 0) {
@@ -32,5 +32,5 @@ try {
     Copy-Item artifacts/reference/vfx-intro.png "artifacts/reference/vfx-intro-$Driver.png"
     Copy-Item artifacts/reference/vfx-intro-next.png "artifacts/reference/vfx-intro-next-$Driver.png"
     Write-Output "VFX Intro smoke passed: $log"
-} finally { $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_VFX_PAGES = $savedPages; $env:GODOT_JFX_VFX_FREEZE = $savedFreeze; Pop-Location }
+} finally { $env:JAVA_HOME = $savedJdk; $env:GODOT_JFX_VFX_PAGES = $savedPages; $env:GODOT_JFX_VFX_FREEZE = $savedFreeze; Pop-Location }
 

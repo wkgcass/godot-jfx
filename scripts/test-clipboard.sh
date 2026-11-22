@@ -2,11 +2,12 @@
 # macOS equivalent of test-clipboard.ps1.
 #
 # The peer checks Java output and publishes its two test datasets directly.
-# Usage: test-clipboard.sh [--driver metal|opengl] [--runtime]
+# Usage: test-clipboard.sh [--driver metal|opengl] [--runtime] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RUNTIME=0
 while [ $# -gt 0 ]; do
@@ -77,7 +78,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_CLIPBOARD_SYNC="$SYNC"
 "$PEER" exchange "$SYNC" >"$PEER_LOG" 2>&1 &
 PEER_PID=$!

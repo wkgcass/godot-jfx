@@ -1,7 +1,8 @@
 #!/bin/sh
 # macOS equivalent of test-mesh-transform.ps1.
-# Usage: test-mesh-transform.sh [--driver metal|opengl] [--cache-pressure]
+# Usage: test-mesh-transform.sh [--driver metal|opengl] [--cache-pressure] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 DRIVER="metal"

@@ -1,11 +1,12 @@
 #!/bin/sh
 # macOS equivalent of test-failure-shutdown.ps1.
-# Usage: test-failure-shutdown.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-failure-shutdown.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 #        [--probe FailureShutdownProbe|FailureApplicationProbe] [--runtime]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 PROBE="FailureShutdownProbe"
@@ -54,7 +55,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_FAILURE_PROBE="$PROBE"
 SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"

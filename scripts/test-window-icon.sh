@@ -1,9 +1,10 @@
 #!/bin/sh
-# Usage: test-window-icon.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-window-icon.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 runtime=""
 DRIVER="metal"
 RENDER_THREAD="safe"

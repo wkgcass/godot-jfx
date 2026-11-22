@@ -3,11 +3,12 @@
 # stock macOS Prism pipeline (Metal by default) instead of D3D; the Godot
 # scene still reads artifacts/reference/d3d-effects.png, so the reference
 # keeps that file name.
-# Usage: test-effects.sh [--driver metal|opengl] [--render-thread safe] [--runtime]
+# Usage: test-effects.sh [--driver metal|opengl] [--render-thread safe] [--runtime] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 RUNTIME=0
@@ -41,7 +42,6 @@ if [ "$CODE" -ne 0 ] || ! grep -q 'EFFECTS_REFERENCE_PASS' agentdir/logs/effects
     exit 1
 fi
 
-export GODOT_JFX_JDK="$JDK"
 SUFFIX=""
 [ "$RUNTIME" -eq 1 ] && SUFFIX="-runtime"
 LOG="$PWD/agentdir/logs/effects-$DRIVER$SUFFIX.log"

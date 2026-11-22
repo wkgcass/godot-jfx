@@ -1,7 +1,8 @@
 #!/bin/sh
 # macOS equivalent of test-shaders.ps1.
-# Usage: test-shaders.sh [--driver metal|opengl]
+# Usage: test-shaders.sh [--driver metal|opengl] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 DRIVER="metal"

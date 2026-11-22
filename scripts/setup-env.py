@@ -98,16 +98,12 @@ def install_archive(destination, url, digest, files, *, archive_root="", version
         if checksum.hexdigest() != digest:
             raise ValueError(f"Checksum mismatch for {archive}")
         unpacked = staging / "unpacked"
-        if name.endswith(".tar.gz"):
-            unpacked.mkdir()
-            subprocess.run(["tar", "-xzf", archive, "-C", unpacked], check=True)
-        else:
-            with ZipFile(archive) as distribution:
-                distribution.extractall(unpacked)
-                if os.name != "nt":
-                    for entry in distribution.infolist():
-                        if not entry.is_dir() and (entry.external_attr >> 16) & 0o111:
-                            (unpacked / entry.filename).chmod(0o755)
+        with ZipFile(archive) as distribution:
+            distribution.extractall(unpacked)
+            if os.name != "nt":
+                for entry in distribution.infolist():
+                    if not entry.is_dir() and (entry.external_attr >> 16) & 0o111:
+                        (unpacked / entry.filename).chmod(0o755)
         source = unpacked / archive_root
         if not ready(source):
             raise ValueError(f"{name} does not contain the expected files")
@@ -190,15 +186,6 @@ def prepare_windows():
                    check=True)
 
 
-def prepare_macos():
-    install_archive(TOOLS / "jdk-25",
-                    "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5%2B8/"
-                    "OpenJDK25U-jdk_aarch64_mac_hotspot_25.0.5_8.tar.gz",
-                    "36dc14d797aaff6d89aab302cd053fdba6207dfdcf772052fa7b023a94b0e857",
-                    ["Contents/Home/bin/java", "Contents/Home/bin/javac", "Contents/Home/include/jni.h"],
-                    archive_root="jdk-25.0.5+8", version_marker=("Contents/Home/release", 'JAVA_VERSION="25.'))
-
-
 def main():
     windows = sys.platform == "win32" and platform.machine().lower() in ("amd64", "x86_64")
     if not windows and (sys.platform != "darwin" or platform.machine() != "arm64"):
@@ -213,8 +200,6 @@ def main():
     prepare_venv(windows)
     if windows:
         prepare_windows()
-    else:
-        prepare_macos()
     for name in SAMPLES:
         media_sample(name, download=True)
     print(f"Build tools ready in {TOOLS}")

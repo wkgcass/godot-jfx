@@ -10,13 +10,6 @@ WINDOWS = os.name == "nt"
 
 if not WINDOWS and sys.platform != "darwin":
     raise RuntimeError("The packaged engine tests require Windows x64 or macOS arm64")
-def configure_jdk():
-    if not os.environ.get("JAVA_HOME"):
-        if WINDOWS:
-            raise ValueError("Set JAVA_HOME to JDK 25")
-        os.environ["JAVA_HOME"] = str(ROOT / ".tools/jdk-25/Contents/Home")
-    return Path(os.environ["JAVA_HOME"])
-
 
 CLASSIFIER = "win" if WINDOWS else "mac-aarch64"
 EDITOR = ROOT / "godot/bin" / ("godot.windows.editor.x86_64.console.exe" if WINDOWS else "godot.macos.editor.arm64")

@@ -4,7 +4,7 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedToken = $env:GODOT_JFX_DIALOG_TOKEN
 $savedStop = $env:GODOT_JFX_DIALOG_STOP
 $savedReady = $env:GODOT_JFX_DIALOG_READY
@@ -16,7 +16,7 @@ Push-Location $root
 try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.godot=ALL-UNNAMED --add-exports javafx.graphics/com.sun.prism.ps=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/FileDialogProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'File dialog probe compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_DIALOG_TOKEN = 'JFX-' + [guid]::NewGuid().ToString('N')
     Add-Type -Path (Join-Path $root 'tests/reference/FileDialogDriver.cs')
     $env:GODOT_JFX_DIALOG_STOP=if($StopHost){'1'}else{'0'}
@@ -64,7 +64,7 @@ try {
     $env:GODOT_JFX_DIALOG_READY=$savedReady
     $env:GODOT_JFX_DIALOG_STOP=$savedStop
     $env:GODOT_JFX_DIALOG_TOKEN=$savedToken
-    $env:GODOT_JFX_JDK=$savedJdk
+    $env:JAVA_HOME=$savedJdk
     Pop-Location
 }
 

@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of run-vfx-demo.ps1.
-# Usage: run-vfx-demo.sh [--smoke] [--driver metal|opengl] [--render-thread safe] [--no-godot-logo] [--disable-vsync] [--max-fps N]
+# Usage: run-vfx-demo.sh [--smoke] [--driver metal|opengl] [--render-thread safe] [--no-godot-logo] [--disable-vsync] [--max-fps N] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 SMOKE=0

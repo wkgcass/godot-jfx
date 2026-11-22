@@ -12,6 +12,7 @@ import sys
 import tempfile
 import time
 
+from jdk_home import add_jdk_argument, configure_jdk
 from godot_driver import MACOS_DRIVERS, check_case_logs
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -78,6 +79,7 @@ def cases(group, drivers, selection="all"):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    add_jdk_argument(parser)
     parser.add_argument("--group", choices=["NonRobot", "Robot"], default="NonRobot")
     parser.add_argument("--driver", choices=[*MACOS_DRIVERS, "all"], default="metal")
     parser.add_argument("--cases", choices=["all", "default", "variants"], default="all",
@@ -99,11 +101,11 @@ def main():
         return
     if sys.platform != "darwin":
         parser.error("macOS is required")
+    configure_jdk(args.jdk)
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     output = (args.results or ROOT / "agentdir/logs" / f"macos-{args.group}-{stamp}").resolve()
     output.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
-    env.setdefault("JAVA_HOME", str(ROOT / ".tools/jdk-25/Contents/Home"))
     env.pop("GODOT_JFX_DRAG_MODE", None)
     failed = False
     with (output / "results.csv").open("x", newline="") as results:

@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of test-vfx-stage.ps1.
-# Usage: test-vfx-stage.sh [--driver metal|opengl] [--render-thread safe] [--abrupt]
+# Usage: test-vfx-stage.sh [--driver metal|opengl] [--render-thread safe] [--abrupt] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 ABRUPT=0
@@ -53,7 +54,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 SUFFIX=""
 if [ "$ABRUPT" -eq 1 ]; then
     export GODOT_JFX_VFX_ABRUPT=1

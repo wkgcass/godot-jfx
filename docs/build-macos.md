@@ -9,7 +9,7 @@ it. Run all commands from the repository root in a shell.
 After cloning on Apple silicon, run `./scripts/setup-env.py`. It initializes
 missing source submodules using Git and the URLs in `.gitmodules` (GitHub SSH by default). For a
 new virtual environment, make Python 3.13 available on PATH before running setup. Setup prepares the following local tools and reuses
-installed components on subsequent runs. Install Xcode and its Metal toolchain
+installed components on subsequent runs. Install an arm64 JDK 25, Xcode and its Metal toolchain
 separately.
 
 Setup downloads `media-oracle-sample.mp4` and `Lk.mp4` into `agentdir/media/`.
@@ -18,7 +18,7 @@ Use `./scripts/setup-env.py --sample-path oracle` (or `lk`) to verify an install
 
 | Tool | Location | Notes |
 | --- | --- | --- |
-| JDK 25 | `.tools/jdk-25` (Temurin 25.0.5 aarch64) | Scripts read `JAVA_HOME`; when unset they fall back to this in-repository JDK (`$PWD/.tools/jdk-25/Contents/Home`) |
+| JDK 25 | System JDK, e.g. `/Library/Java/JavaVirtualMachines/temurin-25.0.5+8.jdk/Contents/Home` | Set `JAVA_HOME` to the JDK home or pass `--jdk DIRECTORY` to the build, launcher or test command |
 | SCons | `.tools/pyenv` (Python 3.13 venv with SCons 4.11, zstandard, Pillow) | Invoke as `.tools/pyenv/bin/scons` |
 | Apache Maven 3.9.9 | `.tools/apache-maven-3.9.9` | Used by Maven consumers when `mvn` is unavailable on PATH |
 | Apache Ant for JFX | `.tools/apache-ant-1.10.15` | Run `./scripts/setup-env.py` once or set `ANT_HOME` to an existing installation |
@@ -27,6 +27,15 @@ Use `./scripts/setup-env.py --sample-path oracle` (or `lk`) to verify an install
 The validated architecture is Apple silicon arm64. No prebuilt Godot or
 JavaFX SDK substitutes for these source builds, and the JVM is the installed
 JDK — it is not rebuilt.
+
+For the system JDK shown above, set the environment once in your shell:
+
+```sh
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-25.0.5+8.jdk/Contents/Home
+```
+
+An explicit `--jdk DIRECTORY` takes precedence for that invocation and its child processes.
+Java commands require one of these two inputs.
 
 ## Build from source
 
@@ -66,7 +75,7 @@ use those JARs. To reuse artifacts already staged by `build-vfx.sh`, pass `--run
 ## Running the VFX Demo
 
 ```sh
-java -jar artifacts/vfx/libs/vfx-demo.jar               # preferred interactive launch
+"$JAVA_HOME/bin/java" -jar artifacts/vfx/libs/vfx-demo.jar               # preferred interactive launch
 scripts/run-vfx-demo.sh                                  # same JAR, logs to agentdir/logs
 scripts/run-vfx-demo.sh --smoke                          # bounded startup/close check
 scripts/run-vfx-demo.sh --driver opengl      # OpenGL 4.1

@@ -1,7 +1,8 @@
 #!/bin/sh
 # macOS equivalent of test-window-immediate-close.ps1.
-# Usage: test-window-immediate-close.sh [--driver metal|opengl] [--render-thread safe] [--runtime]
+# Usage: test-window-immediate-close.sh [--driver metal|opengl] [--render-thread safe] [--runtime] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 runtime=""

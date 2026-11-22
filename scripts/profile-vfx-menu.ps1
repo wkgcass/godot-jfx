@@ -9,7 +9,7 @@ param(
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $saved = @{}
-foreach ($name in @('GODOT_JFX_JDK','GODOT_JFX_REGION_UPLOAD','GODOT_JFX_PROFILE_COMMANDS')) {
+foreach ($name in @('JAVA_HOME','GODOT_JFX_REGION_UPLOAD','GODOT_JFX_PROFILE_COMMANDS')) {
     $saved[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 Push-Location (Split-Path $PSScriptRoot -Parent)
@@ -17,7 +17,7 @@ try {
     $classpath = 'artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/dependencies/*'
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls -cp $classpath -encoding UTF-8 -d artifacts/reference tests/reference/VfxMenuPerformanceProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Menu performance probe compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_REGION_UPLOAD = if ($FullUploads) { '0' } else { $null }
     $env:GODOT_JFX_PROFILE_COMMANDS = '1'
     $mode = if ($FullUploads) { 'full' } else { 'default' }

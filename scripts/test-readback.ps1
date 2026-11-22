@@ -4,7 +4,7 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedSnapshot = $env:GODOT_JFX_SNAPSHOT
 $savedSnapshotStress = $env:GODOT_JFX_SNAPSHOT_STRESS
 if ($SnapshotStress) { $Snapshot = $true }
@@ -16,7 +16,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Readback probe compilation failed' }
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.graphics -encoding UTF-8 -d artifacts/reference tests/reference/SnapshotProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Snapshot compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_SNAPSHOT = if ($Snapshot) { '1' } else { '0' }
     $env:GODOT_JFX_SNAPSHOT_STRESS = if ($SnapshotStress) { '1' } else { '0' }
     $env:GODOT_JFX_READBACK_STOP = if ($StopDuringRead) { '1' } else { '0' }
@@ -44,5 +44,5 @@ try {
     if ($StopDuringRead -and $output -notmatch 'READBACK_STOP_OBSERVED_PENDING_REQUEST') { throw 'Pending readback stop was not exercised' }
     if ($result -ne 0 -or $output -notmatch 'READBACK_PROBE_PASS' -or $output -notmatch 'GODOT_READBACK_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)') { throw "Readback test failed: $log" }
     Write-Output "Readback passed: $log"
-} finally { $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_SNAPSHOT = $savedSnapshot; $env:GODOT_JFX_SNAPSHOT_STRESS = $savedSnapshotStress; $env:GODOT_JFX_READBACK_STOP = $savedReadbackStop; Pop-Location }
+} finally { $env:JAVA_HOME = $savedJdk; $env:GODOT_JFX_SNAPSHOT = $savedSnapshot; $env:GODOT_JFX_SNAPSHOT_STRESS = $savedSnapshotStress; $env:GODOT_JFX_READBACK_STOP = $savedReadbackStop; Pop-Location }
 

@@ -1,12 +1,13 @@
 #!/bin/sh
 # macOS equivalent of test-vfx-table-scroll.ps1. The default uses direct drag;
 # the Robot suite sets GODOT_JFX_DRAG_MODE=robot to exercise real input.
-# Usage: test-vfx-table-scroll.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-vfx-table-scroll.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 #        [--profile] [--sweeps 3..30]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 PROFILE=0
@@ -59,7 +60,6 @@ run_watchdog() {
 }
 
 export GODOT_JFX_TABLE_SWEEPS="$SWEEPS"
-export GODOT_JFX_JDK="$JDK"
 if [ "$PROFILE" -eq 1 ]; then export GODOT_JFX_PROFILE_COMMANDS=1; else unset GODOT_JFX_PROFILE_COMMANDS 2>/dev/null || true; fi
 SWEEP_SUFFIX=""
 [ "$SWEEPS" -ne 3 ] && SWEEP_SUFFIX="-sweeps$SWEEPS"

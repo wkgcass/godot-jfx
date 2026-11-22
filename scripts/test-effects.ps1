@@ -4,14 +4,14 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 Push-Location $root
 try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED -encoding UTF-8 -d artifacts/reference tests/reference/EffectsProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Effects probe compilation failed' }
     & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED '-Dprism.order=d3d' '-Deffects.reference=artifacts/reference/d3d-effects.png' -cp artifacts/reference EffectsProbe *> agentdir/logs/effects-native-d3d.log
     if ($LASTEXITCODE -ne 0 -or (Get-Content agentdir/logs/effects-native-d3d.log -Raw) -notmatch 'EFFECTS_REFERENCE_PASS') { throw 'D3D effects reference failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $suffix = ''
     if ($Runtime) { $suffix += '-runtime' }
     $log = Join-Path $root "agentdir/logs/effects-$Driver$suffix.log"
@@ -35,4 +35,4 @@ try {
     if (Test-Path artifacts/reference/godot-effects.png) { Copy-Item artifacts/reference/godot-effects.png "artifacts/reference/godot-effects-$Driver$suffix.png" }
     if ($result -ne 0 -or $output -notmatch 'GODOT_EFFECTS_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\.[a-z].*Exception)') { throw "Effects probe failed (native exit $result). See $log" }
     Write-Output "Effects probe passed: $log"
-} finally { $env:GODOT_JFX_JDK = $savedJdk; Pop-Location }
+} finally { $env:JAVA_HOME = $savedJdk; Pop-Location }

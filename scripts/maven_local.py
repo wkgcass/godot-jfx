@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 
+from jdk_home import add_jdk_argument, configure_jdk
 from maven_coordinates import GROUP_PATH, artifact_id, release_version
 
 
@@ -49,13 +50,12 @@ def test_jars():
     return jars
 
 
-def install(runtime, maven):
+def install(runtime, maven, jdk=None):
+    configure_jdk(jdk)
     executable = Path(shutil.which(maven) or maven).resolve(strict=True)
     version = release_version()
     target = classifier()
     env = os.environ.copy()
-    if target == "mac-aarch64" and not env.get("JAVA_HOME"):
-        env["JAVA_HOME"] = str(ROOT / ".tools/jdk-25/Contents/Home")
     if runtime is None:
         runtime = ROOT / "artifacts/godot-library"
         if target == "win":
@@ -107,6 +107,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     installer = commands.add_parser("install", help="Package the current platform build and install it with Maven")
+    add_jdk_argument(installer)
     installer.add_argument("--runtime", type=Path, help="Install an existing staging directory without repackaging")
     installer.add_argument("--maven", default=shutil.which("mvn") or str(
         ROOT / ".tools/apache-maven-3.9.9/bin" / ("mvn.cmd" if os.name == "nt" else "mvn")))
@@ -115,7 +116,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         if args.command == "install":
-            install(args.runtime, args.maven)
+            install(args.runtime, args.maven, args.jdk)
         else:
             value = os.pathsep.join(map(str, test_jars()))
             print(json.dumps(value) if args.json else value)

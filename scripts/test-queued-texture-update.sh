@@ -1,11 +1,12 @@
 #!/bin/sh
 # macOS equivalent of test-queued-texture-update.ps1.
-# Usage: test-queued-texture-update.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-queued-texture-update.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 #        [--batch-boundary] [--viewport-state]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 BATCH=0
@@ -45,7 +46,6 @@ if [ "$BATCH" -eq 1 ]; then
     export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} --add-opens=javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED"
 fi
 
-export GODOT_JFX_JDK="$JDK"
 SUFFIX=""
 [ "$BATCH" -eq 1 ] && SUFFIX="-boundary"
 [ "$VIEWPORT" -eq 1 ] && SUFFIX="$SUFFIX-viewport-state"

@@ -4,13 +4,13 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedCancel = $env:GODOT_JFX_LOADING_CANCEL
 try {
     $classpath = 'artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/dependencies/*'
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls --add-exports javafx.graphics/com.sun.javafx.stage=ALL-UNNAMED --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED -cp $classpath -encoding UTF-8 -d artifacts/reference tests/reference/VfxLoadingProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'VFX loading probe compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_LOADING_CANCEL = if ($Cancel) { '1' } else { '0' }
     $suffix = if ($Runtime) { '-runtime' } else { '' }
     if ($Cancel) { $suffix += '-cancel' }
@@ -33,4 +33,4 @@ try {
     if ($LASTEXITCODE -ne 0 -or $output -notmatch 'GODOT_VFX_LOADING_PASS' -or $output -notmatch 'VFX_LOADING_PROBE_PASS' -or $output -match '(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|GodotHostStoppedException|uncaught:') { throw "VFX loading failed: $log" }
     foreach ($step in 0..2) { Copy-Item "artifacts/reference/vfx-loading-$step.png" "artifacts/reference/vfx-loading-$Driver-$RenderThread$suffix-$step.png" }
     Write-Output "VFX loading passed: $log"
-} finally { $env:GODOT_JFX_JDK = $savedJdk; $env:GODOT_JFX_LOADING_CANCEL = $savedCancel; Pop-Location }
+} finally { $env:JAVA_HOME = $savedJdk; $env:GODOT_JFX_LOADING_CANCEL = $savedCancel; Pop-Location }

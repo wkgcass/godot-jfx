@@ -11,8 +11,9 @@ import tempfile
 import time
 from zipfile import ZipFile
 
+from jdk_home import add_jdk_argument, configure_jdk
 from godot_driver import DEFAULT_DRIVER, add_driver_argument, check_driver
-from library_test_platform import configure_jdk, library, module_paths
+from library_test_platform import library, module_paths
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,9 +92,11 @@ def check_windows_intro(process, deadline, jar):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    add_jdk_argument(parser)
     add_driver_argument(parser)
-    driver = parser.parse_args().driver
-    jdk = configure_jdk()
+    args = parser.parse_args()
+    driver = args.driver
+    jdk = configure_jdk(args.jdk)
     source = ROOT / "artifacts/vfx/libs/vfx-demo.jar"
     with ZipFile(source) as archive:
         entries = set(archive.namelist())

@@ -1,11 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-usage='Usage: build-macos.sh --target godot-editor|godot-library|jfx [--jobs 1..64]'
+usage='Usage: build-macos.sh --target godot-editor|godot-library|jfx [--jobs 1..64] [--jdk DIRECTORY]'
 target=''
 jobs=8
 while [ "$#" -gt 0 ]; do
     case "$1" in
+        --jdk) JAVA_HOME=${2:?--jdk requires a JDK home directory}; export JAVA_HOME; shift ;;
         --target) target=${2:-}; shift ;;
         --jobs) jobs=${2:-}; shift ;;
         --help) echo "$usage"; exit 0 ;;
@@ -16,9 +17,11 @@ done
 case "$jobs" in ''|*[!0-9]*) echo "$usage" >&2; exit 2 ;; esac
 [ "$jobs" -ge 1 ] && [ "$jobs" -le 64 ] || { echo "$usage" >&2; exit 2; }
 
+if [ "$target" = jfx ] || [ "$target" = godot-library ]; then
+    . "$(dirname "$0")/macos-jdk.sh"
+fi
 cd "$(dirname "$0")/.."
 root=$PWD
-export JAVA_HOME="${JAVA_HOME:-$root/.tools/jdk-25/Contents/Home}"
 case "$target" in
     godot-editor|godot-library)
         set -- .tools/pyenv/bin/scons -C godot platform=macos arch=arm64 vulkan=no accesskit=no angle=no "-j$jobs"

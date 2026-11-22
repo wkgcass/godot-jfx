@@ -4,7 +4,7 @@ param([string]$Jdk=$env:JAVA_HOME, [ValidateSet('d3d','safe')][string]$Backend='
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
-$savedJdk=$env:GODOT_JFX_JDK
+$savedJdk=$env:JAVA_HOME
 $savedMailbox=$env:GODOT_JFX_BENCHMARK_MAILBOX
 $savedTrace=$env:GODOT_JFX_BENCHMARK_TRACE
 $savedCommands=$env:GODOT_JFX_PROFILE_COMMANDS
@@ -31,7 +31,7 @@ try {
     if ($Backend -eq 'd3d') {
         & "$Jdk/bin/java.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing --enable-native-access=javafx.graphics,ALL-UNNAMED '-Dprism.order=d3d' -cp $classpath VfxFrameBenchmark *> $log
     } else {
-        $env:GODOT_JFX_JDK=$Jdk
+        $env:JAVA_HOME=$Jdk
         $hostArgs=if ($Host120) { @('--disable-vsync','--max-fps','120') } else { @() }
         if ($MailboxFps) {
             $hostArgs=@('--max-fps',"$MailboxFps")
@@ -48,4 +48,4 @@ try {
     if ($Backend -ne 'd3d') { Assert-GodotDriver $Driver $log }
     if ($MailboxFps -and ($output -match 'Falling back to V-Sync' -or $output -notmatch 'VFX_FRAME_MEASUREMENT_VSYNC 3')) { throw "Vulkan mailbox mode was not active during measurement: $log" }
     $output -split "`r?`n" | Where-Object { $_ -match '^VFX_FRAME_' -and $_ -notmatch '^VFX_FRAME_TRACE_' }
-} finally { $env:JAVA_TOOL_OPTIONS=$savedOptions; $env:GODOT_JFX_JDK=$savedJdk; $env:GODOT_JFX_BENCHMARK_MAILBOX=$savedMailbox; $env:GODOT_JFX_BENCHMARK_TRACE=$savedTrace; $env:GODOT_JFX_PROFILE_COMMANDS=$savedCommands; Pop-Location }
+} finally { $env:JAVA_TOOL_OPTIONS=$savedOptions; $env:JAVA_HOME=$savedJdk; $env:GODOT_JFX_BENCHMARK_MAILBOX=$savedMailbox; $env:GODOT_JFX_BENCHMARK_TRACE=$savedTrace; $env:GODOT_JFX_PROFILE_COMMANDS=$savedCommands; Pop-Location }

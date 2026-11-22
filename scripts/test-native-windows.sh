@@ -1,7 +1,8 @@
 #!/bin/sh
 # macOS equivalent of test-native-windows.ps1.
-# Usage: test-native-windows.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-native-windows.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 DRIVER="metal"

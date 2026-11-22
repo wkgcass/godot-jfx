@@ -1,9 +1,10 @@
 #!/bin/sh
-# Usage: test-vfx-loading.sh [--driver metal|opengl] [--render-thread safe] [--cancel]
+# Usage: test-vfx-loading.sh [--driver metal|opengl] [--render-thread safe] [--cancel] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 runtime=""
 DRIVER="metal"
 RENDER_THREAD="safe"
@@ -53,7 +54,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_LOADING_CANCEL="$CANCEL"
 SUFFIX=""
 [ "$CANCEL" -eq 1 ] && SUFFIX="-cancel"

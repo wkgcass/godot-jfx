@@ -8,7 +8,7 @@ param(
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 $saved = @{}
-foreach ($name in @('GODOT_JFX_JDK','GODOT_JFX_PROFILE_COMMANDS')) {
+foreach ($name in @('JAVA_HOME','GODOT_JFX_PROFILE_COMMANDS')) {
     $saved[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 Push-Location (Split-Path $PSScriptRoot -Parent)
@@ -16,7 +16,7 @@ try {
     $classpath = 'artifacts/vfx/classes/java/main;artifacts/vfx/classes/java/test;artifacts/vfx/dependencies/*'
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls -cp $classpath -encoding UTF-8 -d artifacts/reference tests/reference/VfxLoadingPerfProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Loading performance probe compilation failed' }
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_PROFILE_COMMANDS = '1'
     $log = "agentdir/logs/vfx-loading-perf-$Driver-$RenderThread.log"
     Invoke-GodotFixture -Driver $Driver --path tests/godot res://vfx_loading_perf.tscn --render-thread $RenderThread *> $log

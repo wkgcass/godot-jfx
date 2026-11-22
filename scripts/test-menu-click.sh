@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of test-menu-click.ps1.
-# Usage: test-menu-click.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-menu-click.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
@@ -32,7 +33,6 @@ done
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     -cp "$VFX_CP" -encoding UTF-8 -d artifacts/reference tests/reference/MenuClickProbe.java
 
-export GODOT_JFX_JDK="$JDK"
 LOG="agentdir/logs/menu-click-$DRIVER-$RENDER_THREAD.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://menu_click.tscn \

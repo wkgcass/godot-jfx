@@ -9,11 +9,12 @@
 # fixture paths) and drives the same enter/drop state machine the
 # NSDraggingDestination callbacks use.
 #
-# Usage: test-drag-drop-ole-inject.sh [--driver metal|opengl] [--render-thread safe] [--timeout]
+# Usage: test-drag-drop-ole-inject.sh [--driver metal|opengl] [--render-thread safe] [--timeout] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 TIMEOUT=0
@@ -43,7 +44,6 @@ LOG="agentdir/logs/ole-inject-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 
 CODE=0
 (
-    export GODOT_JFX_JDK="$JDK"
     export GODOT_JFX_OLE_TIMEOUT="$TIMEOUT"
     python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://ole_inject.tscn \
         --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1

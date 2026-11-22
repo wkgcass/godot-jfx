@@ -1,9 +1,10 @@
 #!/bin/sh
-# Usage: test-vfx-ripple.sh [--driver metal|opengl | --native] [--render-thread safe]
+# Usage: test-vfx-ripple.sh [--driver metal|opengl | --native] [--render-thread safe] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER=""
 NATIVE=0
 RENDER_THREAD="safe"
@@ -55,7 +56,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 CASE_NAME="$DRIVER-$RENDER_THREAD"
 if [ "$NATIVE" -eq 1 ]; then CASE_NAME=native-mtl; fi
 export GODOT_JFX_RIPPLE_OUTPUT="$PWD/artifacts/reference/vfx-ripple-$CASE_NAME"

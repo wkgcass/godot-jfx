@@ -4,11 +4,12 @@
 # --robot restores the physical Glass-Robot drive: it moves the real cursor
 # (the terminal needs Accessibility and Screen Recording permissions; keep the
 # desktop idle and the test window frontmost).
-# Usage: test-physical-drag.sh [--driver metal|opengl] [--render-thread safe] [--robot]
+# Usage: test-physical-drag.sh [--driver metal|opengl] [--render-thread safe] [--robot] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 ROBOT=0
@@ -32,7 +33,6 @@ mkdir -p artifacts/reference agentdir/logs
     --add-exports javafx.graphics/com.sun.glass.ui=ALL-UNNAMED \
     -encoding UTF-8 -d artifacts/reference tests/reference/PhysicalDragProbe.java
 
-export GODOT_JFX_JDK="$JDK"
 # Synthetic mode injects the gesture host-side and never touches the OS cursor;
 # --robot switches the probe to the real Glass Robot.
 export GODOT_JFX_PHYSICAL_DRAG_ROBOT="$ROBOT"

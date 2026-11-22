@@ -1,9 +1,10 @@
 #!/bin/sh
-# Usage: test-vfx-animation.sh [--driver metal|opengl] [--render-thread safe] [--timing-only]
+# Usage: test-vfx-animation.sh [--driver metal|opengl] [--render-thread safe] [--timing-only] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 runtime=""
 DRIVER="metal"
 RENDER_THREAD="safe"
@@ -53,7 +54,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_ANIMATION_TIMING_ONLY="$TIMING_ONLY"
 SUFFIX=""
 [ "$TIMING_ONLY" -eq 1 ] && SUFFIX="-timing-only"

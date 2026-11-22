@@ -2,11 +2,12 @@
 # macOS equivalent of test-drag-drop.ps1. Default is the synthetic input mode.
 # --robot drives the real mouse/keyboard (the terminal needs Accessibility and
 # Screen Recording permissions; keep the desktop idle and the window frontmost).
-# Usage: test-drag-drop.sh [--driver metal|opengl] [--render-thread safe] [--robot]
+# Usage: test-drag-drop.sh [--driver metal|opengl] [--render-thread safe] [--robot] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 ROBOT=0
@@ -32,7 +33,6 @@ mkdir -p artifacts/reference agentdir/logs
     --add-exports javafx.graphics/com.sun.prism.ps=ALL-UNNAMED \
     -encoding UTF-8 -d artifacts/reference tests/reference/DragDropProbe.java
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_ROBOT_DRAG="$ROBOT"
 SUFFIX=""
 [ "$ROBOT" = "1" ] && SUFFIX="-robot"

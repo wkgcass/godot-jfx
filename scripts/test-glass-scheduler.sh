@@ -1,6 +1,7 @@
 #!/bin/sh
 # macOS equivalent of test-glass-scheduler.ps1.
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 DRIVER="metal"
@@ -12,7 +13,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference agentdir/logs
@@ -24,7 +25,6 @@ mkdir -p artifacts/reference agentdir/logs
     -encoding UTF-8 -d artifacts/reference tests/reference/GlassSchedulerProbe.java \
     || { echo "GlassSchedulerProbe compilation failed" >&2; exit 1; }
 
-export GODOT_JFX_JDK="$JDK"
 LOG="agentdir/logs/m2-glass-scheduler.log"
 CODE=0
 # Headroom doubled over the Windows run: the frame budget also covers JVM

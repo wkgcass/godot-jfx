@@ -1,11 +1,12 @@
 #!/bin/sh
 # macOS equivalent of test-vfx-intro.ps1.
-# Usage: test-vfx-intro.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-vfx-intro.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 #        [--all-pages] [--page-limit N] [--freeze-fusion]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 ALL_PAGES=0
@@ -78,7 +79,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 CODE=0
 run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://vfx_intro.tscn \
     --render-thread "$RENDER_THREAD" --quit-after 30000 || CODE=$?

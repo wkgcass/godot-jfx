@@ -1,6 +1,7 @@
 #!/bin/sh
 # Check the macOS unsupported-keyboard response and continued host ticks.
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 driver=metal
 mode=
@@ -13,7 +14,7 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 case "$mode" in --robot|--compile-only) ;; *) echo "Select --robot or --compile-only" >&2; exit 2 ;; esac
-jdk=${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}
+jdk="$JAVA_HOME"
 mkdir -p artifacts/reference agentdir/logs
 "$jdk/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.graphics \
     --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED \

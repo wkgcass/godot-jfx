@@ -160,9 +160,9 @@ NonRobot 包括模块路径、独立 Shadow 消费者和完整 VFX Demo JAR。Ro
 
 macOS 上每个测试的入口是与 Windows 版同名的 `scripts/test-*.sh`（`test-protocol.cmd`/`test-bounded-lru.cmd` 的对应物为同名 `.sh`，用 clang 代替 MSVC），在仓库根目录用 sh 执行。判定标记、日志位置与通过语义和对应 ps1 完全一致；前文各表的用途说明、断言与限制仍然适用，本节只列差异。
 
-前置条件与上文缩写表对应：G 为本机发布的 `mac-aarch64` 平台 JAR 和导入测试资源的源码编辑器，`--runtime` 档从隔离的项目目录加载同一引擎库；J 为 `JAVA_HOME` 指向的 JDK 25（未设置时脚本回退到仓库内 `.tools/jdk-25`，Temurin 25.0.5 arm64）和本仓库 `jfx/build/sdk`（mac 的 dylib 在 `lib/`）；M 已并入 mac 的单次 Gradle SDK 构建（AVFoundation 后端，见 [build-macos.md](docs/build-macos.md)），没有单独的 Media 构建脚本；V 为 `./scripts/build-vfx.sh` 的产物。`--driver metal` 在本机 M1 的共享库中报告 Metal 3.1，`--driver opengl` 走 OpenGL 4.1；未构建 Vulkan（未安装 MoltenVK）。
+前置条件与上文缩写表对应：G 为本机发布的 `mac-aarch64` 平台 JAR 和导入测试资源的源码编辑器，`--runtime` 档从隔离的项目目录加载同一引擎库；J 为 `JAVA_HOME` 指向的 JDK 25（可用 `--jdk DIRECTORY` 为本次调用覆盖；两者均缺失时报错）和本仓库 `jfx/build/sdk`（mac 的 dylib 在 `lib/`）；M 已并入 mac 的单次 Gradle SDK 构建（AVFoundation 后端，见 [build-macos.md](docs/build-macos.md)），没有单独的 Media 构建脚本；V 为 `./scripts/build-vfx.sh` 的产物。`--driver metal` 在本机 M1 的共享库中报告 Metal 3.1，`--driver opengl` 走 OpenGL 4.1；未构建 Vulkan（未安装 MoltenVK）。
 
-PowerShell 开关对应小写长选项：`-Driver d3d12` → `--driver metal`、`-RenderThread safe` → `--render-thread safe`、`-Runtime` → `--runtime`；`-Jdk` 由 `JAVA_HOME` 环境变量代替。场景测试的 `--runtime` 使用单独导入的项目。`test-media-video.sh`、`test-media-churn.sh`、`test-vfx-blackhole.sh` 和 `test-vfx-ripple.sh` 的 `--native` 使用本机 SDK 的 Mac Glass 和 Prism Metal，可与同一 Java 探针的 Godot 结果对照。Windows 句柄分类和 Media Foundation provider 统计依赖 Windows API。
+PowerShell 开关对应小写长选项：`-Driver d3d12` → `--driver metal`、`-RenderThread safe` → `--render-thread safe`、`-Runtime` → `--runtime`、`-Jdk DIRECTORY` → `--jdk DIRECTORY`。场景测试的 `--runtime` 使用单独导入的项目。`test-media-video.sh`、`test-media-churn.sh`、`test-vfx-blackhole.sh` 和 `test-vfx-ripple.sh` 的 `--native` 使用本机 SDK 的 Mac Glass 和 Prism Metal，可与同一 Java 探针的 Godot 结果对照。Windows 句柄分类和 Media Foundation provider 统计依赖 Windows API。
 
 以下为 macOS 的夹具行为和实机观察。当前 JAR 构建的结果见[验收记录](docs/acceptance-status.md#macos-arm64-verification-scope)。
 

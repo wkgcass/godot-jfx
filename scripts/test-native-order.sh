@@ -1,9 +1,10 @@
 #!/bin/sh
-# Usage: test-native-order.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-native-order.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 runtime=""
 DRIVER="metal"
 RENDER_THREAD="safe"
@@ -29,7 +30,6 @@ mkdir -p artifacts/reference agentdir/logs
     --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED \
     -encoding UTF-8 -d artifacts/reference tests/reference/NativeOrderProbe.java
 
-export GODOT_JFX_JDK="$JDK"
 LOG="agentdir/logs/native_order-$DRIVER-$RENDER_THREAD$runtime.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" ${runtime:+--runtime} --path tests/godot res://native_order.tscn \

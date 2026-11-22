@@ -1,7 +1,8 @@
 #!/bin/sh
 # macOS equivalent of test-scene-views.ps1.
-# Usage: test-scene-views.sh [--driver metal|opengl]
+# Usage: test-scene-views.sh [--driver metal|opengl] [--jdk DIRECTORY]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 DRIVER="metal"

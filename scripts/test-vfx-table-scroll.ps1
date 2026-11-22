@@ -4,7 +4,7 @@ param([string]$Jdk = $env:JAVA_HOME, [ValidateSet('d3d12','vulkan','opengl')][st
 . "$PSScriptRoot/godot-fixture.ps1"
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
-$savedJdk = $env:GODOT_JFX_JDK
+$savedJdk = $env:JAVA_HOME
 $savedProfile = $env:GODOT_JFX_PROFILE_COMMANDS
 $savedSweeps = $env:GODOT_JFX_TABLE_SWEEPS
 try {
@@ -14,7 +14,7 @@ try {
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls @exports -cp $classpath -encoding UTF-8 -d artifacts/reference tests/reference/ThreadStackSampler.java tests/reference/VfxTableScrollProbe.java
     if ($LASTEXITCODE -ne 0) { throw 'Table scroll probe compilation failed' }
     $env:GODOT_JFX_TABLE_SWEEPS = [string]$Sweeps
-    $env:GODOT_JFX_JDK = $Jdk
+    $env:JAVA_HOME = $Jdk
     $env:GODOT_JFX_PROFILE_COMMANDS = if ($Profile) { '1' } else { $null }
     $log = Join-Path (Get-Location) "agentdir/logs/vfx-table-scroll-$Driver-$RenderThread$(if ($Sweeps -ne 3) { "-sweeps$Sweeps" }).log"
     Invoke-GodotFixture -Driver $Driver --path tests/godot res://vfx_table_scroll.tscn --render-thread $RenderThread *> $log
@@ -25,7 +25,7 @@ try {
     $output -split "`r?`n" | Where-Object { $_ -match '^VFX_TABLE_SCROLL' }
     Write-Output "VFX table scroll passed: $log"
 } finally {
-    $env:GODOT_JFX_JDK = $savedJdk
+    $env:JAVA_HOME = $savedJdk
     $env:GODOT_JFX_PROFILE_COMMANDS = $savedProfile
     $env:GODOT_JFX_TABLE_SWEEPS = $savedSweeps
     Pop-Location

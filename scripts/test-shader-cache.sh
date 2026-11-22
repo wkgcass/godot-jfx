@@ -1,7 +1,8 @@
 #!/bin/sh
 # macOS equivalent of test-shader-cache.ps1.
-# Usage: test-shader-cache.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-shader-cache.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 DRIVER="metal"

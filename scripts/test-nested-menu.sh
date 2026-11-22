@@ -1,10 +1,11 @@
 #!/bin/sh
 # macOS equivalent of test-nested-menu.ps1.
-# Usage: test-nested-menu.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-nested-menu.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
@@ -27,7 +28,6 @@ mkdir -p artifacts/reference agentdir/logs
     --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED \
     -encoding UTF-8 -d artifacts/reference tests/reference/NestedMenuProbe.java
 
-export GODOT_JFX_JDK="$JDK"
 LOG="agentdir/logs/nested-menu-$DRIVER-$RENDER_THREAD.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://nested_menu.tscn \

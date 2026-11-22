@@ -1,9 +1,10 @@
 #!/bin/sh
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 out=artifacts/godot-library
 if [ "$#" -gt 0 ]; then
     if [ "$#" -ne 2 ] || [ "$1" != --destination ] || [ -z "$2" ]; then
-        echo "Usage: $0 [--destination DIRECTORY]" >&2
+        echo "Usage: $0 [--destination DIRECTORY] [--jdk DIRECTORY]" >&2
         exit 2
     fi
     case "$2" in
@@ -12,7 +13,6 @@ if [ "$#" -gt 0 ]; then
     esac
 fi
 cd "$(dirname "$0")/.."
-export JAVA_HOME="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
 sdk=jfx/build/sdk
 engine=godot/bin/libgodot.macos.template_release.arm64.library.dylib
 for required in "$engine" "$sdk/lib/libjfxmedia_avf.dylib" "$sdk/lib/javafx.controls.jar"; do

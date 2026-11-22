@@ -5,11 +5,12 @@
 # screen-recording permission the system redacts other processes' window
 # names, in which case only the visibility timing is enforced (noted in the
 # output).
-# Usage: test-startup.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-startup.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
@@ -41,7 +42,7 @@ now_ms() { python3 -c 'import time; print(int(time.time() * 1000))'; }
 run_case() {
     case_name="$1" mode="$2" cancel="$3"
     prefix="agentdir/logs/startup-$case_name-$DRIVER-$RENDER_THREAD"
-    GODOT_JFX_JDK="$JDK" GODOT_JFX_STARTUP="$mode" GODOT_JFX_STARTUP_CANCEL="$cancel" \
+    GODOT_JFX_STARTUP="$mode" GODOT_JFX_STARTUP_CANCEL="$cancel" \
         python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://startup.tscn \
         --render-thread "$RENDER_THREAD" >"$prefix.log" 2>&1 &
     pid=$!

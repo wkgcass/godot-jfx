@@ -1,12 +1,13 @@
 #!/bin/sh
 # macOS equivalent of test-bridge.ps1. Each probe is a separate mode; run the
 # script once per mode exactly like the Windows switches.
-# Usage: test-bridge.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-bridge.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 #        [--stop-from-host|--encoded|--textures|--prism-textures|--shader-states|--prism-context]
 set -u
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 DRIVER="metal"
 RENDER_THREAD="safe"
 STOP_FROM_HOST=0
@@ -62,7 +63,6 @@ mkdir -p artifacts/reference agentdir/logs
     tests/reference/PrismTextureProbe.java tests/reference/ShaderCommandsProbe.java \
     tests/reference/PrismContextProbe.java || { echo "BridgeProbe compilation failed" >&2; exit 1; }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_TEST_STOP="$STOP_FROM_HOST"
 export GODOT_JFX_TEST_ENCODED="$ENCODED"
 export GODOT_JFX_TEST_TEXTURES="$TEXTURES"

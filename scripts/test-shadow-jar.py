@@ -14,9 +14,10 @@ import tempfile
 import time
 from zipfile import ZipFile
 
+from jdk_home import add_jdk_argument, configure_jdk
 from godot_driver import DEFAULT_DRIVER, add_driver_argument, check_driver
 from library_test_platform import (CLASSIFIER, EDITOR, ENGINE, MEDIA_LIBRARIES, SDK_NATIVES,
-                                   WINDOWS, configure_jdk, library, module_paths, system_path)
+                                   WINDOWS, library, module_paths, system_path)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -139,11 +140,12 @@ def launch(work, jar, name, args, markers, extra_env=None, expected_error=None, 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    add_jdk_argument(parser)
     add_driver_argument(parser)
     parser.add_argument("--runtime", type=Path, required=True)
     parser.add_argument("--work", type=Path)
     args = parser.parse_args()
-    configure_jdk()
+    configure_jdk(args.jdk)
     if args.driver is None:
         args.driver = DEFAULT_DRIVER
     work = args.work.resolve() if args.work else Path(tempfile.mkdtemp(prefix="JavaFX Shadow ")).resolve()

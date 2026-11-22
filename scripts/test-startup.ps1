@@ -6,8 +6,8 @@ $ErrorActionPreference='Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $saved=@{}
 try {
-    foreach($key in @('GODOT_JFX_JDK','GODOT_JFX_STARTUP','GODOT_JFX_STARTUP_CANCEL')) { $saved[$key]=[Environment]::GetEnvironmentVariable($key,'Process') }
-    $env:GODOT_JFX_JDK=$Jdk
+    foreach($key in @('JAVA_HOME','GODOT_JFX_STARTUP','GODOT_JFX_STARTUP_CANCEL')) { $saved[$key]=[Environment]::GetEnvironmentVariable($key,'Process') }
+    $env:JAVA_HOME=$Jdk
     New-Item -ItemType Directory -Force artifacts/reference,agentdir/logs | Out-Null
     & "$Jdk/bin/javac.exe" --module-path jfx/build/sdk/lib --add-modules javafx.controls -d artifacts/reference tests/reference/StartupProbe.java
     if($LASTEXITCODE -ne 0){throw 'Startup probe compilation failed'}

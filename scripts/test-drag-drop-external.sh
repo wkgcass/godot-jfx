@@ -7,11 +7,12 @@
 #
 # This test moves the real mouse and reads the screen: the terminal needs
 # Accessibility and Screen Recording permissions; keep the desktop idle.
-# Usage: test-drag-drop-external.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-drag-drop-external.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -eu
+. "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+JDK="$JAVA_HOME"
 runtime=""
 DRIVER="metal"
 RENDER_THREAD="safe"
@@ -100,7 +101,6 @@ run_watchdog() {
     return "$wcode"
 }
 
-export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_HELPER_X=940 GODOT_JFX_HELPER_Y=400
 export GODOT_JFX_HELPER_SRC_X=1300 GODOT_JFX_HELPER_SRC_Y=400
 LOG="agentdir/logs/drag-drop-external-$DRIVER-$RENDER_THREAD$runtime.log"
