@@ -426,6 +426,8 @@ invalid focused-window ID with mutable RBMap indexing inserted a phantom
 window. The minimal core patch uses find() and treats missing focus as IME
 inactive, preserving the existing event-pump behavior without mutating the map.
 
+Glass cursor changes preserve Godot's captured mouse mode while a scene is using relative input. The scene releases capture on exit from first-person navigation.
+
 ## ImageCursor
 
 `GodotCursor` owns a copy of the Glass pixel payload, supporting BGRA_PRE byte

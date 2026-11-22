@@ -112,7 +112,8 @@ class Suite:
         args = [self.jdk / "bin/javac", "--module-path", self.modules, "--add-modules", MODULES,
                 "-encoding", "UTF-8", "-d", self.classes]
         # This first compile uses only exported public APIs.
-        command([*args, FIXTURES / "DirectApplication.java", FIXTURES / "ApplicationWithMain.java"], self.work / "public-compile.log")
+        command([*args, FIXTURES / "DirectApplication.java", FIXTURES / "ApplicationWithMain.java",
+                 FIXTURES / "SceneMessageApplication.java"], self.work / "public-compile.log")
         command([self.jdk / "bin/javac", "--module-path", self.modules, "-d", self.work / "example.fx",
                  *sorted((FIXTURES / "modular").rglob("*.java"))], self.work / "modular-compile.log")
         command([*args, *EXPORTS, "-cp", self.classes, FIXTURES / "LibraryLifecycle.java", FIXTURES / "BackendProbe.java",
@@ -239,6 +240,10 @@ class Suite:
     def checks(self, group, *, driver=None):
         # Pin even the concurrent initialization probe to the selected driver.
         self.render_driver = driver or DEFAULT_DRIVER
+        if group in ("scene-message", "render"):
+            project = self.project("scene-message", "scene_message.gd")
+            self.child("scene-message", "SceneMessageApplication", properties={"javafx.godot.project": project},
+                       expected=["SCENE_MESSAGE_VALIDATION_PASS", "SCENE_MESSAGE_FIFO_PASS count=5", "SCENE_MESSAGE_STOP"])
         if group in ("render", "media"):
             if driver and group == "render":
                 self.child("direct-driver", "DirectApplication", expected=["APPLICATION_START", "APPLICATION_STOP"])
@@ -353,7 +358,7 @@ def main():
     parser.add_argument("--runtime", required=True, type=Path)
     parser.add_argument("--work", type=Path)
     parser.add_argument("--maven", default=shutil.which("mvn") or str(ROOT / ".tools/apache-maven-3.9.9/bin" / ("mvn.cmd" if WINDOWS else "mvn")))
-    parser.add_argument("--group", choices=["prepare", "launch", "failures", "lifecycle", "render", "media", "all"], default="all")
+    parser.add_argument("--group", choices=["prepare", "launch", "failures", "lifecycle", "render", "media", "scene-message", "all"], default="all")
     args = parser.parse_args()
     configure_jdk(args.jdk)
     runtime = args.runtime.resolve()

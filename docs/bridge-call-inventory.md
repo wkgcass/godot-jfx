@@ -60,7 +60,7 @@
 | --- | --- | --- | --- |
 | `hostInfo()` | `int[]`。16 项依次为窗口宽/高、DPI、窗口 x/y、屏幕宽/高、屏幕 x/y、焦点、窗口模式、已应用宿主命令序号、屏幕可用区 x/y/宽/高。 | 两边共用。Windows 取屏幕 DPI；macOS 以屏幕缩放倍率 × 96 填充 DPI。 | **高** · 每次 Glass 帧回调读取一次主窗口快照。 |
 | `screenInfo()` | `int[]`。主屏排首，每屏 10 项，依次为 Godot 屏幕索引加一、屏幕 x/y/宽/高、可用区 x/y/宽/高、DPI。 | 两边共用。Windows 取屏幕 DPI；macOS 以屏幕缩放倍率 × 96 填充 DPI。 | **高** · 每次 Glass 帧回调读取一次屏幕快照，即使显示器配置未变。 |
-| `hostCommand(int operation, int a, int b, String text)` | `int`。宿主命令的提交序号；整数和文本参数由操作码解释，可与 `hostInfo()[11]` 比对确认。 | 两边共用。输入法和可见性由各平台处理；触摸键盘命令 26/27 在 Windows 请求打开或关闭，在 macOS 报告不支持。 | **中** · 主窗口属性、可见性、光标或输入法候选位置变化时提交；连续变化时可密集调用。 |
+| `hostCommand(int operation, int a, int b, String text)` | `int`。宿主命令的提交序号；整数和文本参数由操作码解释，可与 `hostInfo()[11]` 比对确认。 | 两边共用。输入法和可见性由各平台处理；触摸键盘命令 26/27 在 Windows 请求打开或关闭，在 macOS 报告不支持。操作码 28 在两个平台都由 GodotRuntime.postSceneMessage(topic, value) 从 FX 应用线程提交，a 为有符号整数值、b 为 0、text 为 1–128 个 UTF-16 码元的主题。Godot 主线程排空有界 FIFO 时选取当前场景根节点，延迟调用其 on_javafx_message(topic, value)。序号确认到宿主调度为止。 | **中** · 应用发布场景消息或主窗口属性、可见性、光标或输入法候选位置变化时提交；连续变化时可密集调用。 |
 | `nativeWindowCommand(long id, long owner, int operation, int x, int y, int width, int height, int flags, boolean visible, String title)` | `long`。独立窗口命令的提交序号。操作码 1/2/3/4 分别创建、更新几何与可见性、销毁窗口树、设置属性。 | 两边共用。Windows 管理 HWND，macOS 用 NSWindow 处理窗口从属、排序和焦点。 | **中** · 次级窗口创建、属性或几何变化、关闭时提交；连续调整窗口位置或大小时可密集调用。 |
 | `nativeWindowInfo(long id)` | `long[]`。未建或已销毁时为空；有快照时依次为窗口 ID、所有者 ID、Godot 原生窗口 ID、x/y、宽/高、可见、焦点、模式、确认序号。 | 两边共用 | **高** · 每次 Glass 帧回调对每个尚未关闭的次级窗口各查一次。 |
 | `nativeWindowAck()` | `long`。独立窗口队列最近已应用的命令序号。 | 两边共用 | **中** · 创建次级窗口或等待其输入法组合结束时，按需重复确认。 |

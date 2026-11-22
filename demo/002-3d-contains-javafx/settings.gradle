@@ -1,0 +1,4 @@
+pluginManagement { repositories { mavenCentral(); gradlePluginPortal() } }
+rootProject.name = '002-3d-contains-javafx'
+include 'vfx'
+project(':vfx').projectDir = file('../../scripts/vfx-build')

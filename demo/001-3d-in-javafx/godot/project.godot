@@ -1,0 +1,8 @@
+config_version=5
+
+[application]
+config/name="Tetrahedron"
+run/main_scene="res://tetrahedron.tscn"
+
+[rendering]
+renderer/rendering_method="mobile"

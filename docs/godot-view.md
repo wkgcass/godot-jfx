@@ -16,6 +16,12 @@ view.loadScene("res://scenes/effect.tscn");
 root.getChildren().add(view);
 ```
 
+The host initially disables 3D on each GodotView viewport. The
+[tetrahedron demo](../demo/001-3d-in-javafx/README.md) opts its own viewport into 3D
+from the loaded scene script and assigns it a separate 3D world. Godot renders
+the mesh and camera, and JavaFX composites the resulting texture and supplies
+the playback buttons. The demo works with the default Mobile renderer.
+
 For a Java-launched Windows application, export the custom scenes and their imported dependencies into `META-INF/godot-jfx/scenes.pck` in the application JAR. The embedded scene above then resolves from that pack. An application using only ordinary JavaFX controls can omit the pack. [Library specification](godot-library-spec.md).
 
 Use normal JavaFX layout, transforms, opacity, clipping and sibling order.

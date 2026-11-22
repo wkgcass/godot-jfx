@@ -12,6 +12,7 @@ macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。日常只
 
 | 目标平台与待验证内容 | 验证入口与参数 | 通过条件及已知限制 |
 | --- | --- | --- |
+| macOS arm64，JavaFX 向 Godot 场景发消息 | 在 Mac 上重新暂存发行包，运行下文的 `--group scene-message` 用例。 | 默认 Metal 后端输出 `PASS scene-message`，Godot 主线程按序收到五条消息，应用正常退出。 |
 | macOS arm64，Retina 与混合缩放多屏下的共享窗口夹具 | 在 Retina 单屏和不同缩放双屏环境运行 `test-logical-windows.sh`、`test-window-order.sh`、`test-window-composition.sh`，将主窗口置于屏幕交界附近，覆盖子窗口落在另一屏的情况；记录各窗口所在屏幕、缩放和位置 | 核对窗口尺寸、相对位置、输入坐标与 GPU 像素。当前部分断言用主窗口屏幕缩放计算子窗口采样点，可能误判；如需修正，应依据各窗口实际坐标与渲染尺寸。缺少对应显示器环境时保留该范围的待办。 |
 | macOS arm64，独立 IME 窗口的点击坐标 | 获得 Robot 授权后，在 Retina 屏运行 `./scripts/test-native-ime.sh --driver metal` 和 `--driver opengl` | 从已显示的子窗口尺寸换算点击位置，焦点离开输入框后取消预编辑，按钮动作完成，根文本与资源清理断言通过，并恢复光标。 |
 
@@ -38,6 +39,14 @@ python scripts/test-shadow-jar.py --runtime 'D:\Godot JavaFX'
 ```
 
 默认依次执行启动、失败处理和绘制三组。可用 `--group launch`、`--group failures` 或 `--group render` 单独复测。绘制组包含 Oracle 与 Lk 两个媒体用例，`--group media` 可单独运行这两个用例。两个视频都由 `scripts/setup-env.py` 准备。默认使用新的临时目录，控制台的 `Evidence` 行给出位置。`results.json` 记录子进程命令、退出码、耗时、JAR 哈希和受检查的 DLL 路径，工作目录下的 `artifacts/reference` 分别保存 `media*.png` 和 `media-lk*.png`。
+
+`postSceneMessage` 的独立用例包含在 render 组和默认 NonRobot 回归中。从仓库根目录执行以下命令可单独验证：
+
+```sh
+python scripts/test-godot-library.py --runtime artifacts/godot-library --group scene-message
+```
+
+Java 发送端使用发行模块的公开 API，检查非 FX 线程、空引用、空字符串和超长主题的拒绝行为。Godot 场景根节点检查主线程、五条消息的主题与整数值、重复消息和顺序，覆盖 128 个 UTF-16 码元的主题及 32 位整数上下界。通过时输出 `PASS scene-message`，证据目录中的 `scene-message.log` 记录两端标记及应用退出标记。
 
 启动组覆盖显式与自动初始化、无 main 的类、模块化入口、并发、配置冲突、隐藏最后窗口后再次显示以及退出。失败组要求重复初始化和等待者观察到同一错误，约定退出码为 31；显式退出用例应保留 37。绘制组使用 Godot 合成输入、独立 Stage、GodotView 像素、Node Shader 原有断言及 Effect 的 D3D 参考图，还验证本地视频的暂停、seek、重播和释放。
 

@@ -24,6 +24,8 @@ remaining work. The user's remaining white-edge issue is explicitly waived.
 - [AGENTS.md](AGENTS.md)：构建、运行、仓库约束与文档地图。
 - [TESTS.md](TESTS.md)：按用途选择测试，查看前置条件、命令和验收方式。
 - [架构说明](docs/architecture.md)：从组件分工到画面、输入、线程和资源生命周期。
+- [彩色三棱锥 Demo](demo/001-3d-in-javafx/README.md)：在 JavaFX 控件里嵌入 Godot 3D 场景，用按钮控制自转、用鼠标拖动视角。
+- [栖居 · 房间控制 Demo](demo/002-3d-contains-javafx/README.md) 将 JavaFX 的 VFX 控件装在 Godot 房间的墙上，用准星操作灯光和空调。
 
 ## Build and run
 

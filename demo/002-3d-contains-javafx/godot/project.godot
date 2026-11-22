@@ -1,0 +1,12 @@
+config_version=5
+
+[application]
+config/name="VFX Control Room"
+run/main_scene="res://room.tscn"
+
+[display]
+window/size/viewport_width=1100
+window/size/viewport_height=720
+
+[rendering]
+renderer/rendering_method="mobile"

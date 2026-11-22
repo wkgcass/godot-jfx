@@ -1,0 +1,64 @@
+plugins {
+    id 'application'
+    id 'com.gradleup.shadow' version '9.3.1'
+}
+
+def root = file('../..')
+def distribution = new File(root, 'artifacts/godot-library')
+def fxVersion = new File(distribution, 'version.txt').text.trim()
+def mac = System.getProperty('os.name') == 'Mac OS X'
+def platform = mac ? 'mac-aarch64' : 'win'
+def editor = new File(root, 'godot/bin/' + (mac ? 'godot.macos.editor.arm64' : 'godot.windows.editor.x86_64.exe'))
+repositories {
+    exclusiveContent {
+        forRepository { maven { url = new File(distribution, 'repository').toURI() } }
+        filter { includeModuleByRegex 'io\\.vproxy', 'godot-jfx-.*' }
+    }
+    mavenCentral()
+}
+dependencies {
+    implementation project(':vfx')
+    implementation "io.vproxy:godot-jfx-controls:${fxVersion}"
+    runtimeOnly "io.vproxy:godot-jfx-graphics:${fxVersion}:${platform}"
+}
+application { mainClass = 'geometry.Main' }
+tasks.compileJava { options.encoding = 'UTF-8' }
+
+// Import a working copy so the editor cache and generated UIDs stay in build/.
+def sceneSource = layout.buildDirectory.dir('scene-source')
+def pack = layout.buildDirectory.file('pack/scenes.pck')
+def prepareScene = tasks.register('prepareScene', Sync) {
+    from('godot') { exclude '.godot/**' }
+    into sceneSource
+}
+def exportScene = tasks.register('exportScene') {
+    dependsOn prepareScene
+    inputs.files(fileTree('godot') { exclude '.godot/**' })
+    inputs.file(editor)
+    outputs.file(pack)
+    doLast {
+        def path = sceneSource.get().asFile
+        pack.get().asFile.parentFile.mkdirs()
+        for (args in [['--editor', '--import'], ['--export-pack', 'Scene', pack.get().asFile]]) {
+            def run = providers.exec { commandLine([editor, '--headless', '--path', path] + args) }
+            logger.info(run.standardOutput.asText.get())
+            def diagnostics = run.standardError.asText.get().trim()
+            if (diagnostics =~ /(?m)^(SCRIPT ERROR|ERROR):/) {
+                throw new GradleException(diagnostics)
+            }
+            if (diagnostics) logger.warn(diagnostics)
+        }
+    }
+}
+tasks.processResources {
+    dependsOn exportScene
+    from(pack) { into 'META-INF/godot-jfx' }
+}
+tasks.shadowJar {
+    archiveFileName = "${project.name}.jar"
+    from(new File(root, 'vfx/LICENSE')) { into 'META-INF/licenses/vfx' }
+    manifest { attributes 'Enable-Native-Access': 'ALL-UNNAMED', 'Multi-Release': 'true' }
+    exclude 'module-info.class', 'META-INF/versions/**/module-info.class'
+    filesMatching('META-INF/services/**') { duplicatesStrategy = DuplicatesStrategy.INCLUDE }
+    mergeServiceFiles()
+}

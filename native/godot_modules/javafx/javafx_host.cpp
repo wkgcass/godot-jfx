@@ -279,6 +279,7 @@ static jboolean JNICALL is_shutdown_drained(JNIEnv *, jclass) {
 
 static jint host_command_impl(JNIEnv *env, jint operation, jint a, jint b, jstring text) {
 	bool valid = (operation >= 1 && operation <= 20) || operation == 22 || operation == 23 || operation == 24 || operation == 26 || operation == 27;
+	if (operation == 28) valid = b == 0 && text && env->GetStringLength(text) > 0 && env->GetStringLength(text) <= 128;
 	if (operation == 22 || operation == 23 || operation == 26 || operation == 27) valid = a == 0 && b == 0;
 	if (operation == 19 || operation == 20 || operation == 24) valid = (a == 0 || a == 1) && b == 0;
 	if (operation == 16) valid = (a == 0 || a == 1) && b == 0;
@@ -1863,6 +1864,17 @@ void JavaFXHost::apply_host_commands() {
 	{ std::lock_guard<std::mutex> lock(runtime->host_mutex); pending_commands.swap(runtime->host_commands); }
 	Window *host_window = get_window();
 	auto *display = DisplayServer::get_singleton();
+	// A first-person scene owns the OS grab until it explicitly releases it.
+	auto apply_cursor_visibility = [this, display]() {
+		using namespace DisplayServerEnums;
+		const auto mode = display->mouse_get_mode();
+		if (mode == MOUSE_MODE_CAPTURED) return;
+		if (!managed_cursor_state) {
+			previous_mouse_mode = mode;
+			managed_cursor_state = true;
+		}
+		display->mouse_set_mode(cursor_visible && !cursor_none_requested ? MOUSE_MODE_VISIBLE : MOUSE_MODE_HIDDEN);
+	};
 	for (const auto &command : pending_commands) {
 		int a = command.a, b = command.b;
 		switch (command.operation) {
@@ -1889,9 +1901,8 @@ void JavaFXHost::apply_host_commands() {
 			case 10: {
 				using namespace DisplayServerEnums;
 				if(custom_cursor_active) { display->cursor_set_custom_image(Ref<Resource>(),CURSOR_ARROW); custom_cursor_active=false; custom_cursor_info.clear(); }
-				if (!managed_cursor_state) { previous_mouse_mode = display->mouse_get_mode(); managed_cursor_state = true; }
 				cursor_none_requested = a == -1;
-				display->mouse_set_mode(cursor_visible && !cursor_none_requested ? MOUSE_MODE_VISIBLE : MOUSE_MODE_HIDDEN);
+				apply_cursor_visibility();
 				if (cursor_none_requested) break;
 				CursorShape shape = CURSOR_ARROW;
 				switch (a) {
@@ -1918,15 +1929,13 @@ void JavaFXHost::apply_host_commands() {
 				Input::get_singleton()->set_default_cursor_shape_quiet(static_cast<Input::CursorShape>(shape));
 			} break;
 			case 11:
-				if (!managed_cursor_state) { previous_mouse_mode = display->mouse_get_mode(); managed_cursor_state = true; }
 				cursor_visible = a != 0;
-				display->mouse_set_mode(cursor_visible && !cursor_none_requested ? DisplayServerEnums::MOUSE_MODE_VISIBLE : DisplayServerEnums::MOUSE_MODE_HIDDEN);
+				apply_cursor_visibility();
 				refresh_custom_cursor_info();
 				break;
 			case 21: {
-				if (!managed_cursor_state) { previous_mouse_mode = display->mouse_get_mode(); managed_cursor_state = true; }
 				cursor_none_requested = false;
-				display->mouse_set_mode(cursor_visible ? DisplayServerEnums::MOUSE_MODE_VISIBLE : DisplayServerEnums::MOUSE_MODE_HIDDEN);
+				apply_cursor_visibility();
 				PackedByteArray rgba; rgba.resize(command.cursor_pixels.size());
 				for(size_t p=0;p<command.cursor_pixels.size();p+=4) {
 #if defined(MACOS_ENABLED)
@@ -1972,6 +1981,15 @@ void JavaFXHost::apply_host_commands() {
 				if (a) set_background(Color(0, 0, 0, 0));
 				break;
 			case 25: display->window_set_icon(godot_javafx::window_icon_image(command.icon_width, command.icon_height, command.icon_pixels), host_window->get_window_id()); break;
+			case 28: {
+				Node *scene = get_tree()->get_current_scene();
+				if (!scene || !scene->has_method(SNAME("on_javafx_message"))) {
+					ERR_PRINT("JavaFX scene message requires a current scene implementing on_javafx_message(topic, value).");
+					break;
+				}
+				// Host commands can drain inside a render notification. Run scene code at idle.
+				scene->call_deferred(SNAME("on_javafx_message"), String::utf16(command.text.data(), int(command.text.size())), a);
+			} break;
 			case 16: case 17: case 18: window_ime_command(0,command.operation,a,b); break;
 			case 26: {
 #if defined(WINDOWS_ENABLED)

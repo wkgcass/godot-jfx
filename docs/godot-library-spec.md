@@ -93,3 +93,9 @@ Windows x64 使用 `win` 构件，macOS arm64 使用本机 SDK 生成的 `mac-aa
 3. 使用包含 Media 的 JAR，验证本地视频解码画面、暂停、跳转、停止后重播和退出。
 4. 在带资源包的 JAR 中调用 GodotView，观察主窗口合成后的指定像素与独立子窗口，使用引擎合成输入触发 JavaFX 控件。资源包自带的主场景若被执行会导致测试失败。另用损坏的资源包检查初始化错误及非零退出码。
 5. 在本机串行运行 NonRobot 和已获授权的 Robot 组。Godot 场景夹具由同一 Java 进程从发布的平台 JAR 加载 Windows 的 `godot.dll` 或 macOS 的 `libgodot.dylib`，核对引擎库内容和加载路径，并执行原有的窗口、输入、渲染和清理断言。NonRobot 组同时覆盖模块路径、Shadow 单 JAR 和完整 VFX Demo 的应用启动入口。命令与实测结果见[测试指南](../TESTS.md)和[验收记录](acceptance-status.md)。
+
+## 从 JavaFX 通知 Godot 场景
+
+自定义 Godot 项目可以在当前场景根节点上实现 `on_javafx_message(topic: String, value: int)`。JavaFX 应用线程在启动或控件回调时调用 `GodotRuntime.postSceneMessage(topic, value)`。主题长度为 1–128 个 UTF-16 码元，值为有符号的 32 位整数。调用返回表示宿主队列已经接收消息。队列满或宿主已停止时抛出异常。
+
+Godot 主线程按入队顺序取出消息，将回调排入当时场景根节点的延迟调用队列。若排队时没有场景或缺少接收方法，宿主记录错误。若该节点在回调前销毁，Godot 会丢弃对应的延迟调用。示例见[房间控制](../demo/002-3d-contains-javafx/README.md)。

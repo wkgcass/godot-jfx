@@ -11,6 +11,7 @@
 - `godot/`、`jfx/`、`vfx/` 是 Git 子模块。检查根仓库以及相关子模块的 `git status --short`、`git diff`；根仓库 diff 不包含子模块内部的完整补丁。
 - `native/godot_modules/javafx/`：编译进 Godot 的宿主、窗口、输入、GPU 命令消费与资源管理。
 - `jfx/modules/javafx.graphics/`：Glass-Godot、Prism-Godot、GodotView、Shader 扩展；`javafx.media/`：Media 与 GPU 视频帧生命周期。
+- `demo/` 下的示例独立验证，用例和待验证项保存在对应示例目录。godot-jfx 的测试和 CI 不依赖、构建或运行这些示例。
 - `scripts/`：构建、启动、测试和分析入口。`tests/godot/` 为宿主测试场景，`tests/reference/` 为 Java 观察器/对照，`tests/native/` 为 C++ 测试。
 - `.tools/` 存放本地工具，`.gradle-cache/` 存放 Gradle 缓存。
 - `artifacts/` 存放构建、运行和测试使用的输入与产物。Maven 模块暂存在 `artifacts/godot-library/`，Demo 打包到 `artifacts/vfx/`，本地生成的媒体夹具、测试截图和基准报告放在 `artifacts/reference/`。完整清理和 `--target test-projects` 会删除整个 `artifacts/reference/`；需留存的验收结果在清理前归档。Git 忽略整个目录。
