@@ -14,7 +14,7 @@
 - `scripts/`：构建、启动、测试和分析入口。`tests/godot/` 为宿主测试场景，`tests/reference/` 为 Java 观察器/对照，`tests/native/` 为 C++ 测试。
 - `.tools/` 存放本地工具，`.gradle-cache/` 存放 Gradle 缓存。
 - `artifacts/` 存放构建、运行和测试使用的输入与产物。Maven 模块暂存在 `artifacts/godot-library/`，Demo 打包到 `artifacts/vfx/`，本地生成的媒体夹具、测试截图和基准报告放在 `artifacts/reference/`。完整清理和 `--target test-projects` 会删除整个 `artifacts/reference/`；需留存的验收结果在清理前归档。Git 忽略整个目录。
-- `agentdir/media/` 存放跨次测试复用的音视频。初始化脚本下载并校验 Oracle 和 Lk 样本，测试通过 `setup-env.py --sample-path oracle|lk` 获取路径。Windows 的 `scripts/make-media-fixture.ps1` 在此生成 `media-1080p60.mp4` 和同名 JSON，供 `benchmark-media-frames.ps1 -Native60` 读取。Windows 和 macOS 音频播放及纯音频 churn 测试在此按需生成 WAV、MP3 和 AIFF，已有文件直接复用。
+- `agentdir/media/` 存放跨次测试复用的音视频。初始化脚本下载并校验 Oracle 和 Lk 样本，测试通过 `setup-env.py --sample-path oracle|lk` 获取路径。Windows 的 `scripts/make-media-fixture.ps1` 在此生成 `media-1080p60.mp4` 和同名 JSON，供 `benchmark-media-frames.ps1 -Native60` 读取。macOS 用 `./scripts/make-media-fixture.py` 生成相同规格的视频和校验清单，用 `./scripts/benchmark-media-frames.py --native60` 验收。Windows 和 macOS 音频播放及纯音频 churn 测试在此按需生成 WAV、MP3 和 AIFF，已有文件直接复用。
 - `agentdir/logs/` 存放本次构建、测试和 Demo 的运行日志。脚本在这里写日志，也从这里读取日志判断是否通过。
 - `agentdir/artifacts/` 归档一次性调查材料，例如临时探针、故障现场、修复前后的截图对照和旧验收日志。归档前先核对脚本的读写路径，把仍会复用的文件保留在原位。
 - `agentdir/docs/` 存放从现行文档拆出的历史实施、审查和验收记录。现行命令与限制保留在原文档，按需链接到归档。Git 默认忽略 `agentdir/` 下的内容，仅 `agentdir/docs/*.md` 可提交。
@@ -88,7 +88,7 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 
 场景测试用 classpath 加载本机发布的平台 JAR，由同一 Java 进程加载 `godot.dll` 或 `libgodot.dylib` 并运行夹具。准备好源码 Editor、Godot 共享库和启用 Media 的 SDK 后，运行 `.\scripts\build-vfx.ps1` 一并刷新发行包。Editor 用于导入/导出资源；`-Runtime` 使用单独的夹具项目目录。Windows 非 Robot 组也包含模块路径、Shadow 和 Demo JAR 消费验收。
 
-按改动范围选测试，详见 TESTS.md。Windows 回归分组和适用的单项测试均默认只跑 Godot D3D12。回归耗时较长，平时优先用 `-Test` 选择相关用例。NonRobot 和 Robot 两组均支持 `-Driver vulkan`、`-Driver opengl` 和三后端矩阵 `-Driver all`，用 `-List` 可预览。macOS 的分组和适用单项默认只跑 Metal，显式用 `--driver opengl` 选择 OpenGL，或用 `--driver all` 跑双后端。GUI 和性能测试串行运行，保持测试窗口前台，不与构建或其他 GPU 重负载并行。默认 VFX/Media 基准为 Godot；显式 `-Backend d3d` 或 `-NativeD3D` 是原生 JavaFX 对照，不能当作 Godot 验收。
+按改动范围选测试，详见 TESTS.md。Windows 回归分组和适用的单项测试均默认只跑 Godot D3D12。回归耗时较长，平时优先用 `-Test` 选择相关用例。NonRobot 和 Robot 两组均支持 `-Driver vulkan`、`-Driver opengl` 和三后端矩阵 `-Driver all`，用 `-List` 可预览。macOS 的分组和适用单项默认只跑 Metal，显式用 `--driver opengl` 选择 OpenGL，或用 `--driver all` 跑双后端。两组都可用 `--list` 预览、`--test` 选择脚本、`--cases default|variants` 选择基础或专项用例。GUI 和性能测试串行运行，保持测试窗口前台，不与构建或其他 GPU 重负载并行。默认 VFX/Media 基准为 Godot；显式 `-Backend d3d` 或 `-NativeD3D` 是原生 JavaFX 对照，不能当作 Godot 验收。
 
 ## 不应破坏的约束
 

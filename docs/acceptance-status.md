@@ -121,11 +121,31 @@ Windows x64 passed the six-module Maven packaging checks, all 27 module-path cas
 ## macOS arm64 verification scope
 
 The macOS launchers and test matrix accept `metal` (default) and `opengl`.
-The shell argument forwarding and both regression plans were checked on Windows.
-Rebuilding the matching SDK, engine and JARs and running each driver on Apple
-silicon remain pending. [macOS verification checklist](../TESTS.md#跨平台待验证清单)
+The 2026-11-22 cold rebuild on Apple M1 produced the arm64 Godot Editor, shared library, Media-enabled SDK and standalone Demo JAR. The source checkout was `5a65cc6` with local macOS changes, Godot `25d1e624` and JFX `19e43307`. Build logs are in `agentdir/logs/macos-rebuild-{godot-editor,godot-library,jfx,vfx}.log`.
 
-On Apple M1 the tested publication was `28-godot.4:mac-aarch64`. The packaged Demo, 27 module-path cases and nine Shadow cases passed. NonRobot recorded 263 passes and the expected window-icon skip. All 16 Robot cases passed. The three-round soak released all host-owned resources on exit, but resource counts rose between rounds. Verification of the new Maven coordinates on macOS remains tracked in [TESTS.md](../TESTS.md).
+Running `./scripts/maven_local.py install` packaged and installed `1.0.0-7be59b46-73d8b63b`. The module path contained six JARs under the checkout's `.m2/repository/io/vproxy`, with the `mac-aarch64` classifier on graphics and media. Scroll settings, screen layout, render-command validation and all four Metal startup cases passed. The default M1, isolated Glass window and GodotView probes also passed. Evidence is in `agentdir/logs/macos-rebuild-maven.log`, `macos-accepted-module-path.txt` and `macos-standalone-test-*.log`. The [macOS verification checklist](../TESTS.md#跨平台待验证清单) tracks the remaining coverage.
+
+The Lk paused-seek regression required a local AVFoundation change on top of JFX `19e43307`. After rebuilding the SDK, Demo and publication, the 7.434 s seek, decoded-frame assertions and replay passed on Metal, OpenGL and native Mac Glass. A separate Maven consumer compiled `DirectApplication` and tested that classes from all six modules loaded from the project repository. Both `mvn clean verify` and `mvn -o clean verify` passed one test with zero failures, errors or skips and produced the consumer JAR. The final publication passed 33 module-path cases, nine Shadow JAR cases and the isolated Demo JAR check on each driver. The project-local Maven logs are in `agentdir/logs/macos-planar-final/maven-{online,offline}.log`. The per-driver results are entries 002–004 and 007–009 in `agentdir/logs/macos-planar-final-NonRobot/`.
+
+The final AVFoundation build also prefers planar 4:2:0 for video output. Each driver passed three consecutive 1080p60 trials with zero queue backpressure. The Oracle and Lk playback checks passed on Metal, OpenGL and native Mac Glass. Both rebuilt native binaries matched byte for byte across the staged classifier, local Maven classifier and standalone Demo. The SHA-256 values are in `agentdir/logs/macos-planar-final/publication-digests.txt`. See the [format and throughput measurements](media-godot.md#macos-arm64-notes-2026-11-16).
+
+GPU profiling needed a local OpenGL renderer change on top of Godot `25d1e624`. The Apple M1 supplies elapsed-time queries, and the VFX workload uses more queries than the former fixed 256-slot compatibility pool. After rebuilding the editor, shared library and Maven publication, Metal and OpenGL both returned nonzero GPU frame times. The final profiler runs recorded 20 positive GPU frame durations per driver. See the [GPU timing details](frame-benchmark.md) and `agentdir/logs/macos-planar-final/gpu-{metal,opengl}.log`.
+
+A clean checkout ran `setup-env.py` twice with `ANT_HOME` and `JAVA_HOME` unset. Local Git mirrors supplied all three pinned submodule commits. Setup unpacked the checksum-verified Temurin archive, installed Ant, Maven, SCons and the Python dependencies, and prepared both media samples. On the second run it reused the installations and preserved a local JFX edit. The verified tools were Temurin 25.0.5, Ant 1.10.15, Maven 3.9.9, SCons 4.11.1 and Python 3.13.3 with Pillow 13.0.0 and zstandard 0.25.0. See `agentdir/logs/macos-fresh-setup/{setup-1,setup-2,versions}.log`.
+
+On 2026-11-22 the macOS checkout at `5a65cc6` with local script changes passed a full clean. Both SCons clean targets and OpenJFX `cleanAll` completed. A filesystem check before the cold rebuild verified removal of the SDK, native binaries, SCons state, Gradle project caches, generated fixtures and packaged outputs. It also verified retention of the local Maven repository, Gradle dependency cache, tools, media and acceptance archive. Separate temporary fixtures verified dry-run, repeat cleanup and rejection of redirected output paths. Logs are under `agentdir/logs/macos-clean-verified.log`, `macos-rebuild-pipeline.log` and `macos-clean-boundary-tests.log`.
+
+A separate checkout ran `./scripts/clean.py --target jfx` twice. Both Gradle cleans succeeded, removed the SDK output and project cache, and preserved a sentinel in the packaged VFX directory. The log is `agentdir/logs/macos-5a65cc6-diagnostics/isolated-jfx-clean.log`.
+
+The final NonRobot plan comprised 148 Metal, 149 OpenGL and 20 driver-independent invocations. The full run passed 315 of 317. Two OpenGL fixtures observed an intermediate frame. The VFX window-controls fixture now waits for the native window to reach the exact maximized or restored bounds. The window-order fixture allows a newly exposed viewport up to one second to present its first JavaFX frame when the sampled pixel still shows the project clear color. It verifies the top window’s color in each of ten phases. All six affected fixture variants passed five consecutive runs against the same packaged binaries. Two negative checks rejected a maximized width off by one pixel and a window that continued to show the clear color. Matching the results and raw device headers to the plan verified 317 of 317 cases. The original results are in `agentdir/logs/macos-planar-final-NonRobot/results.csv`. The reconciled results and log paths are in `agentdir/logs/macos-planar-final/NonRobot-verified.csv`.
+
+An earlier diagnostic reproduced a transparent red source texture in 9 of 15 Metal window-layer launches when the fixture submitted its one-shot draw during startup. Submitting on the process tick after the first viewport draw passed all 15 diagnostic launches and the original 100-cycle checks on both drivers. Evidence is in `agentdir/logs/macos-layer-setup-comparison/` and the final NonRobot archive.
+
+The final publication passed all 22 Robot invocations on the M1, 11 per driver, with zero skips. All 22 fixture JVMs reported the packaged native bundle, and its extracted engine matched the dylib in the Demo JAR byte for byte. The suite exercised physical drag and drop, hover, native IME, JavaFX Robot input, table scrolling and the macOS virtual-keyboard contract. Results are in `agentdir/logs/macos-planar-final-Robot/results.csv`. The test display reported scale 1.
+
+The standalone Demo JAR showed Godot’s splash at startup and then the VFX welcome screen. With `--no-godot-logo`, the first captured window already showed “Welcome to VFX”. Both launches reported Metal and closed normally. The module-path launch group passed all 12 cases, including `direct-metal`. Explicit Metal and OpenGL launched the isolated Demo. D3D12 and Vulkan both returned exit code 1 with the unsupported driver identified before any device was opened. Logs are in `agentdir/logs/macos-5a65cc6-default-launch.log` and `agentdir/logs/macos-5a65cc6-diagnostics/`. The 17 window captures per mode are under `agentdir/artifacts/macos-5a65cc6-demo-startup/`.
+
+An earlier Apple M1 run tested `28-godot.4:mac-aarch64`. The packaged Demo, 27 module-path cases and nine Shadow cases passed. NonRobot recorded 263 passes and the expected window-icon skip. All 16 Robot cases passed. The three-round soak released all host-owned resources on exit, but resource counts rose between rounds. The results from that publication precede the Maven coordinate change.
 
 The macOS port uses Viewport + safe hosting. The packaged `mobile` renderer
 reports Metal 3.1 on this M1. The compatibility renderer uses OpenGL 4.1. Vulkan is not
@@ -134,21 +154,16 @@ built (MoltenVK is not installed). Toolchain and build commands are in
 `scripts/test-*.sh` runners with the macOS differences listed in
 [TESTS.md](../TESTS.md).
 
-- Explicit platform outcomes: `test-window-icon.sh` SKIPs by design (macOS
-  has no per-window icon; the Dock icon belongs to NSApplication); the
-  virtual keyboard entry points report unsupported explicitly (no Windows
-  touch keyboard exists). Windows-only native component tests
-  (`test-clipboard-ownership.cmd`, `test-dnd-drag-image.cmd`,
-  `test-dnd-helper-lifetime.cmd`, `test-tabtip-result.cmd`) and the Media
-  Foundation fixture generator require Windows.
+- macOS has no per-window icon. The window icon fixture checks the host reports this for both Stages across seven updates. The Dock icon belongs to NSApplication. The
+  virtual keyboard entry points report unsupported explicitly. The macOS native component tests exercise Cocoa clipboard and drag data, JNI callback lifetime and keyboard availability.
 - The macOS file-dialog fixture answers the same submit/poll/cancel contract
   through a module test hook (`GODOT_JFX_DIALOG_HOOK=1`); panel appearance,
   sheet attachment and physical keyboard interaction are unverified.
   The Cocoa helper and Robot verified physical cross-process drags on both
   renderers. The separate ole-inject fixture uses a private NSPasteboard.
-- Media runs the AVFoundation backend; the macOS runners reject the unported
-  `--runtime`/`--native-d3d`/process-census modes explicitly (exit 2), which
-  marks the mode as unavailable rather than failed.
+- Media uses AVFoundation. For the native Mac Glass and Prism Metal comparison,
+  the video and churn scripts accept `--native`. The Windows process-census
+  switches require the Windows APIs.
 - Known toolchain limit: Temurin 25.0.5 aarch64 crashes the JVM
   (C2-related) shortly after FFM downcalls, reproducible outside Godot, so
   churn/soak probes sample process RSS via `ps` instead; pass criteria are

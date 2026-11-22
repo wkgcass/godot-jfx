@@ -292,12 +292,29 @@ from the Windows runners, all observable in the scripts:
   `setCurrentTime:` used `CMTimeMakeWithSeconds(time, 1)`, quantizing seeks to
   whole seconds; the probe's 1200 ms +/-100 ms seek check failed. The timescale
   is now 600, the usual AVFoundation choice.
-- AVF decodes H.264 to packed YCbCr 4:2:2 (`BYTE_APPLE_422`), which the Godot
-  texture path does not accept. `GodotResourceFactory.createTexture(MediaFrame)`
-  and `GodotTexture.update(MediaFrame)` now convert such frames to
-  `INT_ARGB_PRE` through the existing `CVVideoFrame::ConvertToFormat` path,
-  the same fallback J2D/SW use. The YUV multi-plane R8 path still serves
-  `MULTI_YCbCr_420` without conversion.
+- The AVFoundation player passes zero tolerance on both sides of a JavaFX seek.
+  A paused seek between keyframes otherwise can settle on the neighboring
+  keyframe. The 1080p Lk sample previously stayed at 7.800 s for a request
+  at 7.434 s on both Metal and OpenGL. After the fix, `test-media-video.sh
+  --sample lk` passed with `--driver metal`, `--driver opengl` and the
+  `--native` Mac Glass control, including seek, end-of-media, stop and
+  replay. All three recorded maximum resize error 0 and blend error 1/255.
+  Logs are in `agentdir/logs/media-video-{metal,opengl,native-mtl}-lk.log`.
+- AVFoundation prefers planar YCbCr 4:2:0 and also accepts packed 4:2:2 and
+  BGRA. The Godot renderer uploads a planar frame into three R8 textures and
+  applies the YCbCr shader. Packed 4:2:2 still uses the BGRA conversion. Both
+  YCbCr formats can supply BGRA when a software consumer requests it.
+- The 1920×1080, 60 Hz fixture previously negotiated packed 4:2:2 and expanded
+  to BGRA, splitting a video frame across two 4 MiB command batches. In the
+  recorded Metal trial, 601 frames rendered in ten seconds and the queue
+  rejected 1,132 submission attempts. With planar decoding the same video fits
+  in one batch. Three consecutive ten-second trials on each driver measured
+  60.056–60.146 rendered FPS with zero queue rejections or focus losses.
+  Source format, plane count and counters are in
+  `agentdir/logs/media-frame-{metal,opengl}-rate1-sample{9,10,11}-native60.log`.
+  The native conversion probe checked 100 red/blue frames of each format,
+  including row padding. Its log is
+  `agentdir/logs/macos-planar-video/convert-formats.log`.
 - `CurrentProcessMemory` (media churn process samples) cannot use FFM
   downcalls to `proc_pid_rusage`/`proc_pidinfo` on the pinned JDK: Temurin
   25.0.5+8 on aarch64 crashes with C2/metaspace corruption (`compiledIC
@@ -306,7 +323,4 @@ from the Windows runners, all observable in the scripts:
   `ps` RSS (reported as both working set and private bytes) and counts
   `/dev/fd` entries for handles. Pass criteria are unchanged; the samples are
   trend-analysis data, not acceptance gates.
-- `--runtime`, `--handle-types`/`--providers` (PSS/ETW census) and the D3D
-  comparison mode remain Windows-only; the macOS scripts reject them
-  explicitly. The 1080p60 fixture generator is
-  Windows-only and unused by the macOS batch.
+- Use `--runtime` for an isolated macOS Media project. For native Mac Glass and Prism Metal, run `./scripts/test-media-video.sh --native` or `./scripts/test-media-churn.sh --native` with the same sample and cycle settings as the Godot run. PSS/ETW and native D3D diagnostics require Windows. On macOS, `./scripts/make-media-fixture.py` encodes and verifies 960 H.264 frames with ffmpeg and ffprobe. `./scripts/benchmark-media-frames.py --driver metal --native60` checks the fixture hash, focused playback and host throughput. `--native` selects the native Mac Glass / Prism Metal comparison.

@@ -1,11 +1,10 @@
 #!/bin/sh
-# macOS equivalent of test-vfx-loading.ps1. --runtime needs the Windows
-# release-template fixture layout and is not ported.
 # Usage: test-vfx-loading.sh [--driver metal|opengl] [--render-thread safe] [--cancel]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+runtime=""
 DRIVER="metal"
 RENDER_THREAD="safe"
 CANCEL=0
@@ -14,7 +13,7 @@ while [ $# -gt 0 ]; do
         --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --cancel) CANCEL=1 ;;
-        --runtime) echo "--runtime is not ported to macOS yet" >&2; exit 2 ;;
+        --runtime) runtime="-runtime" ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
@@ -58,9 +57,9 @@ export GODOT_JFX_JDK="$JDK"
 export GODOT_JFX_LOADING_CANCEL="$CANCEL"
 SUFFIX=""
 [ "$CANCEL" -eq 1 ] && SUFFIX="-cancel"
-LOG="agentdir/logs/vfx-loading-$DRIVER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/vfx-loading-$DRIVER-$RENDER_THREAD$SUFFIX$runtime.log"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://vfx_loading.tscn \
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" ${runtime:+--runtime} --path tests/godot res://vfx_loading.tscn \
     --render-thread "$RENDER_THREAD" || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_VFX_LOADING_PASS' "$LOG" \

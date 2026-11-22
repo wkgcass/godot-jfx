@@ -40,7 +40,11 @@ public final class MediaFrameBenchmark extends Application {
         public synchronized void videoFrameUpdated(NewFrameEvent event){
             long now=System.nanoTime();
             if(measureTiming && previousCallback!=0)interval(callbackIntervals,now-previousCallback);
-            previousCallback=now;callbacks.incrementAndGet();
+            previousCallback=now;
+            if (callbacks.incrementAndGet() == 1) {
+                VideoDataBuffer frame = event.getFrameData();
+                System.out.println("MEDIA_FRAME_FORMAT " + frame.getFormat() + " planes=" + frame.getPlaneCount());
+            }
         }
         public void releaseVideoFrames(){}
     };

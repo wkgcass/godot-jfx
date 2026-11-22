@@ -323,10 +323,21 @@ select-all on macOS, mirroring the existing `fxml.gd` mapping. The Robot group a
 `GODOT_JFX_DRAG_MODE=robot`, `test-hover-flicker.sh --robot`, and the
 Intro hover probe with real mouse input.
 
-On the Apple M1 the packaged JAR ran with JDK 25 in an otherwise empty
-directory. Desktop captures from the normal interactive launch show the welcome
-page, the open menu and the selected VStage page in
-`artifacts/reference/vfx-portable/{homepage,menu,selection}.png`. Both
-`scripts/run-vfx-demo.sh --smoke` and its OpenGL variant closed cleanly.
-The isolated JAR test also checked the Java process's mapped Godot dylib
-against the SHA-256 of its JAR entry.
+On 2026-11-22 the rebuilt standalone JAR passed the isolated JDK 25 launch
+on both Metal and OpenGL on the Apple M1. Each run checked the loaded Godot
+dylib against its SHA-256 inside the JAR. Both `run-vfx-demo.sh --smoke`
+runs also closed cleanly.
+
+The all-page fixture navigated all 35 Intro pages on each backend. Each run
+produced 35 distinct 1280×800 viewport captures at display scale 1 and
+reported zero host-owned resources after shutdown. The full captures and
+`run.json` are under `agentdir/logs/macos-planar-final-NonRobot/` in
+`264-test-vfx-intro/reference/vfx-pages-godot-metal` and
+`266-test-vfx-intro/reference/vfx-pages-godot-opengl`. The contact sheets
+are in `agentdir/artifacts/macos-planar-final-demo/pages-{metal,opengl}.png`.
+
+With both Metal and OpenGL, the standalone JAR and the hover diagnostic displayed the welcome page, opened the menu and navigated to the VStage page. The window captures for the three steps are in `agentdir/artifacts/macos-5a65cc6-demo-acceptance/{jar,hover}-{metal,opengl}/`.
+
+Earlier desktop captures from the interactive JAR show the welcome page, open
+menu and selected VStage page. They are archived in
+`agentdir/artifacts/macos-751bac7/reference/vfx-portable/{homepage,menu,selection}.png`.

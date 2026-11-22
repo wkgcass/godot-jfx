@@ -1,15 +1,15 @@
 #!/bin/sh
-# macOS equivalent of test-native-order.ps1 (standard scene fixture only; the -Runtime
-# isolated project variant is Windows-specific and not ported).
 # Usage: test-native-order.sh [--driver metal|opengl] [--render-thread safe]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+runtime=""
 DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
+        --runtime) runtime="-runtime" ;;
         --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
@@ -30,9 +30,9 @@ mkdir -p artifacts/reference agentdir/logs
     -encoding UTF-8 -d artifacts/reference tests/reference/NativeOrderProbe.java
 
 export GODOT_JFX_JDK="$JDK"
-LOG="agentdir/logs/native_order-$DRIVER-$RENDER_THREAD.log"
+LOG="agentdir/logs/native_order-$DRIVER-$RENDER_THREAD$runtime.log"
 CODE=0
-python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://native_order.tscn \
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" ${runtime:+--runtime} --path tests/godot res://native_order.tscn \
     --render-thread "$RENDER_THREAD" >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_NATIVE_ORDER_PASS' "$LOG" \

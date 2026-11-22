@@ -21,7 +21,25 @@ builds or GPU-heavy work. Historical RD/separate measurements are in
 | `./scripts/profile-vfx-loading.ps1` | Ripple animation plus a LoadingStage/alert window; pulse rate per phase |
 | `./scripts/profile-vfx-gpu.ps1` | Built-in Godot GPU profile plus host command timing; diagnostic project uses 8192 timestamp slots |
 
-The frame, transition, table, menu and GPU profiling scripts accept `-Driver`.
+On macOS, use `./scripts/profile-vfx.py frames|transitions|menu|loading|gpu`.
+Select Metal or OpenGL with `--driver`. The frames command accepts `--trace`,
+`--host120` or the native JavaFX Metal comparison `--native`. The menu command
+accepts `--full-uploads`. GPU profiling requests 4096 timestamp slots on
+Metal. Each sample occupies eight bytes, which fills the M1's 32 KiB
+counter buffer. The GPU command checks that the captured timings include
+a positive frame duration. Logs include the driver in the filename under
+`agentdir/logs`.
+
+The OpenGL profile uses the project's 8192-slot setting. On the M1 the
+OpenGL 4.1 driver reports zero counter bits for `GL_TIMESTAMP` and 32 for
+`GL_TIME_ELAPSED`. The compatibility renderer uses successive GPU elapsed
+queries to measure intervals between profile markers on that driver.
+The first three total GPU frame times in the VFX capture were 3.680,
+4.785 and 6.595 ms. The driver probe and frame profile are recorded in
+`agentdir/logs/macos-gl-timestamp-capabilities.log` and
+`agentdir/logs/vfx-gpu-opengl.log`.
+
+The Windows frame, transition, table, menu and GPU profiling scripts accept `-Driver`.
 The mailbox diagnostic requires `-Driver vulkan`. See [TESTS.md](../TESTS.md) for
 additional options, prerequisites and physical-input fixtures.
 

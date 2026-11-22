@@ -5,6 +5,8 @@ func _ready() -> void:
 	if not host.run_fixture_probe("VfxWindowControlsProbe"):
 		push_error("VFX controls Java probe start failed"); get_tree().quit(1); return
 	var step:=0
+	var original_bounds := Rect2i()
+	var bounds_deadline := 0
 	var diagnostic:=Time.get_ticks_msec()+3000
 	var deadline:=Time.get_ticks_msec()+60000
 	while host.get_runtime_status()!="finished":
@@ -24,19 +26,34 @@ func _ready() -> void:
 		var expected_mode:=Window.MODE_MAXIMIZED if step==1 else Window.MODE_MINIMIZED if step==3 else Window.MODE_WINDOWED
 		if macos and step==1: expected_mode=Window.MODE_WINDOWED
 		if window.mode!=expected_mode: continue
-		if step==1:
+		var bounds := Rect2i(window.position, window.size)
+		var expected_bounds := bounds
+		if step == 1:
 			if macos:
-				var screen_position:=DisplayServer.screen_get_position(window.current_screen)
-				var screen_size:=DisplayServer.screen_get_size(window.current_screen)
-				if window.position!=screen_position+Vector2i(0,24) or window.size!=screen_size-Vector2i(0,24):
-					push_error("Maximized VFX Stage does not match screen bounds minus menu bar"); get_tree().quit(1); return
+				var menu_bar := Vector2i(0, 24)
+				expected_bounds = Rect2i(DisplayServer.screen_get_position(window.current_screen) + menu_bar,
+						DisplayServer.screen_get_size(window.current_screen) - menu_bar)
 			else:
-				var work:=DisplayServer.screen_get_usable_rect(window.current_screen)
-				if window.position!=work.position or window.size!=work.size:
-					push_error("Maximized VFX Stage does not match monitor work area"); get_tree().quit(1); return
+				expected_bounds = DisplayServer.screen_get_usable_rect(window.current_screen)
+		elif step == 2 or step == 4:
+			expected_bounds = original_bounds
+		# The Java title acknowledges the control action. Native move/resize
+		# commands can reach the child window on a later host tick.
+		if bounds != expected_bounds:
+			if bounds_deadline == 0:
+				bounds_deadline = Time.get_ticks_msec() + 5000
+				print("VFX_WINDOW_BOUNDS_PENDING step=", step, " actual=", bounds, " expected=", expected_bounds)
+			elif Time.get_ticks_msec() >= bounds_deadline:
+				push_error("VFX step %d native bounds %s, expected %s" % [step, bounds, expected_bounds])
+				get_tree().quit(1)
+				return
+			continue
+		bounds_deadline = 0
 		if step!=3 and (window.is_present_pending() or window.get_content_size()!=window.size): continue
 		if window.is_embedded() or DisplayServer.get_window_list().size()!=2 or get_window().mode!=Window.MODE_WINDOWED:
 			push_error("VFX controls changed wrong native window"); get_tree().quit(1); return
+		if step == 0:
+			original_bounds = bounds
 		print("VFX_WINDOW_MODE step=",step," mode=",window.mode," size=",window.size," position=",window.position)
 		if step==3:
 			# Restore through the host, as the OS taskbar would; no Java setter.

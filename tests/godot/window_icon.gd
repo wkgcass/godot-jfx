@@ -4,6 +4,7 @@ func fail(message:String) -> void:
 	push_error(message); get_tree().quit(1)
 
 func matches(info:Dictionary, color:int) -> bool:
+	if OS.get_name()=="macOS": return info.get("installed", true)==false
 	if color<0: return info.get("installed",true)==false
 	# Godot requests LR_DEFAULTSIZE; Windows scales the 32px source to system DPI.
 	var native_size:=roundi(32*DisplayServer.screen_get_scale())

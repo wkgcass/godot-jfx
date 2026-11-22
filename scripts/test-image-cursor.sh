@@ -1,15 +1,15 @@
 #!/bin/sh
-# macOS equivalent of test-image-cursor.ps1 (standard scene fixture only; the -Runtime
-# isolated project variant is Windows-specific and not ported).
 # Usage: test-image-cursor.sh [--driver metal|opengl] [--render-thread safe]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+runtime=""
 DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
+        --runtime) runtime="-runtime" ;;
         --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
@@ -34,9 +34,9 @@ mkdir -p artifacts/reference agentdir/logs
     -encoding UTF-8 -d artifacts/reference tests/reference/ImageCursorProbe.java
 
 export GODOT_JFX_JDK="$JDK"
-LOG="agentdir/logs/image_cursor-$DRIVER-$RENDER_THREAD.log"
+LOG="agentdir/logs/image_cursor-$DRIVER-$RENDER_THREAD$runtime.log"
 CODE=0
-python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://image_cursor.tscn \
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" ${runtime:+--runtime} --path tests/godot res://image_cursor.tscn \
     --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'IMAGE_CURSOR_PROBE_PASS' "$LOG" \

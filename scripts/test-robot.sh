@@ -8,10 +8,12 @@ set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+runtime=""
 DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
+        --runtime) runtime="-runtime" ;;
         --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
@@ -54,9 +56,9 @@ run_watchdog() {
 }
 
 export GODOT_JFX_JDK="$JDK"
-LOG="agentdir/logs/robot-$DRIVER-$RENDER_THREAD.log"
+LOG="agentdir/logs/robot-$DRIVER-$RENDER_THREAD$runtime.log"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://robot.tscn \
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" ${runtime:+--runtime} --path tests/godot res://robot.tscn \
     --render-thread "$RENDER_THREAD" --quit-after 10000 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_ROBOT_PASS' "$LOG" \

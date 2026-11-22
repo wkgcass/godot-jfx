@@ -4,27 +4,23 @@
 set -u
 cd "$(dirname "$0")/.."
 
-RUNTIME=0
+runtime=""
 DRIVER="metal"
 while [ $# -gt 0 ]; do
     case "$1" in
         --driver) DRIVER="${2-}"; shift ;;
-        --runtime) RUNTIME=1 ;;
+        --runtime) runtime="-runtime" ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
 case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
-if [ "$RUNTIME" -eq 1 ]; then
-    echo "This fixture does not implement --runtime on macOS" >&2
-    exit 2
-fi
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 mkdir -p agentdir/logs
 
-LOG="agentdir/logs/render-thread-shutdown-scene-safe.log"
-python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://render_thread_shutdown.tscn \
+LOG="agentdir/logs/render-thread-shutdown-scene-safe$runtime.log"
+python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" ${runtime:+--runtime} --path tests/godot res://render_thread_shutdown.tscn \
     --render-thread safe --quit-after 3 > "$LOG" 2>&1
 CODE=$?
 if [ "$CODE" -ne 0 ] \

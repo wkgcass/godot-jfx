@@ -26,6 +26,10 @@ func _ready() -> void:
 	surface.position = Vector2(10,10)
 	add_child(surface)
 	RenderingServer.set_default_clear_color(Color.WHITE)
+	# Submit the one-shot source passes on a running viewport. On Metal a pass
+	# queued during scene startup can leave its source texture transparent.
+	await RenderingServer.frame_post_draw
+	await get_tree().process_frame
 	for cycle in range(100):
 		var red = ClassDB.instantiate("JavaFXRenderTarget")
 		var blue = ClassDB.instantiate("JavaFXRenderTarget")

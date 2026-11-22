@@ -168,9 +168,9 @@ Build products are in `godot/bin`, `jfx/build/sdk` and `artifacts/vfx`. The JNI
 bridge is compiled into Godot; no separate bridge DLL or godot-cpp dependency is
 used. Build and test logs are in `agentdir/logs`.
 
-The all-page Demo test writes GPU viewport captures to `artifacts/reference/vfx-pages-mobile`.
-After capturing the matching D3D reference, run `python scripts/compare-vfx-pages.py --driver metal`
-to generate the paired contact sheet at `artifacts/reference/vfx-comparison-mobile.png`.
+On macOS, the Metal all-page test writes GPU viewport captures to `artifacts/reference/vfx-pages-godot-metal`.
+Run `./scripts/capture-vfx-reference.py` for the native JavaFX Metal reference, then
+`.tools/pyenv/bin/python scripts/compare-vfx-pages.py --driver metal` to generate `artifacts/reference/vfx-comparison-metal.png`.
 
 ## Current measured results and limits
 

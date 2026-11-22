@@ -1,21 +1,25 @@
 #!/bin/sh
-# macOS equivalent of test-vfx-blackhole.ps1. The -NativeD3D control mode is
-# Windows-only and is not ported; the Godot path keeps the same checks.
-# Usage: test-vfx-blackhole.sh [--driver metal|opengl] [--render-thread safe]
+# Usage: test-vfx-blackhole.sh [--driver metal|opengl | --native] [--render-thread safe]
 set -u
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
-DRIVER="metal"
+DRIVER=""
+NATIVE=0
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
+        --native) NATIVE=1 ;;
         --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
+if [ "$NATIVE" -eq 1 ] && [ -n "$DRIVER" ]; then
+    echo "--driver selects the Godot backend" >&2; exit 2
+fi
+DRIVER=${DRIVER:-metal}
 case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
@@ -53,14 +57,21 @@ run_watchdog() {
 
 export GODOT_JFX_JDK="$JDK"
 CASE_NAME="$DRIVER-$RENDER_THREAD"
+if [ "$NATIVE" -eq 1 ]; then CASE_NAME=native-mtl; fi
 export GODOT_JFX_BLACKHOLE_OUTPUT="$PWD/artifacts/reference/vfx-blackhole-$CASE_NAME"
 LOG="agentdir/logs/vfx-blackhole-$CASE_NAME.log"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://vfx_blackhole.tscn \
-    --render-thread "$RENDER_THREAD" || CODE=$?
+if [ "$NATIVE" -eq 1 ]; then
+    set -- "$JDK/bin/java" -Dglass.platform=Mac -Dprism.order=mtl --module-path jfx/build/sdk/lib \
+        --add-modules javafx.controls,javafx.swing,javafx.media --enable-native-access=javafx.graphics,javafx.media \
+        -cp "$CLASSPATH:artifacts/vfx/resources/main:artifacts/vfx/resources/test:artifacts/reference" VfxBlackholeProbe
+else
+    set -- python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://vfx_blackhole.tscn --render-thread "$RENDER_THREAD"
+fi
+run_watchdog "$LOG" 240 "$@" || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'VFX_BLACKHOLE_PROBE_PASS' "$LOG" \
-    || ! grep -q 'GODOT_VFX_BLACKHOLE_PASS' "$LOG" \
+    || { [ "$NATIVE" -eq 0 ] && ! grep -q 'GODOT_VFX_BLACKHOLE_PASS' "$LOG"; } \
     || grep -qE '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)|uncaught:|AssertionError' "$LOG"; then
     echo "Blackhole test failed: $LOG" >&2
     exit 1

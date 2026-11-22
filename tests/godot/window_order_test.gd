@@ -5,6 +5,9 @@ func _ready() -> void:
 	if not host.run_fixture_probe("WindowOrderProbe"):
 		push_error("Order Java probe start failed"); get_tree().quit(1); return
 	var seen:={}
+	var presented_windows := {}
+	var first_draw_deadline := 0
+	var clear_color: Color = ProjectSettings.get_setting("rendering/environment/defaults/default_clear_color")
 	var deadline:=Time.get_ticks_msec()+30000
 	while host.get_runtime_status()!="finished":
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
@@ -38,8 +41,21 @@ func _ready() -> void:
 		if not Rect2i(Vector2i.ZERO,image.get_size()).has_point(sample): continue
 		var expected:=Color.GREEN if top_id==3 else (Color(0.5,0,0.5) if top_id==4 else Color.BLUE)
 		var actual:=image.get_pixelv(sample)
+		# A newly exposed viewport can show its clear color for one draw
+		# before the native compositor displays its first JavaFX frame.
+		var clear_frame := (absi(actual.r8 - clear_color.r8) <= 1
+				and absi(actual.g8 - clear_color.g8) <= 1
+				and absi(actual.b8 - clear_color.b8) <= 1
+				and actual.a8 == clear_color.a8)
+		if not presented_windows.has(top_id) and clear_frame:
+			if first_draw_deadline == 0:
+				first_draw_deadline = Time.get_ticks_msec() + 1000
+			if Time.get_ticks_msec() < first_draw_deadline:
+				continue
 		if absf(actual.r-expected.r)>.04 or absf(actual.g-expected.g)>.04 or absf(actual.b-expected.b)>.04:
 			push_error("Window order pixel differs at %d: %s" % [index,actual]);get_tree().quit(1);return
+		presented_windows[top_id] = true
+		first_draw_deadline = 0
 		if image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/window-order-%d.png" % index)) != OK:
 			push_error("Cannot save window order capture %d" % index); get_tree().quit(1); return
 		seen[index]=true

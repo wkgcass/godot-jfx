@@ -56,6 +56,10 @@ dependencies under `artifacts/vfx` also serve the Java scene fixtures.
 
 After building the Godot dylib and Media-enabled SDK, run `./scripts/maven_local.py install`
 to package the macOS arm64 modules and install them in this checkout's `.m2/repository`.
+To stage a separate copy for a consumer, run
+`./scripts/stage-godot-library.sh --destination <directory>`. Relative
+destinations resolve from the caller's working directory.
+
 The scene fixtures and the scroll-settings, screen-layout and render-command-validation probes
 use those JARs. To reuse artifacts already staged by `build-vfx.sh`, pass `--runtime artifacts/godot-library`.
 
@@ -79,7 +83,7 @@ schedules the Godot window and event loop on that first thread.
 [OpenJDK macOS launcher](https://github.com/openjdk/jdk25u/blob/master/src/java.base/macosx/native/libjli/java_md_macosx.m).
 Test entries are the same-named `scripts/test-*.sh` runners; see
 [TESTS.md](../TESTS.md) for the macOS section, prerequisites and the
-Windows-only entries that do not apply.
+platform-specific native tests and performance commands.
 
 ## Known platform limits
 
@@ -88,10 +92,7 @@ Windows-only entries that do not apply.
   standalone outside Godot. The churn/soak probes therefore sample process
   RSS via `ps` and count `/dev/fd` entries instead of FFM downcalls; pass
   criteria are unchanged.
-- A few runner modes are not ported and the scripts reject them explicitly
-  (exit 2), for example Media `--runtime`/`--native-d3d`/`--handle-types`/
-  `--providers`. The 1080p60 benchmark fixture generator is
-  Windows-only.
+- Media supports isolated fixture projects (`--runtime`). D3D and Windows handle/provider diagnostics require Windows. For the 1080p60 benchmark, generate the video with `./scripts/make-media-fixture.py` (ffmpeg and ffprobe on PATH).
 - macOS has no per-window icon (the Dock icon belongs to NSApplication) and
   no Windows-style touch keyboard; the host reports both explicitly instead
   of silently ignoring requests.

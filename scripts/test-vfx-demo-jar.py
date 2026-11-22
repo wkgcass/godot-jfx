@@ -12,7 +12,7 @@ import time
 from zipfile import ZipFile
 
 from godot_driver import DEFAULT_DRIVER, add_driver_argument, check_driver
-from library_test_platform import library, module_paths
+from library_test_platform import configure_jdk, library, module_paths
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,6 +93,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_driver_argument(parser)
     driver = parser.parse_args().driver
+    jdk = configure_jdk()
     source = ROOT / "artifacts/vfx/libs/vfx-demo.jar"
     with ZipFile(source) as archive:
         entries = set(archive.namelist())
@@ -113,7 +114,7 @@ def main():
 
     env = {k: v for k, v in os.environ.items() if not k.startswith("GODOT_") and
            k not in ("CLASSPATH", "JDK_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS")}
-    java = Path(os.environ["JAVA_HOME"]) / "bin/java"
+    java = jdk / "bin/java"
     with tempfile.TemporaryDirectory(prefix="VFX Intro ") as directory:
         jar = Path(directory) / source.name
         shutil.copyfile(source, jar)

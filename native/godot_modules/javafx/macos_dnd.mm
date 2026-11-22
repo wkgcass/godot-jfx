@@ -1,6 +1,6 @@
 #import <AppKit/AppKit.h>
 
-#include "macos_dnd.h"
+#include "macos_drag_image.h"
 
 #include "platform/macos/display_server_macos.h"
 
@@ -308,40 +308,6 @@ static void write_payload(NSPasteboard *pasteboard, const SourceData &data) {
 	}
 }
 
-// Builds the drag preview from the BGRA Dragboard image; nil without one.
-// Pixel bytes are premultiplied and swizzled to RGBA, and the point size
-// follows the window's backing scale factor.
-static NSImage *drag_image(const SourceData::DragImage &image, NSWindow *window) {
-	if (!image.present()) return nil;
-	const size_t count = size_t(image.width) * image.height;
-	if (image.bgra.size() < count * 4) return nil;
-	NSBitmapImageRep *rep = [[NSBitmapImageRep alloc]
-			initWithBitmapDataPlanes:nullptr
-						  pixelsWide:image.width
-						  pixelsHigh:image.height
-					   bitsPerSample:8
-					 samplesPerPixel:4
-							hasAlpha:YES
-							isPlanar:NO
-					  colorSpaceName:NSDeviceRGBColorSpace
-						 bytesPerRow:int(image.width) * 4
-						bitsPerPixel:32];
-	if (!rep) return nil;
-	uint8_t *pixels = [rep bitmapData];
-	for (size_t i = 0; i < count; ++i) {
-		const uint8_t b = image.bgra[i * 4 + 0], g = image.bgra[i * 4 + 1], r = image.bgra[i * 4 + 2], a = image.bgra[i * 4 + 3];
-		pixels[i * 4 + 0] = uint8_t((uint16_t(r) * a) / 255);
-		pixels[i * 4 + 1] = uint8_t((uint16_t(g) * a) / 255);
-		pixels[i * 4 + 2] = uint8_t((uint16_t(b) * a) / 255);
-		pixels[i * 4 + 3] = a;
-	}
-	const CGFloat scale = window ? [window backingScaleFactor] : 1.0;
-	NSImage *result = [[NSImage alloc] initWithSize:NSMakeSize(image.width / scale, image.height / scale)];
-	if (!result) return nil;
-	[result addRepresentation:rep];
-	return result;
-}
-
 bool begin_source(const SourceData &data, int64_t p_window_id, void *p_ns_window, void (*done)(void *ctx, uint32_t effect), void *ctx) {
 	@autoreleasepool {
 		@try {
@@ -397,9 +363,7 @@ bool begin_source(const SourceData &data, int64_t p_window_id, void *p_ns_window
 			if (size.width < 1 || size.height < 1) size = NSMakeSize(32, 32);
 			// The offset is the cursor position inside the image, measured from
 			// its top-left; default to the center like the Win Glass backend.
-			const CGFloat ox = data.image.offset_x == INT32_MIN ? size.width / 2 : data.image.offset_x;
-			const CGFloat oy = data.image.offset_y == INT32_MIN ? size.height / 2 : data.image.offset_y;
-			const NSRect frame = NSMakeRect(view_point.x - ox, view_point.y - (size.height - oy), size.width, size.height);
+			const NSRect frame = drag_frame(data.image, size, view_point);
 
 			NSDraggingItem *drag_item = [[NSDraggingItem alloc] initWithPasteboardWriter:item];
 			[drag_item setDraggingFrame:frame contents:image];

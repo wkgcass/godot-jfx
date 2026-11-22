@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -16,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def command(args, working_directory):
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     add_driver_argument(parser)
+    if sys.platform == "darwin":
+        parser.add_argument("--runtime", action="store_true", help="import just the selected standalone scene")
     options, args = parser.parse_known_args(args)
     if any(arg.split("=", 1)[0] in ("--renderer", "--rendering-method", "--rendering-driver") for arg in args):
         parser.error("select the Godot backend with --driver")
@@ -39,7 +42,16 @@ def command(args, working_directory):
     if "--path" not in args:
         args = ["--path", str(working_directory), *args]
     index = args.index("--path") + 1
-    if (working_directory / args[index]).resolve() == ROOT / "tests/godot":
+    if getattr(options, "runtime", False):
+        from macos_probe import isolated_project
+        scenes = [arg for arg in args if re.fullmatch(r"res://[a-z0-9_]+\.tscn", arg)]
+        if len(scenes) != 1 or (working_directory / args[index]).resolve() != ROOT / "tests/godot":
+            parser.error("--runtime requires a standalone scene in tests/godot")
+        scene = Path(scenes[0]).stem
+        project = isolated_project(scene, ROOT / "artifacts" / ("runtime-" + scene.replace("_", "-")))
+        args[index] = str(project)
+        args.remove(scenes[0])
+    elif (working_directory / args[index]).resolve() == ROOT / "tests/godot":
         project = subprocess.check_output([sys.executable, ROOT / "scripts/prepare-godot-fixture.py"], text=True).strip()
         args[index] = str(ROOT / "artifacts" / project)
     vfx = ROOT / "artifacts/vfx"

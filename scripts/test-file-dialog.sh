@@ -18,11 +18,13 @@ set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+runtime=""
 DRIVER="metal"
 RENDER_THREAD="safe"
 STOP_HOST=0
 while [ $# -gt 0 ]; do
     case "$1" in
+        --runtime) runtime="-runtime" ;;
         --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --stop-host) STOP_HOST=1 ;;
@@ -47,7 +49,7 @@ TOKEN="JFX-$(uuidgen | tr -d '-' | tr 'A-F' 'a-f')"
 READY_PATH="$PWD/agentdir/logs/$TOKEN.ready"
 SUFFIX=""
 [ "$STOP_HOST" = 1 ] && SUFFIX="-stop"
-LOG="agentdir/logs/file-dialog-$DRIVER-$RENDER_THREAD$SUFFIX.log"
+LOG="agentdir/logs/file-dialog-$DRIVER-$RENDER_THREAD$SUFFIX$runtime.log"
 
 CODE=0
 (
@@ -56,7 +58,7 @@ CODE=0
     export GODOT_JFX_DIALOG_HOOK=1
     export GODOT_JFX_DIALOG_STOP="$STOP_HOST"
     if [ "$STOP_HOST" = 1 ]; then export GODOT_JFX_DIALOG_READY="$READY_PATH"; fi
-    python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://file_dialog.tscn \
+    python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" ${runtime:+--runtime} --path tests/godot res://file_dialog.tscn \
         --render-thread "$RENDER_THREAD" >"$LOG" 2>&1
 ) || CODE=$?
 rm -f "$READY_PATH"

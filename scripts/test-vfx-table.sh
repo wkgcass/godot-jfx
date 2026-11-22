@@ -1,18 +1,17 @@
 #!/bin/sh
-# macOS equivalent of test-vfx-table.ps1. --runtime needs the Windows
-# release-template fixture layout and is not ported.
 # Usage: test-vfx-table.sh [--driver metal|opengl] [--render-thread safe]
 set -eu
 cd "$(dirname "$0")/.."
 
 JDK="${JAVA_HOME:-$PWD/.tools/jdk-25/Contents/Home}"
+runtime=""
 DRIVER="metal"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
         --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
-        --runtime) echo "--runtime is not ported to macOS yet" >&2; exit 2 ;;
+        --runtime) runtime="-runtime" ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
@@ -52,9 +51,9 @@ run_watchdog() {
 }
 
 export GODOT_JFX_JDK="$JDK"
-LOG="agentdir/logs/vfx-table-$DRIVER-$RENDER_THREAD.log"
+LOG="agentdir/logs/vfx-table-$DRIVER-$RENDER_THREAD$runtime.log"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://vfx_table.tscn \
+run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" ${runtime:+--runtime} --path tests/godot res://vfx_table.tscn \
     --render-thread "$RENDER_THREAD" || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'GODOT_VFX_TABLE_PASS' "$LOG" \

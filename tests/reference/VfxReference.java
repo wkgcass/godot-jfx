@@ -14,14 +14,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-/** Reference images only: runs unchanged VFX scenes on source-built Windows D3D. */
+/** Reference images only: runs unchanged VFX scenes on the native JavaFX SDK. */
 public class VfxReference extends Application {
     private IntroFXMain demo;
     private List<VScene> scenes;
     private VSceneGroup group;
     private Stage stage;
     private int page;
-    private final Path output = Path.of("artifacts/reference/vfx-pages-d3d"+(Boolean.getBoolean("vfx.freeze.fusion")?"-frozen":""));
+    private final Path output = Path.of("artifacts/reference/vfx-pages-" + System.getProperty("vfx.reference.backend", "d3d") +(Boolean.getBoolean("vfx.freeze.fusion")?"-frozen":""));
 
     @Override @SuppressWarnings("unchecked")
     public void start(Stage primary) throws Exception {

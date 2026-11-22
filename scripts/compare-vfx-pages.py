@@ -3,6 +3,7 @@
 from godot_driver import DEFAULT_DRIVER, add_driver_argument
 import argparse
 import json
+import sys
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageChops, ImageStat
 
@@ -13,7 +14,8 @@ args = parser.parse_args()
 driver = args.driver or DEFAULT_DRIVER
 root = Path(__file__).resolve().parents[1] / "artifacts/reference"
 actual = root / ("vfx-pages-" + ("frozen-" if args.frozen else "") + "godot-" + driver)
-reference = root / ("vfx-pages-d3d" + ("-frozen" if args.frozen else ""))
+native = "mtl" if driver == "metal" or (driver == "opengl" and sys.platform == "darwin") else "d3d"
+reference = root / ("vfx-pages-" + native + ("-frozen" if args.frozen else ""))
 suffix = driver + ("-frozen" if args.frozen else "")
 records = []
 manifest = json.loads((actual / "run.json").read_text(encoding="utf-8"))
@@ -43,7 +45,7 @@ for index in range(manifest["pages"]):
         mean = sum(ImageStat.Stat(diff).mean) / (3 * 255)
         records.append({"page": int(path.stem), "mean_absolute_rgb_error": mean})
         x, y = index % 5 * 192, index // 5 * 220
-        draw.text((x+4,y+2), f"Page {path.stem} Godot / D3D", fill="black")
+        draw.text((x+4,y+2), f"Page {path.stem} Godot / {native.upper()}", fill="black")
         a.thumbnail((192, 100))
         b.thumbnail((192, 100))
         sheet.paste(a, (x,y+18))

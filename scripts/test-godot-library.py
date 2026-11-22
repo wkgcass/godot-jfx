@@ -17,7 +17,7 @@ import time
 from zipfile import ZipFile
 
 from godot_driver import DEFAULT_DRIVER, ENGINE_DRIVERS, add_driver_argument, check_driver
-from library_test_platform import CLASSIFIER, EDITOR, MEDIA_LIBRARIES, WINDOWS, library, module_paths, system_path
+from library_test_platform import CLASSIFIER, EDITOR, MEDIA_LIBRARIES, WINDOWS, configure_jdk, library, module_paths, system_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -353,6 +353,7 @@ def main():
     parser.add_argument("--maven", default=shutil.which("mvn") or str(ROOT / ".tools/apache-maven-3.9.9/bin" / ("mvn.cmd" if WINDOWS else "mvn")))
     parser.add_argument("--group", choices=["prepare", "launch", "failures", "lifecycle", "render", "media", "all"], default="all")
     args = parser.parse_args()
+    configure_jdk()
     runtime = args.runtime.resolve()
     work = args.work.resolve() if args.work else Path(tempfile.mkdtemp(prefix="Godot 验收 ")).resolve()
     work.mkdir(parents=True, exist_ok=True)

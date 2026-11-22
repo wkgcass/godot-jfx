@@ -4,6 +4,11 @@
 #include <chrono>
 
 namespace dnd_jni_test {
+#ifdef __APPLE__
+namespace dnd = godot_javafx::macos_dnd;
+#else
+namespace dnd = godot_javafx::windows_dnd;
+#endif
 static int fail_at, operations, live_refs, callbacks, attaches, detaches, violations;
 static bool pending;
 static JNIEnv *active_env;
@@ -66,26 +71,26 @@ static void check() {
     vm_functions.AttachCurrentThread = attach;
     vm_functions.DetachCurrentThread = detach;
     JavaVM vm{ &vm_functions };
-    windows_dnd::UpcallState state;
+    dnd::UpcallState state;
     state.publish(&vm, reinterpret_cast<jclass>(uintptr_t(1)), reinterpret_cast<jmethodID>(uintptr_t(1)));
-    windows_dnd::Upcall upcall{ &state };
+    dnd::Upcall upcall{ &state };
     const std::u16string text = u"data";
     const std::string bytes = "bytes";
-    const std::vector<std::pair<std::wstring, std::string>> custom{
-        { L"application/x-godot-custom-test", bytes }, { L"application/x-godot-custom-second", bytes }
+    const std::vector<std::pair<dnd::wide_string, std::string>> custom{
+        { dnd::wide_string(1, 'a'), bytes }, { dnd::wide_string(1, 'b'), bytes }
     };
     int total = 0;
     for (int failure = 0; failure <= total; ++failure) {
         fail_at = failure;
         operations = live_refs = callbacks = attaches = detaches = violations = 0;
         pending = false;
-        jint result = windows_dnd::call_target(upcall, 1, 0, 0, 0, 7, 0, "text/plain",
+        jint result = dnd::call_target(upcall, 1, 0, 0, 0, 7, 0, "text/plain",
                 &text, &bytes, &bytes, &text, &text, &custom);
         if (!failure) total = operations;
         require(violations == 0, "JNI operation executed with a pending exception");
-        require(live_refs == 0, "OLE upcall leaked JNI local references");
-        require(attaches == 1 && detaches == 1 && !pending, "OLE upcall failed to clean JNI state");
-        require(result == (failure ? 0 : 7), "OLE upcall did not reject JNI failure");
+        require(live_refs == 0, "DnD upcall leaked JNI local references");
+        require(attaches == 1 && detaches == 1 && !pending, "DnD upcall failed to clean JNI state");
+        require(result == (failure ? 0 : 7), "DnD upcall did not reject JNI failure");
         require(callbacks == ((!failure || failure == total) ? 1 : 0), "Partial payload reached Java callback");
         require(!failure || operations == failure, "JNI marshalling continued after failure");
     }
@@ -96,7 +101,7 @@ static void check() {
     pause_entry = true;
     jint result = 0;
     std::thread caller([&] {
-        result = windows_dnd::call_target(upcall, 1, 0, 0, 0, 7, 0, "text/plain",
+        result = dnd::call_target(upcall, 1, 0, 0, 0, 7, 0, "text/plain",
                 &text, nullptr, nullptr, nullptr, nullptr, nullptr);
     });
     bool reached;
@@ -119,7 +124,7 @@ static void check() {
     require(result == 7 && attaches == 1 && detaches == 1 && live_refs == 0,
             "Admitted upcall did not finish cleanly before shutdown");
     const int before = operations;
-    result = windows_dnd::call_target(upcall, 1, 0, 0, 0, 7, 0, "text/plain",
+    result = dnd::call_target(upcall, 1, 0, 0, 0, 7, 0, "text/plain",
             &text, nullptr, nullptr, nullptr, nullptr, nullptr);
     require(!upcall && result == 0 && operations == before && attaches == 1 && detaches == 1,
             "Closed gate allowed another JNI upcall");

@@ -65,6 +65,11 @@ def clean(target, dry_run):
     env = os.environ.copy()
     if sys.platform == "darwin":
         env["JAVA_HOME"] = env.get("JAVA_HOME") or str(ROOT / ".tools/jdk-25/Contents/Home")
+        if "jfx" in targets:
+            env["ANT_HOME"] = env.get("ANT_HOME") or str(ROOT / ".tools/apache-ant-1.10.15")
+            ant = Path(env["ANT_HOME"]) / "bin/ant"
+            if not dry_run and not os.access(ant, os.X_OK):
+                raise ValueError(f"Missing executable {ant}. Run scripts/setup-env.py or set ANT_HOME before cleaning.")
 
     if "jfx" in targets or (target == "packages" and any((ROOT / p).exists() for p in PACKAGE_GRADLE_DIRS)):
         env["GRADLE_USER_HOME"] = str(ROOT / ".gradle-cache")
@@ -88,7 +93,6 @@ def clean(target, dry_run):
             cwd = ROOT
             if item == "jfx" and sys.platform == "darwin":
                 cwd = ROOT / "jfx"
-                env["ANT_HOME"] = env.get("ANT_HOME") or str(ROOT / ".tools/apache-ant-1.10.15")
             run_command(item, command, cwd, env, dry_run)
             if item == "jfx":
                 for relative in ("jfx/.gradle", "jfx/buildSrc/.gradle"):

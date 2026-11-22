@@ -16,7 +16,7 @@ from zipfile import ZipFile
 
 from godot_driver import DEFAULT_DRIVER, add_driver_argument, check_driver
 from library_test_platform import (CLASSIFIER, EDITOR, ENGINE, MEDIA_LIBRARIES, SDK_NATIVES,
-                                   WINDOWS, library, module_paths, system_path)
+                                   WINDOWS, configure_jdk, library, module_paths, system_path)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -143,6 +143,7 @@ def main():
     parser.add_argument("--runtime", type=Path, required=True)
     parser.add_argument("--work", type=Path)
     args = parser.parse_args()
+    configure_jdk()
     if args.driver is None:
         args.driver = DEFAULT_DRIVER
     work = args.work.resolve() if args.work else Path(tempfile.mkdtemp(prefix="JavaFX Shadow ")).resolve()

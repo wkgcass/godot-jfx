@@ -57,3 +57,12 @@ retention. Their bounded results remain separate from real-Demo memory evidence.
 ## Recorded results
 
 The six-round follow-up released all tracked resources at shutdown and showed smaller late-round increases. Longer process and GPU memory trends still require measurement. [Historical verification](../agentdir/docs/memory-validation.md).
+
+On 2026-11-22 the M1 ran `./scripts/test-vfx-soak.sh --driver metal` and
+`--driver opengl` on the rebuilt local Maven publication. Each run visited
+35 pages forward and back over three rounds with a 256 MiB heap. Both
+recorded 205 Java and 205 native samples and released all tracked resources
+at shutdown. At page zero, the host-owned count started at 369 on both drivers. After the three rounds, the counts were 7,676, 8,580
+and 9,003 on Metal, and 8,043, 10,003 and 10,812 on OpenGL.
+Long-run growth remains open. The reports for the final publication are in
+`agentdir/logs/macos-planar-final/soak-analysis-{metal,opengl}.log`.

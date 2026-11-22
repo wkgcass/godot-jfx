@@ -5,19 +5,19 @@ import csv
 import datetime
 import os
 from pathlib import Path
+import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 
 from godot_driver import MACOS_DRIVERS, check_case_logs
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
-DESKTOP = {"robot", "drag-drop-external", "native-ime", "hover-demo"}
+DESKTOP = {"robot", "drag-drop-external", "native-ime", "hover-demo", "virtual-keyboard"}
 OPTIONAL_ROBOT = {"drag-drop", "physical-drag", "hover-flicker", "vfx-table-scroll"}
-RUNTIME = {"clipboard", "effects", "failure-shutdown", "fxml", "glass-window", "godot-view",
-           "host-lifetime", "host-stop", "readback"}
 VARIANTS = {
     "bridge": ["--encoded", "--stop-from-host", "--textures", "--prism-textures", "--shader-states", "--prism-context"],
     "drag-drop-ole-inject": ["--timeout"], "failure-shutdown": ["--probe FailureApplicationProbe"],
@@ -28,13 +28,14 @@ VARIANTS = {
     "readback": ["--snapshot", "--snapshot-stress", "--stop-during-read"],
     "scene-textures": ["--resize", "--missing-scene"], "media-churn": ["--audio-only"],
     "vfx-stage": ["--abrupt"], "vfx-loading": ["--cancel"], "vfx-dialog": ["--inject-failure"],
-    "vfx-animation": ["--timing-only"],
+    "vfx-animation": ["--timing-only"], "media-video": ["--sample lk"],
+    "vfx-intro": ["--all-pages --freeze-fusion --page-limit 3"],
 }
 DEFAULTS = {"media-audio": "--codec all", "vfx-intro": "--all-pages"}
 
 
-def cases(group, drivers):
-    if group == "NonRobot":
+def cases(group, drivers, selection="all"):
+    if group == "NonRobot" and selection != "variants":
         for driver in drivers:
             yield [str(SCRIPTS / "test-driver-config.py"), "--driver", driver], {}
             for script in ("test-godot-library", "test-shadow-jar", "test-vfx-demo-jar"):
@@ -50,17 +51,22 @@ def cases(group, drivers):
             continue
         variants = [DEFAULTS.get(name, "")]
         if robot:
-            if name in OPTIONAL_ROBOT - {"vfx-table-scroll"}:
+            if name in (OPTIONAL_ROBOT - {"vfx-table-scroll"}) | {"virtual-keyboard"}:
                 variants = ["--robot"]
         else:
             variants.extend(VARIANTS.get(name, []))
-            if name in RUNTIME:
-                variants.append("--runtime")
-        takes_driver = "--driver)" in script.read_text() and name != "window-icon"
+        flags = script.read_text()
+        if "--runtime)" in flags:
+            variants.append("--runtime")
+        takes_driver = "--driver)" in flags
         if name == "render-mode-rejection":
-            if "opengl" in drivers:
+            if "opengl" in drivers and selection != "variants":
                 yield [str(script), "--driver", "opengl"], {}
             continue
+        if selection == "default":
+            variants = variants[:1]
+        elif selection == "variants":
+            variants = variants[1:]
         backends = drivers if takes_driver else [None]
         for driver in backends:
             for variant in variants:
@@ -74,10 +80,19 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--group", choices=["NonRobot", "Robot"], default="NonRobot")
     parser.add_argument("--driver", choices=[*MACOS_DRIVERS, "all"], default="metal")
+    parser.add_argument("--cases", choices=["all", "default", "variants"], default="all",
+                        help="select the default invocation, additional variants, or both")
+    parser.add_argument("--test", nargs="+", metavar="NAME", help="select named test scripts within the group")
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--results", type=Path)
     args = parser.parse_args()
-    tests = list(cases(args.group, MACOS_DRIVERS if args.driver == "all" else [args.driver]))
+    tests = list(cases(args.group, MACOS_DRIVERS if args.driver == "all" else [args.driver], args.cases))
+    if args.test:
+        names = set(args.test)
+        unknown = names.difference(Path(command[0]).stem for command, _ in tests)
+        if unknown:
+            parser.error(f"Unavailable for this group and driver: {', '.join(sorted(unknown))}")
+        tests = [(command, extra) for command, extra in tests if Path(command[0]).stem in names]
     if args.list:
         for command, env in tests:
             print(*[f"{k}={v}" for k, v in env.items()], *command)
@@ -85,7 +100,7 @@ def main():
     if sys.platform != "darwin":
         parser.error("macOS is required")
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    output = args.results or ROOT / "agentdir/logs" / f"macos-{args.group}-{stamp}"
+    output = (args.results or ROOT / "agentdir/logs" / f"macos-{args.group}-{stamp}").resolve()
     output.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env.setdefault("JAVA_HOME", str(ROOT / ".tools/jdk-25/Contents/Home"))
@@ -96,8 +111,12 @@ def main():
         writer.writerow(["Test", "Arguments", "Result", "Exit", "Seconds", "Log"])
         for index, (command, extra) in enumerate(tests, 1):
             name = Path(command[0]).stem
+            work = None
             if name in ("test-godot-library", "test-shadow-jar"):
-                command += ["--work", str(output.resolve() / f"{index:03}-{name}")]
+                archive = ROOT / "agentdir/artifacts"
+                archive.mkdir(parents=True, exist_ok=True)
+                work = Path(tempfile.mkdtemp(prefix=f"{output.name}-{index:03}-{name}-", dir=archive))
+                command += ["--work", str(work)]
             log = output / f"{index:03}-{name}.log"
             options = " ".join([*(f"{k}={v}" for k, v in extra.items()), *command[1:]])
             child_env = env | extra
@@ -118,12 +137,30 @@ def main():
                     os.killpg(child.pid, signal.SIGKILL)
                     raise
             status = "FAIL" if code else "SKIP" if log.read_text(errors="replace").startswith("SKIP:") else "PASS"
+            if work:
+                for source in work.rglob("*.log"):
+                    target = output / f"{index:03}-{name}" / source.relative_to(work)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source, target)
+            raw_logs = []
+            if not python_test:
+                for source in (ROOT / "agentdir/logs").iterdir():
+                    if source.is_file() and source.suffix in (".log", ".import", ".diff") and source != log and source.stat().st_mtime_ns >= started_ns:
+                        directory = output / f"{index:03}-{name}"
+                        directory.mkdir(exist_ok=True)
+                        archived = Path(shutil.copy2(source, directory))
+                        if archived.suffix == ".log":
+                            raw_logs.append(archived)
+                reference = ROOT / "artifacts/reference"
+                for source in reference.rglob("*"):
+                    if source.suffix.lower() in (".png", ".csv", ".json") and source.is_file() and source.stat().st_mtime_ns >= started_ns:
+                        target = output / f"{index:03}-{name}" / "reference" / source.relative_to(reference)
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(source, target)
             if status == "PASS" and not python_test and "--driver" in command:
                 driver = command[command.index("--driver") + 1]
-                case_logs = (p for p in (ROOT / "agentdir/logs").glob("*.log")
-                             if p != log.resolve() and p.stat().st_mtime_ns >= started_ns)
                 try:
-                    evidence = check_case_logs(case_logs, driver)
+                    evidence = check_case_logs(raw_logs, driver)
                 except (AssertionError, OSError) as error:
                     evidence = [str(error)]
                     status, code = "FAIL", 1
