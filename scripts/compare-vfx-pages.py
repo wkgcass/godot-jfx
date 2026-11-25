@@ -12,10 +12,12 @@ add_driver_argument(parser)
 parser.add_argument("--frozen", action="store_true", help="Compare diagnostic captures with FusionButton animation disabled")
 args = parser.parse_args()
 driver = args.driver or DEFAULT_DRIVER
-root = Path(__file__).resolve().parents[1] / "artifacts/reference"
+repo = Path(__file__).resolve().parents[1]
+root = repo / "artifacts/reference"
 actual = root / ("vfx-pages-" + ("frozen-" if args.frozen else "") + "godot-" + driver)
-native = "mtl" if driver == "metal" or (driver == "opengl" and sys.platform == "darwin") else "d3d"
-reference = root / ("vfx-pages-" + native + ("-frozen" if args.frozen else ""))
+native = {"darwin": "mtl", "linux": "es2", "win32": "d3d"}[sys.platform]
+reference_root = repo / "agentdir/artifacts" if native == "es2" else root
+reference = reference_root / ("vfx-pages-" + native + ("-frozen" if args.frozen else ""))
 suffix = driver + ("-frozen" if args.frozen else "")
 records = []
 manifest = json.loads((actual / "run.json").read_text(encoding="utf-8"))
@@ -50,7 +52,9 @@ for index in range(manifest["pages"]):
         b.thumbnail((192, 100))
         sheet.paste(a, (x,y+18))
         sheet.paste(b, (x,y+119))
-sheet.save(root / ("vfx-comparison-" + suffix + ".png"))
 report = root / ("vfx-comparison-" + suffix + ".json")
 report.write_text(json.dumps(records, indent=2), encoding="utf-8")
+if any("size_mismatch" in row for row in records):
+    raise SystemExit(f"Reference and Godot image dimensions differ. See {report}")
+sheet.save(root / ("vfx-comparison-" + suffix + ".png"))
 print(json.dumps(records, indent=2))

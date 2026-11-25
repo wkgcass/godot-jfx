@@ -73,6 +73,32 @@ int main() {
 			replace(bytes, 40, uint32_t(Opcode::PRESENT));
 			require(!decode_frame(bytes, decoded, error), "Commands after presentation boundary accepted");
 		}
+		{
+			std::vector<uint8_t> bytes;
+			for (uint32_t word : {FRAME_MAGIC, 1u, 96u, 4u, 1u, 0u,
+					15u, 16u, 1u, 1u, 32u, 24u, 16u, 8u, 1u, 1u,
+					31u, 16u, 3u, 4u, 29u, 20u, 17u, 0u}) put(bytes, word);
+			Frame decoded;
+			std::string error;
+			FrameQueue queue;
+			auto invalid = bytes;
+			replace(invalid, 80, 30);
+			require(decode_frame(invalid, decoded, error), "Bounded wire rectangle failed to decode");
+			require(queue.submit(std::move(decoded)) == SubmitResult::INVALID_RESOURCE, "LCD copy exceeded target width");
+			invalid = bytes;
+			replace(invalid, 72, UINT32_MAX);
+			require(!decode_frame(invalid, decoded, error), "Overflowing LCD rectangle accepted");
+			invalid = bytes;
+			replace(invalid, 80, 0);
+			require(!decode_frame(invalid, decoded, error), "Empty LCD rectangle accepted");
+			invalid = bytes;
+			replace(invalid, 56, 0);
+			replace(invalid, 60, 0);
+			require(decode_frame(invalid, decoded, error), "Default target selection failed to decode");
+			require(queue.submit(std::move(decoded)) == SubmitResult::INVALID_RESOURCE, "LCD copy accepted without texture target");
+			require(decode_frame(bytes, decoded, error), "Valid ordered LCD copy failed to decode");
+			require(queue.submit(std::move(decoded)) == SubmitResult::ACCEPTED, "Valid ordered LCD copy rejected");
+		}
 		NativeWindowTransport window_queue;
 		NativeWindowCommand create; create.operation=1; create.id=10; create.width=320; create.height=180;
 		require(window_queue.submit(create)==1,"Native create sequence differs");
@@ -82,7 +108,23 @@ int main() {
 		create.id=11; create.owner=999; rejected=false;
 		try { window_queue.submit(create); } catch (const std::invalid_argument &) { rejected=true; }
 		require(rejected,"Unknown native owner accepted");
-		create.owner=10; require(window_queue.submit(create)==2,"Rejected create consumed sequence");
+		create.owner=0; create.flags=NATIVE_WINDOW_MODAL_HINT; rejected=false;
+		try { window_queue.submit(create); } catch (const std::invalid_argument &) { rejected=true; }
+		require(rejected,"Ownerless modal hint accepted");
+		create.owner=10; create.flags=NATIVE_WINDOW_MODAL_HINT | 8; rejected=false;
+		try { window_queue.submit(create); } catch (const std::invalid_argument &) { rejected=true; }
+		require(rejected,"Popup with a modal toplevel hint accepted");
+#ifdef LINUXBSD_ENABLED
+		create.flags=NATIVE_WINDOW_MODAL_HINT;
+#else
+		for (const int hint : {8, NATIVE_WINDOW_MODAL_HINT}) {
+			create.flags=hint; rejected=false;
+			try { window_queue.submit(create); } catch (const std::invalid_argument &) { rejected=true; }
+			require(rejected,"Wayland-only creation hint accepted on another desktop");
+		}
+		create.flags=0;
+#endif
+		require(window_queue.submit(create)==2,"Valid owned create failed or rejected create consumed sequence");
 		NativeWindowCommand destroy; destroy.operation=3; destroy.id=10;
 		require(window_queue.submit(destroy)==3,"Owner destruction rejected");
 		destroy.id=11; rejected=false;
@@ -97,7 +139,7 @@ int main() {
 		require(rejected,"Native finish admitted work");
 		{
 			NativeWindowTransport cancelled;
-			create.id=1; create.owner=0; cancelled.submit(create);
+			create.id=1; create.owner=0; create.flags=0; cancelled.submit(create);
 			cancelled.stop();
 			require(!cancelled.take(native_taken),"Native stop retained pending command");
 			rejected=false;

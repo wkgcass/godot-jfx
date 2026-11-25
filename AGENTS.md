@@ -1,6 +1,6 @@
 # 仓库工作指南
 
-本文件适用于根目录及其子目录。目标是 Windows x64 与 macOS arm64 上的 Godot 承载 JavaFX 运行时；Media 在范围内，WebKit 和 3D 不在当前范围。每个次级 Stage 是独立原生窗口，GodotView 才是嵌入界面的场景控件。
+本文件适用于根目录及其子目录。目标是 Windows x64、macOS arm64 与 Linux x64 上的 Godot 承载 JavaFX 运行时；Media 在范围内，WebKit 和 3D 不在当前范围。每个次级 Stage 是独立原生窗口，GodotView 才是嵌入界面的场景控件。
 
 ## 先读哪里
 
@@ -48,6 +48,8 @@ mac 上 Media 由这一次 Gradle SDK 构建启用（AVFoundation 后端），�
 顺序执行原生构建；构建前关闭正在使用相应产物 的测试或 Demo，避免链接/复制冲突。JavaFX 模块编入共享库，Editor 负责导入与导出资源。Windows 的 `-Target jfx` 和 macOS 的 `--target jfx`都启用 Media 并关闭 WebKit。不使用预编译 Godot/JavaFX SDK 替代本仓库源码产物；JVM 使用已安装版本，不需要自行构建。
 
 产物：`godot/bin/godot.windows.editor.x86_64.exe`、`godot/bin/godot.windows.template_release.x86_64.library.dll`（macOS 对应 `godot.macos.editor.arm64`、`libgodot.macos.template_release.arm64.library.dylib`）、`jfx/build/sdk/`（mac 的 dylib 在 `lib/` 而非 `bin/`）、`artifacts/vfx/`。JNI 桥接在 Godot 模块内，没有独立桥接 DLL，也不依赖 godot-cpp。
+
+本 Linux x64 副本在 WSL2 的 Linux 文件系统内构建。使用完整 Linux JDK 25；编译工具、Wayland 开发文件、私有依赖路径和 Maven 发布命令见 [build-linux.md](docs/build-linux.md)。Vulkan 使用 `mobile`，OpenGL 使用 `gl_compatibility`。在此副本中通过 `scripts/wsl-wayland-session.sh --isolate-wslg` 启动桌面回归，保持系统桌面和输入设备隔离。
 
 ## 运行与常用验证
 
@@ -112,6 +114,7 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 | [acceptance-status.md](docs/acceptance-status.md) | 初始需求逐项证据、当前缺口、验收限制和交付位置 |
 | [build-windows.md](docs/build-windows.md) | Windows 工具链准备、源码构建、输出路径、Media 依赖 |
 | [build-macos.md](docs/build-macos.md) | macOS arm64 工具链准备、源码构建、输出路径、已知平台限制 |
+| [build-linux.md](docs/build-linux.md) | Linux x64 源码构建、WSL2 GPU、Wayland 桌面和回归入口 |
 | [native-module.md](docs/native-module.md) | Godot 自定义模块、宿主节点和原生渲染集成 |
 | [bridge-protocol.md](docs/bridge-protocol.md) | Java/C++ 通信格式、命令、资源校验、队列与完成通知 |
 | [glass-godot.md](docs/glass-godot.md) | 窗口、屏幕、调度、输入、剪贴板、光标及系统接口 |

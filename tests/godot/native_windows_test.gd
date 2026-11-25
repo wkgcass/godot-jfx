@@ -47,7 +47,11 @@ func _ready() -> void:
 	for frame in range(5): await RenderingServer.frame_post_draw
 	if first.is_embedded() or second.is_embedded() or first.get_window_id()==second.get_window_id() or DisplayServer.get_window_list().size()!=baseline+2:
 		fail("Secondary windows are not distinct native windows"); return
-	if first.position.x<=get_window().position.x+get_window().size.x:
+	var wayland := DisplayServer.get_name() == "Wayland"
+	if wayland:
+		if DisplayServer.window_get_position(first.get_window_id()) != Vector2i.ZERO:
+			fail("Unexpected Wayland toplevel origin"); return
+	elif first.position.x<=get_window().position.x+get_window().size.x:
 		fail("Native Stage fixture does not extend beyond original host"); return
 	var first_info:Dictionary=host.get_native_window_info(100)
 	var second_info:Dictionary=host.get_native_window_info(101)
@@ -61,6 +65,15 @@ func _ready() -> void:
 	red=null; blue=null
 	if not await settled(first) or not await settled(second): return
 	if not pixel(first,Color.RED) or not pixel(second,Color.BLUE): return
+	if wayland:
+		# Read part of the child's framebuffer that cannot fit in the root.
+		var outside := Vector2i(get_window().size.x + 1, 30)
+		var image: Image = first.get_texture().get_image()
+		if outside.x >= image.get_width():
+			fail("Child framebuffer did not extend beyond the primary viewport"); return
+		var pixel_outside := image.get_pixelv(outside)
+		if pixel_outside.r < 0.96 or pixel_outside.g > 0.04 or pixel_outside.b > 0.04:
+			fail("Child content outside the primary viewport was not rendered"); return
 	first.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/native-window-a.png"))
 	second.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/native-window-b.png"))
 	host.configure_native_window(100,Rect2i(350,70,400,240),true)

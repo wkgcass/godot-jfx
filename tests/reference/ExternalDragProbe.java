@@ -26,6 +26,8 @@ public final class ExternalDragProbe {
     static final File DRAG_FILE = new File(WINDOWS ? "C:/drag-test.txt" : "/tmp/drag-test.txt");
     static final File HELPER_FILE = new File(WINDOWS ? "C:/helper-source.txt" : "/tmp/helper-source.txt");
     static final DataFormat CUSTOM = new DataFormat("application/x-godot-custom-token");
+    static final DataFormat OPAQUE = new DataFormat("application/x-drag-fixture-bytes");
+    static final byte[] OPAQUE_IN = {(byte) 0xfe, 0, 2, 0};
     static final String CUSTOM_OUT = "出站自定义负载 🙂";
     static final String CUSTOM_IN = "外部自定义负载 🙂";
     static final CountDownLatch done = new CountDownLatch(1);
@@ -57,8 +59,16 @@ public final class ExternalDragProbe {
     // Source/target rectangle centers in logical screen coordinates. The stage
     // has a decorated native frame; the exact chrome thickness is unknown here,
     // so the probe aims at the centers of its generous rectangles either way.
-    static double sceneX(double local) { return stage.getX() + 8 + local; }
-    static double sceneY(double local) { return stage.getY() + 31 + local; }
+    // A private labwc test layout positions the undecorated toplevel. Wayland
+    // does not report that desktop origin back through Stage.getX/getY.
+    static final String layout = System.getenv("GODOT_JFX_WAYLAND_TEST_LAYOUT");
+    static final String[] desktop = layout == null ? null : layout.split("[+]");
+    static double sceneX(double local) {
+        return desktop == null ? stage.getX() + 8 + local : Double.parseDouble(desktop[1]) + local;
+    }
+    static double sceneY(double local) {
+        return desktop == null ? stage.getY() + 31 + local : Double.parseDouble(desktop[2]) + local;
+    }
 
     public static void main(String[] args) throws Exception {
         targetX = Double.parseDouble(System.getenv("GODOT_JFX_HELPER_X"));
@@ -77,6 +87,11 @@ public final class ExternalDragProbe {
                     data.putString("外部 OLE 拖放 text"); data.putUrl("https://example.org/ole");
                     data.putFiles(List.of(DRAG_FILE));
                     data.put(CUSTOM, CUSTOM_OUT);
+                    if (desktop != null) {
+                        var bytes = java.nio.ByteBuffer.wrap(new byte[]{99, 0, (byte) 0xff, 1, 0, 98});
+                        bytes.position(1).limit(5);
+                        data.put(OPAQUE, bytes.asReadOnlyBuffer());
+                    }
                     b.setContent(data);
                     // Drag view carried through the shell drag-image helper. The
                     // helper endpoint asserts the resulting DragImageBits format.
@@ -112,6 +127,12 @@ public final class ExternalDragProbe {
                     Object custom = b.getContent(CUSTOM);
                     check(custom instanceof byte[] && CUSTOM_IN.equals(new String((byte[]) custom, java.nio.charset.StandardCharsets.UTF_8)),
                             "Inbound custom payload differs: " + (custom instanceof byte[] ? new String((byte[]) custom, java.nio.charset.StandardCharsets.UTF_8) : custom));
+                    if (desktop != null) {
+                        Object raw = b.getContent(OPAQUE);
+                        check(raw instanceof byte[] value && java.util.Arrays.equals(value, OPAQUE_IN),
+                                "Inbound private MIME bytes differ");
+                        System.out.println("EXTERNAL_BINARY_IN bytes=" + OPAQUE_IN.length);
+                    }
                     ++inbound; e.setDropCompleted(true); e.consume();
                 }));
                 stage = new Stage();
@@ -266,16 +287,22 @@ public final class ExternalDragProbe {
     }
 
     static void startInboundDriver() {
-        drive("inbound", java.util.List.of(
-                () -> { probe("source", sourceX, sourceY); robot.mouseMove(sourceX, sourceY); },
-                () -> robot.mousePress(MouseButton.PRIMARY),       // helper starts DoDragDrop
-                () -> robot.mouseMove(sceneX(290), sceneY(70)),    // drag into the green target
-                () -> robot.mouseRelease(MouseButton.PRIMARY),
-                () -> {
-                    check(inbound == 1, "Inbound drop missing");
-                    if (failure.get() == null) { phase = 2; ready("EXTERNAL_PHASE_CANCEL"); startCancelDriver(); }
-                }
-        ));
+        var steps = new java.util.ArrayList<Runnable>();
+        steps.add(() -> { probe("source", sourceX, sourceY); robot.mouseMove(sourceX, sourceY); });
+        steps.add(() -> robot.mousePress(MouseButton.PRIMARY));
+        if (desktop != null) {
+            // GTK recognizes the drag after motion exceeds its threshold on the
+            // source surface. Let it initiate wl_data_device.start_drag there.
+            steps.add(() -> robot.mouseMove(sourceX - 24, sourceY));
+        }
+        steps.add(() -> robot.mouseMove(sceneX(290), sceneY(70)));
+        if (desktop != null) steps.add(() -> robot.mouseMove(sceneX(286), sceneY(70)));
+        steps.add(() -> robot.mouseRelease(MouseButton.PRIMARY));
+        steps.add(() -> {
+            check(inbound == 1, "Inbound drop missing");
+            if (failure.get() == null) { phase = 2; ready("EXTERNAL_PHASE_CANCEL"); startCancelDriver(); }
+        });
+        drive("inbound", steps);
     }
 
     static void startCancelDriver() {

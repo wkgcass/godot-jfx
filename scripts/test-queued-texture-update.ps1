@@ -26,6 +26,7 @@ try {
     Invoke-GodotFixture -Driver $Driver --path tests/godot res://queued_texture_update.tscn --render-thread $RenderThread --quit-after 10000 *> $log
     $result = $LASTEXITCODE
     $output = Get-Content $log -Raw
+    if ($output -notmatch '(?m)^SAME_PASS_SAMPLER_REVISION_PASS pixels=128\r?$') { throw 'Same-pass sampler revision check incomplete' }
     if ($output -notmatch 'PARTIAL_TEXTURE_UPDATE_PASS') { throw 'Partial texture update check incomplete' }
     if($ViewportState -and $output -notmatch 'VIEWPORT_STATE_PASS'){throw 'Viewport state check incomplete'}
     if($BatchBoundary -and ($output -notmatch 'BATCH_BOUNDARY_PIXELS_PASS' -or $output -notmatch 'BATCH_BYTE_BOUNDARY_PIXELS_PASS')){throw "Batch boundary pixel check incomplete: $log"}

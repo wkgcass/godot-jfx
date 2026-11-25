@@ -29,6 +29,53 @@ switches every window's swapchain from FIFO to immediate presentation
 and can also be used alone with VSync still enabled. The host's one-shot
 `check_vsync_pacing` fallback leaves both manual settings untouched.
 
+## Linux Wayland page captures on Intel Arc B390
+
+The release with engine `ace7814e1e52…` and Toolkit class `ab7b90061449…` captured all 35 Intro pages per driver with Fusion animation frozen. Each capture was 2560×1600 at scale 2. For Vulkan and OpenGL, 33 complete images per driver matched the preceding same-driver captures pixel for pixel. Pages 18 and 19 contain generated table data. Both runs ended with zero host-owned resources. A fresh native JavaFX ES2 run supplied 35 reference images at the same size. The median normalized RGB errors against ES2 were 0.000638 on Vulkan and 0.0000153 on OpenGL. Full-frame differences and the paired image sheets are in `wayland-toolkit-publication-QI3DyI7e/frozen-pages/` under the LCD publication archive.
+
+With the normal Fusion animations enabled, the same release completed both 35-page runs and released all host-owned resources on exit. Page images used the same 2560×1600 dimensions and the native ES2 reference was captured at the same scale and logical content size. Across all pages, the median normalized mean absolute RGB error in the content region was 0.000818 for Vulkan and 0.0000153 for OpenGL. The largest difference on each driver was on the randomized table on page 18 (0.01184 and 0.01133 respectively). On both drivers, 26 of 35 content regions matched the corresponding frozen capture pixel for pixel. The two comparisons and the crop coordinates are in `normal-pages/` in the same release archive.
+
+The regular Linux build with engine `906cf6d68fa4…` completed all 35 Intro
+pages with Fusion animation frozen on Vulkan and OpenGL. Both runs saved
+2560×1600 images at scale 2 and reported zero host-owned resources on exit.
+In the normal content comparison region, 33 of 35 pages per driver matched
+the previous `da0a4ee0ac9a…` build pixel-for-pixel. The other two pages
+contain regenerated table data (18 and 19). The per-page channel errors,
+library hashes and comparison images are in
+`agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-lcd-publication-z3rrr44Z/frozen-pages/`.
+
+The November 25 full regression on engine `da0a4ee0ac9a…` produced 35
+scale-2 captures per driver at 2560×1600 and released all host-owned
+resources on exit. Against engine `20e839a2fcf2…`, each driver reproduced
+26 of 35 content regions exactly. The largest changes were the regenerated
+tables on pages 18 and 19. Every other page had a normalized mean absolute
+RGB difference below 0.0002 on each driver. The separate GTK/ES2 comparison
+had a median error of 0.01184 on Vulkan and 0.01188 on OpenGL. Its largest
+difference was the illustrated background on page 32. The numerical
+comparisons and contact sheets are in
+`agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-mesh-publication-smkUz5fY/vfx-visual/`.
+
+The source-built engine `20e839a2fcf2…` completed all 35 Intro pages on
+Vulkan/mobile and OpenGL/gl_compatibility. Each case produced 35 new
+2560×1600 PNGs at scale 2 and reported zero host-owned resources at exit.
+Against the previous package on the same driver, 26 of 35 content regions
+were pixel-identical on each driver. The two largest differences were the
+tables on pages 18 and 19, which generate fresh cell values at startup.
+For every other page the normalized mean absolute RGB difference stayed
+below 0.0001 on both drivers.
+
+Against native GTK/Prism ES2, the median content difference was 0.01184 on
+Vulkan and 0.01188 on OpenGL. Page 32 had the largest difference on both
+(0.09281 and 0.09244). Its illustrated background in the reference appeared
+about 4.8% larger along both axes. Matching eight background patches and
+checking six separate patches at quarter resolution reduced their median
+difference from 0.103 to 0.012 on each driver. This diagnostic only measures
+the illustration. The original page scores and contact sheets use the
+uncorrected images. The ES2 capture also shows different navigation placement.
+
+The contact sheets, previous-package comparisons and background measurements
+are under `agentdir/artifacts/wayland-interaction-hQ6x4vwN/verified-release-lZUp7QMq/restart-suite-n8jhXQQK/vfx-visual/`.
+
 ## Ripple Effect in the Intro menu
 
 The initially unchecked `Ripple Effect` checkbox follows `Blackhole Effect`.
@@ -83,6 +130,18 @@ The Intro drawer includes an initially unchecked checkbox labeled
 `Blackhole Effect`. Open the top-left menu and scroll to the bottom.
 Checking enables the effect; unchecking turns it off.
 This is an intentional addition to the Demo, not a change to VFX library controls.
+
+In the full Linux JAR on private labwc, a Wayland virtual pointer scrolled
+the Intro drawer, clicked the checkbox, dismissed the drawer and moved the
+lens back and forth over the welcome text. The pointer sent 240 motion
+steps during each four-sweep pass. With the checkbox off, the sampled text
+region remained identical. With it on, the same region showed 236 sampled
+changes on Vulkan and 221 on OpenGL. A centered lens changed 11,391 and
+10,611 pixels by at least 3/255 respectively in a 405×80 crop. Turning the
+effect off restored every pixel in that crop on both drivers within the same
+tolerance. Both standalone processes exited through Alt+F4 with code zero.
+Screenshots, click traces and sampler timings are in
+`agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-lcd-release-MIuxEnnx/lens-jar-input-yOW44Wds/`.
 
 The control applies the public `javafx.scene.effect.GodotShaderEffect` to the
 Demo content VSceneGroup node. Only its pages are shaded; the window title bar,
@@ -162,6 +221,13 @@ Vulkan/separate and packaged Runtime Vulkan/separate pass. A GL test timing assu
 missed intermediate frames; sampling now starts immediately after Play without
 changing the original animation. The capture was inspected. This is bounded
 interaction/model-motion/render-visibility coverage, not a frame-rate measurement.
+
+The motion check measures the center of the original red circle in two GPU
+readbacks from distinct presentations and requires at least 20 pixels of
+displacement. The probe finds the circle on an eight-pixel grid, then measures
+the filled red area around that hit. On B390 a captured circle covered 288
+red pixels but only four lay on the original fixed grid. Counting all grid
+offsets keeps the five-hit check independent of the circle's position.
 
 2026-11-03 LoadingStage interaction: `test-vfx-loading.ps1` selects original page
 26 and uses host clicks to open its LoadingStage and dismiss the completion alert.
@@ -341,3 +407,139 @@ With both Metal and OpenGL, the standalone JAR and the hover diagnostic displaye
 Earlier desktop captures from the interactive JAR show the welcome page, open
 menu and selected VStage page. They are archived in
 `agentdir/artifacts/macos-751bac7/reference/vfx-portable/{homepage,menu,selection}.png`.
+
+## Linux x64 on WSL2
+
+The complete Linux VFX JAR with Godot library `906cf6d68fa4…` ran on a
+private labwc desktop at scale 1 with an Intel Arc B390. A Wayland virtual
+pointer clicked the Intro menu button and then the cover to dismiss the
+drawer, four times each per launch. Each driver ran twice with ordinary
+pacing and once with an explicit 120 FPS cap and VSync disabled. The app
+received all 48 press/release pairs. Each opening reproduced its settled
+menu image in the sampled 360×420 area, each closing restored the initial
+pixels, and all six JVMs exited with code zero through Alt+F4. The test
+retained the screen grabs, button event times and loaded library digest in
+`agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-lcd-release-MIuxEnnx/menu-jar-input-CZcigH7P/`. Timing is recorded in
+[the frame benchmark](frame-benchmark.md).
+
+The Linux workspace VFX JAR containing engine `da0a4ee0ac9a…` passed all 35 pages with Fusion animation frozen on both B390 drivers on 2026-11-25. Each run saved 35 distinct page files at 2560×1600 and scale 2, then closed with zero host-owned resources. A same-driver comparison against archived frozen captures from engine `a312dd9c27c1…` used the content region from the normal VFX visual comparison. Vulkan matched 33 of 35 pages pixel for pixel. OpenGL matched 31. Pages 18 and 19 displayed different generated table cells with the same row and column layout. On OpenGL pages 31 and 32 differed by at most one 8-bit channel level. The per-page differences and review sheets are in `agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-mesh-publication-smkUz5fY/frozen-pages/`.
+
+The published Linux engine `a312dd9c27c1…` passed full 35-page navigation and the three-page frozen Fusion run on both B390 drivers in isolated Weston. Each full run saved 35 images at 2560×1600, reported scale 2 and closed with zero host-owned resources. Reusing the archived 2× GTK/Prism ES2 reference images, the median normalized RGB error in the comparison region was 0.01184 on Vulkan and 0.01188 on OpenGL. Page 32 had the largest difference on both (0.09281 and 0.09244). The values describe one capture per page with normal Demo animations. Case logs, images, per-page measurements and contact sheets are in `agentdir/artifacts/wayland-shared-shaders-DYodM9AZ/{nonrobot-full/,vfx-visual/}`.
+
+The Linux texture-pool comparison covered all 35 pages on Vulkan and OpenGL. Each driver ran once with ordinary animation and once with Fusion frozen at each pool size. The 512 MiB reference loaded the published JAR. The 256 MiB candidate loaded the diagnostic pool class. Both used the same Godot library and 2560×1600 images at scale 2. On each driver 26/35 animated page pairs and 33/35 frozen page pairs had identical RGB content in the comparison rectangle. The median error was zero in every run. The largest normalized mean absolute RGB errors were 0.01075 and 0.01045 on Vulkan, and 0.01017 and 0.01110 on OpenGL (animated and frozen, respectively). On both drivers the two differing frozen pages were the tables on pages 18 and 19. The comparison images show different cell values and timestamps in the same layout, with a small difference along the page 18 button outlines in the frozen capture. Per-page measurements and the paired images are in `agentdir/artifacts/wayland-shared-shaders-DYodM9AZ/wayland-pool-pacing-SqjQY7q9/visual-256-LnDP79c2/`.
+
+The rebuilt 256 MiB package (`GodotTexturePool.class` prefix `b0774c465b25`) also passed 35-page navigation on each driver and released all tracked host resources on exit. The screenshots were 2560×1600 at scale 2. Against the archived 2× native GTK/Prism ES2 reference, median content errors were 0.01184 on Vulkan and 0.01188 on OpenGL. The largest errors on each driver occurred on the illustrated background of page 32 (0.09281 and 0.09245). Both 35-page contact sheets and per-page measurements are in `agentdir/artifacts/wayland-linux-pool-release-j87Wdjek/vfx-visual/`.
+
+On native Wayland with DISPLAY unset, the complete VFX JAR passed isolated
+launch and clean shutdown on both Intel Arc B390 drivers. After fixing the
+Wayland startup scale, the actual JAR presented a 2560×1600 Windows client
+area for the 1280×800 logical Stage at 192 DPI.
+
+The all-page navigation and three-page frozen Fusion tests passed on Vulkan
+(mobile) and OpenGL (gl_compatibility). Each full run captured 35 pages at
+2560×1600 and reported zero host-owned resources at shutdown. The OpenGL run
+passed the log check after switching IME completion to the active Wayland
+protocol. Against the 2× native GTK/Prism ES2 captures, the median normalized
+RGB error over all pages was 0.01184 for Vulkan and 0.01188 for OpenGL. The
+largest difference on both was page 32 (0.09280 and 0.09243). These are
+image comparison measurements. Native GTK initially reported a 1242×752
+Scene for a 1280×800 Stage. The reference adjusted the outer Stage to
+capture 1280×800 logical content at scale 2. VStage sizes its inner scene
+group from the outer Stage, so this comparison includes layout differences
+as well as differences in animation and rendering. The reference used
+`JAVA_TOOL_OPTIONS=-Dglass.gtk.uiScale=2`. The four case results, page manifests and paired contact
+sheets are under `agentdir/artifacts/linux-wayland-regression-NN0563Lp/`
+in `intro/` and `visual/artifacts/reference/`.
+
+The Intro calls `GlobalScreenUtils.unregister()` on close. The method checks
+VFX's enable records before touching JNativeHook, so an unused hook does not
+initialize a global input hook during Wayland shutdown. The last `disable()`
+call releases the hook before removing its final enable record.
+
+On private Weston at 2× scale, the regular dialog fixture completed five clicks
+and exited successfully on Vulkan and OpenGL. The injected-failure variant
+passed on Vulkan. On OpenGL, the process logged a missing texture allocation
+and render-target creation failure, then received SIGSEGV before the expected
+Java exception. The first return address on the native stack is inside
+`RasterizerCanvasGLES3::_render_items`, which copies into a mapped GL buffer.
+The Wayland backend now selects a remaining mapped EGL surface before closing
+the current one. After rebuilding, the regular dialog and the injected-failure
+variant each passed three consecutive OpenGL runs. Each injected run reported
+the expected Java exception and completed the host shutdown check. Vulkan
+also passed both variants. These results are in `dialog/`, `opengl-2/` and
+`opengl-3/` under `agentdir/artifacts/wayland-egl-check-ed9P5d30/`.
+Cases 260–263 are in `agentdir/artifacts/wayland-full-GRn6iHqe/tests/`.
+
+The serial Wayland table and Stage reruns passed in all eight driver and fixture combinations. Window controls passed maximize, restoration of the original 400×300 logical geometry, and the minimize request with each driver. Both the default and runtime cases then stopped at the request to restore from minimize. xdg-shell exposes no client operation to perform that restoration. The Robot table-scroll cases require desktop-wide Robot input. The corresponding logs are in `wayland-egl-check-ed9P5d30/window-recheck/`, `wayland-egl-check-ed9P5d30/extra/` and `wayland-drag-source-9QinZ5Mn/robot/`.
+
+On labwc 0.9.3 the original window-controls fixture subsequently passed all
+four driver and runtime combinations. Godot requested activation using the
+seat event serial and restored the reported mode after the child regained
+focus. Each trace contains the minimize request, token request, activation
+and the compositor's keyboard enter on the child. The VFX and Godot probes
+both completed. The registry, logs and per-case serials are under
+`agentdir/artifacts/wayland-activation-aPQfvnC7/`.
+
+The additional `--weston-restore` variant uses the compositor's task switcher
+after the child requests minimization. A focus change to the main Stage must
+leave the child iconified. A focus change back to the child must restore the
+original native geometry, deliver the JavaFX state change, and allow the VFX
+close control to finish the fixture with zero host resources. On 24 November all
+four Vulkan/OpenGL and default/runtime combinations passed. Protocol traces
+and screenshots are in `agentdir/artifacts/wayland-shell-restore-P8ZWu1G3/`.
+
+The packaged JAR also passed a pointer-driven table check in private Weston
+at scale 2. The virtual desktop seat clicked the Demo's Next button until the
+long-table page appeared, performed three vertical drags and reversals, then
+dragged horizontally and back. Each driver received eight press/release pairs
+with a total of 256 Wayland motion events during the drags. The row text moved
+600 output pixels vertically while the header stayed in place. A horizontal
+drag translated the header and the row text together by 400 pixels. Both
+applications exited through the VFX close button. The Vulkan screenshots and
+protocol events are in `wayland-vfx-table-seat-cgQUmL9v/repeat-vulkan/` and
+the OpenGL results in `final-opengl/` under the same archive.
+
+On a private labwc desktop at scale 1, the public JavaFX Robot also drove the VFX table scroll fixture on both B390 drivers. Both runs checked displacement after three sweeps. The physical LoadingStage hover fixture passed its Java event and Godot pixel checks on both renderers. These four runs used a 2560×1800 output, with the compositor placing the stage at (640,333) to match the fixture. The original 1280×720 session lost focus during the table gesture. Per-case logs are under `agentdir/artifacts/wayland-robot-2RIjHyHr/{pilot,vfx-robot}/`.
+
+The abrupt Stage test waits for a distinct child window ID to appear alongside
+the main window in the display server before requesting shutdown. The first
+Vulkan run failed when it checked the window list during registration. After
+waiting for both IDs, Vulkan and OpenGL each passed the exit request and Java
+return checks in `agentdir/artifacts/wayland-rebuild-UCYJ3nrm/abrupt-stage/`.
+
+On 24 November the same release completed the three-round navigation soak
+on private Weston with both B390 drivers. Each recorded 205 page samples and
+zero host-owned resources after shutdown. The table shows private process
+memory and host render-target materials at the three returns to page zero.
+
+| Measurement | Round 1 | Round 2 | Round 3 |
+| --- | ---: | ---: | ---: |
+| Vulkan private memory (MiB) | 1750 | 1882 | 1960 |
+| Vulkan target materials | 1604 | 2015 | 2232 |
+| OpenGL private memory (MiB) | 2619 | 2951 | 3139 |
+| OpenGL target materials | 1549 | 1998 | 2326 |
+
+Long-run memory stability remains open. Cases 280 and 281 in
+`agentdir/artifacts/wayland-release-nOfa55Xe/nonrobot/` contain the sample
+series, final resource count and process exit status. The preceding release
+showed growth at the same checkpoints in cases 017 and 018 under
+`agentdir/artifacts/wayland-rebuild-UCYJ3nrm/nonrobot-tail/`.
+
+On the native Wayland release with engine hash `78d43359aab3…`, Vulkan/dzn completed eight 35-page round trips on the B390 and released all host-owned resources on shutdown. Private memory still grew during the second half. The last return added 130 cached materials, including 129 net on previously live render targets. [Eight-round memory measurements](memory-validation.md#eight-vulkan-rounds-on-native-wayland)
+
+## Dragging the custom title bar on Linux
+
+On Wayland, pressing the VFX title bar starts a compositor-managed move. The menu and content keep their own mouse handlers. On a private labwc desktop at scale 1, dragging the packaged VFX window moved its top-left corner from (60, 80) to (230, 190) on both Vulkan/mobile and OpenGL/gl_compatibility. An owned Stage fixture also moved by (170, 110). A separate check constructed an actual VFX `VStage` around an owned JavaFX Stage using the classes from the release Demo JAR. Dragging its custom title bar moved the red content bounds from (781, 301) to (951, 411) on both drivers, with the blue owner's bounds stationary. Each trace recorded the child's `xdg_toplevel.move` request. The before/after desktop images and protocol traces are under `agentdir/artifacts/wayland-interaction-hQ6x4vwN/verified-release-lZUp7QMq/restart-suite-n8jhXQQK/owned-vstage-gLGPe6s1/`.
+
+
+### Linux drawer timing verification
+
+The source-built Intro JAR with the corrected animation timer and Linux Godot drawer cache passed all 35 frozen pages on both B390 drivers at scale 2. Compared with the preceding build on the same driver, 33 of the 35 page regions matched pixel for pixel. The two generated table pages (18 and 19) differed on both drivers, with mean normalized RGB error below 0.011. Each driver released all host-owned resources on exit. Eight actual menu endpoints per driver matched the preceding JAR pixel for pixel within the drawer comparison region. Both rebuilt extra demos passed their Vulkan and OpenGL interactions. The comparison and raw screenshots are in `agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-lcd-publication-z3rrr44Z/vfx-timeline-release-vJsyDaug/validation/`. See [the animation timing measurements](frame-benchmark.md#vfx-animation-timing-on-linux-wayland).
+
+### Current-source Linux ES2 reference
+
+All 35 frozen Intro pages were captured with native JavaFX GTK/Prism ES2 from the same VFX sources as the content-cache build. The native control used a private display and the B390 D3D12 OpenGL driver. The two Godot captures used Wayland at the same scale of 2. All three sets contain 2560×1600 images of a 1280×800 scene.
+
+The reference desktop initially placed its pointer at (1560, 1040). In the native control, it hovered the central button on pages 6, 26 and 31. Moving only the private pointer to (4, 4) before a second ES2 launch removed the highlight. For example, the normalized mean absolute RGB error on page 26 fell from 0.01287 to 0.0000153 against Godot OpenGL, and from 0.01306 to 0.000208 against Godot Vulkan. The Godot image used in each pair was identical.
+
+With the pointer in the margin, the 35-page median was 0.000638 on Vulkan and 0.0000153 on OpenGL. The largest difference for both was on generated table page 18 (0.01161 and 0.01047 respectively). The comparison measures the page content between logical y=35 and y=710. Whole-window gestures and input have separate acceptance fixtures. Per-page metrics, both captures and the pointer coordinates are archived with the content-cache release. The comparison summary is `agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-lcd-publication-z3rrr44Z/vfx-content-release-1JbNFKJu/native-pointer-reference-ay2VURi8/summary.json`.

@@ -8,7 +8,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 KIND="Window"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 STATIC_LIMIT=-1
 while [ $# -gt 0 ]; do
@@ -22,7 +22,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 case "$KIND" in Idle|SubViewport|Window|JavaFXNativeWindow) ;; *) echo "invalid kind: $KIND" >&2; exit 2 ;; esac
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"

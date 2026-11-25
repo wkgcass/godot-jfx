@@ -14,8 +14,25 @@ set -eu
 . "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
+# A Weston peer can deliver a wl_data_offer to a single fixture surface.
+# It runs in its own compositor and does not require a pointer grab.
+if [ "$(uname -s)" = Linux ] && [ -z "${GODOT_JFX_WAYLAND_DND_DIR:-}" ]; then
+    build=$(mktemp -d)
+    trap 'rm -rf -- "$build"' EXIT
+    if [ -n "${GODOT_JFX_WESTON_INCLUDE:-}" ]; then
+        weston_include=$GODOT_JFX_WESTON_INCLUDE
+    else
+        weston_include=$(pkg-config --variable=includedir libweston-14)/libweston-14
+    fi
+    "${CC:-cc}" -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -shared -fPIC \
+        "-I$weston_include" $(pkg-config --cflags wayland-server pixman-1 xkbcommon) \
+        tests/native/wayland_dnd_peer.c -o "$build/dnd-peer.so"
+    GODOT_JFX_WESTON_DND_MODULE="$build/dnd-peer.so" scripts/wsl-wayland-session.sh "$PWD/scripts/test-drag-drop-ole-inject.sh" "$@"
+    exit $?
+fi
+
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 TIMEOUT=0
 while [ $# -gt 0 ]; do
@@ -27,7 +44,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -41,7 +58,6 @@ mkdir -p artifacts/reference agentdir/logs
 SUFFIX=""
 [ "$TIMEOUT" = 1 ] && SUFFIX="-timeout"
 LOG="agentdir/logs/ole-inject-$DRIVER-$RENDER_THREAD$SUFFIX.log"
-
 CODE=0
 (
     export GODOT_JFX_OLE_TIMEOUT="$TIMEOUT"

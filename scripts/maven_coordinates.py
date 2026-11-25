@@ -7,6 +7,11 @@ import re
 
 GROUP_ID = "io.vproxy"
 GROUP_PATH = Path(*GROUP_ID.split("."))
+CLASSIFIER_HASH_KEYS = {
+    "win": "windowsClassifierSha256",
+    "mac-aarch64": "macArm64ClassifierSha256",
+    "linux": "linuxX64ClassifierSha256",
+}
 
 
 def artifact_id(module):

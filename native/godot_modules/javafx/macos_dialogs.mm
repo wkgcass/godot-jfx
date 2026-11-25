@@ -1,4 +1,4 @@
-#include "macos_dialogs.h"
+#include "unix_dialogs.h"
 
 #import <AppKit/AppKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
@@ -11,7 +11,7 @@
 // worker-thread dialog does. beginSheetModal/beginWithCompletionHandler are
 // asynchronous, so the Godot main loop keeps pumping frames while a chooser
 // is open.
-namespace godot_javafx::macos_dialogs {
+namespace godot_javafx::unix_dialogs {
 
 static NSString *to_nsstring(const std::u16string &p_value) {
 	if (p_value.empty()) return nil;
@@ -54,7 +54,7 @@ static NSArray<UTType *> *content_types_for(const std::u16string &p_patterns, bo
 	return [types count] ? types : nil;
 }
 
-} // namespace godot_javafx::macos_dialogs
+} // namespace godot_javafx::unix_dialogs
 
 // Filter popup accessory and selected-index tracking, in the spirit of
 // GodotOpenSaveDelegate but without editor-specific options.
@@ -78,7 +78,7 @@ static NSArray<UTType *> *content_types_for(const std::u16string &p_patterns, bo
 	NSMutableArray<NSArray<UTType *> *> *built = [NSMutableArray arrayWithCapacity:names->size()];
 	for (size_t i = 0; i < names->size(); ++i) {
 		bool all = false;
-		NSArray<UTType *> *types = godot_javafx::macos_dialogs::content_types_for((*patterns)[i], all);
+		NSArray<UTType *> *types = godot_javafx::unix_dialogs::content_types_for((*patterns)[i], all);
 		if (all) {
 			// A "match everything" entry keeps the popup item but lifts the
 			// restriction, like the Godot editor's UTTypeData fallback.
@@ -103,7 +103,7 @@ static NSArray<UTType *> *content_types_for(const std::u16string &p_patterns, bo
 		label.font = [NSFont systemFontOfSize:[NSFont smallSystemFontSize]];
 		popup = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
 		for (size_t i = 0; i < names->size(); ++i)
-			[popup addItemWithTitle:godot_javafx::macos_dialogs::to_nsstring((*names)[i])];
+			[popup addItemWithTitle:godot_javafx::unix_dialogs::to_nsstring((*names)[i])];
 		[popup selectItemAtIndex:selected];
 		popup.target = self;
 		popup.action = @selector(popupAction:);
@@ -145,7 +145,7 @@ static NSArray<UTType *> *content_types_for(const std::u16string &p_patterns, bo
 
 @end
 
-namespace godot_javafx::macos_dialogs {
+namespace godot_javafx::unix_dialogs {
 
 // The service admits one dialog at a time, so one retained panel context is
 // enough. The completion handler clears it, so an abort arriving after
@@ -248,4 +248,4 @@ void panel_detach(Service *p_service) {
 	if (g_context.service == p_service) g_context.service = nullptr;
 }
 
-} // namespace godot_javafx::macos_dialogs
+} // namespace godot_javafx::unix_dialogs

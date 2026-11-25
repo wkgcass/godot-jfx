@@ -9,14 +9,15 @@ import tempfile
 import time
 
 from jdk_home import add_jdk_argument, configure_jdk
-from godot_driver import DEFAULT_DRIVER, DEVICE_LINE, DRIVER_MARKER, MACOS_DRIVERS, WINDOWS_DRIVERS, check_driver
-from library_test_platform import ROOT, WINDOWS
+from godot_driver import DEFAULT_DRIVER, DEVICE_LINE, DRIVER_MARKER, LINUX_DRIVERS, MACOS_DRIVERS, WINDOWS_DRIVERS, check_driver
+from library_test_platform import ROOT, WINDOWS, LINUX
 from maven_local import test_jars
 
 
-DRIVERS = WINDOWS_DRIVERS if WINDOWS else MACOS_DRIVERS
+DRIVERS = WINDOWS_DRIVERS if WINDOWS else LINUX_DRIVERS if LINUX else MACOS_DRIVERS
 GRAPHICS_LIBRARIES = re.compile(r"(?i)[/\\](d3d12(?:core)?\.dll|dxgi\.dll|vulkan-1\.dll|opengl32\.dll|"
-                                r"godot\.dll|libgodot\.dylib|Metal\.framework/[^\s]*Metal|"
+                                r"godot\.dll|libgodot\.dylib|libgodot\.so|libvulkan\.so(?:\.[0-9]+)*|"
+                                r"lib(?:GL|EGL)\.so(?:\.[0-9]+)*|Metal\.framework/[^\s]*Metal|"
                                 r"OpenGL\.framework/[^\s]*OpenGL)(?=\s|$)")
 
 
@@ -72,7 +73,7 @@ def check_launch(jdk, module_path, work, logs, requested):
         return
     driver = requested or DEFAULT_DRIVER
     actual, header = check_driver(output, driver, log)
-    required = {"libgodot.dylib"}
+    required = {"libgodot.so"} if LINUX else {"libgodot.dylib"}
     if WINDOWS:
         api_dll = {"d3d12": "d3d12.dll", "vulkan": "vulkan-1.dll", "opengl": "opengl32.dll"}[driver]
         required = {"godot.dll", api_dll}

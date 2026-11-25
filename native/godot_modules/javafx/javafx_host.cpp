@@ -31,11 +31,18 @@
 #elif defined(MACOS_ENABLED)
 #include "macos_clipboard.h"
 #include "macos_robot.h"
-#include "macos_dialogs.h"
+#include "unix_dialogs.h"
 #include "macos_dnd.h"
-#include "macos_tabtip.h"
+#include "unsupported_touch_keyboard.h"
 #include "macos_custom_format.h"
 #include "javafx_host_macos.h"
+#elif defined(LINUXBSD_ENABLED)
+#include "unix_dialogs.h"
+#include "wayland_robot/robot.h"
+#include "linux_clipboard.h"
+#include "unsupported_touch_keyboard.h"
+#include "javafx_host_wayland.h"
+#include "macos_custom_format.h"
 #endif
 
 #include <jni.h>
@@ -54,11 +61,26 @@ namespace platform_tabtip = windows_tabtip;
 using OsNativeWindow = HWND;
 #elif defined(MACOS_ENABLED)
 namespace platform_clipboard = macos_clipboard;
-namespace platform_dialogs = macos_dialogs;
+namespace platform_dialogs = unix_dialogs;
 namespace platform_dnd = macos_dnd;
 namespace platform_robot = macos_robot;
-namespace platform_tabtip = macos_tabtip;
+namespace platform_tabtip = unsupported_touch_keyboard;
 using OsNativeWindow = void *; // NSWindow *; unused by the pasteboard backend.
+#elif defined(LINUXBSD_ENABLED)
+namespace platform_dialogs = unix_dialogs;
+namespace platform_robot = wayland_robot;
+namespace platform_tabtip = unsupported_touch_keyboard;
+using OsNativeWindow = void *;
+#endif
+
+#if defined(MACOS_ENABLED) || defined(LINUXBSD_ENABLED)
+static String touch_keyboard_platform(const DisplayServer *display) {
+#ifdef LINUXBSD_ENABLED
+	return "Linux/" + display->get_name();
+#else
+	return display->get_name();
+#endif
+}
 #endif
 
 enum class RuntimeStatus { STARTING, RUNNING, FINISHED, FAILED };
@@ -81,6 +103,9 @@ struct ReadbackRequest {
 };
 
 struct Runtime {
+#ifdef LINUXBSD_ENABLED
+	bool prefer_small_lcd_copies = false; // Captured on the host thread before registering JNI.
+#endif
     platform_dialogs::Service dialogs;
     OsNativeWindow clipboard_owner = nullptr; // Set before registering the JNI bridge; immutable.
     // Close admission and wait for in-flight native drag callbacks before detaching.
@@ -279,6 +304,9 @@ static jboolean JNICALL is_shutdown_drained(JNIEnv *, jclass) {
 
 static jint host_command_impl(JNIEnv *env, jint operation, jint a, jint b, jstring text) {
 	bool valid = (operation >= 1 && operation <= 20) || operation == 22 || operation == 23 || operation == 24 || operation == 26 || operation == 27;
+#ifdef LINUXBSD_ENABLED
+	if (operation == 29) valid = a == 0 && b == 0 && !text;
+#endif
 	if (operation == 28) valid = b == 0 && text && env->GetStringLength(text) > 0 && env->GetStringLength(text) <= 128;
 	if (operation == 22 || operation == 23 || operation == 26 || operation == 27) valid = a == 0 && b == 0;
 	if (operation == 19 || operation == 20 || operation == 24) valid = (a == 0 || a == 1) && b == 0;
@@ -356,17 +384,32 @@ static jlong JNICALL window_icon(JNIEnv *env, jclass, jlong id, jint width, jint
 	return 0;
 }
 
-static Ref<Image> window_icon_image(int width, int height, const std::vector<uint8_t> &bgra) {
-	if (bgra.empty()) return Ref<Image>();
-	PackedByteArray rgba; rgba.resize(bgra.size());
+// Glass icon and cursor pixels use premultiplied BGRA. Convert the channels
+// to straight RGBA when the display server premultiplies its native buffer.
+static Ref<Image> glass_bgra_image(int width, int height, const std::vector<uint8_t> &bgra, bool straight_alpha) {
+	if (bgra.empty()) return {};
+	PackedByteArray rgba;
+	rgba.resize(bgra.size());
+	uint8_t *dst = rgba.ptrw();
 	for (size_t p = 0; p < bgra.size(); p += 4) {
-		// Windows window_set_icon copies RGB bytes into its icon bitmap verbatim.
-		// Keep Glass's premultiplied channels, matching native Glass CreateIcon;
-		// this Image is an OS-icon payload, never a scene texture.
-		rgba.set(p, bgra[p+2]); rgba.set(p+1, bgra[p+1]);
-		rgba.set(p+2, bgra[p]); rgba.set(p+3, bgra[p+3]);
+		const uint8_t alpha = bgra[p + 3];
+		for (size_t channel = 0; channel < 3; ++channel) {
+			uint32_t value = bgra[p + 2 - channel];
+			if (straight_alpha) value = alpha ? std::min(255u, value * 255 / alpha) : 0;
+			dst[p + channel] = uint8_t(value);
+		}
+		dst[p + 3] = alpha;
 	}
 	return Image::create_from_data(width, height, false, Image::FORMAT_RGBA8, rgba);
+}
+
+static Ref<Image> window_icon_image(int width, int height, const std::vector<uint8_t> &bgra) {
+#ifdef WAYLAND_ENABLED
+	constexpr bool straight_alpha = true;
+#else
+	constexpr bool straight_alpha = false;
+#endif
+	return glass_bgra_image(width, height, bgra, straight_alpha);
 }
 
 static jint JNICALL custom_cursor(JNIEnv *env, jclass, jint width, jint height, jint x, jint y, jbyteArray bgra) {
@@ -456,6 +499,7 @@ static void JNICALL dialog_submit(JNIEnv *env,jclass,jlong owner,jint mode,jstri
 static jobjectArray JNICALL dialog_poll(JNIEnv *env,jclass) { return platform_dialogs::poll(env,jni_runtime->dialogs); }
 static void JNICALL dialog_cancel(JNIEnv *,jclass) { jni_runtime->dialogs.cancel(); }
 
+#if !defined(LINUXBSD_ENABLED)
 static jstring JNICALL clipboard_read_text(JNIEnv *env, jclass) {
     return platform_clipboard::read(env, jni_runtime->clipboard_owner);
 }
@@ -528,6 +572,7 @@ static jint JNICALL clipboard_formats(JNIEnv *, jclass) {
     return platform_clipboard::formats();
 #endif
 }
+#endif
 static void JNICALL drag_start_external(JNIEnv *env, jclass, jstring text, jbyteArray html, jbyteArray rtf,
         jstring url, jobjectArray files, jobjectArray custom_names, jobjectArray custom_data,
         jbyteArray drag_image, jbyteArray drag_image_offset, jint effects, jint buttons, jlong source_id) try {
@@ -628,9 +673,16 @@ static void JNICALL drag_start_external(JNIEnv *env, jclass, jstring text, jbyte
             if (name_length) env->GetStringRegion(name, 0, name_length, reinterpret_cast<jchar *>(wide.data()));
             env->DeleteLocalRef(name);
             if (env->ExceptionCheck()) { env->DeleteLocalRef(payload); return; }
-            if (!custom_format::valid_name(wide)) {
+            const bool legacy_format = custom_format::valid_name(wide);
+            bool valid_name = legacy_format;
+#ifdef WAYLAND_ENABLED
+            if (!valid_name) {
+                valid_name = linux_dnd::wayland_custom_name(wide);
+            }
+#endif
+            if (!valid_name) {
                 env->DeleteLocalRef(payload);
-                throw_java(env, "java/lang/IllegalArgumentException", "External drag custom format name outside the application/x-godot-custom- convention");
+                throw_java(env, "java/lang/IllegalArgumentException", "Unsupported external drag custom format name");
                 return;
             }
             bool duplicate = false;
@@ -651,7 +703,7 @@ static void JNICALL drag_start_external(JNIEnv *env, jclass, jstring text, jbyte
             env->DeleteLocalRef(payload);
             if (env->ExceptionCheck()) return;
             bool valid = bytes[length - 1] == 0;
-            for (jsize p = 0; p < length - 1; ++p) valid &= bytes[p] != 0;
+            if (legacy_format) valid = valid && bytes.find('\0') == size_t(length - 1);
             if (!valid) { throw_java(env, "java/lang/IllegalArgumentException", "Invalid NUL in external drag custom data"); return; }
             try { data->custom.emplace_back(std::move(wide), std::move(bytes)); }
             catch (const std::bad_alloc &) { throw_java(env, "java/lang/OutOfMemoryError", "External drag allocation failed"); return; }
@@ -739,24 +791,45 @@ template <auto Method, bool TickWait = false> static void *bridge_method() {
     return reinterpret_cast<void *>(&GuardedBridgeMethod<Method, TickWait>::invoke);
 }
 
+#ifdef LINUXBSD_ENABLED
+static jboolean JNICALL prefers_small_lcd_copies(JNIEnv *, jclass) {
+	return jni_runtime->prefer_small_lcd_copies;
+}
+#endif
+
 static void register_bridge(std::shared_ptr<Runtime> runtime, JavaVM *vm, JNIEnv *env, jclass bridge) {
 	JNINativeMethod methods[] = {
+#ifdef LINUXBSD_ENABLED
+		{ const_cast<char *>("prefersSmallLcdCopies"), const_cast<char *>("()Z"), bridge_method<&prefers_small_lcd_copies>() },
+#ifdef WAYLAND_ENABLED
+		{ const_cast<char *>("waylandRobotOpen"), const_cast<char *>("()V"), bridge_method<&wayland_robot::open>() },
+		{ const_cast<char *>("waylandRobotClose"), const_cast<char *>("()V"), bridge_method<&wayland_robot::close>() },
+		{ const_cast<char *>("waylandRobotButton"), const_cast<char *>("(IZ)V"), bridge_method<&wayland_robot::button>() },
+		{ const_cast<char *>("waylandRobotWheel"), const_cast<char *>("(I)V"), bridge_method<&wayland_robot::wheel>() },
+		{ const_cast<char *>("waylandRobotKey"), const_cast<char *>("(IZ)V"), bridge_method<&wayland_robot::key>() },
+		{ const_cast<char *>("waylandClipboardTypes"), const_cast<char *>("()[Ljava/lang/String;"), bridge_method<&wayland_clipboard::formats>() },
+		{ const_cast<char *>("waylandClipboardRead"), const_cast<char *>("(Ljava/lang/String;)[B"), bridge_method<&wayland_clipboard::read>() },
+		{ const_cast<char *>("waylandClipboardWrite"), const_cast<char *>("([Ljava/lang/String;[[B)V"), bridge_method<&wayland_clipboard::write>() },
+#endif
+#endif
         { const_cast<char *>("dialogSubmit"), const_cast<char *>("(JILjava/lang/String;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;I)V"), bridge_method<&dialog_submit>() },
         { const_cast<char *>("dialogPoll"), const_cast<char *>("()[Ljava/lang/String;"), bridge_method<&dialog_poll>() },
         { const_cast<char *>("dialogCancel"), const_cast<char *>("()V"), bridge_method<&dialog_cancel>() },
         { const_cast<char *>("robotMove"), const_cast<char *>("(II)V"), bridge_method<&platform_robot::move>() },
         { const_cast<char *>("robotPosition"), const_cast<char *>("()[I"), bridge_method<&platform_robot::position>() },
         { const_cast<char *>("robotCapture"), const_cast<char *>("(IIII)[I"), bridge_method<&platform_robot::capture>() },
-        { const_cast<char *>("clipboardWriteFormats"), const_cast<char *>("(Ljava/lang/String;[B[B)V"), bridge_method<&clipboard_write_formats>() },
-        { const_cast<char *>("clipboardWriteUrlFormats"), const_cast<char *>("(Ljava/lang/String;[B[BLjava/lang/String;)V"), bridge_method<&clipboard_write_url_formats>() },
-        { const_cast<char *>("clipboardReadUrl"), const_cast<char *>("()Ljava/lang/String;"), bridge_method<&clipboard_read_url>() },
-        { const_cast<char *>("clipboardReadRich"), const_cast<char *>("(I)[B"), bridge_method<&clipboard_read_rich>() },
-        { const_cast<char *>("clipboardWriteFull"), const_cast<char *>("(Ljava/lang/String;[B[BLjava/lang/String;[Ljava/lang/String;[III[Ljava/lang/String;[[B)V"), bridge_method<&clipboard_write_full>() },
-        { const_cast<char *>("clipboardReadFiles"), const_cast<char *>("()[Ljava/lang/String;"), bridge_method<&clipboard_read_files>() },
-        { const_cast<char *>("clipboardReadImage"), const_cast<char *>("()[I"), bridge_method<&clipboard_read_image>() },
-        { const_cast<char *>("clipboardReadCustom"), const_cast<char *>("(Ljava/lang/String;)[B"), bridge_method<&clipboard_read_custom>() },
-        { const_cast<char *>("clipboardCustomFormats"), const_cast<char *>("()[Ljava/lang/String;"), bridge_method<&clipboard_custom_formats>() },
-        { const_cast<char *>("clipboardFormats"), const_cast<char *>("()I"), bridge_method<&clipboard_formats>() },
+#if !defined(LINUXBSD_ENABLED)
+        { const_cast<char *>("clipboardWriteFormatsNative"), const_cast<char *>("(Ljava/lang/String;[B[B)V"), bridge_method<&clipboard_write_formats>() },
+        { const_cast<char *>("clipboardWriteUrlFormatsNative"), const_cast<char *>("(Ljava/lang/String;[B[BLjava/lang/String;)V"), bridge_method<&clipboard_write_url_formats>() },
+        { const_cast<char *>("clipboardReadUrlNative"), const_cast<char *>("()Ljava/lang/String;"), bridge_method<&clipboard_read_url>() },
+        { const_cast<char *>("clipboardReadRichNative"), const_cast<char *>("(I)[B"), bridge_method<&clipboard_read_rich>() },
+        { const_cast<char *>("clipboardWriteFullNative"), const_cast<char *>("(Ljava/lang/String;[B[BLjava/lang/String;[Ljava/lang/String;[III[Ljava/lang/String;[[B)V"), bridge_method<&clipboard_write_full>() },
+        { const_cast<char *>("clipboardReadFilesNative"), const_cast<char *>("()[Ljava/lang/String;"), bridge_method<&clipboard_read_files>() },
+        { const_cast<char *>("clipboardReadImageNative"), const_cast<char *>("()[I"), bridge_method<&clipboard_read_image>() },
+        { const_cast<char *>("clipboardReadCustomNative"), const_cast<char *>("(Ljava/lang/String;)[B"), bridge_method<&clipboard_read_custom>() },
+        { const_cast<char *>("clipboardCustomFormatsNative"), const_cast<char *>("()[Ljava/lang/String;"), bridge_method<&clipboard_custom_formats>() },
+        { const_cast<char *>("clipboardFormatsNative"), const_cast<char *>("()I"), bridge_method<&clipboard_formats>() },
+#endif
 		{ const_cast<char *>("windowIcon"), const_cast<char *>("(JII[B)J"), bridge_method<&window_icon>() },
 		{ const_cast<char *>("customCursor"), const_cast<char *>("(IIII[B)I"), bridge_method<&custom_cursor>() },
 		{ const_cast<char *>("readPixels"), const_cast<char *>("(JJIIII)[I"), bridge_method<&read_pixels>() },
@@ -773,7 +846,9 @@ static void register_bridge(std::shared_ptr<Runtime> runtime, JavaVM *vm, JNIEnv
 		{ const_cast<char *>("hostCommand"), const_cast<char *>("(IIILjava/lang/String;)I"), bridge_method<&host_command>() },
         { const_cast<char *>("pollInput"), const_cast<char *>("()[D"), bridge_method<&poll_input>() },
 		{ const_cast<char *>("pollWindowInputV2"), const_cast<char *>("()[D"), bridge_method<&poll_window_input>() },
-        { const_cast<char *>("clipboardReadText"), const_cast<char *>("()Ljava/lang/String;"), bridge_method<&clipboard_read_text>() },
+#if !defined(LINUXBSD_ENABLED)
+        { const_cast<char *>("clipboardReadTextNative"), const_cast<char *>("()Ljava/lang/String;"), bridge_method<&clipboard_read_text>() },
+#endif
         { const_cast<char *>("dragStartExternal"), const_cast<char *>("(Ljava/lang/String;[B[BLjava/lang/String;[Ljava/lang/String;[Ljava/lang/String;[[B[B[BIIJ)V"), bridge_method<&drag_start_external>() }
 	};
     if (!bridge || env->RegisterNatives(bridge, methods, sizeof(methods) / sizeof(methods[0])) != JNI_OK) {
@@ -919,6 +994,7 @@ Dictionary JavaFXHost::get_render_stats() const {
 		}
 		stats["profile_shader_us"] = profile_shader_us;
 		stats["profile_shader_creations"] = profile_shader_creations;
+		stats["profile_retained_draws"] = profile_retained_draws;
 	}
 	if (runtime) {
 		stats["completed_render_sequence"] = runtime->completed_render_sequence.load();
@@ -935,6 +1011,9 @@ Dictionary JavaFXHost::get_render_stats() const {
 
 void JavaFXHost::prepare_runtime(const String &startup) {
 	runtime = std::make_shared<godot_javafx::Runtime>();
+#ifdef LINUXBSD_ENABLED
+	runtime->prefer_small_lcd_copies = javafx_uses_mesa_d3d12_gl();
+#endif
 	profile_commands = OS::get_singleton()->get_environment("GODOT_JFX_PROFILE_COMMANDS") == "1";
 	gpu_timing_enabled = OS::get_singleton()->get_environment("GODOT_JFX_GPU_TIMING") == "1";
     runtime->clipboard_owner = reinterpret_cast<godot_javafx::OsNativeWindow>(DisplayServer::get_singleton()->window_get_native_handle(DisplayServerEnums::WINDOW_HANDLE));
@@ -989,6 +1068,9 @@ void JavaFXHost::window_input(const Ref<InputEvent> &p_event, int64_t p_id) {
 	if (!runtime || runtime->status.load() != godot_javafx::RuntimeStatus::RUNNING) return;
 	Window *source = p_id ? get_native_window(p_id) : get_window();
 	if (!source) return;
+#ifdef LINUXBSD_ENABLED
+	if (source->is_input_disabled()) return;
+#endif
 	Ref<InputEventScreenTouch> touch = p_event;
 	Ref<InputEventScreenDrag> drag = p_event;
 	if (touch.is_valid() || drag.is_valid()) {
@@ -1004,6 +1086,12 @@ void JavaFXHost::window_input(const Ref<InputEvent> &p_event, int64_t p_id) {
 	}
 	Ref<InputEventKey> key = p_event;
 	if (key.is_valid()) {
+		bool source_focused = false;
+#ifdef LINUXBSD_ENABLED
+		// Sample before queuing the key. The per-frame Glass snapshot can
+		// still describe the preceding window during a Wayland focus transfer.
+		source_focused = key->is_pressed() && source->has_focus();
+#endif
 		int modifiers = (key->is_shift_pressed() ? 1 : 0) | (key->is_ctrl_pressed() ? 4 : 0) |
 			(key->is_alt_pressed() ? 8 : 0) | (key->is_meta_pressed() ? 16 : 0);
 		std::lock_guard<std::mutex> lock(runtime->host_mutex);
@@ -1012,19 +1100,16 @@ void JavaFXHost::window_input(const Ref<InputEvent> &p_event, int64_t p_id) {
 			return;
 		}
 		runtime->input_events.push_back({ key->is_pressed() ? 5.0 : 6.0, double(key->get_keycode()),
-			double(key->get_unicode()), 0, 0, 0, double(modifiers), key->is_echo() ? 1.0 : 0.0, 0, double(p_id) });
+			double(key->get_unicode()), double(source_focused), 0, 0, double(modifiers), key->is_echo() ? 1.0 : 0.0, 0, double(p_id) });
 		runtime->queue.pulse_input();
 		return;
 	}
-#if defined(MACOS_ENABLED)
+#if defined(MACOS_ENABLED) || defined(LINUXBSD_ENABLED)
 	Ref<InputEventPanGesture> pan = p_event;
 	if (pan.is_valid()) {
-		// Native mac Glass reports trackpad two-finger scrolling through the
-		// scroll-gesture path: precise point deltas scaled by 0.1 with a 10px
-		// Java-side multiplier (GlassViewDelegate, MacGestureSupport). Godot
-		// delivers the same points, negated, via InputEventPanGesture. Godot
-		// carries no gesture phase or momentum flags, so only the performed
-		// (SCROLL) stage can be reported, without inertia marking.
+		// Godot supplies point deltas. The shared Glass gesture path uses a
+		// 10px multiplier, so preserve point precision and reverse the Godot
+		// sign. InputEventPanGesture has no phase or momentum flag.
 		std::array<double, 12> event{};
 		event[0] = 17;
 		Vector2 pos = pan->get_position();
@@ -1085,17 +1170,17 @@ void JavaFXHost::window_input(const Ref<InputEvent> &p_event, int64_t p_id) {
 #else
 			event[0] = 4;
 			event[index <= 5 ? 8 : 7] = button->get_factor() * ((index == 4 || index == 6) ? 1 : -1);
-            // Separate doubles exactly represent every UINT32 setting, including
-            // 0xffffffff (page scrolling). Do not compress or clamp either axis.
-            // macOS wheel input takes the kind-15 gesture path above and never
-            // reaches this Windows settings lookup.
-            unsigned int lines = 3, chars = 3;
 #if defined(WINDOWS_ENABLED)
-            SystemParametersInfoW(SPI_GETWHEELSCROLLLINES, 0, &lines, 0);
-            SystemParametersInfoW(SPI_GETWHEELSCROLLCHARS, 0, &chars, 0);
+			// Separate doubles exactly represent UINT32, including page scrolling.
+			unsigned int lines = 3, chars = 3;
+			SystemParametersInfoW(SPI_GETWHEELSCROLLLINES, 0, &lines, 0);
+			SystemParametersInfoW(SPI_GETWHEELSCROLLCHARS, 0, &chars, 0);
+			event[10] = double(lines);
+			event[11] = double(chars);
+#elif defined(LINUXBSD_ENABLED)
+			// GTK's discrete wheel has no text units. Shift exchanges the axes.
+			if (button->is_shift_pressed()) std::swap(event[7], event[8]);
 #endif
-            event[10] = double(lines);
-            event[11] = double(chars);
 #endif
 		} else {
 			event[0] = button->is_pressed() ? 2 : 3;
@@ -1182,7 +1267,12 @@ void JavaFXHost::window_ime_command(int64_t p_id, int p_operation, int p_a, int 
 		enabled = p_a != 0;
 	} else if (p_operation == 17) position = Point2i(p_a,p_b);
 	if (window->get_window_id() == DisplayServerEnums::INVALID_WINDOW_ID) return;
-	if (p_operation == 16) window->set_ime_active(enabled);
+	if (p_operation == 16) {
+#ifdef WAYLAND_ENABLED
+		if (!enabled) godot_javafx::linux_finish_ime(window->get_window_id(), false);
+#endif
+		window->set_ime_active(enabled);
+	}
 	else if (p_operation == 17) window->set_ime_position(position);
 	else if (p_operation == 18) {
 		auto *display = DisplayServer::get_singleton();
@@ -1192,6 +1282,8 @@ void JavaFXHost::window_ime_command(int64_t p_id, int p_operation, int p_a, int 
 		if (context) { ImmNotifyIME(context,NI_COMPOSITIONSTR,CPS_COMPLETE,0); ImmReleaseContext(handle,context); }
 #elif defined(MACOS_ENABLED)
 		godot_javafx::macos_commit_ime_composition(window->get_window_id());
+#elif defined(WAYLAND_ENABLED)
+		godot_javafx::linux_finish_ime(window->get_window_id(), true);
 #endif
 		// Complete and drain this window's committed Unicode before acknowledging.
 		display->process_events();
@@ -1252,11 +1344,22 @@ void JavaFXHost::_notification(int p_what) {
 		apply_host_commands();
 #if defined(MACOS_ENABLED)
 		poll_fullscreen_reattach();
+#endif
+#if defined(MACOS_ENABLED) || defined(LINUXBSD_ENABLED)
 		// Cocoa panels dismiss on the main thread; dialogCancel() arrives on
 		// the FX thread and is observed here.
 		runtime->dialogs.pump();
 #endif
 		refresh_drag_delegates();
+#ifdef LINUXBSD_ENABLED
+		if (wayland_drag_window != DisplayServerEnums::INVALID_WINDOW_ID) {
+			int action = godot_javafx::wayland_drag_result(wayland_drag_window, false);
+			if (action >= 0) {
+				wayland_drag_window = DisplayServerEnums::INVALID_WINDOW_ID;
+				finish_linux_drag(action);
+			}
+		}
+#endif
 		{
 			std::unique_ptr<godot_javafx::platform_dnd::SourceData> dnd_request;
 			{
@@ -1267,6 +1370,11 @@ void JavaFXHost::_notification(int p_what) {
 		}
         if (auto request=runtime->dialogs.pending()) {
             Window *owner=request->owner<0 ? nullptr : request->owner==0 ? get_window() : get_native_window(request->owner);
+#ifdef LINUXBSD_ENABLED
+            if (owner && owner->is_visible()) {
+                request->exported_parent = godot_javafx::wayland_exported_parent(owner->get_window_id()).utf8().get_data();
+            }
+#endif
             godot_javafx::OsNativeWindow handle=owner ? reinterpret_cast<godot_javafx::OsNativeWindow>(DisplayServer::get_singleton()->window_get_native_handle(
                     DisplayServerEnums::WINDOW_HANDLE,owner->get_window_id())) : nullptr;
             runtime->dialogs.start(request,handle,request->owner<0 || (owner && owner->is_visible()));
@@ -1371,6 +1479,10 @@ void JavaFXHost::_notification(int p_what) {
 					case godot_javafx::Opcode::CLEAR:
 						if (active_target.is_valid()) active_target->clear_pass(); else clear_commands();
 						break;
+					case godot_javafx::Opcode::LCD_BACKGROUND:
+						if (active_target.is_null()) { runtime->fail("Missing LCD background target"); return; }
+						active_target->copy_lcd_background(Rect2i(command.x, command.y, command.width, command.height));
+						break;
 					case godot_javafx::Opcode::CLIP:
 						target_clip = command.clip_enabled; target_clip_rect = Rect2i(int32_t(command.x), int32_t(command.y), command.width, command.height);
 						if (active_target.is_null()) set_draw_clip(target_clip, target_clip_rect);
@@ -1463,6 +1575,7 @@ void JavaFXHost::_notification(int p_what) {
 						if (command.opcode == godot_javafx::Opcode::QUADS_REF) ++quads_referenced;
 						else ++quads_uploaded;
 						if (active_target.is_valid()) {
+							const uint64_t retained_before = profile_commands ? active_target->get_retained_draw_count() : 0;
 							const uint64_t shaders_before = profile_commands ? active_target->get_shader_creation_count() : 0;
 							RID texture = textured ? retain_sampler_texture(command.texture_handle) : RID();
 							if (known.is_valid())
@@ -1476,7 +1589,10 @@ void JavaFXHost::_notification(int p_what) {
 								active_target->draw_prism_quads_with_instances(vertices, colors, target_shader, target_parameters, target_clip, target_clip_rect,
 									texture, transform, command.draw_alpha, &target_instance_params);
 							}
-							if (profile_commands) profile_shader_creations += active_target->get_shader_creation_count() - shaders_before;
+							if (profile_commands) {
+								profile_shader_creations += active_target->get_shader_creation_count() - shaders_before;
+								profile_retained_draws += active_target->get_retained_draw_count() - retained_before;
+							}
 						}
 						else if (known.is_valid()) {
 							if (textured) add_textured_mesh(command.texture_handle, known, transform, command.draw_alpha);
@@ -1747,11 +1863,8 @@ void JavaFXHost::refresh_host_info() {
 			Point2i origin = display->screen_get_position(index);
 			Size2i extent = display->screen_get_size(index);
 			Rect2i work = display->screen_get_usable_rect(index);
-#if defined(MACOS_ENABLED)
-			// macOS reports a physical-panel DPI (with a 72 fallback) rather than
-			// a UI-scale-anchored value. The Java side derives scale as dpi/96 to
-			// match DisplayServerWindows::screen_get_scale, so feed it the macOS
-			// UI scale instead of the physical DPI.
+#if defined(MACOS_ENABLED) || defined(LINUXBSD_ENABLED)
+			// Glass derives the platform scale from this field.
 			const int screen_dpi = int(display->screen_get_scale(index) * 96.0f + 0.5f);
 #else
 			const int screen_dpi = display->screen_get_dpi(index);
@@ -1769,7 +1882,7 @@ void JavaFXHost::refresh_host_info() {
 	if (!found_current_screen) {
 		screen = display->screen_get_size(); screen_pos = display->screen_get_position();
 		usable = display->screen_get_usable_rect();
-#if defined(MACOS_ENABLED)
+#if defined(MACOS_ENABLED) || defined(LINUXBSD_ENABLED)
 		dpi = int(display->screen_get_scale() * 96.0f + 0.5f);
 #else
 		dpi = display->screen_get_dpi();
@@ -1892,6 +2005,8 @@ void JavaFXHost::apply_host_commands() {
 				ShowWindow(handle, a ? SW_SHOW : SW_HIDE);
 #elif defined(MACOS_ENABLED)
 				godot_javafx::macos_set_window_visible(reinterpret_cast<void *>(display->window_get_native_handle(DisplayServerEnums::WINDOW_HANDLE)), a != 0);
+#elif defined(WAYLAND_ENABLED)
+				godot_javafx::linux_set_root_visible(a != 0);
 #endif
 			} break;
 			case 6: host_window->set_mode(static_cast<Window::Mode>(a)); break;
@@ -1936,24 +2051,14 @@ void JavaFXHost::apply_host_commands() {
 			case 21: {
 				cursor_none_requested = false;
 				apply_cursor_visibility();
-				PackedByteArray rgba; rgba.resize(command.cursor_pixels.size());
-				for(size_t p=0;p<command.cursor_pixels.size();p+=4) {
-#if defined(MACOS_ENABLED)
-					// Glass pixels arrive premultiplied; DisplayServerMacOS applies
-					// its own premultiply pass when building the NSCursor bitmap,
-					// so hand it straight-alpha values to avoid double darkening.
-					const uint8_t alpha = command.cursor_pixels[p+3];
-					const uint32_t r = alpha ? std::min(255u, uint32_t(command.cursor_pixels[p+2]) * 255 / alpha) : 0;
-					const uint32_t g = alpha ? std::min(255u, uint32_t(command.cursor_pixels[p+1]) * 255 / alpha) : 0;
-					const uint32_t b = alpha ? std::min(255u, uint32_t(command.cursor_pixels[p]) * 255 / alpha) : 0;
-					rgba.set(p,uint8_t(r)); rgba.set(p+1,uint8_t(g));
-					rgba.set(p+2,uint8_t(b)); rgba.set(p+3,alpha);
+				// Glass supplies premultiplied BGRA. Both Wayland wl_shm and
+				// macOS premultiply the Godot Image again when creating a cursor.
+#if defined(MACOS_ENABLED) || defined(WAYLAND_ENABLED)
+				constexpr bool needs_straight_alpha = true;
 #else
-					rgba.set(p,command.cursor_pixels[p+2]); rgba.set(p+1,command.cursor_pixels[p+1]);
-					rgba.set(p+2,command.cursor_pixels[p]); rgba.set(p+3,command.cursor_pixels[p+3]);
+				constexpr bool needs_straight_alpha = false;
 #endif
-				}
-				Ref<Image> image=Image::create_from_data(command.cursor_width,command.cursor_height,false,Image::FORMAT_RGBA8,rgba);
+				Ref<Image> image = godot_javafx::glass_bgra_image(command.cursor_width, command.cursor_height, command.cursor_pixels, needs_straight_alpha);
 				display->cursor_set_shape(DisplayServerEnums::CURSOR_ARROW);
 				display->cursor_set_custom_image(image,DisplayServerEnums::CURSOR_ARROW,Vector2(a,b));
 				// The custom image hangs off CURSOR_ARROW; keep the Viewport's
@@ -1981,6 +2086,9 @@ void JavaFXHost::apply_host_commands() {
 				if (a) set_background(Color(0, 0, 0, 0));
 				break;
 			case 25: display->window_set_icon(godot_javafx::window_icon_image(command.icon_width, command.icon_height, command.icon_pixels), host_window->get_window_id()); break;
+#ifdef LINUXBSD_ENABLED
+			case 29: host_window->start_drag(); break;
+#endif
 			case 28: {
 				Node *scene = get_tree()->get_current_scene();
 				if (!scene || !scene->has_method(SNAME("on_javafx_message"))) {
@@ -1995,16 +2103,20 @@ void JavaFXHost::apply_host_commands() {
 #if defined(WINDOWS_ENABLED)
 				const HRESULT result = godot_javafx::platform_tabtip::request();
 				if (FAILED(result)) WARN_PRINT_ONCE(vformat("JavaFX touch keyboard request failed (HRESULT %d); OS keyboard availability is not guaranteed.", int64_t(result)));
-#elif defined(MACOS_ENABLED)
-				if (!godot_javafx::platform_tabtip::request()) { WARN_PRINT_ONCE("JavaFX touch keyboard requests are not supported on macOS; OS keyboard availability is not guaranteed."); }
+#elif defined(MACOS_ENABLED) || defined(LINUXBSD_ENABLED)
+				if (!godot_javafx::platform_tabtip::request()) {
+					WARN_PRINT_ONCE(vformat("JavaFX touch keyboard requests are not supported on %s.", godot_javafx::touch_keyboard_platform(display)));
+				}
 #endif
 			} break;
 			case 27: {
 #if defined(WINDOWS_ENABLED)
 				const HRESULT result = godot_javafx::platform_tabtip::release();
 				if (FAILED(result)) WARN_PRINT_ONCE(vformat("JavaFX touch keyboard close request failed (HRESULT %d).", int64_t(result)));
-#elif defined(MACOS_ENABLED)
-				if (!godot_javafx::platform_tabtip::release()) { WARN_PRINT_ONCE("JavaFX touch keyboard close requests are not supported on macOS."); }
+#elif defined(MACOS_ENABLED) || defined(LINUXBSD_ENABLED)
+				if (!godot_javafx::platform_tabtip::release()) {
+					WARN_PRINT_ONCE(vformat("JavaFX touch keyboard close requests are not supported on %s.", godot_javafx::touch_keyboard_platform(display)));
+				}
 #endif
 			} break;
 		}
@@ -2065,7 +2177,21 @@ Dictionary JavaFXHost::get_window_icon_info(int64_t p_id) const {
 	Dictionary result;
 	result["installed"] = false;
 	return result;
+#elif defined(LINUXBSD_ENABLED)
+	Dictionary result;
+	if (!window || window->get_window_id() == DisplayServerEnums::INVALID_WINDOW_ID) return result;
+	return godot_javafx::wayland_window_icon_info(window->get_window_id());
 #endif
+}
+
+Dictionary JavaFXHost::get_custom_cursor_info() const {
+#ifdef WAYLAND_ENABLED
+	// Query the active Linux backend at the time the probe observes the cursor.
+	if (custom_cursor_active && DisplayServer::get_singleton()->mouse_get_mode() == DisplayServerEnums::MOUSE_MODE_VISIBLE) {
+		return godot_javafx::linux_cursor_info();
+	}
+#endif
+	return custom_cursor_info;
 }
 
 void JavaFXHost::refresh_custom_cursor_info() {
@@ -2117,6 +2243,12 @@ void JavaFXHost::stop_host() {
 	if (borrowed_vm) godot_javafx::bridge_open.store(false);
 	restore_vsync_pacing();
     if (runtime) runtime->dialogs.stop();
+#ifdef LINUXBSD_ENABLED
+	if (wayland_drag_window != DisplayServerEnums::INVALID_WINDOW_ID) {
+		godot_javafx::wayland_drag_result(wayland_drag_window, true);
+		wayland_drag_window = DisplayServerEnums::INVALID_WINDOW_ID;
+	}
+#endif
     if (runtime) {
         std::lock_guard<std::mutex> lock(runtime->dnd_mutex);
         runtime->dnd_pending.reset();
@@ -2134,6 +2266,11 @@ void JavaFXHost::stop_host() {
         for (const auto &entry : drag_targets) {
             if (entry.first && entry.first->get_window_id() != DisplayServerEnums::INVALID_WINDOW_ID)
                 godot_javafx::macos_window_set_drag_delegate(entry.first->get_window_id(), nullptr, nullptr);
+        }
+#elif defined(LINUXBSD_ENABLED)
+        for (const auto &entry : drag_targets) {
+            if (entry.first && entry.first->get_window_id() != DisplayServerEnums::INVALID_WINDOW_ID)
+                godot_javafx::linux_set_drag_target(entry.first->get_window_id(), nullptr);
         }
 #endif
         drag_targets.clear();
@@ -2309,7 +2446,7 @@ void JavaFXHost::refresh_drag_delegates() {
 		}
 		drag_targets[window] = std::move(handler);
 	}
-#elif defined(MACOS_ENABLED)
+#elif defined(MACOS_ENABLED) || defined(LINUXBSD_ENABLED)
 	if (!runtime || !is_inside_tree()) return;
 	std::map<Window *, int64_t> current;
 	current[get_window()] = 0;
@@ -2321,12 +2458,18 @@ void JavaFXHost::refresh_drag_delegates() {
 		if (current.count(it->first)) { ++it; continue; }
 		it = drag_targets.erase(it);
 	}
-	// Closing the bridge disables Cocoa upcalls into Java.
-	godot_javafx::macos_dnd::Upcall upcall{ &runtime->drag_upcall };
+	auto set_target = [](DisplayServerEnums::WindowID id, godot_javafx::platform_dnd::TargetHandler *handler) {
+#ifdef MACOS_ENABLED
+		return godot_javafx::macos_window_set_drag_delegate(id, handler ? reinterpret_cast<void *>(&javafx_drag_delegate) : nullptr, handler);
+#else
+		return godot_javafx::linux_set_drag_target(id, handler);
+#endif
+	};
+	godot_javafx::platform_dnd::Upcall upcall{ &runtime->drag_upcall };
 	if (!upcall) {
 		for (const auto &entry : drag_targets) {
 			if (entry.first && entry.first->get_window_id() != DisplayServerEnums::INVALID_WINDOW_ID)
-				godot_javafx::macos_window_set_drag_delegate(entry.first->get_window_id(), nullptr, nullptr);
+				set_target(entry.first->get_window_id(), nullptr);
 		}
 		drag_targets.clear();
 		return;
@@ -2335,12 +2478,11 @@ void JavaFXHost::refresh_drag_delegates() {
 		Window *window = entry.first;
 		if (!window || window->get_window_id() == DisplayServerEnums::INVALID_WINDOW_ID) continue;
 		if (drag_targets.count(window)) continue;
-		auto handler = std::make_unique<godot_javafx::macos_dnd::TargetHandler>();
+		auto handler = std::make_unique<godot_javafx::platform_dnd::TargetHandler>();
 		handler->id = entry.second;
 		handler->upcall = upcall;
-		if (!godot_javafx::macos_window_set_drag_delegate(window->get_window_id(),
-				reinterpret_cast<void *>(&javafx_drag_delegate), handler.get())) {
-			runtime->fail("Cannot register the Cocoa drag target for a JavaFX window");
+		if (!set_target(window->get_window_id(), handler.get())) {
+			runtime->fail("Cannot register the native drag target for a JavaFX window");
 			return;
 		}
 		drag_targets[window] = std::move(handler);
@@ -2398,7 +2540,7 @@ bool JavaFXHost::simulate_external_drop(const Vector2i &p_point, const String &p
 		Char16String wide = p_value.utf16();
 		return std::u16string(reinterpret_cast<const char16_t *>(wide.get_data()), size_t(wide.length()));
 	};
-	godot_javafx::macos_dnd::SourceData data;
+	godot_javafx::platform_dnd::SourceData data;
 	data.text = to_u16(p_text);
 	data.url = to_u16(p_url);
 	for (int i = 0; i < p_files.size(); ++i) data.files.push_back(to_u16(p_files[i]));
@@ -2411,7 +2553,9 @@ bool JavaFXHost::simulate_external_drop(const Vector2i &p_point, const String &p
 		ERR_FAIL_COND_V_MSG(bytes.size() > godot_javafx::custom_format::MAX_DATA_BYTES, false, "Custom drag payload exceeds 16 MiB");
 		data.custom.emplace_back(std::move(name), std::move(bytes));
 	}
-	return godot_javafx::macos_dnd::simulate_drop(*it->second, p_point.x, p_point.y, data);
+	return godot_javafx::platform_dnd::simulate_drop(*it->second, p_point.x, p_point.y, data);
+#else
+	ERR_FAIL_V_MSG(false, "JavaFX external drop target is unavailable on this display backend.");
 #endif
 }
 
@@ -2498,8 +2642,29 @@ void JavaFXHost::run_dnd_source(std::unique_ptr<godot_javafx::platform_dnd::Sour
 			}
 		}
 	}
+#elif defined(LINUXBSD_ENABLED)
+	Window *source = p_data->source_id ? get_native_window(p_data->source_id) : get_window();
+	if (source && source->is_visible() && p_data->buttons &&
+			godot_javafx::wayland_start_drag(source->get_window_id(), *p_data)) {
+		wayland_drag_window = source->get_window_id();
+		return;
+	}
+	finish_linux_drag(0);
 #endif
 }
+
+#ifdef LINUXBSD_ENABLED
+void JavaFXHost::finish_linux_drag(uint32_t effect) {
+	if (!runtime || runtime->status.load() != godot_javafx::RuntimeStatus::RUNNING) return;
+	std::lock_guard<std::mutex> lock(runtime->host_mutex);
+	if (runtime->input_events.size() >= 4096) {
+		runtime->fail("Glass input queue overflow on drag completion");
+	} else {
+		runtime->input_events.push_back({ 20.0, double(effect), 0, 0, 0, 0, 0, 0, 0, 0 });
+		runtime->queue.pulse_input();
+	}
+}
+#endif
 
 String JavaFXHost::get_runtime_status() const {
 	if (!runtime) return "idle";

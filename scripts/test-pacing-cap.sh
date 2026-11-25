@@ -6,7 +6,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 MODE="cap"
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -16,7 +16,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$MODE" in cap|restore|override) ;; *) echo "invalid mode: $MODE" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"

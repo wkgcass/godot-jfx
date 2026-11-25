@@ -121,6 +121,9 @@ converted to Java's signed int bit pattern; 0xffffffff therefore remains -1.
 The decoder rejects nonintegral, nonfinite and out-of-range settings. Other event
 kinds leave the two extra fields zero. The renamed JNI entry rejects a mismatched
 old SDK/host instead of silently parsing different record lengths.
+On a Wayland key press (kind 5), index 3 additionally records whether the
+source window held native focus when Godot queued the event. Glass applies a
+confirmed gain before dispatching the key. A zero leaves focus unchanged.
 Window callbacks supply local pointer coordinates and screen coordinates from
 that window's origin. Kinds 15/16 indicate native focus gain/loss; kind 9 is a
 close request, allowing JavaFX close handlers to consume it before destruction.
@@ -130,6 +133,9 @@ point deltas after the host's 0.1 precise-scrolling conversion) and is delivered
 as a performed scroll gesture with the native 10px multiplier, matching
 MacGestureSupport. Godot reports no gesture phase or momentum flags, so kind 17
 produces SCROLL events only, without SCROLL_STARTED/FINISHED or inertia marking.
+On Linux a Godot pan event uses the same point-preserving kind 17. Discrete
+wheel events use kind 4 with GTK's 40-pixel multiplier and zero text
+units. A shifted discrete wheel exchanges the horizontal and vertical axes.
 Kind 20 reports completion of an OLE drag/drop gesture and carries the
 performed drop effect instead of a button in the second field.
 The 4096-record bound and overflow failure apply across all windows. Legacy
@@ -162,7 +168,7 @@ renderer. The low-level bridge probe alone does not exercise JavaFX controls.
 - Godot pulses increment a monotonic counter and wake `awaitTick`. Waiting
   callers see the latest tick (coalescing), not a growing queue of pulses.
 - Stop drops pending commands, rejects new submissions and wakes waiters
-  with -1. The fixture stop watcher schedules JavaFX shutdown. The engine closes JNI admission before it releases host resources.
+  with -1. The Glass frame receiver schedules JavaFX shutdown on the event thread when its wait returns -1. Scene fixtures use that same receiver. A second exit request could let Application.launch return before Glass closed its peers. The engine closes JNI admission before it releases host resources.
 - A Java process can claim one engine instance.
 
 ## Version 1 wire format
@@ -820,3 +826,6 @@ Java 编码器负责完整绘制、缓存引用及几何淘汰的容量检查，
 完整未带纹理 QUADS 含命令头共 `48 + 32 × 顶点数` 字节，QUADS_REF 为 52 字节，
 GEOMETRY_FREE 为 16 字节；剩余空间不足或命令数量已到 65536 时先提交当前批次。
 本次修复未改变线上格式、4 MiB 批次限制或资源预算。
+
+
+On Linux, the experimental LCD region-copy path emits opcode 31 with four little-endian unsigned 32-bit fields (x, y, width, height) in target pixels. The selected offscreen render target must be live, its pass open and the nonempty rectangle fully inside it. The consumer inserts a backbuffer copy at the current canvas draw index. Subsequent LCD glyphs can sample preceding draws, including overlapping text. On native Wayland with Mesa D3D12 OpenGL, Prism selects a region copy for unclipped text when its padded rectangle occupies at most 1/32 of the target. Other samples use the existing pass boundary. On Linux, setting `GODOT_JFX_LCD_REGION_COPY=1` requests region copies for all eligible text, and `0` selects pass boundaries throughout. The native protocol test covers malformed rectangles, target bounds, default-target rejection and atomic retry.

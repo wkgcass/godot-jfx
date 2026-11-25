@@ -24,6 +24,7 @@ public final class PanScrollProbe extends Application {
 
     private final List<List<Double>> samples = new ArrayList<>();
     private int phase = -1, tick;
+    private double travel;
     private static int scrollEvents;
 
     @Override public void start(Stage stage) {
@@ -38,6 +39,8 @@ public final class PanScrollProbe extends Application {
                 if (scrollEvents < 5 || scrollEvents % 200 == 0)
                     System.out.println("PAN_EVT n=" + scrollEvents + " deltaY=" + e.getDeltaY() + " total=" + e.getTotalDeltaY() + " type=" + e.getEventType());
                 ++scrollEvents;
+                if (phase == 0) travel -= e.getDeltaY();
+                if (phase == 2) travel += e.getDeltaY();
             });
             stage.setScene(new Scene(scroll, 400, 300));
             stage.setTitle("PanScroll ready");
@@ -46,8 +49,14 @@ public final class PanScrollProbe extends Application {
                 @Override public void handle(long now) {
                     try {
                         if (phase >= 0) samples.get(phase).add(scroll.getVvalue());
-                        if (++tick >= LENGTHS[Math.max(phase, 0)] || phase < 0) {
+                        // JavaFX pulses and Godot input frames can run at different
+                        // rates. Inject enough distance to traverse the content before
+                        // checking that the skin clamps at the exact boundary.
+                        double extent = content.getHeight() - scroll.getViewportBounds().getHeight();
+                        boolean enoughTravel = (phase != 0 && phase != 2) || travel >= extent + 8;
+                        if (phase < 0 || (++tick >= LENGTHS[phase] && enoughTravel)) {
                             tick = 0;
+                            travel = 0;
                             if (phase == PHASES.length - 1) {
                                 verify(scroll);
                                 complete = true;

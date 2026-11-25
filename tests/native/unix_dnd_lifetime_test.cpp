@@ -1,4 +1,8 @@
+#ifdef __linux__
+#include "linux_dnd.h"
+#else
 #include "macos_dnd.h"
+#endif
 #include <iostream>
 #include <stdexcept>
 

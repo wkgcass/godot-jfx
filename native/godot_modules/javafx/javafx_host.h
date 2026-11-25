@@ -6,6 +6,8 @@
 #include "windows_dnd.h"
 #elif defined(MACOS_ENABLED)
 #include "macos_dnd.h"
+#elif defined(LINUXBSD_ENABLED)
+#include "linux_dnd.h"
 #endif
 #include "prism_mesh.h"
 
@@ -19,6 +21,8 @@ namespace godot_javafx { struct Runtime; }
 namespace godot_javafx { namespace platform_dnd = windows_dnd; }
 #elif defined(MACOS_ENABLED)
 namespace godot_javafx { namespace platform_dnd = macos_dnd; }
+#elif defined(LINUXBSD_ENABLED)
+namespace godot_javafx { namespace platform_dnd = linux_dnd; }
 #endif
 
 class CanvasLayer;
@@ -56,6 +60,7 @@ class JavaFXHost : public JavaFXWindowSurface {
 	uint64_t hover_tap_last_tex_mem = 0, hover_tap_last_buf_mem = 0;
 	uint64_t profile_texture_us = 0, profile_target_us = 0, profile_geometry_us = 0, profile_shader_us = 0;
 	uint64_t profile_shader_creations = 0;
+	uint64_t profile_retained_draws = 0;
 	bool compose_target = false;
 	int64_t pending_window_id = 0;
 	bool pending_window_native = false;
@@ -106,8 +111,9 @@ class JavaFXHost : public JavaFXWindowSurface {
 	struct NativeWindowEntry {
 		JavaFXNativeWindow *window;
 		int64_t owner;
+		bool modal_hint = false;
 		bool input_enabled = true;
-#if defined(WINDOWS_ENABLED)
+#if defined(WINDOWS_ENABLED) || defined(LINUXBSD_ENABLED)
 		bool owned_topmost = false;
 #endif
 		bool ime_enabled = false;
@@ -128,6 +134,11 @@ class JavaFXHost : public JavaFXWindowSurface {
 	// OLE drag-in handlers per hosted Window, installed as DisplayServerWindows
 	// drag delegates on Windows; the delegate userdata points at the TargetHandler.
 	std::map<Window *, std::unique_ptr<godot_javafx::platform_dnd::TargetHandler>> drag_targets;
+#ifdef LINUXBSD_ENABLED
+	DisplayServerEnums::WindowID wayland_drag_window = DisplayServerEnums::INVALID_WINDOW_ID;
+	void remove_linux_drag_target(Window *p_window);
+	void finish_linux_drag(uint32_t effect);
+#endif
 	void refresh_drag_delegates();
 	void run_dnd_source(std::unique_ptr<godot_javafx::platform_dnd::SourceData> p_data);
 	void apply_native_window_commands();
@@ -207,7 +218,7 @@ public:
 	int64_t get_backpressure_count() const;
 	Dictionary get_render_stats() const;
 	bool has_pending_readback() const;
-	Dictionary get_custom_cursor_info() const { return custom_cursor_info; }
+	Dictionary get_custom_cursor_info() const;
 	Dictionary get_window_icon_info(int64_t p_id) const;
 	bool is_ime_active() const { return ime_enabled; }
 	void update_ime_composition(const String &p_text, int p_caret);

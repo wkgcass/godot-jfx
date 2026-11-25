@@ -45,13 +45,8 @@ public final class GodotSceneFixture {
             Thread.currentThread().setContextClassLoader(ClassLoader.getSystemClassLoader());
         }
         GodotBootstrap.fixtureReady();
-        Thread stopWatcher = new Thread(() -> {
-            long tick = 0;
-            while ((tick = GodotBridge.awaitTick(tick, 1000)) >= 0) { }
-            Platform.exit();
-        }, "Godot JavaFX shutdown watcher");
-        stopWatcher.setDaemon(true);
-        stopWatcher.start();
+        // Glass starts its frame receiver before launching the FX application.
+        // It posts Platform.exit on host stop so the launcher can finish teardown once.
         try {
             Class.forName(mainClass).getMethod("main", String[].class)
                     .invoke(null, (Object) new String[0]);

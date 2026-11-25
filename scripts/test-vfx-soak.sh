@@ -1,15 +1,12 @@
 #!/bin/sh
-# macOS equivalent of test-vfx-soak.ps1. Process memory sampling uses ps(1)
-# (RSS, standing in for working set) and /dev/fd counts instead of the Windows
-# process APIs; the pass criteria (navigation samples, completion, cleanup)
-# are unchanged.
-# Usage: test-vfx-soak.sh [--driver metal|opengl] [--rounds 1..20] [--heap-mib 128..4096] [--jdk DIRECTORY]
+# Unix VFX navigation, cleanup and process-memory observations.
+# Usage: test-vfx-soak.sh [--driver vulkan|metal|opengl] [--rounds 1..20] [--heap-mib 128..4096] [--jdk DIRECTORY]
 set -u
 . "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 ROUNDS=3
 HEAP=256
 while [ $# -gt 0 ]; do
@@ -21,7 +18,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 [ "$ROUNDS" -ge 1 ] && [ "$ROUNDS" -le 20 ] || { echo "invalid rounds: $ROUNDS" >&2; exit 2; }
 [ "$HEAP" -ge 128 ] && [ "$HEAP" -le 4096 ] || { echo "invalid heap MiB: $HEAP" >&2; exit 2; }
 
@@ -50,16 +47,30 @@ TIMEOUT=$((120 + ROUNDS * PAGES * 8))
 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://vfx_soak.tscn \
     --render-thread safe >"$LOG" 2>"$ERR" &
 PID=$!
-SAMPLES=""
+SAMPLES="agentdir/logs/$STEM.samples.jsonl"
+: >"$SAMPLES"
+if [ -r /proc/uptime ]; then read -r START_UPTIME _ </proc/uptime; fi
 ELAPSED=0
 TIMED_OUT=0
 while kill -0 "$PID" 2>/dev/null; do
-    RSS=$(ps -o rss= -p "$PID" 2>/dev/null | tr -d ' ')
-    if [ -n "$RSS" ]; then
-        # macOS ps exposes only RSS; it stands in for both memory fields and
-        # no cheap per-process handle count exists. These samples are for trend
-        # analysis only, not pass criteria.
-        SAMPLES="$SAMPLES{\"elapsed_ms\":$((ELAPSED * 1000)),\"private_bytes\":$((RSS * 1024)),\"working_set\":$((RSS * 1024)),\"handles\":0},"
+    if [ "$native_driver" = vulkan ]; then
+        # The fixture launcher execs java. Ignore its preparatory Python process.
+        if [ "$(readlink "/proc/$PID/exe" 2>/dev/null)" = "$(readlink -f "$JDK/bin/java")" ]; then
+            read -r uptime _ </proc/uptime
+            descriptors=$(find "/proc/$PID/fd" -mindepth 1 -maxdepth 1 -printf . 2>/dev/null | wc -c)
+            awk -v start="$START_UPTIME" -v now="$uptime" -v unix_ns="$(date +%s%N)" -v descriptors="$descriptors" '
+                $1 == "Rss:" { rss = $2 }
+                $1 == "Private_Clean:" || $1 == "Private_Dirty:" || $1 == "Private_Hugetlb:" { private_kib += $2 }
+                END { if (rss && descriptors) printf "{\"elapsed_ms\":%.0f,\"unix_ms\":%.0f,\"private_bytes\":%.0f,\"working_set\":%.0f,\"handles\":%d}\n",
+                    (now-start)*1000, unix_ns/1000000, private_kib*1024, rss*1024, descriptors }
+            ' "/proc/$PID/smaps_rollup" 2>/dev/null >>"$SAMPLES"
+        fi
+    else
+        RSS=$(ps -o rss= -p "$PID" 2>/dev/null | tr -d ' ')
+        if [ -n "$RSS" ]; then
+            printf '{"elapsed_ms":%d,"private_bytes":%d,"working_set":%d,"handles":0}\n' \
+                "$((ELAPSED * 1000))" "$((RSS * 1024))" "$((RSS * 1024))" >>"$SAMPLES"
+        fi
     fi
     if [ "$ELAPSED" -gt "$TIMEOUT" ]; then
         kill "$PID" 2>/dev/null || true
@@ -86,7 +97,8 @@ PASS=0
 python3 - "$COMBINED" "$REPORT" "$CODE" "$EXPECTED" "$ROUNDS" "$PAGES" "$HEAP" "$PID" "$SAMPLES" <<'EOF' || PASS=$?
 import json, re, sys
 log_path, report_path, code, expected, rounds, pages, heap_mib, pid = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5]), int(sys.argv[6]), int(sys.argv[7]), int(sys.argv[8])
-samples_raw = sys.argv[9].rstrip(",")
+with open(sys.argv[9], encoding="utf-8") as f:
+    process_samples = [json.loads(line) for line in f]
 output = open(log_path, encoding="utf-8", errors="replace").read()
 native = [json.loads(m.group(1)) for m in re.finditer(r"(?m)^VFX_SOAK_SAMPLE (\{[^\r\n]+\})", output)]
 java = [{"page": int(p), "heap_used": int(h), "gc_count": int(g)} for p, h, g in
@@ -94,9 +106,9 @@ java = [{"page": int(p), "heap_used": int(h), "gc_count": int(g)} for p, h, g in
 passed = (code == 0 and "VFX_SOAK_PASS" in output and len(native) == expected and len(java) == expected
           and not re.search(r"(?m)^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)|OutOfMemoryError|uncaught:", output))
 report = {"navigation_and_cleanup_passed": passed, "memory_acceptance": "requires trend analysis",
-          "sampled_process_id": pid, "sampled_executable": "java",
+          "sampled_process_id": pid, "sampled_executable": "java" if process_samples else None,
           "rounds": rounds, "pages": pages, "forced_gc": False, "heap_limit_mib": heap_mib,
-          "process_samples": json.loads("[" + samples_raw + "]") if samples_raw else [],
+          "process_samples": process_samples,
           "native_samples": native, "java_samples": java}
 with open(report_path, "w", encoding="utf-8") as f:
     json.dump(report, f, indent=2)

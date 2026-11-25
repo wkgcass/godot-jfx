@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare source submodules, local build tools and media test samples for Windows x64 and macOS arm64."""
+"""Prepare local build tools, source submodules and media samples for supported hosts."""
 import argparse
 import hashlib
 import json
@@ -135,7 +135,7 @@ def prepare_venv(windows):
     python = home / ("Scripts/python.exe" if windows else "bin/python3")
     if not python.is_file():
         bootstrap = sys.executable
-        if not windows and sys.version_info[:2] != (3, 13):
+        if sys.platform == "darwin" and sys.version_info[:2] != (3, 13):
             bootstrap = shutil.which("python3.13")
             if not bootstrap:
                 raise ValueError("Install Python 3.13 to create .tools/pyenv")
@@ -145,13 +145,13 @@ def prepare_venv(windows):
              "print(json.dumps([sys.prefix, sys.version_info[:2], "
              "{d.metadata['Name'].lower(): d.version for d in distributions()}]))")
     prefix, version, installed = json.loads(subprocess.check_output([python, "-I", "-c", probe], text=True))
-    if Path(prefix).resolve() != home.resolve() or (not windows and version != [3, 13]):
+    if Path(prefix).resolve() != home.resolve() or (sys.platform == "darwin" and version != [3, 13]):
         raise ValueError(f"Unexpected virtual environment or Python version at {home}")
     requirements = []
-    if windows and installed.get("scons") != "4.10.1":
+    if (windows or sys.platform == "linux") and installed.get("scons") != "4.10.1":
         requirements.append("scons==4.10.1")
     if not windows:
-        if not installed.get("scons", "").startswith("4.11."):
+        if sys.platform == "darwin" and not installed.get("scons", "").startswith("4.11."):
             requirements.append("scons==4.11.*")
         requirements.extend(name for name in ("zstandard", "pillow") if name not in installed)
     if requirements:
@@ -159,6 +159,61 @@ def prepare_venv(windows):
                         "--no-cache-dir", *requirements], check=True)
     else:
         print(f"Reusing Python dependencies in {home}")
+
+
+def prepare_wsl_dzn():
+    override = os.environ.get("WSL_DZN_ROOT")
+    destination = Path(override) if override else TOOLS / "linux/dzn/mesa"
+    files = (Path("usr/share/vulkan/icd.d/dzn_icd.json"),
+             Path("usr/lib/x86_64-linux-gnu/libvulkan_dzn.so"))
+
+    def ready(folder):
+        return all((folder / name).is_file() for name in files)
+
+    if ready(destination):
+        print(f"Reusing WSL Vulkan driver in {destination}")
+        return
+    if override or destination.exists():
+        raise ValueError(f"Expected dzn_icd.json and libvulkan_dzn.so under {destination}")
+    release = platform.freedesktop_os_release()
+    if release.get("ID") != "ubuntu" or not release.get("VERSION_CODENAME"):
+        print("For Vulkan on this WSL distribution, provide a compatible driver via WSL_DZN_ROOT")
+        return
+
+    # Keep the PPA, its signing key and package indexes private to this download.
+    with TemporaryDirectory(dir="/tmp") as temp:
+        apt = Path(temp)
+        for name in ("apt.conf.d", "preferences.d"):
+            (apt / name).mkdir()
+        shutil.copyfile(ROOT / "scripts/keys/kisak-mesa.asc", apt / "kisak.asc")
+        (apt / "sources.list").write_text(
+            f"deb [arch=amd64 signed-by={apt}/kisak.asc] "
+            f"https://ppa.launchpadcontent.net/kisak/kisak-mesa/ubuntu {release['VERSION_CODENAME']} main\n")
+        config = apt / "apt.conf"
+        config.write_text(f'Dir::Etc "{apt}";\nDir::State "{apt}";\nDir::Cache "{apt}";\n'
+                          'Dir::State::status "/dev/null";\nAcquire::Languages "none";\n'
+                          'Acquire::Retries "3";\nAPT::Update::Error-Mode "any";\n')
+        env = dict(os.environ, APT_CONFIG=str(config))
+        subprocess.run(["apt-get", "update"], env=env, cwd=apt, check=True)
+        subprocess.run(["apt-get", "download", "mesa-vulkan-drivers:amd64"], env=env, cwd=apt, check=True)
+        package, = apt.glob("mesa-vulkan-drivers_*_amd64.deb")
+        unpacked = apt / "unpacked"
+        subprocess.run(["dpkg-deb", "--extract", package, unpacked], check=True)
+        if not ready(unpacked):
+            raise ValueError(f"{package.name} does not contain the expected Dozen ICD")
+
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=destination.parent) as staging:
+            driver = Path(staging) / "mesa"
+            for name in (*files, Path("usr/share/doc/mesa-vulkan-drivers/copyright")):
+                (driver / name).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(unpacked / name, driver / name)
+            try:
+                driver.rename(destination)
+            except OSError:
+                if not ready(destination):  # Another setup may have published the driver.
+                    raise
+        print(f"Prepared WSL Vulkan driver from {package.name} in {destination}")
 
 
 def prepare_windows():
@@ -188,8 +243,8 @@ def prepare_windows():
 
 def main():
     windows = sys.platform == "win32" and platform.machine().lower() in ("amd64", "x86_64")
-    if not windows and (sys.platform != "darwin" or platform.machine() != "arm64"):
-        raise ValueError("Run setup on Windows x64 or macOS arm64")
+    if not windows and (sys.platform, platform.machine()) not in (("darwin", "arm64"), ("linux", "x86_64")):
+        raise ValueError("Run setup on Windows x64, macOS arm64 or Linux x64")
     if windows:
         pwsh = shutil.which("pwsh.exe")
         if not pwsh or subprocess.run([pwsh, "-NoProfile", "-Command",
@@ -200,6 +255,8 @@ def main():
     prepare_venv(windows)
     if windows:
         prepare_windows()
+    elif sys.platform == "linux" and Path("/dev/dxg").is_char_device():
+        prepare_wsl_dzn()
     for name in SAMPLES:
         media_sample(name, download=True)
     print(f"Build tools ready in {TOOLS}")

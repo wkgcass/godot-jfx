@@ -2,6 +2,8 @@ import io.vproxy.vfx.intro.*;
 import io.vproxy.vfx.theme.Theme;
 import io.vproxy.vfx.ui.scene.*;
 import io.vproxy.vfx.control.drag.DragHandler;
+import io.vproxy.vfx.ui.button.FusionButton;
+import javafx.scene.control.CheckBox;
 import io.vproxy.vfx.manager.task.TaskManager;
 import io.vproxy.vfx.control.globalscreen.GlobalScreenUtils;
 import javafx.animation.AnimationTimer;
@@ -68,8 +70,9 @@ public final class VfxTableScrollProbe extends IntroFXMain {
                                     double x, double y, boolean pressed) {
         var screen = node.localToScreen(x, y);
         require(screen != null, "Drag target has no screen coordinates");
-        return new MouseEvent(node, node, type, x, y, screen.getX(), screen.getY(), MouseButton.PRIMARY, 1,
-                false, false, false, false, pressed, false, false, false, false, false, null);
+        var scene = node.localToScene(x, y);
+        return new MouseEvent(null, node, type, scene.getX(), scene.getY(), screen.getX(), screen.getY(), MouseButton.PRIMARY, 1,
+                false, false, false, false, pressed, false, false, false, false, false, null).copyFor(node, node);
     }
 
     static ThreadStackSampler sampler;
@@ -105,12 +108,18 @@ public final class VfxTableScrollProbe extends IntroFXMain {
                     + " prism=" + com.sun.prism.GraphicsPipeline.getPipeline().getClass().getName());
             var sf = IntroFXMain.class.getDeclaredField("mainScenes"); sf.setAccessible(true);
             var gf = IntroFXMain.class.getDeclaredField("sceneGroup"); gf.setAccessible(true);
-            var page = ((List<?>) sf.get(this)).stream()
+            var pages = (List<?>) sf.get(this);
+            var page = pages.stream()
                     .map(s -> (VScene) s)
                     .filter(s -> s.getClass().getSimpleName().equals("_06cVTableViewDemo2Scene"))
                     .findFirst().orElseThrow();
             var group = (VSceneGroup) gf.get(this);
-            group.show(page, VSceneShowMethod.FROM_RIGHT);
+            boolean lens = "1".equals(System.getenv("GODOT_JFX_TABLE_BLACKHOLE"));
+            if (lens) {
+                ((FusionButton)stage.getScene().lookup("#intro-menu-button")).getOnAction().handle(null);
+            } else {
+                group.show(page, VSceneShowMethod.FROM_RIGHT);
+            }
             driver = new AnimationTimer() {
                 final long started = System.nanoTime();
                 final long deadline = started + 120_000_000_000L;
@@ -125,6 +134,7 @@ public final class VfxTableScrollProbe extends IntroFXMain {
                 final List<Long> idleGaps = new ArrayList<>();
                 long previous, finish;
                 int step, idleStep;
+                boolean lensSelected;
                 final int total = sweeps() * 32;
                 @Override public void handle(long now) {
                     if (finish != 0) {
@@ -133,6 +143,17 @@ public final class VfxTableScrollProbe extends IntroFXMain {
                     }
                     try {
                         require(now < deadline, "Table scroll timeout");
+                        if (lens && !lensSelected) {
+                            var toggle = (CheckBox)stage.getScene().lookup("#blackhole-effect-toggle");
+                            if (toggle == null) return;
+                            toggle.fire();
+                            require(toggle.isSelected(), "Blackhole checkbox was not selected");
+                            toggle.getParent().getChildrenUnmodifiable().stream()
+                                .filter(FusionButton.class::isInstance).map(FusionButton.class::cast)
+                                .skip(pages.indexOf(page)).findFirst().orElseThrow().getOnAction().handle(null);
+                            lensSelected = true;
+                            return;
+                        }
                         if (container == null) {
                             if (now - started < 3_000_000_000L || group.getCurrentMainScene() != page) return;
                             var handlers = new ArrayList<Map.Entry<Node, Integer>>();
@@ -153,6 +174,11 @@ public final class VfxTableScrollProbe extends IntroFXMain {
                             require(container != null && !container.getChildren().isEmpty(), "Viewport has no content");
                             baseY = (bounds.getMinY() + bounds.getMaxY()) / 2;
                             nodeHeight = bounds.getHeight();
+                            if (lens) {
+                                target.fireEvent(event(MouseEvent.MOUSE_MOVED, target, 10, nodeHeight / 2, false));
+                                require(group.getNode().getEffect() instanceof javafx.scene.effect.GodotShaderEffect,
+                                    "Blackhole effect did not attach to the table scene group");
+                            }
                             stage.setTitle("VfxTableScroll IDLE");
                             previous = now;
                             return;
@@ -219,9 +245,11 @@ public final class VfxTableScrollProbe extends IntroFXMain {
                         int phase = step % 32, sweep = step / 32;
                         double offset = (sweep % 2 == 0 ? -phase : phase) * 25.0;
                         double before = position();
-                        target.getOnMouseDragged().handle(event(MouseEvent.MOUSE_DRAGGED, target,
+                        var motion = event(MouseEvent.MOUSE_DRAGGED, target,
                                 HORIZONTAL ? 10 + offset : 10,
-                                HORIZONTAL ? nodeHeight / 2 : nodeHeight / 2 + offset, true));
+                                HORIZONTAL ? nodeHeight / 2 : nodeHeight / 2 + offset, true);
+                        if (lens) target.fireEvent(motion);
+                        else target.getOnMouseDragged().handle(motion);
                         displaced += Math.abs(position() - before);
                     } else {
                         // The Godot side drives the real events; observe the

@@ -429,6 +429,7 @@ Dictionary JavaFXRenderSurface::get_texture_resource_stats() const {
 	result["live"] = live; result["retired_targets"] = retired;
 	result["surface_meshes"] = get_cached_mesh_count();
 	result["shared_target_meshes"] = shared_target_meshes;
+	result["shared_target_shaders"] = JavaFXRenderTarget::get_shared_shader_count();
 	result["retired_textures"] = int64_t(retired_textures.size());
 	return result;
 }

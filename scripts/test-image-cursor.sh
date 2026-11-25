@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
 runtime=""
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -17,7 +17,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -36,8 +36,10 @@ mkdir -p artifacts/reference agentdir/logs
 
 LOG="agentdir/logs/image_cursor-$DRIVER-$RENDER_THREAD$runtime.log"
 CODE=0
+# On WSLg an uncapped fixture can consume 3000 frames in under 15 seconds.
+# Leave the scene's 40-second wall-clock deadline time to report the failing step.
 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" ${runtime:+--runtime} --path tests/godot res://image_cursor.tscn \
-    --render-thread "$RENDER_THREAD" --quit-after 3000 >"$LOG" 2>&1 || CODE=$?
+    --render-thread "$RENDER_THREAD" --max-fps 60 --quit-after 3600 >"$LOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'IMAGE_CURSOR_PROBE_PASS' "$LOG" \
     || ! grep -q 'GODOT_IMAGE_CURSOR_PASS' "$LOG" \

@@ -5,7 +5,7 @@ set -u
 . "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
-DRIVER="metal"
+DRIVER="$native_driver"
 CACHE_PRESSURE=0
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -15,7 +15,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 mkdir -p agentdir/logs

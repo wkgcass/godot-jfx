@@ -8,7 +8,7 @@
 #include "scene/resources/world_2d.h"
 #if defined(WINDOWS_ENABLED)
 #include "platform/windows/key_mapping_windows.h"
-#elif defined(MACOS_ENABLED)
+#elif defined(MACOS_ENABLED) || defined(LINUXBSD_ENABLED)
 #include "vk_key_map.h"
 #endif
 
@@ -112,7 +112,7 @@ void JavaFXSceneView::dispatch_input(uint32_t p_kind, uint32_t p_flags, uint32_t
 		// Java sends JavaFX KeyCode values, which mirror Win32 virtual-key codes.
 #if defined(WINDOWS_ENABLED)
 		key->set_keycode(KeyMappingWindows::get_keysym(p_code));
-#elif defined(MACOS_ENABLED)
+#elif defined(MACOS_ENABLED) || defined(LINUXBSD_ENABLED)
 		key->set_keycode(godot_javafx::vk_to_godot_key(p_code));
 #endif
 		key->set_unicode(p_unicode); key->set_pressed(pressed);

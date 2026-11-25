@@ -30,3 +30,11 @@ case "$JAVA_HOME" in
     *) JAVA_HOME=$(CDPATH= cd "$JAVA_HOME" && pwd -P) || exit 1 ;;
 esac
 export JAVA_HOME
+case "$(uname -s)" in
+    Linux) native_driver=vulkan; native_prism=es2; source_editor=godot.linuxbsd.editor.x86_64 ;;
+    Darwin) native_driver=metal; native_prism=mtl; source_editor=godot.macos.editor.arm64 ;;
+    *) echo "Unsupported Unix desktop platform" >&2; exit 2 ;;
+esac
+check_desktop_driver() {
+    case "$1" in "$native_driver"|opengl) ;; *) echo "expected --driver $native_driver or opengl" >&2; return 2 ;; esac
+}

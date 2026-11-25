@@ -1,12 +1,18 @@
 #!/bin/sh
-# macOS equivalent of run-vfx-demo.ps1.
-# Usage: run-vfx-demo.sh [--smoke] [--driver metal|opengl] [--render-thread safe] [--no-godot-logo] [--disable-vsync] [--max-fps N] [--jdk DIRECTORY]
+# Unix launcher for the packaged VFX demo.
+# Usage: run-vfx-demo.sh [--smoke] [--driver vulkan|metal|opengl] [--render-thread safe] [--no-godot-logo] [--disable-vsync] [--max-fps N] [--jdk DIRECTORY]
 set -u
 . "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+platform=$(uname -s)
+case "$platform" in
+    Linux) NATIVE_DRIVER=vulkan ;;
+    Darwin) NATIVE_DRIVER=metal ;;
+    *) echo "Unsupported platform" >&2; exit 2 ;;
+esac
+DRIVER=$NATIVE_DRIVER
 RENDER_THREAD="safe"
 SMOKE=0
 STARTUP="logo"
@@ -16,7 +22,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --smoke) SMOKE=1 ;;
         --driver)
-            case "${2-}" in metal|opengl) DRIVER="$2" ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+            case "${2-}" in "$NATIVE_DRIVER"|opengl) DRIVER="$2" ;; *) echo "expected --driver $NATIVE_DRIVER or opengl" >&2; exit 2 ;; esac
             shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --no-godot-logo) STARTUP="hidden" ;;
@@ -47,6 +53,9 @@ if [ "$DISABLE_VSYNC" -eq 1 ]; then
     [ "$MAX_FPS" -gt 0 ] || MAX_FPS=60
 fi
 [ "$MAX_FPS" -eq 0 ] || set -- "$@" --max-fps "$MAX_FPS"
+if [ "$platform" = Linux ] && [ -c /dev/dxg ]; then
+    set -- scripts/wsl-gpu.sh "$DRIVER" "$@"
+fi
 "$@" > "$LOG" 2>&1
 CODE=$?
 if [ "$CODE" -ne 0 ]; then echo "VFX Demo failed (native exit $CODE): $LOG" >&2; exit 1; fi

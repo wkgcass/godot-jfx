@@ -10,7 +10,8 @@ case "$#" in
     *) exit 2 ;;
 esac
 mkdir -p artifacts/native-tests
-clang++ -std=c++17 -Wall -Wextra -Werror -O2 $flags -I native/godot_modules/javafx \
-    -I "$jdk/include" -I "$jdk/include/darwin" tests/native/macos_dnd_lifetime_test.cpp \
-    -o artifacts/native-tests/macos_dnd_lifetime_test
-exec artifacts/native-tests/macos_dnd_lifetime_test
+case "$(uname -s)" in Linux) jni=linux ;; Darwin) jni=darwin ;; *) exit 2 ;; esac
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -O2 -pthread $flags -I native/godot_modules/javafx \
+    -I "$jdk/include" -I "$jdk/include/$jni" tests/native/unix_dnd_lifetime_test.cpp \
+    -o artifacts/native-tests/unix_dnd_lifetime_test
+exec artifacts/native-tests/unix_dnd_lifetime_test

@@ -1,0 +1,28 @@
+output "winit" {
+    scale 1
+}
+layout {
+    gaps 0
+    focus-ring { off; }
+    border { off; }
+}
+animations { off; }
+prefer-no-csd
+window-rule {
+    open-floating true
+    default-floating-position x=40 y=260 relative-to="top-left"
+}
+window-rule {
+    match title="^Drag target fixture$"
+    default-floating-position x=780 y=300 relative-to="top-left"
+}
+window-rule {
+    match title="^Drag source fixture$"
+    default-floating-position x=1140 y=300 relative-to="top-left"
+}
+// Let GTK receive keyboard focus before it obtains its drag button serial.
+input { focus-follows-mouse; }
+cursor {
+    xcursor-theme "DragMeasurement"
+    xcursor-size 64
+}

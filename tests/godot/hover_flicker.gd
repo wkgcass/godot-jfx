@@ -35,6 +35,8 @@ func _ready() -> void:
 		push_error("Hover flicker probe failed"); get_tree().quit(1); return
 	var hold_frames := 0
 	var flicker_frames := 0
+	var plain_hold_samples := {}
+	var plain_hold_misses := {}
 	var settle := 8 # hover repaint landing at a hold boundary is legal
 	var fusion_hold := 0
 	var fusion_hold_bright := 0
@@ -125,9 +127,14 @@ func _ready() -> void:
 						break
 				if found: break
 			hold_frames += 1
+			plain_hold_samples[title] = plain_hold_samples.get(title, 0) + 1
 			if not found:
+				plain_hold_misses[title] = plain_hold_misses.get(title, 0) + 1
 				if settle > 0: settle -= 1
 				else: flicker_frames += 1
+	for phase_title in plain_hold_samples:
+		print("HOVER_PLAIN_PHASE title=", phase_title, " samples=", plain_hold_samples[phase_title],
+				" missing_green=", plain_hold_misses.get(phase_title, 0))
 	print("HOVER_PIXEL_STATS hold_frames=", hold_frames, " flicker_frames=", flicker_frames,
 			" fusion_hold=", fusion_hold, " fusion_hold_bright=", fusion_hold_bright,
 			" fusion_gap=", fusion_gap, " fusion_gap_dark=", fusion_gap_dark)

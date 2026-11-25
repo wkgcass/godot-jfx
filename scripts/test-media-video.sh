@@ -22,10 +22,10 @@ done
 if [ "$NATIVE" -eq 1 ] && [ -n "$DRIVER$runtime" ]; then
     echo "--driver and --runtime require the Godot backend" >&2; exit 2
 fi
-DRIVER=${DRIVER:-metal}
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+DRIVER=${DRIVER:-$native_driver}
+check_desktop_driver "$DRIVER" || exit 2
 BACKEND=$DRIVER
-if [ "$NATIVE" -eq 1 ]; then BACKEND=native-mtl; fi
+if [ "$NATIVE" -eq 1 ]; then BACKEND=native-$native_prism; fi
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
@@ -65,7 +65,7 @@ export GODOT_JFX_MEDIA_CAPTURE="$PWD/artifacts/reference/media-video-$BACKEND$ru
 LOG="agentdir/logs/media-video-$BACKEND$runtime$suffix.log"
 CODE=0
 if [ "$NATIVE" -eq 1 ]; then
-    set -- "$JDK/bin/java" -Dglass.platform=Mac -Dprism.order=mtl --module-path jfx/build/sdk/lib \
+    set -- python3 "$PWD/scripts/native_prism.py" "$JDK/bin/java" --module-path jfx/build/sdk/lib \
         --add-modules javafx.controls,javafx.media,javafx.swing --enable-native-access=javafx.graphics,javafx.media,ALL-UNNAMED \
         -cp artifacts/reference MediaVideoProbe
 else

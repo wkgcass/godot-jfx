@@ -18,9 +18,31 @@ else:
 jdk = os.environ.get("JAVA_HOME", "")
 if not os.path.isfile(os.path.join(jdk, "include", "jni.h")):
     raise RuntimeError("JavaFX module requires JAVA_HOME pointing to an installed JDK")
-jni_platform_dir = "darwin" if env["platform"] == "macos" else "win32"
+jni_platform_dir = {"macos": "darwin", "windows": "win32", "linuxbsd": "linux"}[env["platform"]]
 env_javafx.Append(CPPPATH=[os.path.join(jdk, "include"), os.path.join(jdk, "include", jni_platform_dir)])
+if env["platform"] == "linuxbsd":
+    env_javafx.ParseConfig("pkg-config --cflags gtk+-3.0")
+    env.ParseConfig("pkg-config --libs gtk+-3.0")
+    env_javafx.ParseConfig("pkg-config --cflags wayland-client xkbcommon")
+    env.ParseConfig("pkg-config --libs wayland-client xkbcommon")
+    robot_headers = []
+    robot_sources = []
+    generated = env.Dir("#bin/obj/javafx_wayland_protocols")
+    env_javafx.Append(CPPPATH=[generated])
+    for xml in env_javafx.Glob("wayland_robot/protocol/*.xml"):
+        name = os.path.splitext(xml.name)[0]
+        robot_headers += env_javafx.Command(generated.File(name + ".h"), xml,
+                                           'wayland-scanner client-header "$SOURCE" "$TARGET"')
+        robot_sources += env_javafx.Command(generated.File(name + ".c"), xml,
+                                           'wayland-scanner private-code "$SOURCE" "$TARGET"')
+    env_javafx.add_source_files(env.modules_sources, robot_sources)
+    robot_objects = []
+    env_javafx.add_source_files(robot_objects, "wayland_robot/*.cpp")
+    env_javafx.Depends(robot_objects, robot_headers)
+    env.modules_sources.extend(robot_objects)
 env_javafx.add_source_files(env.modules_sources, "*.cpp")
+if env["platform"] == "linuxbsd":
+    env.Append(LINKFLAGS=["-Wl,-u,Java_com_sun_javafx_tk_godot_LibraryGodotEngine_run"])
 if env["platform"] == "windows" and env["library_type"] == "shared_library" and env.msvc:
     # JNI enters this archive member by name from Java.
     env.Append(LINKFLAGS=["/INCLUDE:Java_com_sun_javafx_tk_godot_LibraryGodotEngine_run"])

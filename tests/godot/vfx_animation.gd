@@ -1,5 +1,36 @@
 extends Node2D
 
+func is_animation_red(color:Color) -> bool:
+	return color.r>0.9 and color.g<0.1 and color.b<0.1
+
+func measure_red_point(image:Image) -> Dictionary:
+	# The demo uses a radius-10 red circle. Find it cheaply, then measure its
+	# actual pixels so translating it by one pixel cannot change its centroid
+	# or eligibility simply by moving it between sample grid lines.
+	var radius:=10.0*DisplayServer.screen_get_scale(get_window().current_screen)
+	var extent:=ceili(2*radius)+1
+	for y in range(0,image.get_height(),8):
+		for x in range(0,image.get_width(),8):
+			if not is_animation_red(image.get_pixel(x,y)):continue
+			var counts:=PackedInt32Array()
+			counts.resize(64)
+			var total:=0
+			var strongest:=0
+			var sum:=Vector2.ZERO
+			for py in range(maxi(0,y-extent),mini(image.get_height(),y+extent+1)):
+				for px in range(maxi(0,x-extent),mini(image.get_width(),x+extent+1)):
+					if is_animation_red(image.get_pixel(px,py)):
+						total+=1
+						sum+=Vector2(px,py)
+						var offset:=(py%8)*8+px%8
+						counts[offset]+=1
+						strongest=maxi(strongest,counts[offset])
+			# Keep the original five stride-eight hits; also require a filled
+			# interior consistent with the point size after antialiasing.
+			if strongest>=5 and total>=PI*pow(maxf(radius-2.0,1.0),2):
+				return {"center":sum/total,"pixels":total,"samples":strongest}
+	return {}
+
 func write_motion_report(samples:Array,passed:bool) -> void:
 	var report:=FileAccess.open(ProjectSettings.globalize_path("res://../../artifacts/reference/vfx-animation-motion.json"),FileAccess.WRITE)
 	report.store_string(JSON.stringify({"passed":passed,"samples":samples,"minimum_displacement_pixels":20,"scope":"GPU motion evidence; synchronous readback prevents FPS claims"},"\t"))
@@ -50,25 +81,19 @@ func _ready() -> void:
 				sampled_presentation=presentation
 			var image:=get_viewport().get_texture().get_image()
 			if step==3 or step==7:
-				var red:=0
-				var sum:=Vector2.ZERO
-				for y in range(0,image.get_height(),8):
-					for x in range(0,image.get_width(),8):
-						var color:=image.get_pixel(x,y)
-						if color.r>0.9 and color.g<0.1 and color.b<0.1:
-							red+=1;sum+=Vector2(x,y)
-				if red<5: continue
+				var point_pixels:=measure_red_point(image)
+				if point_pixels.is_empty():continue
 				if step==3:
-					var center:=sum/float(red)
+					var center:Vector2=point_pixels.center
 					if motion_samples.is_empty():print("VFX_ANIMATION_GPU_SAMPLE center=",center," presentations=",host.get_completed_presentations())
-					motion_samples.append({"time_ms":Time.get_ticks_msec(),"x":center.x,"y":center.y,"red_samples":red,"presentations":host.get_completed_presentations()})
+					motion_samples.append({"time_ms":Time.get_ticks_msec(),"x":center.x,"y":center.y,"red_samples":point_pixels.samples,"red_pixels":point_pixels.pixels,"presentations":host.get_completed_presentations()})
 					if motion_origin==Vector2.INF:
 						motion_origin=center
 						motion_start=image
 						continue
 					if center.distance_to(motion_origin)<20:continue
 					print("VFX_ANIMATION_GPU_MOTION pixels=",center.distance_to(motion_origin)," observations=",motion_samples.size())
-				print("VFX_ANIMATION_RED step=",step," samples=",red)
+				print("VFX_ANIMATION_RED step=",step," samples=",point_pixels.samples," pixels=",point_pixels.pixels)
 			image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/vfx-animation-%d.png"%step))
 		if step!=3:
 			if step==2:timing_start=host.get_render_stats();timing_start_ms=Time.get_ticks_msec()

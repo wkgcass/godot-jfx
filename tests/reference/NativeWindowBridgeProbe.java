@@ -10,6 +10,18 @@ public final class NativeWindowBridgeProbe {
             check(tick>=0&&System.nanoTime()<deadline,"Native acknowledgement timeout");
         }
     }
+    private static void awaitWaylandRestore() {
+        long deadline = System.nanoTime() + 5_000_000_000L;
+        // Ack confirms command consumption. A later host tick publishes the
+        // focus or activated configure that confirms the compositor restored it.
+        while (GodotBridge.nativeWindowInfo(100)[9] != 0) {
+            long[] child = GodotBridge.nativeWindowInfo(101);
+            check(child.length == 11 && child[1] == 100 && child[7] == 1 && child[9] == 0,
+                    "Child changed during owner restore");
+            tick = GodotBridge.awaitTick(tick, 100);
+            check(tick >= 0 && System.nanoTime() < deadline, "Native restore differs after Wayland activation");
+        }
+    }
     private static void hold(String title) {
         GodotBridge.hostCommand(1,0,0,title);
         for(int i=0;i<30;++i) { tick=GodotBridge.awaitTick(tick,1000); check(tick>=0,"Host stopped"); }
@@ -54,6 +66,9 @@ public final class NativeWindowBridgeProbe {
         waitFor(property(100,6,1,0,null));
         check(GodotBridge.nativeWindowInfo(100)[9]==1&&GodotBridge.nativeWindowInfo(101)[9]==0,"Independent minimize differs");
         waitFor(property(100,6,0,0,null));
+        if (System.getProperty("os.name").equals("Linux")) {
+            awaitWaylandRestore();
+        }
         check(GodotBridge.nativeWindowInfo(100)[9]==0,"Native restore differs");
         waitFor(property(100,4,0,0,null));
         waitFor(GodotBridge.nativeWindowCommand(100,0,2,x+20,y+10,400,240,0,true,null));

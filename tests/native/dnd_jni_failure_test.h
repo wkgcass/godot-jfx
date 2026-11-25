@@ -6,6 +6,8 @@
 namespace dnd_jni_test {
 #ifdef __APPLE__
 namespace dnd = godot_javafx::macos_dnd;
+#elif defined(__linux__)
+namespace dnd = godot_javafx::linux_dnd;
 #else
 namespace dnd = godot_javafx::windows_dnd;
 #endif

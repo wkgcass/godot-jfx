@@ -9,12 +9,9 @@ Tests write logs under `agentdir/logs/` and captures under `artifacts/reference/
 
 ## Supported configuration
 
-Windows x64 and macOS arm64 have source-built platform JARs. See the platform sections below for execution evidence.
-Both platforms build the Godot Editor and shared library with `accesskit=no`,
-which disables Godot's screen-reader integration.
-JavaFX hosting uses **Viewport + safe**, with Godot `mobile` (D3D12 by default
-on Windows, Vulkan when selected, Metal 3.1 in the packaged macOS library on M1) or `gl_compatibility`
-(OpenGL). The custom
+Windows x64, macOS arm64 and Linux x64 have source-built platform JARs. Linux validation runs on WSL2 with native Wayland windows. The platform sections below give the test results and outstanding capabilities.
+The Godot Editor and shared library build with `accesskit=no`, which disables Godot's screen-reader integration.
+JavaFX hosting uses **Viewport + safe**. The `mobile` renderer uses D3D12 or Vulkan on Windows, Metal on macOS and Vulkan on Linux. The `gl_compatibility` renderer uses OpenGL. The custom
 RD-direct backend, translator, build/runtime switches and dedicated probes are
 removed, as are separate-thread host adaptations. Godot's own RenderingDevice
 and renderers remain. Unsupported separate hosting is rejected before bridge registration.
@@ -31,6 +28,497 @@ referenced textures retain immutable revisions. Active protocol diagnostics,
 reflection/virtual callbacks and resource-lifetime fixes are retained.
 
 ## Validation evidence
+
+### Wayland merge compatibility review
+
+This review restored desktop-coordinate pointer routing on Windows and macOS and restricted the Wayland-only native window flags to Linux. The Windows x64 build ran on Intel Arc B390 with D3D12/mobile, Vulkan/mobile and OpenGL/gl_compatibility. The first run passed 453 of 457 NonRobot invocations and all 42 Robot invocations. All 457 NonRobot invocations passed including repeats. The Vulkan/runtime clipboard peer initially missed its custom format. The D3D12 resize check initially sampled a black pixel with one retained layer. Both passed unchanged on repeat.
+
+The D3D12 and OpenGL synthetic-hover cases missed the green fill during the first button hold. Both the preceding engine and the reviewed engine reproduced this on the same desktop. An input trace recorded the native pointer leaving the relocating host immediately after the synthetic motion. Parking the physical pointer outside both the initial host and the final Stage before launching the original cases allowed both to pass. The three physical Robot hover cases passed on the first run. Per-case Windows ledgers and the diagnostic traces are archived under `agentdir/artifacts/platform-review-jXMrW2O7/windows/`.
+
+For macOS arm64, the pre-merge and post-merge Metal/OpenGL runner plans matched across all 317 NonRobot and 22 Robot invocations. This review covered shared code, platform-specific sources and the runner arguments. The 26 November 2026 acceptance record covers the Windows and WSL2 runs. The full 339-case macOS regression remains pending until an Apple Silicon Mac with a GUI session is available.
+
+The Linux x64 build with the desktop pointer-coordinate and native window flag fixes (engine SHA-256 `3756c7cc159c…`) completed all 344 cases on private Wayland desktops using the Intel Arc B390. Vulkan/mobile and OpenGL/gl_compatibility each completed 205 VFX page visits during their navigation soak. The first run passed 312 of 322 NonRobot cases and 20 of 22 Robot cases. The twelve failures matched the preceding release at the same assertions. Six queried global stacking, two required global placement and lowering, two timed out restoring a minimized Stage at step 12, and two received drag events but failed the absolute Stage position check.
+
+The local audit under `agentdir/artifacts/platform-review-jXMrW2O7/` contains the per-case results (`comparison.json`), matching failed assertions (`window-parity.json`) and 323 fixture logs checked for driver, display and loaded engine identity (`fixture-routes.json`).
+
+### Linux x64 on WSL2
+
+The Linux x64 release with engine `50490cf27698…` uses native Wayland for every graphical window. On the Intel Arc B390, the packaged engine ran Vulkan/mobile through Mesa dzn and OpenGL/gl_compatibility through Mesa D3D12. Both drivers passed the private-desktop checks for VFX title-bar movement and resizing, overlapping owned Stages, and restoration through the Weston task switcher.
+
+All 344 manifest invocations ran serially on private Wayland desktops. Each result after repeats matches the same invocation in the preceding release.
+
+| Group | Executed | First-run passes | Passed including repeats |
+| --- | ---: | ---: | ---: |
+| NonRobot | 322 | 296 | 312 |
+| Robot | 22 | 19 | 20 |
+
+The ten outstanding NonRobot cases cover six global stacking queries, two global placement and lowering checks, and two application-initiated restores of a minimized Stage at step 12. Both remaining Robot cases received drag events and failed the final absolute Stage position check. All 309 cases for which the preceding release recorded a fixture-level driver have a matching engine, Wayland display, renderer and B390 device record.
+
+On a 1280×720 labwc desktop, default decorations left a 1280×694 maximized client area for both the preceding and current engines. With the fixture's client-decoration rule, both releases reported the full work area. The current engine passed the normal and runtime window-control cases on both drivers. The Vulkan Shadow JAR passed after an idle Gradle daemon released its cache lock. A Vulkan video playback timeout and an initial OpenGL Robot pointer-position failure both passed on fresh private desktops.
+
+Both renderers captured all 35 VFX pages at scale 2 with animation running and with Fusion animation frozen. The three-round navigation soak on each driver produced 205 paired page observations and ended with zero tracked host resources and zero shared target shaders. The complete process traces start about one second after launch. Both standalone demo JARs contain the same engine as the VFX JAR. On each renderer the first demo rotated, paused, responded to a drag and resumed. The second completed its room smoke test and produced a 2200×1440 preview.
+
+The local evidence is under `agentdir/artifacts/wayland-only-PI3LSNkB/`. It includes the per-invocation comparison, matched window assertions, runtime driver records, VFX captures, process samples, and standalone demo logs.
+
+#### Preceding Wayland release
+
+On 25 November 2026, the Linux x64 package completed the 344-case Wayland manifest on the Intel Arc B390. All GUI cases ran serially on private desktops. Vulkan used Godot mobile through Mesa dzn. OpenGL used gl_compatibility through Mesa D3D12. The ordinary build and the two independent demo JARs used the same native engine as the VFX JAR.
+
+| Group | Executed | First-run passes | Passed on the same release including repeats | Outstanding |
+| --- | ---: | ---: | ---: | ---: |
+| NonRobot | 322 | 295 | 312 | 10 |
+| Robot | 22 | 20 | 20 | 2 |
+
+Fourteen cases that failed on Weston passed on labwc. The two synthetic hover cases passed with the native pointer isolated. OpenGL Stage churn first stopped at cycle 30, then passed the unchanged 36-cycle test on a fresh Weston desktop. A separate instrumented 180-cycle run also passed. The first observed increase of one root canvas slot remains recorded in [memory validation](memory-validation.md).
+
+| Outstanding assertion | Cases | Observed behavior |
+| --- | ---: | --- |
+| Read the global native stacking order | 6 NonRobot | The Wayland client reports the global query unavailable. The owned-child overlap probe passed on both drivers. |
+| Apply global placement and lower a top-level window | 2 NonRobot | The composition fixture reports unsupported placement and lowering on xdg-shell. |
+| Reverse a minimized Stage from the application | 2 NonRobot | Both drivers stopped at step 12. A labwc taskbar client saw the minimized flag persist. With taskbar restoration the same fixtures completed. |
+| Move a Stage using absolute coordinates | 2 Robot | Both fixtures received drag events and failed the final absolute position check. The public VFX title-bar gesture moved the window by (+180, +75) logical pixels on both drivers. |
+
+Both renderers completed all 35 VFX pages with animation enabled and with Fusion animation frozen, and three round trips at a 256 MiB Java heap. Both extra demo JARs ran on both renderers. The platform tests include an explicit unsupported result for Wayland touch-keyboard requests. Physical IME candidate UI and Windows desktop integration have separate acceptance scopes.
+
+The archive is `agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-lcd-publication-z3rrr44Z/wayland-toolkit-publication-QI3DyI7e/`. It contains the first and repeat results (`nonrobot-with-repeats.csv`, `robot-current.csv`), outstanding assertions (`window-results.json`), and runtime display and GPU records (`display-route-audit.json`). Fixture logs gave complete Wayland, renderer and B390 records for 287 non-Robot cases and all 22 Robot cases. Additional evidence includes package consumer runs, normal and frozen VFX captures, both standalone demos and the measured menu, shader and table timings.
+
+This earlier Linux package paired engine `ace7814e1e52…` with `Toolkit.class` `ab7b90061449…`. In the preceding OpenGL launch test, a JVM returned the requested exit code 37 while an FX idle callback threw `Godot host is STOPPING`. The FX thread was retrieving its existing toolkit during shutdown. The corrected lookup reuses the initialized toolkit under its class lock. A shutdown observer reproduced the failure on the previous package on both drivers. With the rebuilt package, main-thread exit, FX-thread exit and the new shutdown observer all passed on Vulkan and OpenGL, with one engine per process. An explicit attempt to initialize an engine that is stopping still fails. The detailed logs and JAR comparisons are under `agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-lcd-publication-z3rrr44Z/wayland-toolkit-publication-QI3DyI7e/`.
+
+The Maven consumer suite subsequently passed all 34 Vulkan child cases and all 35 OpenGL child cases. Both resolutions used graphics classifier SHA-256 `7c3155fc8e30…`. In each driver run, the main-thread exit, FX-thread exit and toolkit shutdown observer returned 37 with one engine and one render loop. The per-driver evidence is in `library-consumers.json` in the current package archive.
+
+Both drivers initially failed the synthetic hover check on the shared private Weston desktop. A Vulkan trace on that same desktop captured a native pointer leave on the Stage during the first synthetic hold. JavaFX reported the intended button hovered, then cleared it about 12 ms later. All 151 sampled frames lacked the hover color. The NonRobot runner now isolates this fixture in Weston with native input disabled, as it does for synthetic resizing. The full hover checks passed on both drivers with the original pixel and cleanup assertions. First-hold misses fell to 9 of 157 samples on Vulkan and 8 of 160 on OpenGL. The trace and screenshots are in the current package archive under `hover-diagnosis/`, and the two reruns are under `retries/hover-no-input/`.
+
+The staged `ace7814e1e52…` engine fixed a startup ordering defect on labwc. With the previous `906cf6d68fa4…` build, clicking the overlap of two Stages shown in the same event reached the owner. With the new build the click reached the child, including after clicking the exposed owner and after hiding and reopening the child. Vulkan and OpenGL both passed with simultaneous and deferred show. Each trace contains one parent request for the original child, after the owner's first mapped buffer and before the child's first buffer. The independent JavaFX Robot fixture and the source Editor toplevel protocol test passed on both drivers. Results are under `agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-owned-present-N9JLMSUt/`. Global toplevel order remains controlled by the compositor.
+
+The same staged `ace7814e1e52…` engine passed all 35 frozen VFX Intro pages at 2× on each driver. Both runs ended with zero owned resources. On each driver 33 of the 35 content regions matched the preceding build pixel for pixel. Only the generated tables on pages 18 and 19 differed. Against the native ES2 reference with the pointer parked, median normalized RGB differences were 0.0006384 for Vulkan and 0.0000153 for OpenGL. The two standalone Demo JARs also ran on both drivers. In the first Demo the model rotated, paused, responded to a drag and resumed. The second Demo's 2200×1440 preview matched the previous build byte for byte in RGB on each driver. The captures and comparisons are under `visual/` in the same archive.
+
+The ordinary source build reproduced the staged `ace7814e1e52…` library. All 7,874 file payloads in the VFX JAR and all 8,586 and 8,585 payloads in the two Demo JARs matched their staged counterparts. The ordinary build also passed both drivers’ VFX launch and shutdown, title-bar move and resize, overlapping owned Stage, Editor toplevel and interactive Demo checks. Package identities and logs are in `agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-lcd-publication-z3rrr44Z/vfx-timeline-release-vJsyDaug/regular/`.
+
+The complete VFX JAR containing engine `906cf6d68fa4…` accepted real Wayland pointer input in
+the Intro drawer, the 50-row table and the Blackhole control on both drivers.
+Six 216-pixel table strokes were recovered exactly from desktop images. The
+new OpenGL package showed 98 and 100 distinct moving-table updates during
+the six input strokes in two launches, compared with 52 on the preceding
+published package. Both drivers restored the original welcome-text pixels
+after the lens was turned off. At 1× and 2× on labwc, all 96 menu clicks
+reached the JAR and produced the expected settled drawer state. Both scales
+kept a 1280×800 logical window, and the drawer edge agreed within 0.5 logical
+pixels. At 2× OpenGL showed a longer opening latency than Vulkan. The capture
+method, sample intervals and package identities are recorded in
+[frame-benchmark.md](frame-benchmark.md) and [vfx-demo.md](vfx-demo.md).
+
+An isolated Linux build on November 25 produced engine `906cf6d68fa4…`
+with small LCD region copies selected from the actual Wayland/Mesa D3D12
+OpenGL backend. The source-built editor, library, JFX SDK with Media, VFX
+and both separate demos built. Ten fixtures, both VFX smokes and both demos
+on each driver passed. The released code moved the table by 2,325 pixels
+in 96 pulse intervals. OpenGL p95 was 30.2 ms and Vulkan p95 was 41.1 ms.
+The automatic path produced region-copy commands on OpenGL. On Vulkan it
+used pass boundaries. A separate mixed clipped/overlapping text check tested
+automatic, forced and disabled region copies against LCDBuffer on both
+drivers. No pixels exceeded the existing two-level channel tolerance.
+The regular LCD overlap fixture also exercises a cached glyph layer.
+The isolated package, fixture logs and hash audit are under
+`agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-lcd-release-MIuxEnnx/verified-tests.json`. The full matrix below belongs to earlier
+packages. The menu timing limits are in [the frame measurements](frame-benchmark.md#linux-table-dragging-on-the-published-runtime).
+
+The regular Linux source build subsequently produced the same engine
+`906cf6d68fa4…`. It matched the isolated build in every non-directory JAR
+member of VFX and both demos. VFX started and closed on both drivers. The
+tetrahedron accepted pause, resume and drag input on both, and the room
+passed on OpenGL. The initial Vulkan room run missed the light switch
+during movement. Three fresh sessions with the identical JAR passed the
+full smoke test and produced pixel-identical 2200×1440 startup captures,
+including a match to the failed run. The cause of the intermittent input
+failure is unresolved. Six additional instrumented Vulkan launches followed
+all 108 press and release events through Godot's panel hit test and JavaFX
+picking. The largest deviation from the scale-2 coordinate mapping was
+0.493 logical pixels, and both sides reported the same nine device states
+in every launch. On one successful click JavaFX still reported an unfocused
+Stage at press time and a focused Stage at release. The trace summaries are
+in `room-input-trace-rf6kSZJW/verified.json`. See `agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-lcd-publication-z3rrr44Z/`,
+particularly `package-comparison.json`, `demos/results.txt` and
+`room-recheck-BtcBXdFW/results.txt`.
+
+With the regular `906cf6d68fa4…` package, the isolated Robot group passed
+20 of 22 cases on its first run. Both failures asserted absolute desktop
+coordinates after dragging. The compositor independently observed the actual
+window and owned Stage move by (170, 110). In the supplementary labwc group,
+25 of 28 passed on the first run. Both rapid restore cases failed, and a
+Vulkan icon case reached all seven expected icon states before its final
+Next click failed to close the fixture. The identical icon case passed in
+a fresh session. Results are in `robot-current.csv`, `labwc/results/results.csv`
+and `retries/icon-vulkan-default/results/results.csv` under the regular
+LCD publication archive above.
+
+The complete 322-case NonRobot run on this package passed 298 cases on the first Weston run and 312 including the same-release supplemental runs. Six remaining cases require a global stacking query, two require global placement and lowering, and two failed to restore a rapidly minimized Stage. All 322 invocations matched the manifest. The runtime audit also matched the loaded shared library for 287 cases. Both 256 MiB VFX soak runs completed three round trips through 35 pages, each with 205 matching Java and native navigation samples and zero final owned resources and shared target shaders. The counts, original failures and supplemental logs are indexed in `window-results.json` and `nonrobot-with-repeats.csv` in that archive.
+
+The next VFX source build fixed the resize grip after an actual title-bar
+move. The old grip applied a change in Glass screen origin to its width and
+height. The new grip uses the pointer delta in scene coordinates. With the
+same physical input, the primary window grew and shrank by the requested
+amounts on both B390 drivers. All four pixel boundaries matched at 1× and
+2×. The owned window also resized on both drivers while its owner stayed
+fixed. The independent JavaFX Robot probe measured the original failure and
+the correction using compositor output. The two VStage class files were the
+only changed JAR members compared with the preceding source build, in the
+Intro and in both extra demos. Results are in `agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-lcd-publication-z3rrr44Z/vfx-geometry-release-MrQkS9GG/`.
+[Gesture details](glass-godot.md#resizing-the-vfx-grip-after-an-interactive-wayland-move).
+
+The VFX build with both the geometry correction and scrollable-content
+cache passed 35 frozen pages on each driver, the menu endpoint comparisons,
+the separate physical geometry fixture, both Demo smoke launches and both
+interactive extra demos on Vulkan and OpenGL. The blackhole and 50-row
+table profiles also passed. GPU identity, engine digest and per-driver
+results are in `agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-lcd-publication-z3rrr44Z/vfx-content-release-1JbNFKJu/verified-tests.json`.
+[Performance measurements](frame-benchmark.md#caching-the-scrollable-drawer-content).
+
+The engine SHA is shared by several VFX builds. Hashing the sorted JAR entry
+names and their individual SHA-256 digests distinguishes the earlier package
+(`b37d678c29c327a1` prefix) from the staged content-cache package
+(`cc2b97942079b948` prefix). For the latter, 359 of 364 compiled VFX classes on
+the fixture classpath matched the JAR byte for byte. Five anonymous alert
+classes differed only in a constructor parameter name in their debug
+information. The animation timer, window drag and resize handlers, and Intro
+menu classes all matched exactly. Both extra demo JARs contained the complete
+224-class VFX main set. The per-package record is `vfx-fixture-inputs.json`
+alongside the verified tests above.
+
+The published engine `da0a4ee0ac9a…` finished all 322 NonRobot cases
+and all 22 Robot cases on November 25. NonRobot passed 296 on the initial
+run and 312 including targeted repeats. Six remaining cases required a
+global window-stacking query, two required placement and lowering, and two
+failed to restore a rapidly minimized Stage from the application. Robot
+passed 19 initially and 20 including a fresh-session repeat. Its two
+remaining cases asserted an absolute Stage position after a drag. Separate
+compositor captures verified movement of the VFX window and an owned Stage.
+Each driver also passed three full VFX navigation round trips. Logs, repeat
+identities and per-case classifications are in
+`agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-mesh-publication-smkUz5fY/window-results.json`.
+
+The 2026-11-25 isolated source build of the optimized Linux mesh path produced
+Godot library `da0a4ee0ac9a…`. The editor, library, VFX JAR and both
+independent demo JARs built successfully. Ten native Wayland fixtures (blit,
+mesh transforms, LCD overlap, node shaders and VFX table dragging on each
+B390 backend) loaded this engine and passed. Each table drag moved 2,325
+pixels at scale 2 in 96 intervals. OpenGL p95 was 51.2 ms and Vulkan p95
+was 41.9 ms. The standalone VFX smoke and both independent demo smoke checks
+also passed on both backends. Package hashes, application logs and images
+are in `agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-mesh-release-eVFhfCPk`.
+The ordinary Linux workspace build produced the same native library SHA-256.
+Every non-directory JAR member matched the isolated build byte for byte, with
+7,874 members in VFX, 8,586 in the tetrahedron demo and 8,585 in the room
+demo. The comparison is in `agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-mesh-publication-smkUz5fY/normal-package-comparison.json`.
+See the [mesh and frame measurements](frame-benchmark.md#linux-table-dragging-on-the-published-runtime).
+
+On this publication, the first native Wayland Robot run passed **19/22**.
+The ordinary OpenGL Robot test initially failed while saving the cursor position.
+It passed unchanged in two fresh labwc sessions, one with default pointer state
+and one with a known initial position. Both runs reported one click and one
+wheel action on the published B390 engine. Counting each case once, the result
+is **20/22**. The two physical drag probes received drag events but failed the
+absolute Stage position check. Separate title-bar gestures moved the main
+window and an owned window on each driver. The 28-case labwc NonRobot subset
+passed **26/28**. Both rapid Stage minimize/restore variants failed at step 12.
+The publication archive contains `robot-with-repeats.csv`,
+`released-window-moves.json` and `labwc/results/results.csv`.
+
+A labwc taskbar observer saw both the owner and child become minimized on
+the rapid request. In a Vulkan trace the application requested activation
+of the child's surface and the desktop still reported the child minimized.
+In a separate run on each driver, a taskbar client focused the minimized
+child. The desktop reported both windows restored and the original Stage
+test continued through its pixel, mode, size and teardown checks. These
+desktop-assisted runs are recorded separately in
+`rapid-stage-cHFWlT9M/verified.json` within the publication archive.
+
+
+The rebuilt Linux graphics classifier with SHA-256 prefix `8711ee8993ae`
+includes the Wayland modal focus fix and sampler-state invalidation.
+The revised scene fixture uses one host-stop exit path. The JFX SDK, VFX
+JAR and both separate demo JARs built successfully. A content check matched
+the SDK classes, generated shaders and native libraries in VFX and the
+graphics classes and exported scene pack in each demo. The published
+encoder wrote 72 bytes on its first shader state, then zero on an equal
+repeat with suppression enabled. Its two-mode regression passed. The build
+and per-file evidence are in
+`agentdir/artifacts/wayland-interaction-hQ6x4vwN/wayland-jfx-revision-xsBlG2d3/`.
+On this classifier, both VFX smoke launches reported Wayland and the Intel
+Arc B390. On labwc the main window moved from (60, 80) to (230, 190)
+and the owned Stage moved from (781, 301) to (951, 411) on both drivers.
+Each trace recorded a compositor move request. Both standalone demos also
+passed on each driver, including the tetrahedron pause, drag and resume
+sequence and the room smoke check. The four external GTK drag cases passed
+on niri. The release archive contains the logs and screenshots under
+`gestures/`, `secondary/`, `demos/` and `canonical/results/`.
+
+The 22-case Robot run passed 19 cases on its first attempt. The OpenGL
+cross-window drag fixture stopped before its first drag because the compositor
+had not reported an initial pointer position. On a fresh private labwc desktop
+the same case completed all seven drag sequences and three drops. Counting
+the repeat gives **20/22**. The two outstanding cases assert absolute Stage
+positions during a drag. See `robot-current.csv` and `robot-with-repeats.csv`
+in the release archive. The targeted labwc NonRobot run passed **26/28**.
+Only the two rapid Stage minimize/restore cases timed out at step 12.
+
+The complete NonRobot counts below refer to the previous graphics classifier,
+which uses the same native engine.
+
+On the B390 build with native library SHA-256 `20e839a2fcf2…`, the
+first complete isolated Robot run passed **19/22**. Each fixture log was
+checked against the packaged engine hash, Wayland display driver and B390.
+The four external drag cases on niri passed, as did both drivers' VFX table
+drag and hover cases on labwc. The two physical Stage drag cases received
+drag events but failed their absolute-position check. The third failure was
+the Vulkan/runtime Robot reading the initial cursor before a position was
+reported, not a Vulkan initialization failure. See
+`agentdir/artifacts/wayland-interaction-hQ6x4vwN/verified-release-lZUp7QMq/restart-suite-n8jhXQQK/robot-current.csv`.
+That Vulkan/runtime case passed on two fresh labwc sessions, one with an ordinary seat and one with a seeded initial pointer position. Both matched the release engine and reported one click and one wheel action. Including retries, **20/22** Robot cases passed. Logs are in `restart-suite-n8jhXQQK/robot-runtime-repeat/{ordinary,seeded}/results/`.
+
+The complete NonRobot manifest on the same engine ran **322/322** cases.
+Isolated Weston passed **293/322** on the first run. Fourteen first-run
+failures passed unchanged on labwc, for 307/322 cases with at least
+one pass on those two runs. They covered native Stage input (2), native window bridge (2),
+VFX window controls (4), window drag (2) and window icons (4).
+
+Fresh Vulkan screen-association and OpenGL synthetic-hover runs passed the original assertions. With those repeats, **309/322** cases passed at least once.
+
+| Cases without a pass in those published-run ledgers | Count | Observed outcome |
+| --- | ---: | --- |
+| Native order, window composition and window order | 8 | The assertions require global stacking or placement information unavailable through xdg-shell. Both composition runs completed six pixel and cleanup phases. |
+| Owned modal focus | 2 | The owner lacked JavaFX focus immediately after the application-modal Stage returned on both renderers. |
+| Rapid Stage minimize/restore | 2 | The application-driven test timed out at step 12 on both compositors. |
+| Host shutdown | 1 | Vulkan/runtime returned from Application.launch with live Glass peers. |
+
+The scene fixture now leaves host-stop shutdown to the Glass frame receiver.
+The previous fixture also called `Platform.exit()` from a second watcher.
+A controlled schedule reproduced `Application.launch()` returning before
+the termination hook completed with both callers. The revised fixture
+passed the original host-stop assertions on both B390 drivers, with and
+without `--runtime`. All four runs closed the three Glass peers and
+disposed the renderer with zero texture-pool bytes. These post-fix runs
+are under `restart-suite-n8jhXQQK/stop-race-szX0UA1s/revised/`.
+
+The ordered manifest, every first result, repeat logs and engine-hash audit
+are in `restart-suite-n8jhXQQK/{nonrobot-manifest.txt,nonrobot-full/results.csv,nonrobot-with-repeats.csv,nonrobot-full-audit.json}`
+in the release archive above. The encoder regression added after case 198
+also ran against a separate candidate graphics JAR. Its result is outside
+the first-run count.
+
+For this release, the staged and installed Linux Maven classifiers match
+their publication hashes. The VFX JAR contains byte-identical copies of
+all 3,411 graphics classes and generated shaders, 175 media classes, and
+15 native libraries (including the Godot engine) checked against the
+source-built SDK and engine. Both independent demo JARs match their
+declared graphics classifier and their own exported scene-pack
+files in `build/pack`. The per-package counts and pack hashes are in
+`restart-suite-n8jhXQQK/package-content.json` in the same archive.
+
+The same B390 engine passed both native Stage input and the native window
+bridge on labwc with Vulkan and OpenGL. On Weston the input probe timed out
+at step 1 on both drivers, and the bridge probe failed to observe restoration
+after Wayland activation. The rapid Stage mode-change test stopped at step 12
+on both compositors and both drivers. These runs used isolated Wayland
+desktops. The individual results and application logs are in
+`restart-suite-n8jhXQQK/{labwc/results,nonrobot-full}/` under the release
+archive above.
+
+Separate compositor screenshots on this build verified a 170×110-pixel
+move of the packaged VFX main window and of an owned Stage on both
+drivers. Unlike those gestures, the physical Stage fixture calls
+`Stage.setX/setY` on every mouse drag. Godot caches the requested window
+position even though its Wayland display server cannot apply that request
+to a toplevel. The host adds that cached origin to subsequent surface-local
+mouse coordinates; feeding the result back into the next position request
+can amplify the reported displacement. The failing Stage coordinate is not
+a measurement of the compositor moving the window.
+
+The Linux x64 package built on 2026-11-24 at 17:09 uses a 256 MiB initial texture reclamation target. The source-built SDK, both local Maven graphics JARs, VFX and the two independent demo JARs contain the same `GodotTexturePool.class` (SHA-256 prefix `b0774c465b25`). The five runtime JARs contain the published Godot library `a312dd9c27c1…`. The packaged SDK passed the locked-texture pressure and cancellation checks. VFX and both demos ran on native Wayland with both B390 drivers (6/6). The tetrahedron checks exercised pause, resume and drag. The room checks exercised its JavaFX controls. Package hashes and application logs are in `agentdir/artifacts/wayland-linux-pool-release-j87Wdjek/{after.json,app-checks.json}`.
+
+On that 256 MiB package all 22 Robot cases ran. Fourteen passed on their first invocation. The first niri session lost its parent compositor before the test clients could complete, affecting all four external GTK drag cases. Two other cases terminated at the initial cursor-position query. All six passed when repeated on fresh private desktops. Counting each case once, 20/22 passed with verified B390 and native Wayland logs. On both drivers the physical Stage-drag case received mouse events beyond the window and failed at its absolute-position assertion. The first runs and repeats are recorded in the same package archive's `robot-observations.json`. The independent labwc window subset passed 14/18, with modal focus and rapid Stage restore failing on both drivers.
+
+The same 256 MiB package executed the complete 322-case NonRobot manifest on private Weston. It passed 294/322 on the first run and 310/322 including the labwc subset and fresh Weston repeats. In the first Vulkan hover check the initial button missed its green hold color. The Vulkan media churn timed out on decoder cycle 19. The unchanged tests passed on fresh desktops, including all 24 media cycles with zero host-owned resources on exit. The 12 cases with no passing observation are listed below. The package archive contains `nonrobot-full-audit.json` (first run, logs and device checks) and `nonrobot-with-repeats.csv` (all observations). Together with Robot, 330 of 344 distinct cases passed at least once. The two drivers' physical Stage-drag results are counted separately from the passing synthetic drag and resize checks.
+
+The earlier 512 MiB package with library `a312dd9c27c1…` completed all 322 NonRobot and 22 Robot invocations on isolated native Wayland desktops using Intel Arc B390. The full Weston NonRobot run passed **293/322**. Including fresh, targeted or second-compositor runs, **310/322** passed at least once. Robot passed **19/22** initially and **20/22** including one repeat. Initial failures are preserved in both ledgers. The complete manifest, case-by-case results, renderer headers and release hash checks are in `agentdir/artifacts/wayland-shared-shaders-DYodM9AZ/{nonrobot-full-audit.json,nonrobot-with-repeats.csv,robot-with-retries.csv}`.
+
+A subsequent Linux build adds compositor-managed interactive movement for the VFX custom title bar. On private labwc, both B390 drivers passed the packaged main-window gesture and the owned-Stage gesture, moving each target by 170 × 110 screen pixels. The owner stayed stationary during the owned-Stage test. These checks cover interactive movement only. The release-level counts below retain the absolute-position assertions. See [VFX title-bar results](vfx-demo.md#dragging-the-custom-title-bar-on-linux).
+
+| Outstanding on the published application | NonRobot | Robot | Observed requirement |
+| --- | ---: | ---: | --- |
+| Native window order and composition | 8 | 0 | Query the global stacking order or lower a regular toplevel. |
+| Native Stage restore | 2 | 0 | Reverse a rapid minimize request from the application. labwc restored both windows when its desktop controller requested it. |
+| Modal focus | 2 | 0 | Observe owner focus synchronously when the application-modal nested loop returns. |
+| Physical Stage drag | 0 | 2 | Move a regular toplevel to absolute screen coordinates with `Stage.setX/setY`. |
+
+Regular xdg-shell clients can identify a window's parent and request an interactive move using an input event serial. The compositor chooses the toplevel's screen position. The protocol also exposes a minimize request and leaves restoration to the compositor. Activation extensions allow a client to request focus, with the final decision made by the desktop. The immediate modal-owner focus failure in the table was observed on the tested desktops. [xdg-shell protocol](https://raw.githubusercontent.com/wayland-mirror/wayland-protocols/main/stable/xdg-shell/xdg-shell.xml) and [xdg-activation protocol](https://raw.githubusercontent.com/wayland-mirror/wayland-protocols/main/staging/xdg-activation/xdg-activation-v1.xml).
+
+
+The Linux release `a312dd9c27c1…` shares immutable offscreen shader programs between live render targets. The VFX JAR and the two independent demo JARs contain the same source-built Godot library and JavaFX SDK modules. Both B390 drivers passed the five shader-cache, render-target and queued-texture cases (10/10). GPU pixel readback confirmed that each target draws with its own color and that releasing the first owner preserves the second target. Both demos passed their four Wayland smoke runs across Vulkan/mobile and OpenGL/gl_compatibility. The publication hashes, per-case logs and demo results are in `agentdir/artifacts/wayland-shared-shaders-DYodM9AZ/`.
+
+On `a312dd9c27c1…`, 19/22 Robot cases passed on the first run and 20/22 passed including one fresh-session repeat. All four external GTK drag cases passed on niri. The OpenGL cross-Stage drag stopped at the first cursor-position query on labwc, then passed all seven scenarios on a fresh labwc desktop with ordinary startup. The two outstanding cases received drag events after the pointer left the Stage and failed the assertion about its absolute screen position. The first run and the repeat are recorded separately in `robot-current.csv` and `robot-with-retries.csv` in the same release archive.
+
+On the same release the 18-case labwc NonRobot window run passed 13 cases initially. The Vulkan/runtime icon test timed out at step 5 after four successful icon updates, then passed in a fresh labwc session. Both drivers still failed native Stage step 12 during the rapid mode changes, and both failed the immediate owner-focus assertion on return from the application-modal dialog. Thus 14/18 of these selected window cases passed including the repeat. Logs are in `labwc/results/` and `retries/icon-vulkan-runtime/results/` in the release archive. A separate desktop controller restored both minimized windows on labwc, after which both drivers reached the final Stage assertion. Independent native GTK traces also reproduced the delayed modal focus notification. [Compositor comparisons](glass-godot.md#window-stacking-and-focus-on-wsl2)
+
+The default synthetic resize on OpenGL failed in the full Weston run after four of eight drag events. Its Java trace contains a buttonless move between the pressed moves. A controlled repeat parked the private desktop pointer just outside the Stage. As the Stage grew beneath the stationary pointer, Wayland delivered a pointer enter at (485, 105) logical pixels, Godot delivered a buttonless motion at (970, 210) output pixels, and Java lost the drag after three moves. Parking outside the entire resized window passed. With the same edge placement and a seatless Weston, the eight pressed moves reached Java without the extra event. On the updated test runner both unmodified B390 fixtures passed in private seatless Weston. Physical Robot retains its normal input desktop and its two absolute-position failures. Traces and the button-mask sequences are in `agentdir/artifacts/wayland-shared-shaders-DYodM9AZ/synthetic-resize-RbukZeEn/`.
+
+The full OpenGL popup-bounds run finished the Java checks but missed the host completion marker. The fixture now polls shutdown on scene-tree process frames after the eighth geometry check. Geometry and popup pixel capture still wait for rendered frames. An OpenGL control stopped drawing after Java exited, the native windows closed and composition became idle. The original fixture stalled and the revised fixture completed its zero-resource checks. Both unmodified drivers passed the revised fixture. The first-run log is in `nonrobot-full/174-test-popup-bounds/`. Controls and final repeats are in `popup-shutdown-plCgMTpv/` and `retries/popup-bounds/` in the release archive.
+
+The VFX JAR passed isolated launch and shutdown on both drivers. Both drivers passed all 35 page captures and three full round trips on the published library. Each released every tracked host resource and shared target shader at shutdown. Separate Vulkan diagnostics traced the retained offscreen targets to JavaFX’s effect-image pool. At the second home-page return, 195 images were unlocked and available for reuse. A temporary lower reclamation target reduced that count to 42, with a smaller change in process private memory. This release's counts and memory samples are in [VFX memory validation](memory-validation.md#shared-target-shader-lifetime-in-the-linux-release).
+
+The published `a312dd9c27c1…` engine completed twelve consecutive VFX round trips per driver. Both applications produced 817 paired page observations and released all tracked resources on exit. The OpenGL test script exited successfully. The initial Vulkan script exited with code 2 after writing its successful application report. A fresh twelve-round Vulkan run with a read-only launcher exited with code zero, matched all 817 page observations and released all tracked resources. Its latter-half private-memory slope was +3.01 MiB/min. The earlier measurements were +0.17 MiB/min on OpenGL and +4.86 MiB/min on Vulkan. Cached materials continued to increase on both drivers. [Twelve-round measurements](memory-validation.md#twelve-vulkan-rounds-on-the-published-shared-shader-engine)
+
+The B390 release `64f8f54d265b…` completed all **322 NonRobot and 22 Robot cases** on isolated native Wayland desktops. Weston passed 292/322 on its full NonRobot run. Across the full run and the documented targeted repeats on Weston and labwc, **310/322 passed in at least one run**. The Robot matrix passed 19/22 initially and **20/22 with retries**. Both drivers also passed the VFX demo, 35-page navigation and both independent demos. Three round trips through VFX finished with zero host-owned resources, while private process memory continued to grow on both drivers. A separate four-round Vulkan diagnostic that shared identical target shaders reduced first-to-fourth-return live native heap growth from 354.9 to 50.5 MiB. [VFX memory measurements](memory-validation.md#three-rounds-on-the-b390-msaa-release)
+
+| NonRobot cases with no passing run | Count | Observation |
+| --- | ---: | --- |
+| Native order, window order, window composition | 8 | The fixtures require the global order of native toplevels or client-controlled stacking. Standard xdg-shell leaves global stacking to the compositor. |
+| Native Stage mode transitions | 2 | Step 12 timed out while restoring the Stage family on Weston and labwc. The protocol allows requesting minimization. There is no client request to reverse it. |
+| Modal owner focus | 2 | At the second return from `showAndWait`, the owner lacked focus on Weston, labwc and niri. No synchronous focus guarantee has been established. |
+
+The two remaining Robot cases require the Stage to follow absolute desktop coordinates while the physical pointer is outside its surface. The logs show JavaFX drag delivery on each driver. Each initial NonRobot case and its matching supplemental observations are indexed in `agentdir/artifacts/wayland-material-comparison-8Qv64YvC/nonrobot-verification.csv`. The complete first-run logs are in `nonrobot-full/` there. For 287 cases the audit also matched the extracted fixture library to the release hash. Robot results and raw logs are under `agentdir/artifacts/wayland-niri-WMYYUVqs/`.
+
+The `64f8f54d265b…` release ran both independent demo JARs on native Wayland with Vulkan/mobile and OpenGL/gl_compatibility on the B390. The tetrahedron fixture clicked pause and resume, dragged its view, compared model and axis pixels, and closed the Stage through the compositor. Both room smoke runs checked the wall controls, mouse capture and release, saved a 2200×1440 preview and exited normally. The demo kept its 2× MSAA request. Vulkan now selects the device's supported 4× mode before allocating viewport render buffers. The same Vulkan request previously triggered an invalid single-sample resolve and a driver crash. See the [Linux implementation and driver diagnostics](build-linux.md).
+
+Both drivers passed VFX JAR launch and shutdown, the full 35-page Intro and native multiwindow checks. Dedicated viewport readbacks showed antialiased 3D edges on both drivers and antialiased 2D edges on Vulkan. The OpenGL renderer explicitly reports that 2D MSAA is unsupported. An initial 2D probe expected antialiased edges on OpenGL and failed. The backend capability check verifies the GLES3 warning and byte-identical single-sample pixels there. Logs and publication hashes are under `agentdir/artifacts/wayland-material-comparison-8Qv64YvC/{publication.json,release-demos/,release-tests/,msaa/2d3d/}`. The Wayland NonRobot manifest now includes the two viewport regression cases, for a total of 322.
+
+On the same release, all four external GTK drag Robot cases passed on isolated niri `02ee0585`. Both drivers completed bidirectional COPY, checked the custom four-byte payload, and cancelled the final drag with Escape. GTK measured the visible 8×6 preview. The four raw results are under `agentdir/artifacts/wayland-niri-WMYYUVqs/canonical/results/`.
+
+The complete 22-case manifest on this release passed 19/22 on its first run (four external drag cases on niri and 15/18 on labwc). Each JVM log identified the B390, the Wayland display server and the matching shared-library hash. Both absolute Stage-drag assertions failed after the pointer left the Stage. The Vulkan/runtime general Robot case failed before its first action when labwc had not reported the initial pointer location. The same Vulkan/runtime case passed in two fresh desktops, once with an explicit initial virtual-pointer motion and once with ordinary startup. The missing initial cursor position is intermittent. With targeted reruns, 20/22 passed. The two absolute Stage-drag cases still failed. The first-run audit is in `agentdir/artifacts/wayland-niri-WMYYUVqs/robot-current.csv` and the separate rerun ledger in `robot-with-retries.csv` in that directory.
+
+
+The full Weston NonRobot run on `64f8f54d265b…` missed the first plain button's hover color on every frame in the first hold, on both drivers. Java observed eight hover entries and zero stationary exits counted as flicker. The unmodified fixtures passed on both drivers when run sequentially again on a fresh Weston desktop. Separate diagnostic runs confirmed the hovered button, the 2× output scale and the expected green pixels. The original cause remains open. Results are in `agentdir/artifacts/wayland-material-comparison-8Qv64YvC/nonrobot-full/` (cases 87 and 88) and `agentdir/artifacts/wayland-niri-WMYYUVqs/{hover-unmodified,hover-repeats}/`.
+
+A separate 12-case labwc run on this release passed ten cases. Both drivers passed Stage input, VFX window controls (regular and runtime), and window icon (regular and runtime). Both failed the immediate owner-focus assertion after application-modal close in round two. The full Weston run and two independent niri cases also failed that assertion in round two. The niri results are under `agentdir/artifacts/wayland-niri-WMYYUVqs/niri-modal/results/`. Each log was checked against the release hash and the B390 driver. Results are under `agentdir/artifacts/wayland-niri-WMYYUVqs/labwc-desktop/`.
+
+In the original OpenGL nested-menu run Java completed its actions, but the host completion marker was absent. The fixture now checks shutdown on scene-tree process frames after the outside dismissal. Menu navigation and popup pixel capture still wait for actual draws. Both drivers passed. A separate OpenGL control waited until the application had finished, all popup windows were gone and composition was idle, then disabled further display draws just before the final wait. The old wait missed host completion and the new wait reached the zero-resource assertion. This demonstrates the failure mode. The original run did not trace its final draw. Evidence is in `agentdir/artifacts/wayland-niri-WMYYUVqs/nested-menu-shutdown/`.
+
+On 24 November the native Wayland release (`78d43359aab3…`) passed **16 of 22 Robot cases** on the Intel Arc B390. The tests ran serially on isolated labwc 0.9.3 desktops using Vulkan/mobile and OpenGL/gl_compatibility. The audit matched each case to the runner's manifest and verified the Wayland display driver, GPU and extracted engine hash in each JVM log. Both drivers passed basic and runtime Robot, all seven cross-Stage drag scenarios, VFX table scrolling, hover and hover-flicker, child IME and virtual keyboard. The two synthetic drag checks also passed. The VFX fat JAR and both independent demo JARs include the verified SDK classes and shared library. Results, raw logs and publication hashes are under `agentdir/artifacts/wayland-cross-stage-tn1HHwAW/{robot-current.csv,final/,publication.json}`.
+
+| Remaining Robot cases | Count | Observation |
+| --- | ---: | --- |
+| External drag, default and runtime | 4 | All four GTK peers verified bidirectional COPY, custom bytes containing embedded and trailing NUL, and the 8×6 preview. In the cancellation scenario labwc completed a second COPY on button release. The earlier Vulkan protocol trace recorded the virtual Escape press and release without a press reaching the source. The tested wlroots 0.19.2 drag keyboard grab ignores key events. See [Wayland drag and drop](glass-godot.md) for the matching compositor source. |
+| Moving the Stage with the pointer outside it | 2 | Drag events reached JavaFX. Standard xdg-shell provides a seat-driven interactive move. It has no request to assign the absolute desktop positions used by this fixture. |
+
+The same release completed eight full VFX navigation rounds on Vulkan and released all tracked resources on exit. Private process memory rose from 1714 to 2281 MiB between the first and last return to the home page. Long-run stability remains open. [VFX memory measurements](memory-validation.md#eight-vulkan-rounds-on-native-wayland)
+
+The previous release (`c6c976dfbd96…`) passed 13/22 initially and 14/22 after a Vulkan/runtime retry. Its cross-Stage cases rejected the fixture's custom MIME type. Logs are in `agentdir/artifacts/wayland-robot-2RIjHyHr/{robot-current.csv,robot-with-retry.csv}`. The complete 320-case NonRobot run below predates both Robot releases.
+
+The first full B390 Robot regression with the native Wayland Robot backend passed **11 of 22** cases on isolated labwc 0.9.3. Each case loaded the same source-built engine (`566a85ec0c45…`). The four VFX hover-demo and table-scroll cases passed, as did both IME and both virtual-keyboard cases. Three of the four general Robot cases passed. The fourth failed while saving the initial pointer position in a reused session. The six drag and two window-drag cases and the two hover-flicker cases failed. In all four external drag cases the GTK peer independently measured the composited 8×6 preview before the COPY assertion failed. The full results and per-case log paths are in `agentdir/artifacts/wayland-robot-2RIjHyHr/robot-matrix.csv`. The VFX JAR and both additional demo JARs contain matching engine and SDK classes. [Wayland Robot](glass-godot.md#robot-on-linux-wayland)
+
+On native WSLg Wayland the source editor passed the multiwindow probe on Intel Arc B390 with Vulkan/mobile and OpenGL/gl_compatibility. Separate surfaces, transient parenting, hide/show, parent destruction, and continued rendering in an independent peer were verified with protocol traces and pixel readback. Each driver completed three consecutive launches and shutdowns after fixing the Wayland event-thread wakeup. The graphics JAR also passed the Wayland device and color readback probe on each driver. The complete JavaFX VFX JAR passed isolated launch and clean shutdown on both drivers with DISPLAY unset. Each driver passed the four startup modes, including a primary-window remap and a separately mapped secondary window. A protocol trace checked the title at the first buffer commit and the application show timing. After the Wayland IME and startup scaling fixes, both drivers passed all 35 VFX Intro pages and the three-page frozen Fusion variant. Both complete runs captured 2560×1600 images and ended with zero host-owned resources. Windows-side measurements of the actual JAR confirmed a 2560×1600 client area at 200% for a 1280×800 logical Stage. See the [Linux build and probe instructions](build-linux.md).
+
+The published-module consumer passed on Wayland with both drivers, including separate Stages, synthetic input, Unicode project paths, scene messaging, all 39 effect tiles, and the Oracle and Lk media samples. The native GTK/ES2 reference JVM queried the Wayland output scale for its reference pixels. The independent Shadow consumer on both drivers also passed its cold-cache, warm-cache, concurrent extraction and bundled-scene cases. Run records are under `agentdir/artifacts/linux-wayland-regression-NN0563Lp/` in `rest/` and `published-vulkan/`.
+
+On a private Weston 14 desktop at scale 2, both drivers passed the native multiwindow protocol and pixel checks on the B390. The VFX animation default, timing-only and runtime cases passed on both drivers. Before the sizing fix, the 720-unit VFX alert produced a 2880-pixel-wide viewport, twice its requested width at scale 2. Window creation now converts Glass pixel sizes for standalone JavaFXHost child Stages as well as for startup-mode Stages. A Vulkan rerun completed all five clicks and captured the 900-unit chooser at 1800 physical pixels and both 720-unit alerts at 1440. The process exited with code 1 after the pass markers because its test cleanup initialized an unused global input hook. A standalone JVM reproduced this exit with no display and returned zero with the corrected cleanup. After the cleanup fix, both regular dialog cases completed the five clicks and exited successfully. The first injected-failure run passed on Vulkan and crashed in OpenGL teardown (cases 260–263 of `wayland-full-GRn6iHqe`). After restoring a valid EGL context during surface destruction, three consecutive OpenGL runs passed both the regular and injected-failure dialog cases. Logs are in `wayland-egl-check-ed9P5d30/{dialog,opengl-2,opengl-3}/`. Logs and images are in the sibling `single-dialog/` directory. In the earlier Blackhole run 767 left-edge pixels changed alpha by at least 3/255 between the unwarped frame and centered lens. The probe now waits for the animated menu drawer to detach before capturing its reference. Both drivers passed the distortion, transparency, restore and resize assertions. For each driver the alpha plane is identical at all 1280×800 pixels between the unwarped frame and the centered lens. Cases 258 and 259 in the private Weston regression contain the images and logs.
+
+The WSL2 Wayland regression has recorded one or more invocations for all
+320 NonRobot cases and 22 Robot cases. These runs span multiple builds.
+The first 265 NonRobot results are in `wayland-full-GRn6iHqe/tests/`;
+the continuation, Robot group and targeted reruns are in
+`wayland-rebuild-UCYJ3nrm/` under `agentdir/artifacts/`. The continuation
+recorded 39 passes and 18 failures in 57 invocations. It repeated two Intro
+cases at its start. Its Vulkan table case finished all eight actions, but
+the archive also collected an OpenGL log from a separate Stage rerun and
+failed driver verification. The isolated serial rerun passed all four table variants, all four Stage variants and all six file-dialog fixture variants. All four window-icon cases failed because the compositor did not advertise the toplevel icon protocol. See `wayland-egl-check-ed9P5d30/window-recheck/results.csv`.
+
+The private Weston reruns passed the Glass window and render-scale tests in
+default and runtime modes on both drivers. The standalone native-window,
+menu-click, nested-menu, popup-edge and popup tests also passed on each
+driver. Closing an application-modal Stage still failed the immediate
+owner-focus assertion. Cases 005–030 of `wayland-rebuild-UCYJ3nrm/recheck/`
+contain per-case logs.
+
+On 24 November the private Weston 14 session ran every case against the same
+Linux release on the B390. The initial NonRobot run passed 289 of 320, and
+the Robot run passed 4 of 22. With targeted reruns, the latest results are
+294/320 and 4/22. All 342 entries, their invocation counts and per-case logs
+are in `agentdir/artifacts/wayland-release-nOfa55Xe/audit.csv`. The original
+two result sets remain in the sibling `nonrobot/` and `robot/` directories.
+
+The four published-module and Shadow consumer tests passed with a local
+mirror of public build plugins. The Vulkan hover pixel check initially counted
+183 missing-color frames out of 1407, although Java observed no stationary
+hover loss. Three Vulkan reruns with per-phase logging passed at 29/1416,
+30/1418 and 26/1414. The original miss remains unexplained. The prior
+cross-build ledger is in `agentdir/artifacts/wayland-egl-check-ed9P5d30/coverage.csv`.
+
+A subsequent Linux build corrected an incorrect restore notification when a
+different Stage was selected. The private Weston task-switcher test passed
+with Vulkan and OpenGL in both default and runtime modes. Selecting the main
+Stage kept the VFX child iconified. Selecting the child restored its original
+400×300 logical bounds and the VFX close button then closed it. Logs for the
+four cases are in `agentdir/artifacts/wayland-shell-restore-P8ZWu1G3/`.
+These additional cases exercise desktop-initiated restoration. The 342-case
+ledger above measures the preceding release.
+
+| Remaining NonRobot cases at this checkpoint | Count | Observation on the private Wayland desktop |
+| --- | ---: | --- |
+| Native order, window order and window composition | 8 | The compositor manages global positioning and stacking. The composition probes checked per-window content and failed the global-order requirement. |
+| Native Stage, native bridge and VFX window controls | 8 | xdg-shell has no client operation to undo minimization. The native Stage probes first completed fullscreen, maximization and return to ordinary bounds on both drivers. |
+| Modal and Stage input focus | 4 | The application-modal owner lacked focus when `showAndWait` returned. Weston subsequently focused the previously active native window. In a separate run with a private-seat click on the owner before opening the dialog, the owner regained focus. The Stage input fixture also failed to activate its requested root Stage. Neither local compositor advertises xdg-activation. |
+| Window icon | 4 | Neither the local WSLg compositor nor private Weston advertises xdg-toplevel-icon. |
+| Window drag | 2 | The fixture constructs a desktop Robot even when selected by the NonRobot group. |
+
+Of the 22 Robot cases, two child-Stage IME cases and two virtual-keyboard contract cases passed. The remaining 18 depend on a desktop-wide input and capture implementation. The separate compositor-driven drag probe verified actual Wayland transfers with GTK on the B390. The published VFX test names account for 42 passing NonRobot cases out of 46, plus two Robot scrolling cases that could not run their gestures. See [Wayland drag and Robot results](glass-godot.md#drag-and-drop-on-linux-wayland) and [VFX evidence](vfx-demo.md#linux-x64-on-wsl2).
+
+On the B390, labwc 0.9.3 advertised both the activation and toplevel-icon
+extensions. Its four original window-icon cases passed, including per-window
+replacement and teardown. The rebuilt host supplied the seat serial and
+surface from the same real event when requesting activation. Both Stage input
+cases and all four VFX window-control cases then passed. In each VFX case
+the trace recorded keyboard entry on the child after the activation request.
+The four task-switcher restoration checks on Weston remained green. The
+compositor comparison and traces are in
+`agentdir/artifacts/wayland-activation-aPQfvnC7/`.
+The bridge fixture now observes host snapshots for up to five seconds after
+command acknowledgement, checking that the visible child keeps its owner and
+ordinary mode while its parent restores. Both drivers completed this fixture
+on labwc and timed out at the same restore requirement on Weston. The latest
+labwc results cover 12 passing cases out of 16 selected NonRobot cases.
+The outstanding pairs are modal-owner focus on return from `showAndWait` and
+the rapid native Stage mode transition, which timed out at step 12 on both
+repeat runs. Its full Robot group passed 4/22, with the other eighteen logs
+explicitly reporting the missing Glass Wayland Robot backend. See
+`labwc-latest.csv` and `robot/results.csv` in the same archive.
+The 342-case Weston tally above remains a separate run.
+
+The native Stage step-12 failure on labwc was traced to its window-family
+minimization and focus policy. In two independent runs, private-seat Alt+Tab
+restored the family and both original probes completed. The unassisted case
+remains a failure on both renderers. Subsequent builds also advertise owned
+modal Stages through xdg-dialog-v1 when available. All three dialogs in the
+nested/application-modal fixture acquired that native role on labwc, and
+both backends still failed the immediate owner-focus check. See
+[Wayland modal roles and family restoration](glass-godot.md#owned-modal-stages-on-wayland).
+
+A later Vulkan repetition exposed a race between native key delivery and
+publication of the JavaFX focus snapshot. The release that records focus in
+the key event passed the original Stage input fixture 10/10 times per driver
+on labwc. On this release, the 13 selected NonRobot cases passed 11/13
+on labwc and 9/13 on Weston. The complete labwc Robot group passed the
+two child-Stage IME and two virtual-keyboard cases. Each of its 18 failures
+reported the missing Glass Wayland Robot backend.
+The final SDK classes and engine library in VFX and both additional
+demos matched the local source builds. The repeated checks and hashes are in
+`agentdir/artifacts/wayland-key-focus-K1V6MLTx/`.
+
+The native GTK chooser also mapped with the expected parent on an
+independent Wayland connection for each driver and each of the two Stage
+owners. Alt+F4 canceled all four panels and Java received a null selection.
+Results and screenshots are in
+`agentdir/artifacts/wayland-family-CCWBZZMD/chooser-close/`.
+
+On isolated native Wayland, the production VFX JAR also completed vertical
+and horizontal table drags on both drivers. The six-round VFX navigation
+fixture recorded 409 Java and 409 native samples per driver and released
+all host-owned resources on exit. By the sixth return to the home page the
+private memory and target-material counts were still growing. See the
+[table gesture evidence](vfx-demo.md#linux-x64-on-wsl2) and
+[six-round measurements](memory-validation.md#recorded-results).
+
+In the private Weston regression, the published modules, Shadow JAR and VFX Demo JAR passed on both drivers. The GodotView default, transformed and runtime fixtures passed on each driver, including the embedded scene's pixel readback, pointer, touch, key routing and resize. Host lifetime, host stop, IME and input-lifecycle cases also passed on both drivers. The Vulkan ownership test exchanged the clipboard between two independent Wayland JVMs. Per-case logs and captures are under `agentdir/artifacts/wayland-full-GRn6iHqe/tests/`.
+
+### Windows and macOS
 
 On 2026-11-21, after the public driver names changed to `d3d12` and `opengl`,
 the rebuilt Windows M1 pixel test and Demo smoke launch passed on D3D12,

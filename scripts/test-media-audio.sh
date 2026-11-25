@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
 runtime=""
-DRIVER="metal"
+DRIVER="$native_driver"
 CODEC="wav"
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -17,7 +17,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$CODEC" in wav|mp3|aiff|all) ;; *) echo "invalid codec: $CODEC" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"

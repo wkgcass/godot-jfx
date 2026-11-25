@@ -7,7 +7,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 TRANSFORM=0
 RUNTIME=0
@@ -21,7 +21,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -32,7 +32,7 @@ if [ "$TRANSFORM" -eq 1 ]; then
     "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
         -d artifacts/reference tests/reference/TransformClipReference.java || { echo "Transform clip reference compilation failed" >&2; exit 1; }
     CODE=0
-    "$JDK/bin/java" -Dglass.platform=Mac --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
+    python3 "$PWD/scripts/native_prism.py" "$JDK/bin/java" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
         --enable-native-access=javafx.graphics \
         -cp artifacts/reference TransformClipReference >agentdir/logs/transform-clip-mac-native.log 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ] || ! grep -q 'TRANSFORM_CLIP_REFERENCE_PASS' agentdir/logs/transform-clip-mac-native.log; then
@@ -58,7 +58,7 @@ if [ "$RUNTIME" -eq 1 ]; then
     done
     sed 's|res://main.tscn|res://godot_view.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
     CODE=0
-    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/$source_editor" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "GodotView runtime import failed: $LOG.import" >&2; exit 1; fi
     CODE=0
     (cd "$FIXTURE" && python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \

@@ -8,7 +8,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -18,7 +18,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -38,7 +38,7 @@ REFERENCE="$PWD/artifacts/reference/composite-edges-mac-native.txt"
 REFLOG="agentdir/logs/composite-edges-mac-native.log"
 CODE=0
 # shellcheck disable=SC2086
-"$JDK/bin/java" -Dglass.platform=Mac --module-path jfx/build/sdk/lib --add-modules javafx.graphics $EXPORTS \
+python3 "$PWD/scripts/native_prism.py" "$JDK/bin/java" --module-path jfx/build/sdk/lib --add-modules javafx.graphics $EXPORTS \
     "-Dedges.output=$REFERENCE" -cp artifacts/reference CompositeEdgeProbe >"$REFLOG" 2>&1 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'COMPOSITE_EDGE_PROBE_PASS ' "$REFLOG" \

@@ -34,10 +34,11 @@ func _ready() -> void:
 		push_error("VFX Stage Java probe start failed"); get_tree().quit(1); return
 	var step:=0
 	var drag_checked:={}
+	var native_state := ""
 	var deadline:=Time.get_ticks_msec()+180000
 	while host.get_runtime_status()!="finished":
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
-			push_error("VFX Stage failed step=%d: %s"%[step,host.get_runtime_error()]); get_tree().quit(1); return
+			push_error("VFX Stage failed step=%d: %s %s"%[step,host.get_runtime_error(),native_state]); get_tree().quit(1); return
 		await RenderingServer.frame_post_draw
 		var title:=get_window().title
 		if not title.begins_with("VfxStage %d "%step): continue
@@ -47,9 +48,14 @@ func _ready() -> void:
 		if window==null or (id!=0 and window.is_present_pending()): continue
 		if id!=0:
 			if window.size!=Vector2i(Vector2(400,400)*DisplayServer.screen_get_scale(window.current_screen)): continue
-			if window.is_embedded() or DisplayServer.get_window_list().size()!=2:
-				push_error("VFX Stage is not an independent native window"); get_tree().quit(1); return
+			var ids := DisplayServer.get_window_list()
+			var child_id: int = window.get_window_id()
+			native_state = "glass=%d native=%d registered=%s embedded=%s" % [id, child_id, ids, window.is_embedded()]
+			if window.is_embedded() or child_id == get_window().get_window_id() or ids.size() != 2 or not ids.has(child_id) or not ids.has(get_window().get_window_id()):
+				continue
 		for frame in range(10): await RenderingServer.frame_post_draw
+		if not is_instance_valid(window) or not window.visible or (id != 0 and not DisplayServer.get_window_list().has(window.get_window_id())):
+			continue
 		if step==1 and OS.get_environment("GODOT_JFX_VFX_ABRUPT")=="1":
 			print("VFX_ABRUPT_EXIT_REQUESTED")
 			get_tree().quit(); return

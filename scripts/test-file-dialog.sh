@@ -20,7 +20,7 @@ cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
 runtime=""
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 STOP_HOST=0
 while [ $# -gt 0 ]; do
@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -46,7 +46,7 @@ mkdir -p artifacts/reference agentdir/logs
     --add-exports javafx.graphics/com.sun.prism.ps=ALL-UNNAMED \
     -encoding UTF-8 -d artifacts/reference tests/reference/FileDialogProbe.java
 
-TOKEN="JFX-$(uuidgen | tr -d '-' | tr 'A-F' 'a-f')"
+TOKEN="JFX-$(python3 -c 'import uuid; print(uuid.uuid4().hex)')"
 READY_PATH="$PWD/agentdir/logs/$TOKEN.ready"
 SUFFIX=""
 [ "$STOP_HOST" = 1 ] && SUFFIX="-stop"

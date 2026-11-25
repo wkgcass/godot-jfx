@@ -324,3 +324,17 @@ from the Windows runners, all observable in the scripts:
   `/dev/fd` entries for handles. Pass criteria are unchanged; the samples are
   trend-analysis data, not acceptance gates.
 - Use `--runtime` for an isolated macOS Media project. For native Mac Glass and Prism Metal, run `./scripts/test-media-video.sh --native` or `./scripts/test-media-churn.sh --native` with the same sample and cycle settings as the Godot run. PSS/ETW and native D3D diagnostics require Windows. On macOS, `./scripts/make-media-fixture.py` encodes and verifies 960 H.264 frames with ffmpeg and ffprobe. `./scripts/benchmark-media-frames.py --driver metal --native60` checks the fixture hash, focused playback and host throughput. `--native` selects the native Mac Glass / Prism Metal comparison.
+
+## Linux x64 media churn
+
+On Linux the observer reads RSS and private memory from the media JVM's
+`/proc/self/smaps_rollup`. Private bytes include private clean, dirty and
+hugetlb pages. The JVM's Unix operating system bean supplies the open file
+descriptor count in the `handles` field.
+
+On WSL2 with the Arc B390, Vulkan Mobile and OpenGL Compatibility each passed
+the default MP4 case, PCM audio-only case and isolated MP4 runtime case.
+Each run recorded 24 JVM, process and Godot samples plus one idle process
+sample. All six runs reported `GODOT_MEDIA_CHURN_PASS final_owned=0` at
+teardown. The full logs are under
+`agentdir/artifacts/linux-media-recheck-pIa1Wi3X/agentdir/logs/acceptance/`.

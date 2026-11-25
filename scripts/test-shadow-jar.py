@@ -14,10 +14,11 @@ import tempfile
 import time
 from zipfile import ZipFile
 
+import native_prism
 from jdk_home import add_jdk_argument, configure_jdk
 from godot_driver import DEFAULT_DRIVER, add_driver_argument, check_driver
 from library_test_platform import (CLASSIFIER, EDITOR, ENGINE, MEDIA_LIBRARIES, SDK_NATIVES,
-                                   WINDOWS, library, module_paths, system_path)
+                                   WINDOWS, LINUX, library, module_paths, system_path)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -89,9 +90,11 @@ def launch(work, jar, name, args, markers, extra_env=None, expected_error=None, 
     env = {k: v for k, v in os.environ.items() if not k.startswith("GODOT_")
            and k not in ("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "CLASSPATH")}
     env["PATH"] = system_path(jdk)
+    if native_cache and LINUX:
+        env.update(native_prism.environment())
     log = work / (name + ".log")
     loaded = set()
-    jvm_options = ["-Dglass.platform=Mac", f"-Djavafx.cachedir={native_cache}"] if native_cache else []
+    jvm_options = ["-Dglass.platform=" + ("Gtk" if LINUX else "Mac"), f"-Djavafx.cachedir={native_cache}"] if native_cache else []
     if driver:
         jvm_options.append(f"-Djavafx.godot.driver={driver}")
     with log.open("wb") as stream, subprocess.Popen([jdk / "bin/java", *jvm_options, "-jar", jar.name, *args],
@@ -117,8 +120,8 @@ def launch(work, jar, name, args, markers, extra_env=None, expected_error=None, 
     required = {library("godot")}
     if native_cache:
         if any(path.name == library("godot") for path in loaded):
-            raise AssertionError(f"{name}: native Mac Glass loaded the Godot engine")
-        required = {library("glass"), *MEDIA_LIBRARIES}
+            raise AssertionError(f"{name}: native Glass loaded the Godot engine")
+        required = {library("glassgtk3" if LINUX else "glass"), *MEDIA_LIBRARIES}
     elif name == "media":
         required.update(MEDIA_LIBRARIES)
     else:

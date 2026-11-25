@@ -33,6 +33,9 @@ public final class SnapshotProbe extends Application {
                 var second=scene.snapshot(new WritableImage(64,48));
                 pixel(second,10,10,Color.LIME); pixel(second,34,14,Color.BLUE);
                 red.setFill(Color.YELLOW);
+                if (scene.snapshot(second) != second) throw new AssertionError("Snapshot target identity");
+                pixel(second,10,10,Color.YELLOW);
+                pixel(first,10,10,new Color(1,0,0,.5));
                 root.snapshot(result->{
                     try {
                         if(!Platform.isFxApplicationThread()) throw new AssertionError("Snapshot callback thread");
@@ -69,9 +72,7 @@ public final class SnapshotProbe extends Application {
                             pixel(result.getImage(),35,15,Color.BLUE);
                             pixel(result.getImage(),width-2,40,Color.TRANSPARENT);
                             if(++count%20==0) {
-                                // QuantumImage caches its RT until the image is
-                                // collected. Sample retained resources after GC,
-                                // outside this callback's strong result reference.
+                                // Sample outside the callback's strong result reference.
                                 Platform.runLater(()->{
                                     System.gc();
                                     // A normal dirty frame runs Prism disposer

@@ -1,20 +1,17 @@
 #!/bin/sh
-# macOS equivalent of test-drag-drop-external.ps1. Builds a Cocoa helper
-# (tests/native/dnd_helper_macos.mm) with two endpoints — an NSPasteboard drop
-# target and a drag source — and drives the physical mouse with the JavaFX
-# Robot through three phases: drag text+URL+files out to the helper, receive a
-# helper drag-in, cancel an outbound drag with Escape.
+# Uses independent GTK/Wayland or Cocoa drag endpoints for the JavaFX Robot's
+# outbound, inbound and Escape-cancel gestures.
 #
-# This test moves the real mouse and reads the screen: the terminal needs
-# Accessibility and Screen Recording permissions; keep the desktop idle.
-# Usage: test-drag-drop-external.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
+# This test moves the real mouse and reads the screen. On macOS grant
+# Accessibility and Screen Recording permissions. On Linux use the isolated Wayland desktop.
+# Usage: test-drag-drop-external.sh [--driver metal|vulkan|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -eu
 . "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
 runtime=""
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -25,18 +22,27 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference agentdir/logs artifacts/native-tests
 
-HELPER="artifacts/native-tests/dnd_helper_macos"
 BUILD_LOG="agentdir/logs/dnd-helper-build.log"
-if ! clang++ -std=c++17 -fobjc-arc -O2 -framework AppKit -framework Foundation \
-        tests/native/dnd_helper_macos.mm -o "$HELPER" >"$BUILD_LOG" 2>&1; then
-    echo "dnd_helper_macos build failed: $BUILD_LOG" >&2; exit 1
+if [ "$(uname -s)" = Linux ]; then
+    if [ -n "${GODOT_JFX_WAYLAND_TEST_LAYOUT:-}" ]; then
+        export GODOT_JFX_WAYLAND_ICON_PROBE="$PWD/tests/wayland/observe-drag-image.py"
+    fi
+    HELPER="artifacts/native-tests/dnd_helper_linux"
+    "${CXX:-c++}" -std=c++17 -O2 $(pkg-config --cflags gtk+-3.0) \
+        tests/native/dnd_helper_linux.cpp $(pkg-config --libs gtk+-3.0) -o "$HELPER" >"$BUILD_LOG" 2>&1 || \
+        { echo "GTK/Wayland helper build failed: $BUILD_LOG" >&2; exit 1; }
+else
+    HELPER="artifacts/native-tests/dnd_helper_macos"
+    clang++ -std=c++17 -fobjc-arc -O2 -framework AppKit -framework Foundation \
+        tests/native/dnd_helper_macos.mm -o "$HELPER" >"$BUILD_LOG" 2>&1 || \
+        { echo "Cocoa helper build failed: $BUILD_LOG" >&2; exit 1; }
 fi
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
     -encoding UTF-8 -d artifacts/reference tests/reference/ExternalDragProbe.java \
@@ -49,13 +55,17 @@ rm -f "$TARGET_LOG" "$SOURCE_LOG"
 HELPER_PIDS=""
 cleanup() {
     for pid in $HELPER_PIDS; do kill "$pid" 2>/dev/null || true; done
-    rm -f /tmp/drag-test.txt /tmp/helper-source.txt
+    if [ "$(uname -s)" = Darwin ]; then
+        rm -f /tmp/drag-test.txt /tmp/helper-source.txt
+    fi
 }
 trap cleanup EXIT
 
 # Cross-process Cocoa drags silently drop file items whose path does not
 # exist, so the fixture files must be real (Windows OLE tolerated C:/ paths).
-touch /tmp/drag-test.txt /tmp/helper-source.txt
+if [ "$(uname -s)" = Darwin ]; then
+    touch /tmp/drag-test.txt /tmp/helper-source.txt
+fi
 
 # Chromeless topmost helper windows in JavaFX logical points, right of the
 # 400x160 stage at FX (300,300). Unlike Windows, Cocoa window placement and
@@ -125,7 +135,7 @@ fi
 # helper observes the Cocoa draggingImage during DragEnter. The offset is a
 # source-side cursor anchor and is not observable through NSDraggingInfo, so
 # the macOS assertion covers the image size only.
-if ! grep -E 'DND_HELPER_ENTER .*image=8x6 bytes=[0-9]+' "$TARGET_LOG" >/dev/null; then
+if ! grep -E 'DND_HELPER_ENTER .*image=8x6 bytes=[1-9][0-9]*' "$TARGET_LOG" >/dev/null; then
     echo "Helper did not observe the drag image (8x6): $TARGET_LOG" >&2
     exit 1
 fi

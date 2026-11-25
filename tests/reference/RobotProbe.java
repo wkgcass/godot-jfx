@@ -33,7 +33,19 @@ public final class RobotProbe {
             Scene scene = new Scene(new Pane(field,button,patch),360,180);
             scene.setOnScroll(e -> { check(e.getDeltaY()<0,"Wheel direction differs"); ++wheels[0]; });
             stage.setAlwaysOnTop(true); stage.setScene(scene); stage.setX(80); stage.setY(80); stage.show(); stage.requestFocus();
-            Robot robot = new Robot(); double oldX=robot.getMouseX(), oldY=robot.getMouseY();
+            final Robot robot;
+            final double oldX, oldY;
+            try {
+                robot = new Robot();
+                oldX = robot.getMouseX();
+                oldY = robot.getMouseY();
+            } catch (Throwable error) {
+                failure.set(error);
+                stage.close();
+                Platform.exit();
+                done.countDown();
+                return;
+            }
             new AnimationTimer() {
                 int step; long next;
                 void click(double x,double y) { robot.mouseMove(x,y); robot.mousePress(MouseButton.PRIMARY); robot.mouseRelease(MouseButton.PRIMARY); }
@@ -49,8 +61,10 @@ public final class RobotProbe {
                     try {
                         if (!stage.isFocused()) { if (step==0) { stage.requestFocus(); return; } throw new AssertionError("Robot fixture lost focus"); }
                         var text=field.localToScreen(25,15); var action=button.localToScreen(25,15); var sample=patch.localToScreen(220,40);
+                        if (step == 0) System.out.println("ROBOT_TARGET stage=" + stage.getX() + "," + stage.getY()
+                                + " sample=" + sample + " field=" + text + " scale=" + stage.getOutputScaleX());
                         switch(step++) {
-                            case 0 -> { blue(robot.getPixelColor(sample.getX(),sample.getY())); click(text.getX(),text.getY()); check(Math.abs(robot.getMouseX()-text.getX())<1 && Math.abs(robot.getMouseY()-text.getY())<1,"Mouse position mapping differs"); }
+                            case 0 -> { blue(robot.getPixelColor(sample.getX(),sample.getY())); click(text.getX(),text.getY()); var pos = robot.getMousePosition(); check(Math.abs(pos.getX()-text.getX())<1 && Math.abs(pos.getY()-text.getY())<1,"Mouse position mapping differs: " + pos + " expected " + text); }
                             case 1 -> {
                                 blue(robot.getPixelColor(sample.getX(),sample.getY())); check(field.isFocused(),"Robot click did not focus TextField"); robot.keyPress(KeyCode.SHIFT); robot.keyPress(KeyCode.A); robot.keyRelease(KeyCode.A); robot.keyRelease(KeyCode.SHIFT); }
                             case 2 -> { check(field.getText().equals("A"),"Robot key input differs: "+field.getText()); robot.keyPress(KeyCode.ENTER); robot.keyRelease(KeyCode.ENTER); }

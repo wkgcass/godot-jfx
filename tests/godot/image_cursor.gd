@@ -6,6 +6,8 @@ func _ready() -> void:
 		fail("Cursor probe rejected"); return
 	var step:=0
 	var moved:=-1
+	var aligned_window_id := DisplayServer.INVALID_WINDOW_ID
+	var private_wayland := DisplayServer.get_name() == "Wayland" and OS.get_environment("WAYLAND_DISPLAY") == "godot-private" and OS.has_environment("GODOT_JFX_TEST_WESTON_WITH_INPUT")
 	var deadline:=Time.get_ticks_msec()+40000
 	while host.get_runtime_status()!="finished":
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
@@ -14,7 +16,17 @@ func _ready() -> void:
 		if step>=13 or get_window().title!="ImageCursor "+str(step) or host.get_completed_presentations()==0: continue
 		var window=get_window() if step==0 else host.get_native_window(2)
 		if window==null or (step!=0 and window.is_present_pending()): continue
+		if window.get_window_id() == DisplayServer.INVALID_WINDOW_ID:
+			continue
+		if OS.get_name() == "Linux" and (not host.is_window_visible(0 if step == 0 else 2) or window.size.x <= 40 or window.size.y <= 40):
+			continue
 		if step!=0 and window.get_window_id()==get_window().get_window_id(): fail("Cursor child is embedded"); return
+		# Weston places each toplevel independently. Cover the private output
+		# with the tested surface so the stationary virtual pointer is over it.
+		if private_wayland and aligned_window_id != window.get_window_id():
+			aligned_window_id = window.get_window_id()
+			window.mode = Window.MODE_MAXIMIZED
+		if private_wayland and window.mode != Window.MODE_MAXIMIZED: continue
 		if moved!=step:
 			var motion:=InputEventMouseMotion.new(); motion.window_id=window.get_window_id(); motion.position=Vector2(40,40)
 			Input.parse_input_event(motion); moved=step

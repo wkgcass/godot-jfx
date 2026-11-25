@@ -8,11 +8,13 @@ public class StartupProbe extends Application {
     public static void main(String[] args) { launch(args); }
     @Override public void start(Stage stage) throws Exception {
         Platform.setImplicitExit(false);
+        long start = System.nanoTime();
         Thread.sleep(1200);
         stage.setTitle("StartupProbe");
         StackPane pane = new StackPane();
         pane.setStyle("-fx-background-color: #e02030;");
         stage.setScene(new Scene(pane, 480, 320));
+        System.out.println("STARTUP_PROBE_SHOW elapsed_ms=" + (System.nanoTime() - start) / 1_000_000);
         stage.show();
         if ("1".equals(System.getenv("GODOT_JFX_STARTUP_CANCEL"))) {
             Thread.sleep(250);

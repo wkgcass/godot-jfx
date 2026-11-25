@@ -8,7 +8,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 STOP_FROM_HOST=0
 ENCODED=0
@@ -30,7 +30,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 MODES=$((STOP_FROM_HOST + ENCODED + TEXTURES + PRISM_TEXTURES + SHADER_STATES + PRISM_CONTEXT))

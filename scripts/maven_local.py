@@ -27,6 +27,8 @@ def classifier():
         return "win"
     if sys.platform == "darwin" and arch == "arm64":
         return "mac-aarch64"
+    if sys.platform == "linux" and arch == "x86_64":
+        return "linux"
     raise ValueError(f"Unsupported JavaFX platform: {sys.platform} {arch}")
 
 

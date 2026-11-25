@@ -32,11 +32,11 @@ class JavaFXRenderTarget : public RefCounted {
 	struct DrawSlot {
 		RID item, mesh, material, texture, shader;
 		Ref<ArrayMesh> mesh_owner; // Recorded canvas draws must outlive cache eviction.
-		Vector<StringName> instance_names;
+		HashMap<StringName, Variant> instance_values;
 		bool clip = false;
 		Rect2i rect;
 		Transform2D transform;
-		bool used = false;
+		float modulate = 1.0f;
 		bool visible = false;
 		bool matches(RID p_mesh, RID p_material, RID p_texture, bool p_clip, const Rect2i &p_rect) const {
 			return mesh == p_mesh && material == p_material && texture == p_texture && clip == p_clip && rect == p_rect;
@@ -62,6 +62,7 @@ class JavaFXRenderTarget : public RefCounted {
 	Vector<Ref<ArrayMesh>> uncached_meshes;
 	HashMap<String, RID> shader_cache;
 	uint64_t shader_creations = 0;
+	uint64_t retained_draws = 0;
 	int draw_index = 0;
 	RID create_draw_item(RID p_material);
 	RID acquire_material(RID p_shader, const Dictionary &p_parameters, bool p_persistent_shader);
@@ -79,6 +80,7 @@ public:
 	static bool sampler_alive(const RID &p_rid) { return live_sampler_rids.has(p_rid); }
 	bool initialize(const Size2i &p_size);
 	void begin_pass(bool p_clear);
+	void copy_lcd_background(const Rect2i &p_rect);
 	void copy_target(const Ref<JavaFXRenderTarget> &p_source, const Rect2 &p_rect);
 	void end_pass();
 	uint64_t draw_offscreen_pass();
@@ -105,11 +107,13 @@ public:
 	// Content-addressed mesh reuse is a bounded memo table, not per-pass
 	// ownership; expose it separately from the hygiene count.
 	int get_cached_mesh_count() const { return mesh_cache ? int(mesh_cache->size()) : 0; }
+	static int get_shared_shader_count();
 	int get_cached_shader_count() const { return shader_cache.size(); }
 	// Persistent draw slots and shared materials are per-target ownership and
 	// therefore part of the owned-resource count; exposed for its formula.
 	int get_cached_material_count() const { return material_cache.size(); }
 	int get_draw_slot_count() const { return slots.size(); }
+	uint64_t get_retained_draw_count() const { return retained_draws; }
 	int64_t get_shader_creation_count() const { return shader_creations; }
 	Dictionary get_instance_uniform_cache_stats() const;
 	// GPU timing (viewport_set_measure_render_time): the measured GPU time of

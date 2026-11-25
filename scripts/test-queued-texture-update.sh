@@ -7,7 +7,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 BATCH=0
 VIEWPORT=0
@@ -21,7 +21,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 if [ "$BATCH" -eq 1 ] && [ "$VIEWPORT" -eq 1 ]; then
     echo "Choose one fixture mode" >&2
@@ -53,6 +53,10 @@ LOG="agentdir/logs/queued-texture-update-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://queued_texture_update.tscn \
     --render-thread "$RENDER_THREAD" --quit-after 10000 >"$LOG" 2>&1 || CODE=$?
+if ! grep -q '^SAME_PASS_SAMPLER_REVISION_PASS pixels=128$' "$LOG"; then
+    echo "Same-pass sampler revision check incomplete: $LOG" >&2
+    exit 1
+fi
 if ! grep -q 'PARTIAL_TEXTURE_UPDATE_PASS' "$LOG"; then
     echo "Partial texture update check incomplete: $LOG" >&2
     exit 1

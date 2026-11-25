@@ -19,15 +19,15 @@ def command(args, working_directory):
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     add_jdk_argument(parser)
     add_driver_argument(parser)
-    if sys.platform == "darwin":
+    if sys.platform in ("darwin", "linux"):
         parser.add_argument("--runtime", action="store_true", help="import just the selected standalone scene")
     options, args = parser.parse_known_args(args)
     if any(arg.split("=", 1)[0] in ("--renderer", "--rendering-method", "--rendering-driver") for arg in args):
         parser.error("select the Godot backend with --driver")
     jvm_options = [f"-Djavafx.godot.driver={options.driver or DEFAULT_DRIVER}"]
     windows = os.name == "nt"
-    if not windows and sys.platform != "darwin":
-        raise RuntimeError("Scene fixtures require the Windows or macOS platform JARs")
+    if not windows and sys.platform not in ("darwin", "linux"):
+        raise RuntimeError("Scene fixtures require a supported platform JAR")
     jdk = configure_jdk(options.jdk)
     jars = test_jars()
     classes = ROOT / "artifacts/reference"

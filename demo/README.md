@@ -16,7 +16,7 @@ Windows x64（PowerShell）
 .\jfx\gradlew.bat -g .gradle-cache -p demo/002-3d-contains-javafx :shadowJar
 ```
 
-macOS arm64
+macOS arm64 与 Linux x64 使用相同的 Gradle 命令。Linux 需要 Linux x64 的源码 Editor 和发布到本地的 `linux` 平台模块。
 
 ```sh
 ./jfx/gradlew -g .gradle-cache -p demo/001-3d-in-javafx :shadowJar

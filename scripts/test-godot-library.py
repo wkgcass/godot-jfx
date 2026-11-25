@@ -17,8 +17,10 @@ import time
 from zipfile import ZipFile
 
 from jdk_home import add_jdk_argument, configure_jdk
+from maven_coordinates import CLASSIFIER_HASH_KEYS, artifact_id
+import native_prism
 from godot_driver import DEFAULT_DRIVER, ENGINE_DRIVERS, add_driver_argument, check_driver
-from library_test_platform import CLASSIFIER, EDITOR, MEDIA_LIBRARIES, WINDOWS, library, module_paths, system_path
+from library_test_platform import CLASSIFIER, EDITOR, MEDIA_LIBRARIES, WINDOWS, LINUX, library, module_paths, system_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +52,7 @@ class RepositoryHandler(http.server.SimpleHTTPRequestHandler):
 
 
 def resolve(runtime, work, maven):
+    version = (runtime / "version.txt").read_text().strip()
     consumer = work / "consumer"
     consumer.mkdir(exist_ok=True)
     shutil.copyfile(FIXTURES / "pom.xml", consumer / "pom.xml")
@@ -63,7 +66,7 @@ def resolve(runtime, work, maven):
                      f"-Dmaven.repo.local={work / 'maven-cache'}",
                      f"-Dgodot.platform={CLASSIFIER}",
                      f"-Dgodot.repository=http://127.0.0.1:{server.server_port}/",
-                     f"-Dgodot.version={(runtime / 'version.txt').read_text().strip()}",
+                     f"-Dgodot.version={version}",
                      "org.apache.maven.plugins:maven-dependency-plugin:3.8.1:copy-dependencies",
                      f"-DoutputDirectory={consumer / 'modules'}"], work / "maven.log", timeout=300)
         finally:
@@ -78,9 +81,16 @@ def resolve(runtime, work, maven):
             raise AssertionError(f"Unexpected transitive module: {plain}")
         plain.unlink()
     hashes = {jar.name: sha256(jar) for jar in (consumer / "modules").glob("*.jar")}
-    platform_hash = "windowsClassifierSha256" if WINDOWS else "macArm64ClassifierSha256"
-    if len(hashes) != 6 or set(hashes.values()) != {m.get(platform_hash, m["sha256"]) for m in inventory.values()}:
-        raise AssertionError("Resolved jars differ from the six staged modules")
+    expected = {}
+    for module in ("base", "controls", "fxml", "graphics", "media", "swing"):
+        platform = module in ("graphics", "media")
+        suffix = f"-{CLASSIFIER}" if platform else ""
+        filename = f"{artifact_id(module)}-{version}{suffix}.jar"
+        key = CLASSIFIER_HASH_KEYS[CLASSIFIER] if platform else "sha256"
+        expected[filename] = inventory[f"javafx.{module}"][key]
+    if hashes != expected:
+        mismatches = sorted(name for name in hashes.keys() | expected.keys() if hashes.get(name) != expected.get(name))
+        raise AssertionError(f"Resolved jars differ from the staged modules: {mismatches}")
     graphics = next((consumer / "modules").glob("godot-jfx-graphics-*.jar"))
     with ZipFile(graphics) as jar:
         if not any(p.endswith(".gdshader") for p in jar.namelist()):
@@ -269,6 +279,7 @@ class Suite:
                            expected=["GODOT_LIBRARY_LOOP renderer=gl_compatibility",
                            "HOST_READY", "APPLICATION_STOP"])
             self.child("exit-fx", "LibraryLifecycle", "exit-fx", expected=["EXPLICIT_FX_EXIT"], code=37)
+            self.child("exit-toolkit", "LibraryLifecycle", "exit-toolkit", expected=["SHUTDOWN_TOOLKIT_PASS"], code=37)
             self.child("modular", "--module-path", os.pathsep.join(map(str, [self.modules, self.work / "example.fx"])),
                        "--module", "example.fx/example.fx.ModularApplication", expected=["APPLICATION_MODULE_PASS example.fx"])
         elif group == "failures":
@@ -286,6 +297,11 @@ class Suite:
                     if case == "architecture":
                         if WINDOWS:
                             wrong_arch = (Path(os.environ["SystemRoot"]) / "SysWOW64/version.dll").read_bytes()
+                        elif LINUX:
+                            output = runtime / "wrong-class.so"
+                            command(["gcc", "-m32", "-nostdlib", "-shared", "-x", "c", "/dev/null", "-o", output],
+                                    runtime / "gcc.log")
+                            wrong_arch = output.read_bytes()
                         else:
                             output = runtime / "intel.dylib"
                             command(["clang", "-arch", "x86_64", "-dynamiclib", "-x", "c", "/dev/null", "-o", output],
@@ -303,12 +319,14 @@ class Suite:
                            "javafx.godot.project": runtime / "project.pck" if case in ("project", "invalid-pack", "attach") else None},
                            expected=["EXPECTED_FAILURE", marker], code=31, engines=int(case == "attach"), expected_loops=0)
             self.child("early-image", "BackendProbe", "image", expected=["EARLY_IMAGE_PASS"], engines=0, loaded=[library("javafx_iio")])
-            damaged = self.damaged_classifier(self.work / "missing-media", "media", library("glib-lite"))
+            required_media = library("jfxmedia" if LINUX else "glib-lite")
+            damaged = self.damaged_classifier(self.work / "missing-media", "media", required_media)
             self.child("missing-media-dependency", "BackendProbe", "media", module_path=damaged,
-                       expected=[library("glib-lite"), "UnsatisfiedLinkError"], code=1, engines=0)
-            backend = "d3d" if WINDOWS else "mtl"
-            self.child("native-" + backend, "BackendProbe", backend, properties={"prism.order": backend}, engines=0,
-                       expected=["NATIVE_CONTROL_PASS"], loaded=[library("glass"), library("prism_" + backend)])
+                       expected=[required_media, "UnsatisfiedLinkError"], code=1, engines=0)
+            backend = native_prism.PRISM
+            self.child("native-" + backend, "BackendProbe", backend, properties=native_prism.properties(),
+                       env=native_prism.environment(), engines=0, expected=["NATIVE_CONTROL_PASS"],
+                       loaded=[library("glassgtk3" if LINUX else "glass"), library("prism_" + backend)])
         elif group == "render":
             project = self.project("独立 工程𠮷", "interaction.gd")
             pack = self.work / "窗口 𠮷.pck"
@@ -326,8 +344,9 @@ class Suite:
                 self.child("options-" + case, "LibraryLifecycle", "explicit", properties={"test.project": source,
                            "test.input": "true"}, expected=expected,
                            env={"GODOT_LIBRARY_CAPTURE": str(refs / ("options-" + case + ".png"))})
-            self.child("effects-reference", "EffectsProbe", properties={**({"prism.order": "d3d"} if WINDOWS else {"glass.platform": "Mac"}),
-                       "effects.reference": refs / "d3d-effects.png"}, expected=["EFFECTS_REFERENCE_PASS"], engines=0)
+            self.child("effects-reference", "EffectsProbe", properties={**native_prism.properties(),
+                       "effects.reference": refs / "d3d-effects.png"}, env=native_prism.environment(),
+                       expected=["EFFECTS_REFERENCE_PASS"], engines=0)
             for name, probe, parent, marker in [
                 ("shader", "NodeShaderProbe", "node_shader_test.gd", "LIBRARY_SHADER_PIXELS_PASS"),
                 ("effects", "EffectsProbe", "effects_test.gd", "LIBRARY_EFFECT_PIXELS_PASS"),

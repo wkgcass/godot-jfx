@@ -10,6 +10,7 @@ func _ready() -> void:
 	if not target.initialize(Vector2i(32,32)): fail("Cache target allocation failed"); return
 	var vertices:=PackedFloat32Array([0,0,0,0,0,0,0, 0,32,0,0,1,0,0, 32,0,0,1,0,0,0, 32,32,0,1,1,0,0])
 	var colors:=PackedByteArray([255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255])
+	if not check_shared_program_lifetime(surface, vertices, colors): fail("Cross-target shader lifetime differs"); return
 	for cycle in range(305):
 		var variant:=maxi(0,cycle-4)
 		var code:="shader_type canvas_item; render_mode unshaded, blend_premul_alpha; uniform vec4 tint; void fragment(){ COLOR=tint; } // variant %d"%variant
@@ -62,6 +63,33 @@ func _ready() -> void:
 	remove_child(surface)
 	if surface.get_owned_resource_count()!=0: fail("Cache test surface leaked"); return
 	surface.free(); print("SHADER_CACHE_PASS: reuse, distinct uniforms, 64-code bound, overflow cleanup, 256-entry/4MiB name memo"); get_tree().quit(0)
+
+func check_shared_program_lifetime(surface, vertices: PackedFloat32Array, colors: PackedByteArray) -> bool:
+	var before: int = surface.get_texture_resource_stats().shared_target_shaders
+	var first = ClassDB.instantiate("JavaFXRenderTarget")
+	var second = ClassDB.instantiate("JavaFXRenderTarget")
+	if not first.initialize(Vector2i(32,32)) or not second.initialize(Vector2i(32,32)):
+		return false
+	var code := "shader_type canvas_item; render_mode unshaded; uniform vec4 tint; void fragment(){ COLOR=tint; }"
+	for index in range(3):
+		var current = first if index == 0 else second
+		var tint: Color = [Color.RED, Color.GREEN, Color.BLUE][index]
+		current.begin_pass(true)
+		current.draw_prism_quads(vertices, colors, code, {"tint": Vector4(tint.r,tint.g,tint.b,1)}, false, Rect2i())
+		current.end_pass()
+		current.draw_offscreen_pass()
+		current.finish_pass()
+		var pixels := RenderingServer.texture_2d_get(current.get_texture())
+		if not pixels.get_pixel(16,16).is_equal_approx(tint):
+			return false
+		if surface.get_texture_resource_stats().shared_target_shaders != before + 1:
+			return false
+		if index == 1:
+			if first.get_shader_creation_count() != 1 or second.get_shader_creation_count() != 0:
+				return false
+			first = null
+	second = null
+	return surface.get_texture_resource_stats().shared_target_shaders == before
 
 func check_sampler_collision() -> bool:
 	# Find a real Dictionary hash collision using live sampler RIDs. No hash

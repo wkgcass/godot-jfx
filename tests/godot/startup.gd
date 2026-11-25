@@ -41,6 +41,7 @@ func _ready() -> void:
         if state.active and state.shown and logo:
             if first_logo == 0: first_logo = Time.get_ticks_msec()
             if not sampled and Time.get_ticks_msec() - first_logo > 100:
+                await RenderingServer.frame_post_draw
                 var img := get_viewport().get_texture().get_image()
                 var corner := img.get_pixel(8, 8)
                 if absf(corner.r - 0.14) > 0.04 or absf(corner.g - 0.14) > 0.04:

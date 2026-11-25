@@ -1,4 +1,4 @@
-# Godot-hosted JavaFX for Windows x64 and macOS arm64
+# Godot-hosted JavaFX for Windows x64, macOS arm64 and Linux x64
 
 JavaFX loads the Godot engine from its platform JAR in the application JVM.
 The Prism-Godot and Glass-Godot backends use the engine for the event loop, native windows and GPU work.
@@ -20,6 +20,30 @@ compatibility. See [acceptance status](docs/acceptance-status.md) for evidence a
 remaining work. The user's remaining white-edge issue is explicitly waived.
 
 ## 阅读入口
+
+Linux x64 副本已在 WSL2 原生 Wayland 上构建，VFX 和两个独立 Demo 均在 Vulkan 和 OpenGL 上运行通过。344 项回归已全部执行，同一发行包计入复测后，非 Robot 通过 312/322 项，Robot 通过 20/22 项。余下 12 项涉及全局窗口层级、绝对定位、置底或应用主动取消最小化，见 [Linux 验收记录](docs/acceptance-status.md#linux-x64-on-wsl2)。环境变量、构建顺序、两个额外 Demo 的打包命令及 WSLg 双后端启动示例见 [Linux x64 构建与运行](docs/build-linux.md)。Linux 源码构建入口为
+`scripts/build-linux.sh --target godot-editor|godot-library|jfx`，可用
+`--jobs N` 控制并发；共享库和 JavaFX SDK 构建需要 Linux JDK 25。
+Linux 窗口验收目标为原生 Wayland，驱动目标为 `vulkan`（mobile）和 `opengl`（gl_compatibility）。
+Linux 宿主通过 Wayland 创建窗口和交换拖放数据，使用 GTK 3 显示原生文件对话框。构建需要 Wayland、xkbcommon 和 GTK 3 开发文件。
+Linux 发布入口为 `scripts/build-vfx.sh`，从源码 SDK 和 Godot 共享库暂存
+`linux` classifier 后再打包；两个独立 Demo 各自通过 Gradle 的
+`shadowJar` 任务调用 Linux Editor 导出场景。打包不等于运行验收。
+WSL2 可直接运行 `scripts/run-vfx-demo.sh`（默认 Vulkan）或加 `--driver opengl`；启动脚本检测到 `/dev/dxg` 后自动选择对应的 GPU 环境。
+其他命令可用 `scripts/wsl-gpu.sh vulkan|opengl COMMAND ...` 为单次运行选择 Mesa
+后端。Ubuntu WSL2 的 Vulkan 驱动 Dozen 由 `python3 scripts/setup-env.py` 准备（可用 `WSL_DZN_ROOT` 指定根目录），
+OpenGL 使用 Gallium D3D12；启动 Java 时仍需选择匹配的 `javafx.godot.driver`。
+在 Intel Arc B390 的隔离 Wayland 桌面上，同一份 Linux VFX JAR 已分别用 Vulkan 和 OpenGL 启动、关闭，并验证主窗口和所属窗口的标题栏拖动。两个独立 Demo 也在双后端运行：三棱锥检查暂停、拖动与恢复，房间检查墙面设备和鼠标捕获。35 页画面对照、往返导航及资源计数按发布版本记录在 [VFX 验收](docs/vfx-demo.md) 和 [内存验证](docs/memory-validation.md)。
+
+运行图形回归用 `scripts/wsl-wayland-session.sh --isolate-wslg` 隔离 Windows 桌面和输入设备。常规 xdg-shell 应用不能指定顶层窗口的绝对桌面坐标、读取全局层级或主动撤销最小化；模态窗口关闭时的焦点时序另见 [窗口验收与限制](docs/acceptance-status.md#linux-x64-on-wsl2)。
+WSLg 音频需能加载 PulseAudio 客户端；本机两种渲染后端均连接到双声道
+`RDPSink`。如果将发行版的 PulseAudio 客户端及其依赖解包在
+`.tools/linux/pulse`，启动脚本会为子进程添加对应的库目录。
+Linux JavaFX Media 的 GStreamer 音频输出使用 ALSA。本机在私有目录内提供
+ALSA 的 PulseAudio 插件，并用进程级 `ALSA_CONFIG_PATH` 将默认 PCM 接入
+WSLg。FFmpeg 8 的运行库及缺失依赖位于 `.tools/linux/ffmpeg-runtime`，
+启动脚本将其加入当前进程的库搜索路径。
+使用带桌面组件的完整 JDK 25。Wayland 剪贴板通过当前座席的 MIME 数据交换，桌面 Robot 则需要合成器提供虚拟键鼠和图像捕获协议。隔离 Linux 桌面的剪贴板测试不证明与 Windows 应用之间的互操作。
 
 - [AGENTS.md](AGENTS.md)：构建、运行、仓库约束与文档地图。
 - [TESTS.md](TESTS.md)：按用途选择测试，查看前置条件、命令和验收方式。
@@ -87,7 +111,7 @@ On macOS arm64, set `JAVA_HOME` to your JDK 25 home and run the corresponding co
 ./scripts/build-vfx.sh
 ```
 
-To preview a project clean, run `python scripts/clean.py --dry-run` (macOS:
+To preview a project clean, run `python scripts/clean.py --dry-run` (macOS and Linux:
 `./scripts/clean.py --dry-run`). Omit `--dry-run` to clean the current
 platform's Godot editor and shared library with SCons, run OpenJFX's Gradle
 `cleanAll --no-problems-report`, and remove local package outputs and generated Godot test projects.
@@ -107,7 +131,7 @@ and `artifacts/scene-fixtures-*`, including their Godot import caches. It also r
 state. Tests recreate the projects they need from `tests/godot`. The same target
 cleans `artifacts/pulse-stop-patch/` and `artifacts/texture-cancellation-patch/`.
 Both probes recompile their module patches from the JFX sources on every run.
-It also removes `artifacts/native-tests/`. The Windows and macOS test scripts
+It also removes `tests/wayland/__pycache__/` when present and `artifacts/native-tests/`. The Windows and macOS test scripts
 rebuild their native tests and helpers from repository sources when needed.
 It removes the entire `artifacts/reference/` directory, including compiled
 probes, generated fixtures, screenshots and reports. Archive any results you

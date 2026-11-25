@@ -1,15 +1,12 @@
 #!/bin/sh
-# macOS equivalent of test-hover-demo.ps1. This test moves the real mouse over
-# the running VFX demo: the terminal needs Accessibility and Screen Recording
-# permissions (System Settings -> Privacy & Security); keep the desktop idle
-# and the demo window frontmost.
-# Usage: test-hover-demo.sh [--driver metal|opengl] [--render-thread safe] [--compile-only] [--jdk DIRECTORY]
+# The fixture moves the desktop pointer over the foreground VFX window.
+# Usage: test-hover-demo.sh [--driver vulkan|metal|opengl] [--render-thread safe] [--compile-only] [--jdk DIRECTORY]
 set -eu
 . "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 COMPILE_ONLY=0
 while [ $# -gt 0 ]; do
@@ -21,7 +18,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -69,9 +66,11 @@ if [ "$CODE" -ne 0 ] \
     || ! grep -q 'HOVER_DEMO_PIXEL_PASS' "$LOG" \
     || grep -qE '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception|java\..*(Exception|Error))|uncaught:' "$LOG"; then
     echo "Hover demo probe failed. See $LOG" >&2
-    echo "If the log shows no hover activity at all, this is likely a macOS TCC" >&2
-    echo "permission issue: grant the terminal Accessibility and Screen Recording" >&2
-    echo "under System Settings -> Privacy & Security, then re-run." >&2
+    if [ "$(uname -s)" = Darwin ]; then
+        echo "Check the terminal's Accessibility and Screen Recording permissions under Privacy & Security." >&2
+    else
+        echo "Check the compositor, the foreground window position, and the input and pixel samples in the log." >&2
+    fi
     exit 1
 fi
 echo "Hover demo probe passed: $LOG"

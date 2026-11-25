@@ -15,7 +15,9 @@ func _ready() -> void:
 		fail("Scale probe rejected"); return
 	var primary_sizes:=[Vector2i(320,240),Vector2i(640,480),Vector2i(640,480),Vector2i(240,300),Vector2i(320,240),Vector2i(320,240)]
 	var child_sizes:=[Vector2i(288,192),Vector2i(288,192),Vector2i(432,384),Vector2i(432,384),Vector2i(576,144),Vector2i(288,192)]
-	var step:=0; var deadline:=Time.get_ticks_msec()+90000
+	# Wait for the compositor's initial output scale and both first presentations
+	# before the Java probe starts overriding render scale.
+	var step:=-1; var deadline:=Time.get_ticks_msec()+90000
 	var diagnostic:=Time.get_ticks_msec()+2000
 	while host.get_runtime_status()!="finished":
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
@@ -30,14 +32,16 @@ func _ready() -> void:
 			diagnostic=Time.get_ticks_msec()+3000
 		if child==null or child.is_present_pending() or host.is_composition_pending(): continue
 		if child.get_window_id()==get_window().get_window_id(): fail("Scale child reused primary"); return
-		if host.get_window_content_size(1)!=primary_sizes[step] or child.get_content_size()!=child_sizes[step]: continue
+		var primary_expected: Vector2i = primary_sizes[step] if step >= 0 else Vector2i((Vector2(320,240) * DisplayServer.screen_get_scale()).round())
+		var child_expected: Vector2i = child_sizes[step] if step >= 0 else Vector2i((Vector2(288,192) * DisplayServer.screen_get_scale(child.current_screen)).round())
+		if host.get_window_content_size(1)!=primary_expected or child.get_content_size()!=child_expected: continue
 		var root_image:=get_window().get_texture().get_image()
 		var child_image:Image=child.get_texture().get_image()
 		if not pixels_match(root_image,320,240) or not pixels_match(child_image,288,192): continue
 		print("RENDER_SCALE step=",step," root_buffer=",host.get_window_content_size(1)," child_buffer=",child.get_content_size())
 		root_image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/render-scale-root-%d.png"%step))
 		child_image.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/render-scale-child-%d.png"%step))
-		var target=get_window() if step%2==0 else child
+		var target=get_window() if step < 0 or step%2==0 else child
 		var point:=Vector2(30,40)*DisplayServer.screen_get_scale()
 		var motion:=InputEventMouseMotion.new(); motion.window_id=target.get_window_id(); motion.position=point; Input.parse_input_event(motion)
 		for pressed in [true,false]:

@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.*;
 
 public final class RenderScaleProbe {
     private static Stage root,child;
-    private static final AtomicInteger verified=new AtomicInteger();
+    private static final AtomicInteger verified=new AtomicInteger(-1);
     private static final AtomicReference<Throwable> inputFailure=new AtomicReference<>();
     private static void fx(Runnable action) throws Exception {
         var done=new CountDownLatch(1); var failure=new AtomicReference<Throwable>();
@@ -49,9 +49,14 @@ public final class RenderScaleProbe {
                 System.out.println("SYSTEM_OUTPUT_SCALE "+expected);
             });
             double[][] scales={{1,1,1,1},{2,2,1,1},{2,2,1.5,2},{.75,1.25,1.5,2},{1,1,2,.75},{1,1,1,1}};
-            for(int step=0;step<scales.length;step++) {
-                final int phase=step; final double[] s=scales[step];
+            for(int step=-1;step<scales.length;step++) {
+                final int phase=step;
                 fx(()->{
+                    if (phase < 0) {
+                        root.setTitle("RenderScale -1");
+                        return;
+                    }
+                    double[] s=scales[phase];
                     root.setRenderScaleX(s[0]); root.setRenderScaleY(s[1]); child.setRenderScaleX(s[2]); child.setRenderScaleY(s[3]);
                     if(root.getRenderScaleX()!=s[0] || root.getRenderScaleY()!=s[1] || child.getRenderScaleX()!=s[2] || child.getRenderScaleY()!=s[3]) throw new AssertionError("Render scale properties");
                     root.setTitle("RenderScale "+phase);
@@ -59,7 +64,11 @@ public final class RenderScaleProbe {
                 long deadline=System.nanoTime()+15_000_000_000L,tick=0;
                 while(verified.get()<=step) {
                     tick=GodotBridge.awaitTick(tick,100);
-                    if(tick<0 || System.nanoTime()>deadline) throw new AssertionError("Scale verification timeout "+step);
+                    if(tick<0 || System.nanoTime()>deadline) {
+                        fx(() -> System.out.println("SCALE_TIMEOUT root=" + root.getRenderScaleX() + "," + root.getRenderScaleY()
+                                + " child=" + child.getRenderScaleX() + "," + child.getRenderScaleY()));
+                        throw new AssertionError("Scale verification timeout "+step);
+                    }
                 }
                 if(inputFailure.get()!=null) throw new AssertionError(inputFailure.get());
             }

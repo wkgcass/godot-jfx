@@ -7,13 +7,14 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from library_test_platform import EDITOR
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def prepare():
     source = ROOT / "tests/godot"
-    editor = ROOT / "godot/bin" / ("godot.windows.editor.x86_64.console.exe" if os.name == "nt" else "godot.macos.editor.arm64")
+    editor = EDITOR
     files = sorted(p for p in source.rglob("*") if p.is_file()
                    and not {".godot", "artifacts"}.intersection(p.relative_to(source).parts)
                    and not p.name.endswith(".gd.uid"))

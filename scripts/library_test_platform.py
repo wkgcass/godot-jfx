@@ -8,22 +8,27 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS = os.name == "nt"
 
-if not WINDOWS and sys.platform != "darwin":
-    raise RuntimeError("The packaged engine tests require Windows x64 or macOS arm64")
+LINUX = sys.platform == "linux"
+if not WINDOWS and not LINUX and sys.platform != "darwin":
+    raise RuntimeError("No packaged engine tests for this platform")
 
-CLASSIFIER = "win" if WINDOWS else "mac-aarch64"
-EDITOR = ROOT / "godot/bin" / ("godot.windows.editor.x86_64.console.exe" if WINDOWS else "godot.macos.editor.arm64")
+CLASSIFIER = "win" if WINDOWS else "linux" if LINUX else "mac-aarch64"
+EDITOR = ROOT / "godot/bin" / ("godot.windows.editor.x86_64.console.exe" if WINDOWS else
+                              "godot.linuxbsd.editor.x86_64" if LINUX else "godot.macos.editor.arm64")
 ENGINE = ROOT / "godot/bin" / ("godot.windows.template_release.x86_64.library.dll" if WINDOWS
+                                else "libgodot.linuxbsd.template_release.x86_64.library.so" if LINUX
                                 else "libgodot.macos.template_release.arm64.library.dylib")
 SDK_NATIVES = ROOT / "jfx/build/sdk" / ("bin" if WINDOWS else "lib")
 
 
 def library(name):
-    return name + ".dll" if WINDOWS else "lib" + name + ".dylib"
+    return name + ".dll" if WINDOWS else "lib" + name + (".so" if LINUX else ".dylib")
 
 
-MEDIA_LIBRARIES = [library(name) for name in ("jfxmedia", "glib-lite", "gstreamer-lite",
-                                              "fxplugins" if WINDOWS else "jfxmedia_avf")]
+MEDIA_LIBRARIES = [library(name) for name in ("jfxmedia", "gstreamer-lite")]
+if not LINUX:
+    MEDIA_LIBRARIES.append(library("glib-lite"))
+MEDIA_LIBRARIES.append(library("fxplugins" if LINUX or WINDOWS else "jfxmedia_avf"))
 
 
 def system_path(jdk):
@@ -33,6 +38,11 @@ def system_path(jdk):
 
 if WINDOWS:
     from windows_loaded_modules import module_paths
+elif LINUX:
+    def module_paths(process):
+        mappings = Path(f"/proc/{process.pid}/maps").read_text().splitlines()
+        paths = (entry.split(maxsplit=5)[-1] for entry in mappings)
+        return {Path(path).resolve() for path in paths if path.startswith("/") and ".so" in Path(path).name}
 else:
     def module_paths(process):
         # lsof's txt entries include the dylibs mapped in the target JVM.

@@ -18,7 +18,9 @@ public final class OleInjectProbe {
     private static final DataFormat CUSTOM = new DataFormat("application/x-godot-custom-token");
     private static final String TEXT = "注入 OLE text 🙂";
     private static final String URL = "https://inject.example/路径 🙂";
-    private static final List<File> FILES = List.of(new File("C:/注入-a.txt"), new File("D:/inject 乙🙂.txt"));
+    private static final List<File> FILES = System.getProperty("os.name").equals("Linux")
+            ? List.of(new File("/tmp/注入-a.txt"), new File("/tmp/inject 乙🙂.txt"))
+            : List.of(new File("C:/注入-a.txt"), new File("D:/inject 乙🙂.txt"));
     private static final String CUSTOM_VALUE = "注入自定义负载 🙂";
     private static final boolean TIMEOUT = "1".equals(System.getenv("GODOT_JFX_OLE_TIMEOUT"));
 
@@ -49,6 +51,9 @@ public final class OleInjectProbe {
                     var problems = new StringBuilder();
                     if (!TEXT.equals(board.getString())) problems.append("text=[").append(board.getString()).append("];");
                     if (!URL.equals(board.getUrl())) problems.append("url=[").append(board.getUrl()).append("];");
+                    if (System.getenv("GODOT_JFX_WAYLAND_DND_DIR") != null &&
+                            (!"<b>外部 HTML</b>".equals(board.getHtml()) || !"{\\rtf1 external}".equals(board.getRtf())))
+                        problems.append("external HTML/RTF differs;");
                     if (!FILES.equals(board.getFiles())) problems.append("files=").append(board.getFiles()).append(";");
                     Object custom = board.getContent(CUSTOM);
                     if (!(custom instanceof byte[] bytes) || !CUSTOM_VALUE.equals(new String(bytes, java.nio.charset.StandardCharsets.UTF_8)))
@@ -91,6 +96,15 @@ public final class OleInjectProbe {
         try {
             if (!dropped.await(30, TimeUnit.SECONDS))
                 failure.compareAndSet(null, new AssertionError("OLE inject drop timeout"));
+            String directory = System.getenv("GODOT_JFX_WAYLAND_DND_DIR");
+            if (directory != null && failure.get() == null) {
+                var ack = java.nio.file.Path.of(directory, "title-observed");
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+                while (!java.nio.file.Files.exists(ack) && System.nanoTime() < deadline)
+                    Thread.sleep(10);
+                if (!java.nio.file.Files.exists(ack))
+                    failure.compareAndSet(null, new AssertionError("Host did not observe the completed drop title"));
+            }
         } catch (InterruptedException error) {
             failure.compareAndSet(null, error);
             Thread.currentThread().interrupt();

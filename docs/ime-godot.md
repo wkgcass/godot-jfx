@@ -12,6 +12,8 @@ to the displayed child window's pixels before moving the pointer and injecting
 the click that ends composition. The foreground desktop is required for this
 Robot case. [Test classification and commands](../TESTS.md).
 
+On native Wayland the host routes text-input activation and the caret rectangle to the focused surface. WSLg advertises zwp_text_input_manager_v1. The client accepts its UTF-8 preedit and commit events and uses the compositor-supplied fallback text when asked to finish an active composition. On compositors exposing v3 the client uses text-input-v3. Real IME candidate selection and cross-Stage focus transitions still require desktop verification.
+
 Glass-Godot enables the Windows input method context of the corresponding Stage's
 existing Godot HWND when a JavaFX text control accepts input method events. IME
 does not create an extra native text control. Root host commands and native-window
@@ -83,3 +85,8 @@ text through NSTextInputContext (`discardMarkedText` followed by `insertText`).
 The injected probes run as `scripts/test-ime.sh` and
 `scripts/test-native-ime.sh`; physical IME candidate UI on macOS remains
 unverified.
+
+On Linux Wayland, the host routes IME changes to the window with keyboard
+focus on the current seat. The source backend previously inherited the
+single-window default and reported the primary window even when the seat
+focused a child Stage. With the seat focus fix, the Vulkan and OpenGL child-Stage probes completed preedit, commit and cancel. The four ordinary IME variants also passed. Results are in `agentdir/artifacts/wayland-ime-focus-PfeHWsgc/{robot,nonrobot}/`. These cases inject composition events and check window routing. Physical input-method candidate UI on WSLg remains unverified.

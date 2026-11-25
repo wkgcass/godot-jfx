@@ -26,6 +26,7 @@ public final class VfxWindowControlsProbe extends Application {
     // VFX emulates maximize with manual bounds on macOS (VStage.setMaximized);
     // the underlying Stage property only tracks the native path.
     private static final boolean MAC = System.getProperty("os.name","").startsWith("Mac");
+    private static final boolean WAYLAND = System.getProperty("os.name").equals("Linux");
     @Override public void start(Stage root) {
         root.setScene(new Scene(new StackPane(new Label("Independent VFX window controls")),320,180));
         root.show();
@@ -36,7 +37,8 @@ public final class VfxWindowControlsProbe extends Application {
             final long deadline = System.nanoTime()+45_000_000_000L;
             @Override public void handle(long now) {
                 try {
-                    require(now < deadline, "Window controls timeout phase="+phase);
+                    require(now < deadline, "Window controls timeout phase="+phase+" bounds="
+                            +child.getX()+","+child.getY()+" "+child.getWidth()+"x"+child.getHeight());
                     require(!root.isMaximized() && !root.isIconified(), "Child control changed primary mode");
                     if (phase==0 && (MAC ? vfx.isMaximized() : child.isMaximized())) phase=1;
                     else if (phase==1 && !(MAC ? vfx.isMaximized() : child.isMaximized())) phase=2;
@@ -47,7 +49,8 @@ public final class VfxWindowControlsProbe extends Application {
                     }
                     if (phase==2 || phase==4) {
                         if (Math.abs(child.getWidth()-400)>1 || Math.abs(child.getHeight()-300)>1 ||
-                                Math.abs(child.getX()-200)>1 || Math.abs(child.getY()-150)>1) return;
+                                Math.abs(child.getX()-(WAYLAND ? 0 : 200))>1 ||
+                                Math.abs(child.getY()-(WAYLAND ? 0 : 150))>1) return;
                     }
                     int x=0,y=0;
                     if (phase!=3) {

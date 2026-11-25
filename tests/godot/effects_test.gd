@@ -48,6 +48,9 @@ func compare_pixels(host) -> bool:
 	var actual := get_viewport().get_texture().get_image()
 	actual.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/godot-effects.png"))
 	var expected := Image.load_from_file(ProjectSettings.globalize_path("res://../../artifacts/reference/d3d-effects.png"))
+	if expected == null:
+		push_error("Missing or unreadable native effects reference")
+		return false
 	if actual.get_size() != expected.get_size():
 		push_error("Effect reference dimensions differ")
 		get_tree().quit(1)

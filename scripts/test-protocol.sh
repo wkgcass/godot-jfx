@@ -3,6 +3,8 @@
 set -e
 cd "$(dirname "$0")/.."
 mkdir -p artifacts/native-tests
-clang++ -std=c++17 -Wall -Wextra -Werror -O2 -I native/godot_modules/javafx \
+set --
+if [ "$(uname -s)" = Linux ]; then set -- -DLINUXBSD_ENABLED; fi
+"${CXX:-c++}" "$@" -std=c++17 -Wall -Wextra -Werror -O2 -I native/godot_modules/javafx \
     tests/native/frame_protocol_test.cpp -o artifacts/native-tests/frame_protocol_test
 artifacts/native-tests/frame_protocol_test

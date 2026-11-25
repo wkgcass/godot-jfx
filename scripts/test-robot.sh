@@ -1,16 +1,13 @@
 #!/bin/sh
-# macOS equivalent of test-robot.ps1. This is a physical-input test: it warps
-# the real cursor, clicks, types and captures the screen, so the terminal that
-# launches it needs Accessibility and Screen Recording permissions (System
-# Settings -> Privacy & Security) and the desktop must stay idle.
-# Usage: test-robot.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
+# The fixture moves the desktop pointer, clicks, types and reads screen pixels.
+# Usage: test-robot.sh [--driver vulkan|metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -eu
 . "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
 runtime=""
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -21,7 +18,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -65,9 +62,11 @@ if [ "$CODE" -ne 0 ] \
     || ! grep -q 'ROBOT_PROBE_PASS' "$LOG" \
     || grep -qE '^(ERROR:|SCRIPT ERROR:|SHADER ERROR:|Exception)' "$LOG"; then
     echo "Robot test failed: $LOG" >&2
-    echo "If the log shows invalid CGEvents or black/failed captures, this is a macOS" >&2
-    echo "TCC permission issue: grant the terminal Accessibility and Screen Recording" >&2
-    echo "under System Settings -> Privacy & Security, then re-run." >&2
+    if [ "$(uname -s)" = Darwin ]; then
+        echo "Check the terminal's Accessibility and Screen Recording permissions under Privacy & Security." >&2
+    else
+        echo "Check the compositor, the foreground window position, and the input and pixel samples in the log." >&2
+    fi
     exit 1
 fi
 echo "Robot passed: $LOG"

@@ -58,6 +58,27 @@ public final class LibraryLifecycle {
         } finally { pool.shutdownNow(); }
     }
 
+    private static void checkToolkitDuringShutdown() {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
+        while (System.nanoTime() < deadline) {
+            try {
+                GodotRuntime.init();
+            } catch (IllegalStateException stopped) {
+                if (!"Godot host is STOPPING".equals(stopped.getMessage())
+                        && !"Godot host is STOPPED".equals(stopped.getMessage())) throw stopped;
+                if (Platform.isFxApplicationThread()) throw new AssertionError("Shutdown hook is not the FX thread");
+                System.out.println("SHUTDOWN_TOOLKIT_PASS");
+                return;
+            }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException interrupted) {
+                throw new AssertionError(interrupted);
+            }
+        }
+        throw new AssertionError("Godot host did not stop during JVM shutdown");
+    }
+
     public static void main(String[] args) throws Exception {
         switch (args[0]) {
             case "auto" -> Application.launch(DirectApplication.class);
@@ -101,7 +122,8 @@ public final class LibraryLifecycle {
                 else GodotRuntime.init(options(null));
                 GodotRuntime.init();
                 GodotRuntime.init(options(null));
-                String platformDefault = System.getProperty("os.name").startsWith("Windows") ? "d3d12" : "metal";
+                String os = System.getProperty("os.name");
+                String platformDefault = os.startsWith("Windows") ? "d3d12" : os.equals("Linux") ? "vulkan" : "metal";
                 String current = System.getProperty("javafx.godot.driver", platformDefault);
                 String otherDriver = current.equals("opengl") ? platformDefault : "opengl";
                 try { GodotRuntime.init(options(otherDriver)); throw new AssertionError("Accepted conflicting driver"); }
@@ -112,7 +134,7 @@ public final class LibraryLifecycle {
                 if (args[0].equals("explicit")) Application.launch(DirectApplication.class);
             }
             case "failure" -> { concurrent(true); System.exit(31); }
-            case "exit", "exit-fx" -> {
+            case "exit", "exit-fx", "exit-toolkit" -> {
                 var shown = new CompletableFuture<Void>();
                 Platform.startup(() -> {
                     Stage stage = new Stage();
@@ -127,6 +149,11 @@ public final class LibraryLifecycle {
                 if (args[0].equals("exit-fx")) {
                     shown.get(10, TimeUnit.SECONDS);
                     return;
+                }
+                if (args[0].equals("exit-toolkit")) {
+                    shown.get(10, TimeUnit.SECONDS);
+                    Runtime.getRuntime().addShutdownHook(new Thread(
+                            LibraryLifecycle::checkToolkitDuringShutdown, "Toolkit shutdown observer"));
                 }
                 System.out.println("EXPLICIT_EXIT");
                 System.exit(37);

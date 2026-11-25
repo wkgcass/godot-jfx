@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from maven_coordinates import GROUP_ID, GROUP_PATH, artifact_id, release_version
+from maven_coordinates import CLASSIFIER_HASH_KEYS, GROUP_ID, GROUP_PATH, artifact_id, release_version
 
 
 MODULES = {
@@ -45,12 +45,22 @@ def publish(jfx, output, version, jar_tool, classifier, engine_file):
     inventory = {}
     windows = classifier == "win"
     media_names = ["fxplugins", "glib-lite", "gstreamer-lite", "jfxmedia"]
-    if not windows:
+    linux = classifier == "linux"
+    if linux:
+        media_names.remove("glib-lite")
+    elif not windows:
         media_names.append("jfxmedia_avf")
-    media_libs = {name + ".dll" if windows else "lib" + name + ".dylib" for name in media_names}
+    extension = ".dll" if windows else ".so" if linux else ".dylib"
+    prefix = "" if windows else "lib"
+    media_libs = {prefix + name + extension for name in media_names}
     # Select only this SDK's inputs, even when staging into an existing directory.
-    native_dir, pattern, engine = ("bin", "*.dll", "godot.dll") if windows else ("lib", "*.dylib", "libgodot.dylib")
+    native_dir, pattern, engine = "bin" if windows else "lib", "*" + extension, prefix + "godot" + extension
     natives = {file.name: file for file in (jfx / "build/sdk" / native_dir).glob(pattern)}
+    if linux:
+        codecs = {name for name in natives if name.startswith("libavplugin")}
+        if not codecs:
+            raise FileNotFoundError("Linux Media SDK has no FFmpeg/libav plugin")
+        media_libs.update(codecs)
     missing = media_libs.difference(natives)
     if missing:
         raise FileNotFoundError(f"Incomplete Media SDK for {classifier}: {sorted(missing)}")
@@ -118,6 +128,9 @@ def publish(jfx, output, version, jar_tool, classifier, engine_file):
                 for filename, library in sorted(natives.items()):
                     if (filename in media_libs) == (name == "media"):
                         archive.write(library, filename)
+                if linux and name == "media":
+                    archive.writestr("META-INF/godot-jfx/linux-media-codecs",
+                                     "".join(filename[3:-3] + "\n" for filename in sorted(codecs)))
                 if name == "graphics":
                     archive.writestr("META-INF/godot-jfx/natives.id", build_id.hexdigest())
                     for legal in ("COPYRIGHT.txt", "LICENSE.txt", "LICENSE"):
@@ -126,8 +139,7 @@ def publish(jfx, output, version, jar_tool, classifier, engine_file):
                     if legal.is_file():
                         archive.write(legal, f"META-INF/licenses/{module}/{legal.name}")
             files.append(platform)
-            key = "windowsClassifierSha256" if windows else "macArm64ClassifierSha256"
-            inventory[module][key] = hashlib.sha256(platform.read_bytes()).hexdigest()
+            inventory[module][CLASSIFIER_HASH_KEYS[classifier]] = hashlib.sha256(platform.read_bytes()).hexdigest()
         for file in files:
             Path(str(file) + ".sha1").write_text(hashlib.sha1(file.read_bytes()).hexdigest(), encoding="ascii")
     (output / "module-inventory.json").write_text(json.dumps(inventory, indent=2), encoding="utf-8")
@@ -139,6 +151,6 @@ if __name__ == "__main__":
     parser.add_argument("output", type=Path)
     parser.add_argument("jar_tool", type=Path)
     parser.add_argument("--engine", type=Path, required=True)
-    parser.add_argument("--classifier", choices=("win", "mac-aarch64"), default="win")
+    parser.add_argument("--classifier", choices=("win", "mac-aarch64", "linux"), default="win")
     args = parser.parse_args()
     publish(Path(__file__).resolve().parents[1] / "jfx", args.output, release_version(), args.jar_tool, args.classifier, args.engine)

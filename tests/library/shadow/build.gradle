@@ -8,8 +8,9 @@ repositories {
 }
 def fx = 'io.vproxy:godot-jfx-'
 def version = providers.gradleProperty('javafxVersion').get()
+def os = System.getProperty('os.name')
 def platform = providers.gradleProperty('platform').getOrElse(
-        System.getProperty('os.name') == 'Mac OS X' ? 'mac-aarch64' : 'win')
+        os == 'Linux' ? 'linux' : os == 'Mac OS X' ? 'mac-aarch64' : 'win')
 def withMedia = providers.gradleProperty('withMedia').isPresent()
 dependencies {
     implementation "${fx}controls:${version}"

@@ -20,8 +20,8 @@ done
 if [ "$NATIVE" -eq 1 ] && [ -n "$DRIVER" ]; then
     echo "--driver selects the Godot backend" >&2; exit 2
 fi
-DRIVER=${DRIVER:-metal}
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+DRIVER=${DRIVER:-$native_driver}
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -57,12 +57,12 @@ run_watchdog() {
 }
 
 CASE_NAME="$DRIVER-$RENDER_THREAD"
-if [ "$NATIVE" -eq 1 ]; then CASE_NAME=native-mtl; fi
+if [ "$NATIVE" -eq 1 ]; then CASE_NAME=native-$native_prism; fi
 export GODOT_JFX_RIPPLE_OUTPUT="$PWD/artifacts/reference/vfx-ripple-$CASE_NAME"
 LOG="agentdir/logs/vfx-ripple-$CASE_NAME.log"
 CODE=0
 if [ "$NATIVE" -eq 1 ]; then
-    set -- "$JDK/bin/java" -Dglass.platform=Mac -Dprism.order=mtl --module-path jfx/build/sdk/lib \
+    set -- python3 "$PWD/scripts/native_prism.py" "$JDK/bin/java" --module-path jfx/build/sdk/lib \
         --add-modules javafx.controls,javafx.swing,javafx.media --enable-native-access=javafx.graphics,javafx.media \
         -cp "$CLASSPATH:artifacts/vfx/resources/main:artifacts/vfx/resources/test:artifacts/reference" io.vproxy.vfx.intro.VfxRippleProbe
 else

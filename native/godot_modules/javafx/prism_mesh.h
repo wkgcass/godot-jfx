@@ -44,6 +44,14 @@ public:
 	size_t size() const { return entries.size(); }
 };
 
+#ifdef LINUXBSD_ENABLED
+inline bool javafx_uses_mesa_d3d12_gl() {
+	auto *renderer = RenderingServer::get_singleton();
+	return renderer->get_current_rendering_method() == "gl_compatibility" &&
+			renderer->get_video_adapter_name().begins_with("D3D12 (");
+}
+#endif
+
 // Shared Prism attribute conversion for host and offscreen geometry.
 inline void build_prism_mesh(Ref<ArrayMesh> &mesh, const PackedFloat32Array &p_vertices, const PackedByteArray &p_colors) {
 	int count = p_vertices.size() / 7;
@@ -51,14 +59,12 @@ inline void build_prism_mesh(Ref<ArrayMesh> &mesh, const PackedFloat32Array &p_v
 	PackedVector2Array positions, uv;
 	PackedFloat32Array custom;
 	PackedColorArray colors;
-	PackedInt32Array indices;
-	positions.resize(count); uv.resize(count); custom.resize(count * 4); colors.resize(count); indices.resize(count / 4 * 6);
+	positions.resize(count); uv.resize(count); custom.resize(count * 4); colors.resize(count);
 	// Acquire writable storage once: PackedArray::set performs a COW check on
 	// every element, including each component of every Prism vertex.
 	Vector2 *position_data = positions.ptrw(), *uv_data = uv.ptrw();
 	float *custom_data = custom.ptrw();
 	Color *color_data = colors.ptrw();
-	int32_t *index_data = indices.ptrw();
 	const float *vertex_data = p_vertices.ptr();
 	const uint8_t *rgba = p_colors.ptr();
 	for (int i = 0; i < count; ++i) {
@@ -70,17 +76,32 @@ inline void build_prism_mesh(Ref<ArrayMesh> &mesh, const PackedFloat32Array &p_v
 		custom_data[i * 4 + 2] = 0; custom_data[i * 4 + 3] = 0;
 		color_data[i] = Color(rgba[i * 4] / 255.f, rgba[i * 4 + 1] / 255.f, rgba[i * 4 + 2] / 255.f, rgba[i * 4 + 3] / 255.f);
 	}
-	for (int q = 0; q < count / 4; ++q) {
-		// Prism VertexBuffer order is top-left, bottom-left, top-right, bottom-right.
-		const int local[] = { 0, 1, 2, 2, 1, 3 };
-		for (int j = 0; j < 6; ++j) index_data[q * 6 + j] = q * 4 + local[j];
-	}
 	Array arrays;
 	arrays.resize(Mesh::ARRAY_MAX);
 	arrays[Mesh::ARRAY_VERTEX] = positions; arrays[Mesh::ARRAY_TEX_UV] = uv;
-	arrays[Mesh::ARRAY_CUSTOM0] = custom; arrays[Mesh::ARRAY_COLOR] = colors; arrays[Mesh::ARRAY_INDEX] = indices;
+	arrays[Mesh::ARRAY_CUSTOM0] = custom; arrays[Mesh::ARRAY_COLOR] = colors;
+	// Prism supplies TL, BL, TR, BR. One strip draws (0,1,2) and (2,1,3)
+	// directly. Separate quads in a batch still need their own two triangles.
+	Mesh::PrimitiveType primitive = Mesh::PRIMITIVE_TRIANGLE_STRIP;
+	if (count > 4) {
+		primitive = Mesh::PRIMITIVE_TRIANGLES;
+		PackedInt32Array indices;
+		indices.resize(count / 4 * 6);
+		int32_t *index_data = indices.ptrw();
+		constexpr int local[] = { 0, 1, 2, 2, 1, 3 };
+		for (int q = 0; q < count / 4; ++q) {
+			for (int j = 0; j < 6; ++j) index_data[q * 6 + j] = q * 4 + local[j];
+		}
+		arrays[Mesh::ARRAY_INDEX] = indices;
+	}
 	mesh.instantiate();
 	uint64_t flags = uint64_t(RSE::ARRAY_CUSTOM_RGBA_FLOAT) << RSE::ARRAY_FORMAT_CUSTOM_BASE;
-	mesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays, TypedArray<Array>(), Dictionary(), flags);
+#ifdef LINUXBSD_ENABLED
+	// On Mesa's D3D12 backend the dynamic usage hint reduces the cost of
+	// uploading these short-lived meshes. Each mesh still owns its data.
+	static const bool dynamic_buffers = javafx_uses_mesa_d3d12_gl();
+	if (dynamic_buffers) flags |= Mesh::ARRAY_FLAG_USE_DYNAMIC_UPDATE;
+#endif
+	mesh->add_surface_from_arrays(primitive, arrays, TypedArray<Array>(), Dictionary(), flags);
 	if (mesh->get_surface_count() != 1) mesh.unref();
 }

@@ -27,6 +27,13 @@ func _ready() -> void:
 	var peak := 0
 	while host.get_runtime_status() != "finished":
 		if host.get_runtime_status() == "failed" or Time.get_ticks_msec() > deadline:
+			if host.get_child_count() > 0 and host.get_child(0).get_child_count() > 0:
+				var root = host.get_child(0).get_child(0)
+				print("GODOT_VIEW_PROGRESS title=", get_window().title, " initial=", initial,
+					" animated=", animated, " inputs_checked=", inputs_checked, " resized=", resized,
+					" mouse=", [root.mouse_events, root.mouse_releases, root.last_mouse_position],
+					" key=", [root.key_events, root.key_releases], " wheel=", root.wheel_events,
+					" touch=", [root.touch_events, root.drag_events, root.touch_releases, root.last_touch_position])
 			fail("GodotView failed/timed out: "+host.get_runtime_error())
 			return
 		peak = maxi(peak,host.get_owned_resource_count())

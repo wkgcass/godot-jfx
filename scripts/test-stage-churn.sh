@@ -6,7 +6,7 @@ set -eu
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 CYCLES=36
 HEAP_MIB=0
@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 case "$CYCLES" in ''|*[!0-9]*) echo "invalid cycles: $CYCLES" >&2; exit 2 ;; esac
 case "$HEAP_MIB" in ''|*[!0-9]*) echo "invalid heap mib: $HEAP_MIB" >&2; exit 2 ;; esac

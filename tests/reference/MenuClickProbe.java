@@ -33,6 +33,8 @@ public final class MenuClickProbe extends IntroFXMain {
                     try {
                         if (now-started > 45_000_000_000L) throw new AssertionError("Menu probe timeout");
                         if (now < next) return;
+                        // VFX publishes the new current page when its transition completes.
+                        if (step >= 2 && step <= 7 && group.getCurrentMainScene() != scenes.get(step)) return;
                         if (step == 0) {
                             stage.setMaximized(true);
                             next = now + 2_000_000_000L;

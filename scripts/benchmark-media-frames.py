@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure decoded video frames on macOS using Godot or the native JavaFX SDK."""
+"""Measure decoded video frames using Godot or the native JavaFX SDK."""
 import argparse
 import hashlib
 import json
@@ -7,6 +7,8 @@ import re
 import subprocess
 
 from jdk_home import add_jdk_argument, configure_jdk
+from godot_driver import DEFAULT_DRIVER, add_driver_argument
+from macos_probe import NATIVE_MARKER, NATIVE_PRISM
 from macos_probe import GRAPHICS, MEDIA, LOGS, ROOT, compile_probe, isolated_project, native_probe, require, scene_probe
 
 
@@ -14,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_jdk_argument(parser)
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--driver", choices=["metal", "opengl"])
+    add_driver_argument(group)
     group.add_argument("--native", action="store_true")
     parser.add_argument("--rate", type=int, choices=[1, 2], default=1)
     parser.add_argument("--sample", type=int, choices=range(21), default=0, help="trial number for the log")
@@ -24,7 +26,7 @@ def main():
     configure_jdk(args.jdk)
     if args.native and args.runtime:
         parser.error("--runtime requires Godot")
-    driver = args.driver or "metal"
+    driver = args.driver or DEFAULT_DRIVER
     if args.native60:
         video = ROOT / "agentdir/media/media-1080p60.mp4"
         manifest = json.loads(video.with_suffix(".json").read_text())
@@ -37,7 +39,7 @@ def main():
         video = ROOT / subprocess.check_output([ROOT / "scripts/setup-env.py", "--sample-path", "oracle"], text=True).strip()
     modules = "javafx.controls,javafx.media"
     compile_probe("MediaFrameBenchmark", modules=modules, exports=GRAPHICS + MEDIA)
-    backend = "native-mtl" if args.native else driver
+    backend = f"native-{NATIVE_PRISM}" if args.native else driver
     flags = "".join("-" + key for key in ("clock_skew", "native60", "no_vsync", "frame_phases", "runtime") if getattr(args, key))
     log = LOGS / f"media-frame-{backend}-rate{args.rate}-sample{args.sample}{flags}.log"
     env = dict(GODOT_JFX_MEDIA_FRAME_PHASES=str(int(args.frame_phases)), GODOT_JFX_MEDIA_RATE=str(args.rate),
@@ -50,7 +52,7 @@ def main():
         if args.no_vsync:
             options.append("-Dprism.vsync=false")
         output = native_probe("MediaFrameBenchmark", log, modules, options, env)
-        require(output, "glass=com.sun.glass.ui.mac.MacApplication prism=com.sun.prism.mtl.MTLPipeline")
+        require(output, NATIVE_MARKER)
     else:
         scene = "media_frame_benchmark"
         project = isolated_project(scene, ROOT / "artifacts/runtime-media-frames") if args.runtime else None

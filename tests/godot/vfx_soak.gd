@@ -1,14 +1,24 @@
 extends "res://vfx_intro.gd"
 
+var sample_target_details := OS.get_environment("GODOT_JFX_SOAK_TARGETS") == "1"
+
 func sample(host, round_index:int, page:int, direction:int) -> void:
 	var resources: Dictionary = host.get_texture_resource_stats()
-	var breakdown := {"shared_target_meshes":resources.get("shared_target_meshes", -1), "textures":resources["live"].size(), "targets":0, "target_owned":0, "target_meshes":0, "target_shaders":0, "target_materials":0, "target_slots":0, "surface_meshes":resources["surface_meshes"], "retired_targets":resources["retired_targets"].size(), "retired_textures":resources["retired_textures"]}
+	var breakdown := {"shared_target_shaders":resources["shared_target_shaders"], "shared_target_meshes":resources.get("shared_target_meshes", -1), "textures":resources["live"].size(), "targets":0, "target_owned":0, "target_meshes":0, "target_shaders":0, "target_materials":0, "target_slots":0, "surface_meshes":resources["surface_meshes"], "retired_targets":resources["retired_targets"].size(), "retired_textures":resources["retired_textures"]}
+	var record_targets := sample_target_details and page == 0
+	var targets: Array[Dictionary] = []
 	for entry in resources["live"]:
 		if entry.has("owned"):
 			breakdown["targets"] += 1
+			if record_targets:
+				var size: Vector2i = entry["size"]
+				targets.append({"handle": entry["handle"], "width": size.x, "height": size.y,
+						"slots": entry["slots"], "shaders": entry["shaders"], "materials": entry["materials"]})
 			for key in ["owned", "meshes", "shaders", "materials", "slots"]:
 				breakdown["target_"+key] += entry[key]
-	print("VFX_SOAK_SAMPLE ",JSON.stringify({"round":round_index,"page":page,"direction":direction,"elapsed_ms":Time.get_ticks_msec(),"owned":host.get_owned_resource_count(),"resources":breakdown,"texture_bytes":Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED),"static_bytes":OS.get_static_memory_usage()}))
+	if record_targets:
+		print("VFX_SOAK_TARGETS ", JSON.stringify({"round": round_index, "targets": targets}))
+	print("VFX_SOAK_SAMPLE ",JSON.stringify({"round":round_index,"page":page,"direction":direction,"elapsed_ms":Time.get_ticks_msec(),"unix_ms":roundi(Time.get_unix_time_from_system()*1000),"owned":host.get_owned_resource_count(),"resources":breakdown,"texture_bytes":Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED),"static_bytes":OS.get_static_memory_usage()}))
 
 func navigate(host, page:int, forward:bool) -> bool:
 	var scale:=DisplayServer.screen_get_scale(get_window().current_screen)
@@ -60,4 +70,11 @@ func _ready() -> void:
 	remove_child(host)
 	if host.get_owned_resource_count()!=0:
 		push_error("VFX soak resources retained");get_tree().quit(1);return
-	host.free();print("VFX_SOAK_PASS rounds=",rounds," pages=",pages," final_owned=0");get_tree().quit()
+	var shared_programs: int = host.get_texture_resource_stats().shared_target_shaders
+	if shared_programs != 0:
+		push_error("VFX soak retained %d shared target shaders" % shared_programs)
+		get_tree().quit(1)
+		return
+	host.free()
+	print("VFX_SOAK_PASS rounds=", rounds, " pages=", pages, " final_owned=0 final_shared_target_shaders=0")
+	get_tree().quit()

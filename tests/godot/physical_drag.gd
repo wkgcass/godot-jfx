@@ -6,10 +6,9 @@ var input_scale := Vector2.ONE
 
 # Synthetic gesture driver (default; the probe publishes commands as window
 # titles). Positions are physical window-local pixels, scaled from the initial
-# 420×320 logical scene using its actual window size. Each step
-# targets an absolute screen point and converts to window-local using the
-# current window position, so the pointer races ahead of the trailing window
-# exactly like a fast physical drag. GODOT_JFX_PHYSICAL_DRAG_ROBOT=1 keeps the
+# 420×320 logical scene using its actual window size. The moving title bar
+# follows a screen-coordinate path. The resize grip follows a window-local
+# path because its top-left corner stays fixed. GODOT_JFX_PHYSICAL_DRAG_ROBOT=1 keeps the
 # probe on the real OS cursor instead and this driver stays idle.
 # Buffered input dispatches at the next frame start, and the host re-derives
 # screen coordinates from the window position at dispatch time; a window move
@@ -36,18 +35,18 @@ func release_left(window_id: int, pos: Vector2) -> void:
 	Input.parse_input_event(release)
 	Input.flush_buffered_events()
 
-func drag_steps(window_id: int, screen0: Vector2, step: Vector2, count: int) -> Vector2:
+func drag_steps(window_id: int, start: Vector2, step: Vector2, count: int, move_window: bool) -> Vector2:
 	for k in range(1, count + 1):
-		var target := screen0 + step * k
+		var target := start + step * k
 		var motion := InputEventMouseMotion.new()
 		motion.window_id = window_id
-		motion.position = target - Vector2(get_window().position)
+		motion.position = target - Vector2(get_window().position) if move_window else target
 		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
 		Input.parse_input_event(motion)
 		Input.flush_buffered_events()
 		await get_tree().process_frame
 		await get_tree().process_frame
-	return screen0 + step * count
+	return start + step * count
 
 func run_drag() -> void:
 	# The initial title is set before show. Read the mapped window's size
@@ -60,7 +59,7 @@ func run_drag() -> void:
 	press_left(window_id, local)
 	for i in range(18):
 		await get_tree().process_frame
-	var screen_end := await drag_steps(window_id, screen0, Vector2(0, -48) * input_scale, 10)
+	var screen_end := await drag_steps(window_id, screen0, Vector2(0, -48) * input_scale, 10, true)
 	for i in range(36):
 		await get_tree().process_frame
 	release_left(window_id, screen_end - Vector2(get_window().position))
@@ -68,14 +67,13 @@ func run_drag() -> void:
 func run_resize() -> void:
 	var window_id := get_window().get_window_id()
 	var local := Vector2(412, 312) * input_scale
-	var screen0 := Vector2(get_window().position) + local
 	press_left(window_id, local)
 	for i in range(18):
 		await get_tree().process_frame
-	var screen_end := await drag_steps(window_id, screen0, Vector2(40, 32) * input_scale, 8)
+	var local_end := await drag_steps(window_id, local, Vector2(40, 32) * input_scale, 8, false)
 	for i in range(36):
 		await get_tree().process_frame
-	release_left(window_id, screen_end - Vector2(get_window().position))
+	release_left(window_id, local_end)
 
 func _ready() -> void:
 	host = ClassDB.instantiate("JavaFXHost")

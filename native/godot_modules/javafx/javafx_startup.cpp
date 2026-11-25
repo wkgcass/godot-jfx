@@ -5,6 +5,11 @@
 #include "platform/windows/display_server_windows.h"
 #elif defined(MACOS_ENABLED)
 #include "javafx_host_macos.h"
+#elif defined(WAYLAND_ENABLED)
+#include "javafx_host_wayland.h"
+#endif
+#ifdef WAYLAND_ENABLED
+#include "platform/linuxbsd/wayland/display_server_wayland.h"
 #endif
 #include "scene/main/canvas_layer.h"
 #include "scene/gui/color_rect.h"
@@ -19,6 +24,8 @@ static void release_startup_window(DisplayServerEnums::WindowID p_window) {
 	static_cast<DisplayServerWindows *>(DisplayServer::get_singleton())->release_javafx_startup_window(p_window);
 #elif defined(MACOS_ENABLED)
 	godot_javafx::macos_release_startup_window(p_window);
+#elif defined(WAYLAND_ENABLED)
+	godot_javafx::linux_release_startup_window(p_window);
 #endif
 }
 
@@ -41,6 +48,12 @@ bool JavaFXHost::startup_show(int64_t p_id, bool p_visible) {
 	}
 	Window *window = p_id ? get_native_window(p_id) : get_window();
 	ERR_FAIL_NULL_V(window, false);
+#ifdef WAYLAND_ENABLED
+	if (auto *display = Object::cast_to<DisplayServerWayland>(DisplayServer::get_singleton())) {
+		// The owner has been shown by JavaFX; the startup image delays its first buffer.
+		display->window_expect_javafx_show(window->get_window_id());
+	}
+#endif
 	startup_consumed = true;
 	startup_active = true;
 	startup_window_id = p_id;

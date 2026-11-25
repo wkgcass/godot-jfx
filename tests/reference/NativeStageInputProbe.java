@@ -43,7 +43,12 @@ public final class NativeStageInputProbe {
             });
             text.textProperty().addListener((observable,old,value) -> {
                 if(value.equals("a")) {
-                    check(child.isFocused()&&!root.isFocused(),"Native focus did not reach the child Stage");
+                    if (!child.isFocused() || root.isFocused()) {
+                        long[] childState = GodotBridge.nativeWindowInfo(2);
+                        check(false, "Native focus did not reach the child Stage: FX root=" + root.isFocused()
+                                + " child=" + child.isFocused() + " host root=" + GodotBridge.hostInfo()[9]
+                                + " child=" + (childState.length > 8 ? childState[8] : -1));
+                    }
                     state(3);
                 }
             });

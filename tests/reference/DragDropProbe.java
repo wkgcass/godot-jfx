@@ -21,6 +21,20 @@ public final class DragDropProbe {
     static int pressedCase = -1;
     static javafx.scene.robot.Robot robot;
     static double oldMouseX, oldMouseY;
+    private static final int CHILD_X = 500, CHILD_Y = 80;
+    private static void moveOnStage(Stage stage, double x, double y) {
+        String layout = System.getenv("GODOT_JFX_WAYLAND_TEST_LAYOUT");
+        if (layout == null) {
+            robot.mouseMove(stage.getX() + x, stage.getY() + y);
+        } else {
+            // labwc owns desktop coordinates. Its test rule places this titled
+            // child at the requested point even when Stage reports (0,0).
+            String[] geometry = layout.split("[+]");
+            double left = stage == child ? CHILD_X : Double.parseDouble(geometry[1]);
+            double top = stage == child ? CHILD_Y : Double.parseDouble(geometry[2]);
+            robot.mouseMove(left + x, top + y);
+        }
+    }
     static void startRobotDriver() {
         robot = new javafx.scene.robot.Robot();
         oldMouseX=robot.getMouseX(); oldMouseY=robot.getMouseY();
@@ -40,21 +54,21 @@ public final class DragDropProbe {
                         // The owned Stage can take focus when first shown. Activate
                         // the source on empty scene space before pressing on it.
                         phase=-1;
-                        robot.mouseMove(root.getX()+165,root.getY()+130);
+                        moveOnStage(root, 165, 130);
                         robot.mouseClick(MouseButton.PRIMARY);
                         return;
                     }
                     phase=1;
                     pressedCase=-1;
                     robot.mouseRelease(MouseButton.PRIMARY);
-                    robot.mouseMove(root.getX()+40,root.getY()+40);
+                    moveOnStage(root, 40, 40);
                 } else if (phase==1) {
                     phase=2; robot.mousePress(MouseButton.PRIMARY);
                 } else if (phase==2 && pressedCase==test) {
                     // Move only after the source received this gesture's press.
-                    phase=3; robot.mouseMove(root.getX()+60,root.getY()+40);
+                    phase=3; moveOnStage(root, 60, 40);
                 } else if (phase==3) {
-                    phase=4; robot.mouseMove(root.getX()+80,root.getY()+40);
+                    phase=4; moveOnStage(root, 80, 40);
                 } else if (phase==4 && root.getTitle().equals("Drag active "+test)) {
                     phase=5;
                     if (test==4) {
@@ -62,9 +76,15 @@ public final class DragDropProbe {
                         robot.mouseRelease(MouseButton.PRIMARY); phase=0;
                     } else {
                         Stage target=test==1 || test==5 ? child : root;
-                        robot.mouseMove(target.getX()+(target==child ? 40 : 240),target.getY()+40);
-                        if (test>=5) phase=0;
+                        moveOnStage(target, target == child ? 40 : 240, 40);
+                        if (target == child && System.getenv("GODOT_JFX_WAYLAND_TEST_LAYOUT") != null) phase = 6;
+                        else if (test>=5) phase=0;
                     }
+                } else if (phase == 6) {
+                    // Crossing the origin edge starts the Wayland drag grab. The
+                    // following real motion picks the destination under that grab.
+                    moveOnStage(child, 44, 40);
+                    phase = test >= 5 ? 0 : 5;
                 } else if (phase==5) {
                     phase=0; robot.mouseRelease(MouseButton.PRIMARY);
                 }
@@ -80,7 +100,7 @@ public final class DragDropProbe {
     public static void main(String[] args) throws Exception {
         Platform.startup(() -> {
             Platform.setImplicitExit(false);
-            root = new Stage(); child = new Stage(); child.initOwner(root);
+            root = new Stage(); child = new Stage(); child.initOwner(root); child.setTitle("DragDrop owned target");
             Rectangle source = new Rectangle(10,10,130,100); source.setFill(Color.ORANGE);
             Rectangle local = new Rectangle(200,10,130,100); local.setFill(Color.GREEN);
             Rectangle remote = new Rectangle(10,10,130,100); remote.setFill(Color.BLUE);
@@ -119,7 +139,7 @@ public final class DragDropProbe {
                 });
             });
             root.setScene(new Scene(new Pane(source,local),360,160)); root.setX(40); root.setY(80); root.show();
-            child.setScene(new Scene(new Pane(remote),180,160)); child.setX(500); child.setY(80); child.show();
+            child.setScene(new Scene(new Pane(remote),180,160)); child.setX(CHILD_X); child.setY(CHILD_Y); child.show();
             root.requestFocus(); ready();
             if ("1".equals(System.getenv("GODOT_JFX_ROBOT_DRAG"))) {
                 root.setAlwaysOnTop(true);

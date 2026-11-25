@@ -8,7 +8,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RUNTIME=0
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -18,7 +18,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
@@ -29,11 +29,18 @@ mkdir -p artifacts/reference agentdir/logs artifacts/native-tests
     -encoding UTF-8 -d artifacts/reference tests/reference/ClipboardProbe.java \
     || { echo "Clipboard probe compilation failed" >&2; exit 1; }
 
-PEER="artifacts/native-tests/macos_clipboard_peer"
-if [ ! -x "$PEER" ] || [ tests/native/macos_clipboard_peer.mm -nt "$PEER" ]; then
-    clang++ -std=c++17 -fobjc-arc -framework AppKit \
-        tests/native/macos_clipboard_peer.mm -o "$PEER" \
-        || { echo "Clipboard peer compilation failed" >&2; exit 1; }
+if [ "$(uname -s)" = Linux ]; then
+    PEER=artifacts/native-tests/linux_clipboard_peer
+    if [ ! -x "$PEER" ] || [ tests/native/linux_clipboard_peer.cpp -nt "$PEER" ]; then
+        c++ -std=c++17 -O2 tests/native/linux_clipboard_peer.cpp $(pkg-config --cflags --libs gtk+-3.0) -o "$PEER" || exit 1
+    fi
+else
+    PEER=artifacts/native-tests/macos_clipboard_peer
+    if [ ! -x "$PEER" ] || [ tests/native/macos_clipboard_peer.mm -nt "$PEER" ] || [ tests/native/clipboard_snapshot_guard.h -nt "$PEER" ]; then
+        clang++ -std=c++17 -fobjc-arc -framework AppKit \
+            tests/native/macos_clipboard_peer.mm -o "$PEER" \
+            || { echo "Clipboard peer compilation failed" >&2; exit 1; }
+    fi
 fi
 
 run_watchdog() {
@@ -57,7 +64,7 @@ run_watchdog() {
     return "$wcode"
 }
 
-UUID=$(uuidgen | tr -d '-' | tr 'A-F' 'a-f')
+UUID=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
 SYNC="$PWD/artifacts/native-tests/clipboard-$UUID.ready"
 PEER_LOG="agentdir/logs/clipboard-peer.log"
 # The macOS pasteboard server hides file lists of nonexistent paths from
@@ -73,7 +80,7 @@ cleanup() {
         kill "$PEER_PID" 2>/dev/null || true
         wait "$PEER_PID" 2>/dev/null || true
     fi
-    rm -f "$SYNC" "$SYNC.external" "$SYNC.external2" "$SYNC.ack"
+    rm -f "$SYNC" "$SYNC.external" "$SYNC.external2" "$SYNC.ack" "$SYNC.ack2"
     rm -rf "$FIXTURE_DIR"
 }
 trap cleanup EXIT
@@ -91,7 +98,7 @@ if [ "$RUNTIME" -eq 1 ]; then
     mkdir -p "$FIXTURE"
     cp tests/godot/clipboard_test.gd tests/godot/clipboard.tscn "$FIXTURE/"
     sed 's|res://main.tscn|res://clipboard.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
-    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/$source_editor" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Clipboard runtime import failed: $LOG.import" >&2; exit 1; fi
     (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \
         --render-thread safe --quit-after 3000) || CODE=$?

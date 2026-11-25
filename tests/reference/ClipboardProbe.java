@@ -29,18 +29,18 @@ public final class ClipboardProbe {
     private static final String EXTERNAL_RTF = "{\\rtf1\\ansi External \\i rich\\i0}";
     // QuantumClipboard publishes File.getAbsolutePath(); fixture paths must
     // already be absolute or the roundtrip comparison can never hold. The
-    // Windows drive-letter forms are absolute there; macOS gets POSIX forms.
+    // Windows uses drive-letter paths; macOS and Linux use POSIX paths.
     // macOS additionally requires the paths to exist: the pasteboard server
     // hides file lists of nonexistent paths from other processes, and the
     // external peer validates across the process boundary. The test script
     // materializes these files.
-    private static final boolean MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
-    private static final List<java.io.File> FILES = MAC ? List.of(
+    private static final boolean POSIX = java.io.File.separatorChar == '/';
+    private static final List<java.io.File> FILES = POSIX ? List.of(
             new java.io.File("/tmp/godot-jfx-clipboard-fixture/godot-jfx测试/报告 🙂.txt"),
             new java.io.File("/tmp/godot-jfx-clipboard-fixture/README.md")) : List.of(
             new java.io.File("C:\\godot-jfx测试\\报告 🙂.txt"),
             new java.io.File("D:\\godot-jfx-fixture\\README.md"));
-    private static final List<java.io.File> EXTERNAL_FILES = MAC ? List.of(
+    private static final List<java.io.File> EXTERNAL_FILES = POSIX ? List.of(
             new java.io.File("/tmp/godot-jfx-clipboard-fixture/外部/文件 甲.txt"),
             new java.io.File("/tmp/godot-jfx-clipboard-fixture/外部/乙🙂.png")) : List.of(
             new java.io.File("D:\\外部\\文件 甲.txt"),
@@ -204,6 +204,9 @@ public final class ClipboardProbe {
                     check(ANSI_URL.equals(actualAnsiUrl), "ANSI URL fallback mismatch: [" + actualAnsiUrl + "]");
                     Object externalCustom = clipboard.getContent(CUSTOM_FORMAT);
                     check(externalCustom instanceof byte[] && CUSTOM_EXTERNAL.equals(new String((byte[])externalCustom, StandardCharsets.UTF_8)), "External custom format mismatch");
+                    if ("Linux".equals(System.getProperty("os.name"))) {
+                        java.nio.file.Files.writeString(java.nio.file.Path.of(syncBase + ".ack2"), "ack");
+                    }
                     finished.countDown();
                 } catch (Throwable error) { failure.set(error); finished.countDown(); }
             });

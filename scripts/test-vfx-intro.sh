@@ -7,7 +7,12 @@ set -eu
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+case "$(uname -s)" in
+    Linux) NATIVE_DRIVER=vulkan ;;
+    Darwin) NATIVE_DRIVER=metal ;;
+    *) echo "Unsupported platform" >&2; exit 2 ;;
+esac
+DRIVER=$NATIVE_DRIVER
 RENDER_THREAD="safe"
 ALL_PAGES=0
 PAGE_LIMIT=0
@@ -23,7 +28,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+case "$DRIVER" in "$NATIVE_DRIVER"|opengl) ;; *) echo "expected --driver $NATIVE_DRIVER or opengl" >&2; exit 2 ;; esac
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -90,4 +95,5 @@ if [ "$CODE" -ne 0 ] \
 fi
 cp artifacts/reference/vfx-intro.png "artifacts/reference/vfx-intro-$DRIVER.png"
 cp artifacts/reference/vfx-intro-next.png "artifacts/reference/vfx-intro-next-$DRIVER.png"
+python3 scripts/godot_driver.py --driver "$DRIVER" "$LOG"
 echo "VFX Intro smoke passed: $LOG"

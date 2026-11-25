@@ -1,17 +1,13 @@
 #!/bin/sh
-# macOS equivalent of test-startup.ps1. Window visibility is sampled through
-# CGWindowList (scripts/macos-window-titles.m) instead of Win32 EnumWindows.
-# Window titles are validated only when macOS exposes them to us: without
-# screen-recording permission the system redacts other processes' window
-# names, in which case only the visibility timing is enforced (noted in the
-# output).
-# Usage: test-startup.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
+# Trace Wayland surface commits on Linux and CGWindowList on macOS. macOS may
+# redact titles when the sampler lacks screen-recording permission.
+# Usage: test-startup.sh [--driver vulkan|metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
 set -eu
 . "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -21,17 +17,20 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
 mkdir -p artifacts/reference agentdir/logs artifacts/native-tests
 
-HELPER="artifacts/native-tests/macos-window-titles"
-if [ ! -x "$HELPER" ] || [ scripts/macos-window-titles.m -nt "$HELPER" ]; then
-    clang -O2 -framework Foundation -framework CoreGraphics \
-        scripts/macos-window-titles.m -o "$HELPER"
+platform=$(uname -s)
+if [ "$platform" = Darwin ]; then
+    HELPER="artifacts/native-tests/macos-window-titles"
+    if [ ! -x "$HELPER" ] || [ scripts/macos-window-titles.m -nt "$HELPER" ]; then
+        clang -O2 -framework Foundation -framework CoreGraphics \
+            scripts/macos-window-titles.m -o "$HELPER"
+    fi
 fi
 
 "$JDK/bin/javac" --module-path jfx/build/sdk/lib --add-modules javafx.controls \
@@ -42,6 +41,18 @@ now_ms() { python3 -c 'import time; print(int(time.time() * 1000))'; }
 run_case() {
     case_name="$1" mode="$2" cancel="$3"
     prefix="agentdir/logs/startup-$case_name-$DRIVER-$RENDER_THREAD"
+    if [ "$platform" = Linux ]; then
+        env -u DISPLAY GODOT_JFX_STARTUP="$mode" GODOT_JFX_STARTUP_CANCEL="$cancel" WAYLAND_DEBUG=client \
+            timeout -k 3 30 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://startup.tscn \
+            --render-thread "$RENDER_THREAD" >"$prefix.log" 2>&1
+        grep -q "STARTUP_PASS mode=$mode" "$prefix.log"
+        if grep -qE '^(ERROR:|SCRIPT ERROR:|Exception)' "$prefix.log"; then
+            echo "Startup test reported errors: $prefix.log" >&2
+            return 1
+        fi
+        python3 scripts/check-wayland-startup.py "$prefix.log"
+        return
+    fi
     GODOT_JFX_STARTUP="$mode" GODOT_JFX_STARTUP_CANCEL="$cancel" \
         python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://startup.tscn \
         --render-thread "$RENDER_THREAD" >"$prefix.log" 2>&1 &
@@ -51,7 +62,10 @@ run_case() {
     titles_known=0
     failed=""
     while kill -0 "$pid" 2>/dev/null; do
-        titles=$("$HELPER" "$pid")
+        if ! titles=$("$HELPER" "$pid"); then
+            failed="Native window enumeration failed"
+            break
+        fi
         if [ -n "$titles" ]; then
             visible=1
             elapsed=$(( $(now_ms) - start ))

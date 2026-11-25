@@ -29,7 +29,11 @@ func _ready() -> void:
 	while host.get_runtime_status()!="finished":
 		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
 			push_error("Nested menu failed phase=%d title=%s: %s"%[phase,get_window().title,host.get_runtime_error()]); get_tree().quit(1); return
-		await RenderingServer.frame_post_draw
+		# After outside dismissal Java may unmap every surface before its thread exits.
+		if phase == 14:
+			await get_tree().process_frame
+		else:
+			await RenderingServer.frame_post_draw
 		var title:=get_window().title
 		var native_count:int=host.get_native_window_count()
 		if native_count>0 and title.get_slice_count(" ")==6:
@@ -70,7 +74,7 @@ func _ready() -> void:
 			click(Vector2(600,320)); phase=14
 	for frame in range(120):
 		if host.get_window_count()==0 and host.get_native_window_count()==0 and not host.is_composition_pending(): break
-		await RenderingServer.frame_post_draw
+		await get_tree().process_frame
 	if phase!=14 or DisplayServer.get_window_list().size()!=1 or host.get_window_count()!=0 or host.get_native_window_count()!=0 or host.is_composition_pending():
 		push_error("Nested menu coverage/window count differs"); get_tree().quit(1); return
 	remove_child(host)

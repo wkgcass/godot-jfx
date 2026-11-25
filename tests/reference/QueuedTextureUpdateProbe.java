@@ -96,8 +96,7 @@ public final class QueuedTextureUpdateProbe {
         c.drawQuads(new float[]{0,0,0,0,0,0,0, 0,16,0,0,1,0,1, 16,0,0,1,0,1,0, 16,16,0,1,1,1,1},colors,4,1,0,0,0,1,0);
         c.appendEndTargetPass();
     }
-    static void partialUpdates(boolean floating) {
-        GodotRenderCommands c = new GodotRenderCommands();
+    static void partialUpdates(GodotRenderCommands c, boolean floating) {
         long texture = floating ? 0x100000040L : 0x100000030L;
         long first = texture + 1, second = texture + 2;
         if (floating) c.allocateFloatTexture(texture, 4, 4);
@@ -142,9 +141,41 @@ public final class QueuedTextureUpdateProbe {
         c.updateFloatTextureRegion(texture, x, y, width, height, buffer.array());
     }
 
+    static void samePassSamplerRevision(GodotRenderCommands commands) {
+        long texture = 0x100000050L, target = texture + 1;
+        commands.createTexture(texture, 1, 1, new byte[]{(byte)255, 0, 0, (byte)255});
+        commands.allocateRenderTarget(target, 16, 8);
+        commands.selectTarget(target);
+        commands.clear();
+        var snapshot = new GodotShader.Snapshot("shader_type canvas_item; render_mode unshaded, blend_disabled; "
+                + "uniform sampler2D image; void fragment() { COLOR = texture(image, UV); }", Map.of("image", 0), Map.of());
+        float[] vertices = {0,0,0,0,0,0,0, 0,8,0,0,1,0,0, 8,0,0,1,0,0,0, 8,8,0,1,1,0,0};
+        byte[] colors = new byte[16];
+        Arrays.fill(colors, (byte)255);
+        commands.shaderState(snapshot, new long[]{texture});
+        commands.drawQuads(vertices, colors, 4, 1, 0, 0, 0, 1, 0);
+        commands.updateTexture(texture, 1, 1, new byte[]{0, 0, (byte)255, (byte)255});
+        commands.shaderState(snapshot, new long[]{texture});
+        commands.drawQuads(vertices, colors, 4, 1, 0, 8, 0, 1, 0);
+        commands.appendEndTargetPass();
+        int[] pixels = GodotBridge.readPixels(target, commands.submit(), 0, 0, 16, 8);
+        if (pixels == null || pixels.length != 128) throw new AssertionError("Missing same-pass sampler readback");
+        for (int index = 0; index < pixels.length; ++index) {
+            int expected = index % 16 < 8 ? 0xffff0000 : 0xff0000ff;
+            if (pixels[index] != expected) throw new AssertionError("Wrong sampler revision at pixel " + index
+                    + ": " + Integer.toHexString(pixels[index]));
+        }
+        commands.disposeTexture(texture);
+        commands.disposeTexture(target);
+        commands.submit();
+        System.out.println("SAME_PASS_SAMPLER_REVISION_PASS pixels=128");
+    }
+
     public static void main(String[] args) throws Exception {
-        partialUpdates(false);
-        partialUpdates(true);
+        var firstEncoder = new GodotRenderCommands();
+        samePassSamplerRevision(firstEncoder);
+        partialUpdates(firstEncoder, false);
+        partialUpdates(new GodotRenderCommands(), true);
         if ("1".equals(System.getenv("GODOT_JFX_TEST_VIEWPORT_STATE"))) {
             viewportState();
             System.out.println("QUEUED_TEXTURE_UPDATE_PASS");

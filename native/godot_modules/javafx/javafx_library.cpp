@@ -7,12 +7,16 @@
 #include "core/os/os.h"
 #include "scene/main/scene_tree.h"
 #include "scene/main/window.h"
+#include "servers/display/display_server.h"
 
 #include <algorithm>
 #include <atomic>
 #include <cwchar>
 #include <string>
 #include <vector>
+#ifdef __linux__
+#include <dlfcn.h>
+#endif
 
 #ifdef MACOS_ENABLED
 bool javafx_macos_iteration(GodotInstance *instance);
@@ -74,6 +78,16 @@ std::string engine_driver(JNIEnv *env, jstring requested) {
 }
 
 GodotInstance *create_instance(std::vector<std::string> &args, const std::string &driver) {
+#ifdef LINUXBSD_ENABLED
+	auto separator = std::find(args.begin(), args.end(), "--");
+	auto option = std::find(args.begin(), separator, "--display-driver");
+	if (option == separator) {
+		args.insert(separator, { "--display-driver", "wayland" });
+	} else if (std::next(option) == separator || *std::next(option) != "wayland") {
+		ERR_PRINT("The Linux JavaFX host requires the Wayland display driver.");
+		return nullptr;
+	}
+#endif
 	if (!driver.empty()) {
 		const std::string method = driver == "opengl3" ? "gl_compatibility" : "mobile";
 		auto set_option = [&](const char *option, const std::string &value) {
@@ -97,7 +111,23 @@ GodotInstance *create_instance(std::vector<std::string> &args, const std::string
 }
 
 bool start_instance(GodotInstance *instance, const std::string &driver) {
-	if (!instance->start()) return false;
+	const bool started = instance->start();
+#ifdef __linux__
+	// Under WSL both Mesa D3D12 backends register thread-exit callbacks in
+	// D3D12Core. The JVM can outlive Mesa's final dlclose during engine stop.
+	if (void *core = dlopen("/usr/lib/wsl/lib/libd3d12core.so", RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE)) {
+		dlclose(core);
+	}
+#endif
+	if (!started) return false;
+#ifdef LINUXBSD_ENABLED
+	const String display = DisplayServer::get_singleton()->get_name();
+	if (display != "Wayland") {
+		ERR_PRINT("The Linux JavaFX host requires Wayland, got " + display);
+		return false;
+	}
+	print_line("GODOT_LIBRARY_DISPLAY_DRIVER " + display);
+#endif
 	if (!driver.empty()) {
 		const String actual = OS::get_singleton()->get_current_rendering_driver_name();
 		if (actual != driver.c_str()) {

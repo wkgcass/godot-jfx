@@ -14,7 +14,7 @@ def analyze(report):
     samples = report["native_samples"]
     java = report["java_samples"]
     process = report["process_samples"]
-    executable = report.get("sampled_executable", "")
+    executable = report.get("sampled_executable") or ""
     process_valid = PureWindowsPath(executable).name.lower() in {"java", "java.exe"}
     rounds = sorted({s["round"] for s in samples if s["round"] > 0})
     result = {

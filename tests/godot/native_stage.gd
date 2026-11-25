@@ -10,6 +10,7 @@ func _ready() -> void:
 		push_error("Native Stage probe failed"); get_tree().quit(1); return
 	var scale:=DisplayServer.screen_get_scale()
 	var step:=0
+	var close_step:=14 if OS.get_name()=="Linux" else 12
 	var deadline:=Time.get_ticks_msec()+40000
 	var diagnostic:=Time.get_ticks_msec()+5000
 	while host.get_runtime_status()!="finished":
@@ -22,7 +23,7 @@ func _ready() -> void:
 		if get_window().title!="Native Stage %d"%step or host.is_composition_pending(): continue
 		var child=host.get_native_window(2 if step<3 else 3)
 		if get_window().size!=Vector2i(Vector2(320,180)*scale) or not pixel_matches(get_window(),Color.RED): continue
-		if step in [0,1,3,4,5,6,7,8,9,10,11]:
+		if step!=2 and step<close_step:
 			if child==null or child.is_present_pending() or not child.visible: continue
 			if child.title!="独立 Stage" or child.borderless or child.is_embedded():
 				push_error("Standard decorated Stage is not an independent native window: step=%d title=%s borderless=%s embedded=%s visible=%s"%[step,child.title,child.borderless,child.is_embedded(),child.visible]); get_tree().quit(1); return
@@ -36,22 +37,49 @@ func _ready() -> void:
 				if get_window().mode!=Window.MODE_WINDOWED: push_error("Child fullscreen changed root mode"); get_tree().quit(1); return
 			elif step in [8,10]:
 				if child.mode!=Window.MODE_MAXIMIZED or child.size.x<=400*scale or child.size.y<=240*scale: continue
-			elif step>=1 and (child.mode!=Window.MODE_WINDOWED or child.size!=Vector2i(Vector2(400,240)*scale) or child.position!=Vector2i(Vector2(470,120)*scale)): continue
+			elif step>=1:
+				if child.mode!=Window.MODE_WINDOWED or child.size!=Vector2i(Vector2(400,240)*scale): continue
+				if DisplayServer.get_name() == "Wayland":
+					if DisplayServer.window_get_position(child.get_window_id()) != Vector2i.ZERO: continue
+				elif child.position!=Vector2i(Vector2(470,120)*scale): continue
 			if step==0:
 				child.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/native-stage-child.png"))
 		else:
 			if child!=null or host.get_native_window_count()!=0 or DisplayServer.get_window_list().size()!=1: continue
 		if host.get_window_count()!=1:
 			push_error("Secondary Stage was embedded in root compositor"); get_tree().quit(1); return
-		for pressed in [true,false]:
-			var event:=InputEventMouseButton.new(); event.position=Vector2(30,25)*scale; event.button_index=MOUSE_BUTTON_LEFT; event.pressed=pressed
-			Input.parse_input_event(event)
 		if step==6:
 			for pressed in [true,false]:
-				var key:=InputEventKey.new(); key.window_id=child.get_window_id(); key.keycode=KEY_ESCAPE; key.pressed=pressed
+				var key:=InputEventKey.new()
+				key.window_id=child.get_window_id()
+				key.keycode=KEY_ESCAPE
+				key.pressed=pressed
 				Input.parse_input_event(key)
+				Input.flush_buffered_events()
+			# The root button releases the Java observer to check isFullScreen().
+			# Confirm the child has processed Escape before acknowledging it.
+			var exit_deadline:=Time.get_ticks_msec()+5000
+			while child.mode!=Window.MODE_WINDOWED:
+				if Time.get_ticks_msec()>=exit_deadline:
+					push_error("Escape did not restore the native child");get_tree().quit(1);return
+				await get_tree().process_frame
+		var root_id:=get_window().get_window_id()
+		var button_position:=Vector2(30,25)*scale
+		var motion:=InputEventMouseMotion.new()
+		motion.window_id=root_id
+		motion.position=button_position
+		Input.parse_input_event(motion)
+		for pressed in [true,false]:
+			var event:=InputEventMouseButton.new()
+			event.window_id=root_id
+			event.position=button_position
+			event.button_index=MOUSE_BUTTON_LEFT
+			event.pressed=pressed
+			event.button_mask=MOUSE_BUTTON_MASK_LEFT if pressed else 0
+			Input.parse_input_event(event)
+			Input.flush_buffered_events()
 		step+=1
-	if step!=13: push_error("Native Stage phases incomplete"); get_tree().quit(1); return
+	if step!=close_step+1: push_error("Native Stage phases incomplete"); get_tree().quit(1); return
 	remove_child(host)
 	if host.get_owned_resource_count()!=0: push_error("Native Stage resources leaked"); get_tree().quit(1); return
 	host.free(); print("GODOT_NATIVE_STAGE_PASS"); get_tree().quit(0)

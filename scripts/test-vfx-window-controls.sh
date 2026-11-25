@@ -1,23 +1,27 @@
 #!/bin/sh
-# Usage: test-vfx-window-controls.sh [--driver metal|opengl] [--render-thread safe] [--jdk DIRECTORY]
+# Usage: test-vfx-window-controls.sh [--driver metal|vulkan|opengl] [--render-thread safe]
+#        [--runtime] [--weston-restore] [--jdk DIRECTORY]
+# Use --weston-restore only in the isolated Weston session to drive its task switcher.
 set -eu
 . "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
 runtime=""
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
+weston=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --driver) DRIVER="${2-}"; shift ;;
         --render-thread) RENDER_THREAD="$2"; shift ;;
         --runtime) runtime="-runtime" ;;
+        --weston-restore) weston="-weston" ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -52,10 +56,13 @@ run_watchdog() {
     return "$wcode"
 }
 
-LOG="agentdir/logs/vfx-window-controls-$DRIVER-$RENDER_THREAD$runtime.log"
+LOG="agentdir/logs/vfx-window-controls-$DRIVER-$RENDER_THREAD$runtime$weston.log"
 CODE=0
-run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" ${runtime:+--runtime} --path tests/godot res://vfx_window_controls.tscn \
-    --render-thread "$RENDER_THREAD" || CODE=$?
+set -- python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" ${runtime:+--runtime} --path tests/godot res://vfx_window_controls.tscn --render-thread "$RENDER_THREAD"
+if [ -n "$weston" ]; then
+    set -- python3 scripts/check-wayland-vfx-restore.py "$@"
+fi
+run_watchdog "$LOG" 240 "$@" || CODE=$?
 CODE_NOW=$CODE
 if [ "$CODE_NOW" -ne 0 ] \
     || ! grep -q 'GODOT_VFX_WINDOW_CONTROLS_PASS' "$LOG" \

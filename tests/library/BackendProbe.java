@@ -14,15 +14,19 @@ import java.util.concurrent.TimeUnit;
 public final class BackendProbe {
     public static void main(String[] args) throws Exception {
         switch (args[0]) {
-            case "d3d", "mtl" -> {
+            case "d3d", "mtl", "es2" -> {
                 var observed = new CompletableFuture<String>();
                 Platform.startup(() -> observed.complete(PlatformFactory.getPlatformFactory().getClass().getName()
                         + " " + GraphicsPipeline.getPipeline().getClass().getName()));
                 try {
                     String backend = observed.get(10, TimeUnit.SECONDS);
-                    boolean mac = args[0].equals("mtl");
-                    if (GodotRuntime.PRISM_GODOT_ENABLED || !backend.contains(mac ? "MacPlatformFactory" : "WinPlatformFactory")
-                            || !backend.contains(mac ? "MTLPipeline" : "D3DPipeline")) throw new AssertionError(backend);
+                    String glass = switch (args[0]) {
+                        case "mtl" -> "MacPlatformFactory";
+                        case "es2" -> "GtkPlatformFactory";
+                        default -> "WinPlatformFactory";
+                    };
+                    if (GodotRuntime.PRISM_GODOT_ENABLED || !backend.contains(glass)
+                            || !backend.contains(args[0].toUpperCase(java.util.Locale.ROOT) + "Pipeline")) throw new AssertionError(backend);
                     System.out.println("NATIVE_CONTROL_PASS " + backend);
                 } finally { Platform.exit(); }
             }

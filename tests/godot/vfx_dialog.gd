@@ -26,6 +26,8 @@ func _ready() -> void:
 		var window=get_window() if id==0 else host.get_native_window(id)
 		if window==null or (id!=0 and window.is_present_pending()): continue
 		for frame in range(10): await RenderingServer.frame_post_draw
+		# A layout or a replacement dialog can publish new coordinates during the wait.
+		if get_window().title != title: continue
 		if not host.is_window_visible(id) or not DisplayServer.get_window_list().has(window.get_window_id()):
 			push_error("VFX target is not a visible native window at step %d"%step); get_tree().quit(1); return
 		if id!=0 and window.get_window_id()==get_window().get_window_id():

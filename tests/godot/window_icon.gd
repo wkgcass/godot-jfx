@@ -6,8 +6,8 @@ func fail(message:String) -> void:
 func matches(info:Dictionary, color:int) -> bool:
 	if OS.get_name()=="macOS": return info.get("installed", true)==false
 	if color<0: return info.get("installed",true)==false
-	# Godot requests LR_DEFAULTSIZE; Windows scales the 32px source to system DPI.
-	var native_size:=roundi(32*DisplayServer.screen_get_scale())
+	# Quantum sends a 128px image on Linux. Windows requests LR_DEFAULTSIZE at system DPI.
+	var native_size := 128 if OS.get_name() == "Linux" else roundi(32 * DisplayServer.screen_get_scale())
 	if not info.get("installed",false) or info.get("width",0)!=native_size or info.get("height",0)!=native_size:return false
 	var actual:int=info.get("center_argb",-1)
 	if actual<0 or (int(info.get("corner_argb",-1))>>24)!=0:return false
@@ -31,6 +31,9 @@ func _ready() -> void:
 		var child_id:=get_window().title.get_slice(" ",2).to_int()
 		var root_info:Dictionary=host.get_window_icon_info(0)
 		var child_info:Dictionary=host.get_window_icon_info(child_id)
+		if root_info.has("supported") and not root_info["supported"]:
+			fail("Wayland compositor does not advertise xdg_toplevel_icon_manager_v1")
+			return
 		if Time.get_ticks_msec()>diagnostic:
 			print("WINDOW_ICON_WAIT ",step," ",JSON.stringify(root_info)," ",JSON.stringify(child_info))
 			diagnostic=Time.get_ticks_msec()+3000

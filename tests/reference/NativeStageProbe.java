@@ -61,7 +61,29 @@ public final class NativeStageProbe {
             if(!child.isMaximized()) throw new AssertionError("Fullscreen lost maximized state");
             child.setMaximized(false);
         }); verify(11);
-        fx(() -> child.close()); verify(12);
+        int closeStep = 12;
+        if (System.getProperty("os.name").equals("Linux")) {
+            for (boolean iconify : new boolean[]{true, false}) {
+                fx(() -> {
+                    if (iconify) {
+                        child.setIconified(true);
+                        child.setIconified(false);
+                    } else {
+                        child.setMaximized(true);
+                        child.setMaximized(false);
+                    }
+                });
+                // Let the WM process both requests while the FX thread runs.
+                Thread.sleep(1500);
+                fx(() -> {
+                    if (child.isIconified() || child.isMaximized()) {
+                        throw new AssertionError("Rapid mode change did not restore the Stage");
+                    }
+                });
+                verify(closeStep++); // Check the native mode, bounds and presented pixels too.
+            }
+        }
+        fx(() -> child.close()); verify(closeStep);
         fx(() -> root.close()); Platform.exit();
         System.out.println("NATIVE_STAGE_PROBE_PASS");
     }

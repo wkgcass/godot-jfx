@@ -7,7 +7,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 SNAPSHOT=0
 STOP=0
@@ -25,7 +25,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 if [ "$STRESS" -eq 1 ]; then SNAPSHOT=1; fi
 if [ "$SNAPSHOT" -eq 1 ] && [ "$STOP" -eq 1 ]; then
@@ -65,7 +65,7 @@ if [ "$RUNTIME" -eq 1 ]; then
     cp tests/godot/readback.tscn tests/godot/readback.gd "$FIXTURE/"
     sed 's|res://main.tscn|res://readback.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
     CODE=0
-    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/$source_editor" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Readback runtime fixture import failed: $LOG.import" >&2; exit 1; fi
     CODE=0
     (cd "$FIXTURE" && python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \

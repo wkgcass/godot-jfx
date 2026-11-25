@@ -9,7 +9,7 @@ set -eu
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 ROBOT=0
 while [ $# -gt 0 ]; do
@@ -21,7 +21,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -61,8 +61,10 @@ SUFFIX=""
 [ "$ROBOT" = "1" ] && SUFFIX="-robot"
 LOG="agentdir/logs/hover-flicker-$DRIVER-$RENDER_THREAD$SUFFIX.log"
 CODE=0
+# The pixel probe excludes 23 frames for the 300 ms Fusion transition.
+# Keep those samples at desktop cadence when WSLg's swapchain is uncapped.
 run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" --path tests/godot res://hover_flicker.tscn \
-    --render-thread "$RENDER_THREAD" || CODE=$?
+    --render-thread "$RENDER_THREAD" --max-fps 60 || CODE=$?
 if [ "$CODE" -ne 0 ] \
     || ! grep -q 'HOVER_PIXEL_STATS' "$LOG" \
     || ! grep -q 'HOVER_FLICKER_PASS' "$LOG" \

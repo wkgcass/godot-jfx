@@ -14,7 +14,8 @@ def fxVersion = new File(distribution, 'version.txt').text.trim()
 def os = System.getProperty('os.name')
 def arch = System.getProperty('os.arch')
 def platform = os.startsWith('Windows') && arch in ['amd64', 'x86_64'] ? 'win' :
-        os == 'Mac OS X' && arch == 'aarch64' ? 'mac-aarch64' : null
+        os == 'Mac OS X' && arch == 'aarch64' ? 'mac-aarch64' :
+        os == 'Linux' && arch in ['amd64', 'x86_64'] ? 'linux' : null
 repositories {
     exclusiveContent {
         forRepository { maven { url = new File(distribution, 'repository').toURI() } }

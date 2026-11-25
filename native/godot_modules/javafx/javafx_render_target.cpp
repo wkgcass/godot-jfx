@@ -25,7 +25,42 @@ std::shared_ptr<PrismMeshCache> acquire_target_mesh_cache() {
 	}
 	return cache;
 }
+
+// Accessed on the main thread. Each target retains one owner per cached
+// source. Materials and slots stay local to the target that records the draw.
+struct SharedTargetShader {
+	RID rid;
+	uint32_t owners;
+};
+HashMap<String, SharedTargetShader> shared_target_shaders;
+
+RID acquire_target_shader(const String &p_code, bool p_cache, uint64_t &r_creations) {
+	if (p_cache) {
+		if (SharedTargetShader *shared = shared_target_shaders.getptr(p_code)) {
+			++shared->owners;
+			return shared->rid;
+		}
+	}
+	auto *rs = RenderingServer::get_singleton();
+	RID rid = rs->shader_create();
+	ERR_FAIL_COND_V(!rid.is_valid(), RID());
+	static const bool instance_uniforms = OS::get_singleton()->get_environment("GODOT_JFX_INSTANCE_UNIFORMS") != "0";
+	if (instance_uniforms) {
+		Vector<StringName> names;
+		rs->shader_set_code(rid, godot_javafx::rewrite_instance_uniforms(p_code, names));
+	} else {
+		rs->shader_set_code(rid, p_code);
+	}
+	++r_creations;
+	if (p_cache) shared_target_shaders.insert(p_code, SharedTargetShader{rid, 1});
+	return rid;
+}
+
 std::atomic<uint64_t> render_offscreen_us{0}, render_offscreen_calls{0}, render_offscreen_slow_calls{0};
+}
+
+int JavaFXRenderTarget::get_shared_shader_count() {
+	return shared_target_shaders.size();
 }
 
 Dictionary JavaFXRenderTarget::get_render_thread_profile() {
@@ -206,6 +241,13 @@ RID JavaFXRenderTarget::create_draw_item(RID p_material) {
 	return item;
 }
 
+void JavaFXRenderTarget::copy_lcd_background(const Rect2i &p_rect) {
+	ERR_FAIL_COND(!Thread::is_main_thread() || !pass_open);
+	// Place the copy after all prior draws, including overlapping glyphs.
+	RID item = create_draw_item(RID());
+	RenderingServer::get_singleton()->canvas_item_set_copy_to_backbuffer(item, true, p_rect);
+}
+
 RID JavaFXRenderTarget::acquire_material(RID p_shader, const Dictionary &p_parameters, bool p_persistent_shader) {
 	auto *rs = RenderingServer::get_singleton();
 	// Materials are immutable (shader + parameters); a moving parent repeats
@@ -313,8 +355,9 @@ double JavaFXRenderTarget::get_measured_gpu_time_us() const {
 
 void JavaFXRenderTarget::hide_unused_slots() {
 	auto *rs = RenderingServer::get_singleton();
-	for (DrawSlot &slot : slots) {
-		if (!slot.used && slot.visible && slot.item.is_valid()) {
+	for (int index = next_draw_slot; index < slots.size(); ++index) {
+		DrawSlot &slot = slots.write[index];
+		if (slot.visible && slot.item.is_valid()) {
 			// Clearing the command list removes the slot's geometry without
 			// touching item visibility state.
 			rs->canvas_item_clear(slot.item);
@@ -338,10 +381,9 @@ void JavaFXRenderTarget::clear_draws() {
 	for (RID rid : draw_resources) rs->free_rid(rid);
 	draw_resources.clear(); uncached_meshes.clear(); sources.clear(); draw_index = 0;
 	next_draw_slot = 0;
-	// Slot items stay alive across passes; hide everything the previous pass
-	// did not touch so stale geometry cannot leak into the next render.
-	hide_unused_slots();
-	for (DrawSlot &slot : slots) slot.used = false;
+	// end_pass hides the unused suffix before enabling the viewport. Keep
+	// prior commands available here: both finish_pass and begin_pass reset
+	// the recording cursor, with no draw between those two calls.
 }
 
 void JavaFXRenderTarget::draw_prism_quads(const PackedFloat32Array &p_vertices, const PackedByteArray &p_colors,
@@ -392,21 +434,12 @@ void JavaFXRenderTarget::draw_prism_mesh_with_instances(const Ref<ArrayMesh> &p_
 		shader_rid = *cached;
 		persistent_shader = true;
 	} else {
-		shader_rid = rs->shader_create();
-		// Target-path shaders move their value uniforms to per-instance
-		// uniforms: per-frame constants then ride item instance data instead
-		// of rebuilding the material's uniform sets every pass.
-		static const bool instance_uniforms = OS::get_singleton()->get_environment("GODOT_JFX_INSTANCE_UNIFORMS") != "0";
-		if (instance_uniforms) {
-			Vector<StringName> names;
-			rs->shader_set_code(shader_rid, godot_javafx::rewrite_instance_uniforms(p_shader, names));
-		} else {
-			rs->shader_set_code(shader_rid, p_shader);
-		}
-		++shader_creations;
-		// Codes are immutable keys. Bound persistent storage per target; overflow
-		// shaders remain pass-owned so dynamic user code cannot grow this cache.
-		if (shader_cache.size() < 64) { shader_cache.insert(p_shader, shader_rid); persistent_shader = true; }
+		// Overflow programs remain pass-owned even when another target caches
+		// the same code. This keeps each target's persistent set bounded.
+		persistent_shader = shader_cache.size() < 64;
+		shader_rid = acquire_target_shader(p_shader, persistent_shader, shader_creations);
+		ERR_FAIL_COND(!shader_rid.is_valid());
+		if (persistent_shader) shader_cache.insert(p_shader, shader_rid);
 		else draw_resources.push_back(shader_rid);
 	}
 	RID material_rid = acquire_material(shader_rid, p_parameters, persistent_shader);
@@ -444,8 +477,8 @@ void JavaFXRenderTarget::draw_prism_mesh_with_instances(const Ref<ArrayMesh> &p_
 		DrawSlot &previous = slots.write[slot_index];
 		// Godot also retains initialized defaults when switching shaders.
 		bool reset_item = previous.shader != shader_rid;
-		for (const StringName &name : previous.instance_names) {
-			if (!p_instance_params || !p_instance_params->has(name)) {
+		for (const KeyValue<StringName, Variant> &param : previous.instance_values) {
+			if (!p_instance_params || !p_instance_params->has(param.key)) {
 				reset_item = true;
 				break;
 			}
@@ -455,25 +488,28 @@ void JavaFXRenderTarget::draw_prism_mesh_with_instances(const Ref<ArrayMesh> &p_
 			previous.item = rs->canvas_item_create();
 			rs->canvas_item_set_parent(previous.item, canvas);
 			previous.material = RID(); // Force complete material/draw setup below.
-			previous.instance_names.clear();
+			previous.instance_values.clear();
 		}
 	}
 	auto apply_instance_parameters = [&](DrawSlot &p_slot) {
-		Vector<StringName> next_names;
-		if (p_instance_params) {
-			for (const KeyValue<StringName, Variant> &param : *p_instance_params) {
-				rs->canvas_item_set_instance_shader_parameter(p_slot.item, param.key, param.value);
-				next_names.push_back(param.key);
-			}
+		if (!p_instance_params) return;
+		for (const KeyValue<StringName, Variant> &param : *p_instance_params) {
+			const Variant *previous = p_slot.instance_values.getptr(param.key);
+			if (previous && previous->get_type() == param.value.get_type() && *previous == param.value) continue;
+			rs->canvas_item_set_instance_shader_parameter(p_slot.item, param.key, param.value);
+			p_slot.instance_values.insert(param.key, param.value);
 		}
-		p_slot.instance_names = next_names;
 	};
 	if (slot_index < slots.size() && slots[slot_index].matches(p_mesh->get_rid(), material_rid, p_texture, p_clip, p_rect)) {
 		DrawSlot &slot = slots.write[slot_index];
-		slot.used = true;
 		slot.visible = true;
 		apply_instance_parameters(slot);
 		rs->canvas_item_set_draw_index(slot.item, draw_index++);
+		// Keep the recorded commands when mesh, clip, transform and opacity all match.
+		if (slot.transform == p_transform && slot.modulate == p_modulate) {
+			++retained_draws;
+			return;
+		}
 		// canvas_item_clear resets the recorded clip state, so a reused slot
 		// re-applies rect and clip together with its two commands.
 		rs->canvas_item_clear(slot.item);
@@ -482,6 +518,7 @@ void JavaFXRenderTarget::draw_prism_mesh_with_instances(const Ref<ArrayMesh> &p_
 		if (p_transform != Transform2D()) rs->canvas_item_add_set_transform(slot.item, p_transform);
 		rs->canvas_item_add_mesh(slot.item, slot.mesh, Transform2D(), modulate, slot.texture);
 		slot.transform = p_transform;
+		slot.modulate = p_modulate;
 		return;
 	}
 	DrawSlot slot;
@@ -490,7 +527,7 @@ void JavaFXRenderTarget::draw_prism_mesh_with_instances(const Ref<ArrayMesh> &p_
 	RID previous_material;
 	if (slot_index < slots.size()) {
 		slot.item = slots[slot_index].item;
-		slot.instance_names = slots[slot_index].instance_names;
+		slot.instance_values = std::move(slots.write[slot_index].instance_values);
 		previous_material = slots[slot_index].material;
 		rs->canvas_item_clear(slot.item);
 	} else {
@@ -504,7 +541,6 @@ void JavaFXRenderTarget::draw_prism_mesh_with_instances(const Ref<ArrayMesh> &p_
 	slot.texture = p_texture;
 	slot.clip = p_clip;
 	slot.rect = p_rect;
-	slot.used = true;
 	slot.visible = true;
 	// Re-binding the same material queues the item for dependency updates on
 	// every pass; only switch when the material actually changed.
@@ -518,10 +554,11 @@ void JavaFXRenderTarget::draw_prism_mesh_with_instances(const Ref<ArrayMesh> &p_
 	rs->canvas_item_set_clip(slot.item, p_clip);
 	if (p_transform != Transform2D()) rs->canvas_item_add_set_transform(slot.item, p_transform);
 	slot.transform = p_transform;
+	slot.modulate = p_modulate;
 	rs->canvas_item_add_mesh(slot.item, slot.mesh, Transform2D(), modulate, p_texture);
 	rs->canvas_item_set_draw_index(slot.item, draw_index++);
-	if (slot_index < slots.size()) slots.write[slot_index] = slot;
-	else slots.push_back(slot);
+	if (slot_index < slots.size()) slots.write[slot_index] = std::move(slot);
+	else slots.push_back(std::move(slot));
 }
 
 JavaFXRenderTarget::~JavaFXRenderTarget() {
@@ -541,7 +578,14 @@ JavaFXRenderTarget::~JavaFXRenderTarget() {
 	material_cache.clear();
 	material_cache_order.clear();
 	mesh_cache.reset();
-	for (const KeyValue<String, RID> &entry : shader_cache) rs->free_rid(entry.value);
+	for (const KeyValue<String, RID> &entry : shader_cache) {
+		SharedTargetShader *shared = shared_target_shaders.getptr(entry.key);
+		ERR_CONTINUE(!shared || shared->rid != entry.value || shared->owners == 0);
+		if (--shared->owners == 0) {
+			rs->free_rid(entry.value);
+			shared_target_shaders.erase(entry.key);
+		}
+	}
 	shader_cache.clear();
 	// FIFO initialization and destruction capture RID values, never this object.
 	for (RID rid : { commands, material, shader, canvas, viewport }) if (rid.is_valid()) rs->free_rid(rid);

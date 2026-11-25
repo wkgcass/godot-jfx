@@ -28,7 +28,9 @@ input-cycle rejection, bounds, parent transforms, opacity and clipping. Paramete
 must be changed on the FX thread for attached live nodes, as with other JavaFX
 scene properties. `setFloat` and `setInt` accept one to four components and check
 the declared type/shape. Caller arrays and render snapshots are copied. Source is
-immutable; replace the effect to change the shader program.
+immutable; replace the effect to change the shader program. Each effect parses its
+uniform declarations once and uses that same program to validate parameter changes
+and create render shaders. Setting the same typed value again does not dirty the effect.
 
 The internal FilterEffect requests the complete input in user space. It gets a
 pooled GPU texture, draws a separate CanvasItem shader pass into another pooled

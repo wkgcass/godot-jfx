@@ -40,7 +40,8 @@ public final class ModalProbe {
             check(depth==1,"Disabled outer received action"); outer.close();
         }));
         main.setTitle(round==1?"Outer window active":"Outer app active"); outer.showAndWait();
-        check(main.isFocused(),"Owner focus was not restored after modal close");
+        check(main.isFocused(),"Owner focus was not restored after modal close: round="+round+
+                " independentFocused="+independent.isFocused()+" ownerShowing="+main.isShowing());
         check(parentActions==(round==1?0:1) && independentActions==1,"Blocked window received an action");
         ++outerReturns; depth=0; main.setTitle(round==1?"Outer window returned":"Outer app returned");
     }

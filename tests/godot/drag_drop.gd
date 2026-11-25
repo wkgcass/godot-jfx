@@ -27,6 +27,19 @@ func _ready() -> void:
 		# runs while another application holds the foreground (no topmost or
 		# focus dependence for background-friendly runs).
 		if phase==0 and get_window().title=="Drag ready %d"%test and not host.is_composition_pending():
+			# The ready title can arrive before the secondary Wayland surface's
+			# initial configure and focus transfer. Wait for its actual blue
+			# target to be presented before batching the first mouse gesture.
+			if test == 0 and DisplayServer.get_name() == "Wayland":
+				if child == null or child.get_window_id() == DisplayServer.INVALID_WINDOW_ID or child.is_present_pending():
+					continue
+				var image: Image = child.get_texture().get_image()
+				var sample := Vector2i(Vector2(40, 40) * DisplayServer.screen_get_scale(child.current_screen))
+				if image == null or not Rect2i(Vector2i.ZERO, image.get_size()).has_point(sample):
+					continue
+				var color := image.get_pixelv(sample)
+				if color.b < 0.95 or color.r > 0.05 or color.g > 0.05:
+					continue
 			mouse(get_window(),Vector2(40,40),1)
 			mouse(get_window(),Vector2(80,40),0)
 			# Case zero deliberately queues drop in the same host batch.

@@ -33,7 +33,7 @@ public final class PhysicalDragProbe extends Application {
     private double originalCursorX, originalCursorY;
     private volatile int draggedEvents;
     private double oldStageX, oldStageY, oldScreenX, oldScreenY;
-    private double oldStageW, oldStageH;
+    private double oldStageW, oldStageH, oldSceneX, oldSceneY;
     private volatile String phase = "idle";
     private volatile boolean gestureActive;
 
@@ -59,11 +59,11 @@ public final class PhysicalDragProbe extends Application {
                 s.setX(oldStageX + (e.getScreenX() - oldScreenX));
                 s.setY(oldStageY + (e.getScreenY() - oldScreenY));
             });
-            grip.setOnMousePressed(e -> { oldStageW = s.getWidth(); oldStageH = s.getHeight(); oldScreenX = e.getScreenX(); oldScreenY = e.getScreenY(); });
+            grip.setOnMousePressed(e -> { oldStageW = s.getWidth(); oldStageH = s.getHeight(); oldSceneX = e.getSceneX(); oldSceneY = e.getSceneY(); });
             grip.setOnMouseDragged(e -> {
                 ++draggedEvents;
-                s.setWidth(Math.max(256, oldStageW + (e.getScreenX() - oldScreenX)));
-                s.setHeight(Math.max(128, oldStageH + (e.getScreenY() - oldScreenY)));
+                s.setWidth(Math.max(256, oldStageW + (e.getSceneX() - oldSceneX)));
+                s.setHeight(Math.max(128, oldStageH + (e.getSceneY() - oldSceneY)));
             });
             var scene = new Scene(root, 420, 320, Color.TRANSPARENT);
             scene.addEventFilter(javafx.scene.input.MouseEvent.ANY, e -> {

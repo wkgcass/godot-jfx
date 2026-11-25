@@ -28,10 +28,10 @@ done
 if [ "$NATIVE" -eq 1 ] && [ -n "$DRIVER$runtime" ]; then
     echo "--driver and --runtime require the Godot backend" >&2; exit 2
 fi
-DRIVER=${DRIVER:-metal}
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+DRIVER=${DRIVER:-$native_driver}
+check_desktop_driver "$DRIVER" || exit 2
 BACKEND=$DRIVER
-if [ "$NATIVE" -eq 1 ]; then BACKEND=native-mtl; fi
+if [ "$NATIVE" -eq 1 ]; then BACKEND=native-$native_prism; fi
 [ "$CYCLES" -ge 24 ] && [ "$CYCLES" -le 240 ] || { echo "invalid cycles: $CYCLES" >&2; exit 2; }
 case "$SETTLE" in 0|30|60) ;; *) echo "invalid settle seconds: $SETTLE" >&2; exit 2 ;; esac
 
@@ -92,7 +92,7 @@ export GODOT_JFX_MEDIA_AUDIO_ONLY="$AUDIO_ONLY"
 # The Godot fixture owns its timeout (30s + 6s/cycle + settle) and shutdown.
 CODE=0
 if [ "$NATIVE" -eq 1 ]; then
-    set -- "$JDK/bin/java" -Dglass.platform=Mac -Dprism.order=mtl --module-path jfx/build/sdk/lib \
+    set -- python3 "$PWD/scripts/native_prism.py" "$JDK/bin/java" --module-path jfx/build/sdk/lib \
         --add-modules javafx.controls,javafx.media --enable-native-access=javafx.graphics,javafx.media,ALL-UNNAMED \
         -cp artifacts/reference MediaChurnProbe
 else
@@ -120,7 +120,7 @@ def samples(prefix):
              "handles": int(h), "elapsed_ms": int(e), "java_threads": int(t)}
             for c, p, pb, ws, h, e, t in re.findall(prefix + " " + sample_re, output)]
 process_samples, idle_samples = samples("MEDIA_CHURN_PROCESS"), samples("MEDIA_CHURN_IDLE")
-passed = (code == 0 and "MEDIA_CHURN_PROBE_PASS" in output and (driver == "native-mtl" or
+passed = (code == 0 and "MEDIA_CHURN_PROBE_PASS" in output and (driver in ("native-mtl", "native-es2") or
           ("GODOT_MEDIA_CHURN_PASS" in output and len(native) == cycles))
           and len(java) == cycles and len(process_samples) == cycles
           and len(idle_samples) == expected_idle
@@ -128,7 +128,7 @@ passed = (code == 0 and "MEDIA_CHURN_PROBE_PASS" in output and (driver == "nativ
 report = {"aac_registration_stable": None, "providers": False, "audio_only": bool(audio_only),
           "handle_types": False, "playback_and_cleanup_passed": passed,
           "resource_growth_acceptance": "requires separate trend analysis", "cycles": cycles,
-          "runtime": bool(runtime), "native_d3d": False, "native_mtl": driver == "native-mtl", "driver": driver, "settle_seconds": settle,
+          "runtime": bool(runtime), "native_d3d": False, "native_es2": driver == "native-es2", "native_mtl": driver == "native-mtl", "driver": driver, "settle_seconds": settle,
           "idle_samples": idle_samples, "forced_gc": False, "heap_limit_mib": 256,
           "process_memory_sampled": True, "process_samples": process_samples,
           "static_memory_available": any(n.get("static_bytes", 0) > 0 for n in native),

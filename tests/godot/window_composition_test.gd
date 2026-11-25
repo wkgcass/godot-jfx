@@ -11,6 +11,7 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	var seen := {}
+	var wayland := DisplayServer.get_name() == "Wayland"
 	var last_phase := -1
 	var deadline := Time.get_ticks_msec()+30000
 	while host.get_runtime_status() != "finished":
@@ -37,9 +38,14 @@ func _ready() -> void:
 			if peer==null or peer.visible or DisplayServer.get_window_list().size()!=1: continue
 		else:
 			if peer==null or not peer.visible or peer.is_embedded() or peer.is_present_pending(): continue
-			if peer.position-get_window().position!=Vector2i(120 if index==1 else 60,10): continue
-			var above:bool=host.is_window_above(0,90001) if index==2 else host.is_window_above(90001,0)
-			if not above: continue
+			if wayland:
+				var child_surface := DisplayServer.window_get_native_handle(DisplayServer.WINDOW_HANDLE, peer.get_window_id())
+				var root_surface := DisplayServer.window_get_native_handle(DisplayServer.WINDOW_HANDLE, get_window().get_window_id())
+				if not child_surface or not root_surface or child_surface == root_surface: continue
+			else:
+				if peer.position-get_window().position!=Vector2i(120 if index==1 else 60,10): continue
+				var above:bool=host.is_window_above(0,90001) if index==2 else host.is_window_above(90001,0)
+				if not above: continue
 			image=peer.get_texture().get_image()
 			if image.get_size()!=Vector2i(80,60): continue
 			var pixel:=image.get_pixel(20,20)
@@ -58,5 +64,10 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	host.free()
+	if wayland:
+		print("WAYLAND_COMPOSITION_PIXELS_AND_CLEANUP_PASS phases=",seen.size())
+		push_error("Window composition: global placement and stacking assertions unavailable through xdg-shell")
+		get_tree().quit(1)
+		return
 	print("GODOT_WINDOW_COMPOSITION_PASS")
 	get_tree().quit(0)

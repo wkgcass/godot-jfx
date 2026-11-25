@@ -8,6 +8,9 @@ func _ready() -> void:
 		push_error("Window probe probe failed to start")
 		get_tree().quit(1)
 		return
+	# xdg_toplevel exposes a surface-local origin. Keep requesting a move in
+	# Glass and check the coordinates the active display server actually reports.
+	var expected_origin := Vector2i.ZERO if DisplayServer.get_name() == "Wayland" else Vector2i(120, 100)
 	var checked := false
 	var close_stage := 0
 	var deadline := Time.get_ticks_msec() + 30000
@@ -17,8 +20,13 @@ func _ready() -> void:
 			host.stop_host()
 			get_tree().quit(1)
 			return
-		if not checked and get_window().title == "Godot Glass 主窗口 🧪" and get_window().size == Vector2i(800, 480):
+		if not checked and get_window().title == "Godot Glass 主窗口 🧪" and get_window().size == Vector2i(800, 480) and get_window().position == expected_origin:
 			await RenderingServer.frame_post_draw
+			if get_window().position != expected_origin: continue
+			if DisplayServer.get_name() == "Wayland" and DisplayServer.window_get_position(get_window().get_window_id()) != expected_origin:
+				push_error("Native client origin differs from the Glass fixture origin")
+				get_tree().quit(1)
+				return
 			var image := get_viewport().get_texture().get_image()
 			var pixel := image.get_pixel(40, 40)
 			if DisplayServer.get_window_list().size() != 1 or not get_window().get_flag(Window.FLAG_RESIZE_DISABLED):
@@ -48,6 +56,9 @@ func _ready() -> void:
 				push_error("Host must let Glass decide whether to accept a close request")
 				get_tree().quit(1)
 				return
+			# Establish hover before testing leave and reentry. The virtual
+			# seat may start outside this toplevel.
+			get_window().propagate_notification(NOTIFICATION_WM_MOUSE_ENTER)
 			get_window().propagate_notification(NOTIFICATION_WM_MOUSE_EXIT)
 			get_window().propagate_notification(NOTIFICATION_WM_MOUSE_ENTER)
 			get_window().propagate_notification(NOTIFICATION_WM_CLOSE_REQUEST)

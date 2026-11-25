@@ -13,6 +13,15 @@ class NativeWindowTransportStopped : public std::runtime_error {
 public:
 	NativeWindowTransportStopped() : std::runtime_error("Native window transport is stopped") {}
 };
+constexpr int NATIVE_WINDOW_MODAL_HINT = 16;
+inline bool valid_native_window_flags(int flags, [[maybe_unused]] int64_t owner) {
+#ifdef LINUXBSD_ENABLED
+	return flags >= 0 && flags < 32 && (!(flags & 8) || owner) &&
+			(!(flags & NATIVE_WINDOW_MODAL_HINT) || (owner && !(flags & 12)));
+#else
+	return flags >= 0 && flags <= 7;
+#endif
+}
 struct NativeWindowCommand {
 	int operation = 0; // 1=create, 2=configure, 3=destroy, 4=property, 5=icon
 	int64_t id = 0, owner = 0, sequence = 0;
@@ -66,6 +75,9 @@ public:
 				case 6: valid = command.x >= 0 && command.x <= 4; break; // Window::Mode
 				case 7: case 9: case 15: case 16: case 19: case 20: valid = command.x == 0 || command.x == 1; break;
 				case 17: valid = command.x >= -1000000 && command.x <= 1000000 && command.y >= -1000000 && command.y <= 1000000; break;
+#ifdef LINUXBSD_ENABLED
+				case 29: valid = command.x == 0 && command.y == 0 && command.title.empty(); break;
+#endif
 				case 18: case 22: case 23: valid = command.x == 0 && command.y == 0; break;
 				case 12: case 13: valid = command.x >= 0 && command.y >= 0 && command.x <= 8192 && command.y <= 8192; break;
 			}
@@ -74,7 +86,7 @@ public:
 		auto projected = owners;
 		if (command.operation == 1) {
 			if (command.id <= last_identity || owners.size() >= 64 || command.owner < -1 ||
-					(command.owner > 0 && !owners.count(command.owner)) || command.flags < 0 || command.flags > 7 || command.title.size() > 4096)
+					(command.owner > 0 && !owners.count(command.owner)) || !valid_native_window_flags(command.flags, command.owner) || command.title.size() > 4096)
 				throw std::invalid_argument("Invalid native window identity, owner, flags or title");
 			projected.emplace(command.id, command.owner);
 		} else {

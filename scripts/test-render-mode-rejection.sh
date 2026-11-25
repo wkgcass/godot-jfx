@@ -2,7 +2,7 @@
 # macOS equivalent of test-render-mode-rejection.ps1.
 set -u
 . "$(dirname "$0")/macos-jdk.sh"
-driver=metal
+driver=$native_driver
 if [ "$#" -ne 0 ]; then
     if [ "$#" -ne 2 ] || [ "$1" != --driver ]; then
         echo "Usage: $0 [--driver metal|opengl]" >&2
@@ -12,7 +12,7 @@ if [ "$#" -ne 0 ]; then
 fi
 case "$driver" in
     opengl) ;;
-    metal) echo "SKIP: OpenGL-only render mode rejection test. Run with --driver opengl."; exit 0 ;;
+    "$native_driver") echo "SKIP: OpenGL-only render mode rejection test. Run with --driver opengl."; exit 0 ;;
     *) echo "expected --driver metal or opengl" >&2; exit 2 ;;
 esac
 cd "$(dirname "$0")/.."

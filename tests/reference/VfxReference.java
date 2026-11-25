@@ -21,7 +21,11 @@ public class VfxReference extends Application {
     private VSceneGroup group;
     private Stage stage;
     private int page;
-    private final Path output = Path.of("artifacts/reference/vfx-pages-" + System.getProperty("vfx.reference.backend", "d3d") +(Boolean.getBoolean("vfx.freeze.fusion")?"-frozen":""));
+    private boolean resizeRequested;
+    private final String backend = System.getProperty("vfx.reference.backend", "d3d");
+    private final Path output = Path.of(
+            backend.equals("es2") ? "agentdir/artifacts" : "artifacts/reference",
+            "vfx-pages-" + backend + (Boolean.getBoolean("vfx.freeze.fusion") ? "-frozen" : ""));
 
     @Override @SuppressWarnings("unchecked")
     public void start(Stage primary) throws Exception {
@@ -47,6 +51,19 @@ public class VfxReference extends Application {
 
     private void capture() {
         try {
+            int width = Integer.getInteger("vfx.reference.width", 0);
+            int height = Integer.getInteger("vfx.reference.height", 0);
+            var scene = stage.getScene();
+            if (width > 0 && height > 0 && (scene.getWidth() != width || scene.getHeight() != height)) {
+                System.out.printf("VFX_REFERENCE_GEOMETRY window=%.0fx%.0f scene=%.0fx%.0f target=%dx%d%n",
+                        stage.getWidth(), stage.getHeight(), scene.getWidth(), scene.getHeight(), width, height);
+                if (page != 0 || resizeRequested) throw new IllegalStateException("Reference content size differs");
+                resizeRequested = true;
+                stage.setWidth(stage.getWidth() + width - scene.getWidth());
+                stage.setHeight(stage.getHeight() + height - scene.getHeight());
+                later(2);
+                return;
+            }
             if(Boolean.getBoolean("vfx.freeze.fusion")) freezeFusion(stage.getScene().getRoot());
             double sx=stage.getOutputScaleX(), sy=stage.getOutputScaleY();
             var parameters=new javafx.scene.SnapshotParameters();

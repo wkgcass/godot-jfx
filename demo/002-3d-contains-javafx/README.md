@@ -12,7 +12,7 @@
 
 ## 构建
 
-以下命令从**仓库根目录**执行。需要 JDK 25（`JAVA_HOME` 指向该 JDK）、本机源码构建的 Godot Editor、Godot 共享库和 JavaFX SDK。首次准备环境请按[Windows 构建指南](../../docs/build-windows.md)或[macOS 构建指南](../../docs/build-macos.md)操作，并运行对应平台的 `build-vfx` 脚本，将模块暂存到 `artifacts/godot-library/`。
+以下命令从**仓库根目录**执行。需要 JDK 25（`JAVA_HOME` 指向该 JDK）、本机源码构建的 Godot Editor、Godot 共享库和 JavaFX SDK。按本机平台准备环境，运行对应的 `build-vfx` 脚本，将模块暂存到 `artifacts/godot-library/`。[Windows 构建指南](../../docs/build-windows.md) · [macOS 构建指南](../../docs/build-macos.md) · [Linux 构建指南](../../docs/build-linux.md)
 
 Windows x64（PowerShell）
 
@@ -20,7 +20,7 @@ Windows x64（PowerShell）
 .\jfx\gradlew.bat -g .gradle-cache -p demo/002-3d-contains-javafx :shadowJar
 ```
 
-macOS arm64
+macOS arm64 或 Linux x64
 
 ```sh
 ./jfx/gradlew -g .gradle-cache -p demo/002-3d-contains-javafx :shadowJar
@@ -30,7 +30,7 @@ Gradle 会编译仓库内的 VFX、导出 Godot 场景，并生成包含本平�
 
 ## 启动
 
-在仓库根目录使用 JDK 25 启动刚构建的 JAR，Windows 和 macOS 命令相同。
+在仓库根目录使用 JDK 25 启动刚构建的 JAR。在本机 WSL2 使用 B390 时，为 Java 命令加上对应的 GPU 启动包装。[WSL2 驱动选择](../../docs/build-linux.md#在-wslg-上选择-intel-gpu)
 
 ```sh
 java -jar demo/002-3d-contains-javafx/build/libs/002-3d-contains-javafx.jar
@@ -49,3 +49,10 @@ java -jar demo/002-3d-contains-javafx/build/libs/002-3d-contains-javafx.jar
 Windows x64 已在 Intel Arc B390 上分别通过 D3D12、Vulkan 和 OpenGL 检查。
 
 macOS arm64 已在 Apple M1 上用默认 Metal 后端通过 `--smoke`（`ROOM_SMOKE_PASS`），并确认普通启动后「栖居 · 房间控制」窗口可见。本次使用 1920 × 1080 显示器。真实鼠标捕获和 Retina 坐标映射仍待手动验证。
+
+Linux x64 已在独立 Wayland 桌面用 Intel Arc B390 运行最终 JAR。Vulkan/mobile 和 OpenGL/gl_compatibility 都通过墙上的照明与空调控制、行走、视角及鼠标捕获检查，输出 `ROOM_SMOKE_PASS` 后正常退出。两份 2200×1440 房间截图和日志位于 `agentdir/artifacts/wayland-material-comparison-8Qv64YvC/release-demos/`。房间请求 2× MSAA 时，Vulkan 在这块设备上选用支持的 4×。本机 GPU 和隔离桌面的环境准备见 [Linux 构建指南](../../docs/build-linux.md)。
+
+```sh
+scripts/wsl-wayland-session.sh --isolate-wslg scripts/wsl-gpu.sh vulkan "$JAVA_HOME/bin/java" -Djavafx.godot.driver=vulkan -jar demo/002-3d-contains-javafx/build/libs/002-3d-contains-javafx.jar --smoke
+scripts/wsl-wayland-session.sh --isolate-wslg scripts/wsl-gpu.sh opengl "$JAVA_HOME/bin/java" -Djavafx.godot.driver=opengl -jar demo/002-3d-contains-javafx/build/libs/002-3d-contains-javafx.jar --smoke
+```

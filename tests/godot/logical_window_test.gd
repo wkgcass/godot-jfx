@@ -65,7 +65,12 @@ func _ready() -> void:
 				if child != null or DisplayServer.get_window_list().size()!=1: continue
 			else:
 				if child == null or child.is_embedded() or DisplayServer.get_window_list().size()!=2: continue
-				if child.position-get_window().position != Vector2i(Vector2(30,60)*scale): continue
+				if DisplayServer.get_name() == "Wayland":
+					# A transient xdg_toplevel keeps its owner across a remap.
+					# Its requested desktop offset is not available to the client.
+					if not child.transient or child.get_parent().get_window() != get_window(): continue
+					if DisplayServer.window_get_position(child.get_window_id()) != Vector2i.ZERO: continue
+				elif child.position-get_window().position != Vector2i(Vector2(30,60)*scale): continue
 				var pixel := child.get_texture().get_image().get_pixelv(Vector2i(Vector2(10,65)*DisplayServer.screen_get_scale(child.current_screen)))
 				if last_observed!=title:
 					print("NATIVE_STAGE_OBSERVED ",title," ",pixel)

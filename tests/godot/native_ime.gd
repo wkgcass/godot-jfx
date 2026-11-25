@@ -23,9 +23,12 @@ func _ready() -> void:
 	var phase := 0
 	var disabled := false
 	var deadline := Time.get_ticks_msec()+35000
+	var last_candidate := Vector2i.ZERO
+	var last_title := ""
+	var last_ime_enabled := false
 	while host.get_runtime_status() != "finished":
 		if host.get_runtime_status() == "failed" or Time.get_ticks_msec() > deadline:
-			push_error("IME failed: "+host.get_runtime_error()+" phase="+str(phase))
+			push_error("IME failed: %s phase=%d title=%s enabled=%s candidate_px=%s" % [host.get_runtime_error(), phase, last_title, last_ime_enabled, last_candidate])
 			get_tree().quit(1)
 			return
 		var window=host.get_native_window(2)
@@ -34,8 +37,11 @@ func _ready() -> void:
 			continue
 		var info=host.get_native_window_info(2)
 		var title:String=window.title
+		last_title = title
+		last_candidate = info["ime_position"]
+		last_ime_enabled = info["ime_enabled"]
 		if phase == 0 and info["ime_enabled"] and title == "IME ready":
-			var candidate:Vector2i=info["ime_position"]
+			var candidate := Vector2(last_candidate) * Vector2(400, 180) / Vector2(window.size)
 			if candidate.x<20 or candidate.x>300 or candidate.y<20 or candidate.y>90:
 				await get_tree().process_frame
 				continue

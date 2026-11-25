@@ -24,7 +24,7 @@ enum class Opcode : uint32_t { CLEAR = 1, RESIZE = 3, QUADS = 4,
 	BEGIN_PRESENT = 13, PRESENT = 14, TARGET_ALLOCATE = 15, TARGET_SELECT = 16, END_PASS = 17,
 	FLOAT_TEXTURE_ALLOCATE = 18, FLOAT_TEXTURE_PATCH = 19, SCENE_TEXTURE_ALLOCATE = 20, SCENE_TEXTURE_RESIZE = 21, SCENE_INPUT = 22,
 	WINDOW_PRESENT = 23, WINDOW_REMOVE = 24, WINDOW_CONFIGURE = 25, NATIVE_WINDOW_PRESENT = 26, ALPHA_TEXTURE_PATCH = 27, VIDEO_PLANE_ALLOCATE = 28,
-	QUADS_REF = 29, GEOMETRY_FREE = 30 };
+	QUADS_REF = 29, GEOMETRY_FREE = 30, LCD_BACKGROUND = 31 };
 
 struct ShaderConstant {
 	std::string name;
@@ -158,6 +158,13 @@ inline bool decode_frame(const std::vector<uint8_t> &bytes, Frame &out, std::str
 			case Opcode::TARGET_SELECT:
 				if (size != 8) return fail("Invalid target selection");
 				command.texture_handle = uint64_t(read_u32(p + offset)) | (uint64_t(read_u32(p + offset + 4)) << 32);
+				break;
+			case Opcode::LCD_BACKGROUND:
+				if (size != 16) return fail("Invalid LCD background payload");
+				command.x = read_u32(p + offset); command.y = read_u32(p + offset + 4);
+				command.width = read_u32(p + offset + 8); command.height = read_u32(p + offset + 12);
+				if (!command.width || !command.height || uint64_t(command.x) + command.width > 8192 ||
+						uint64_t(command.y) + command.height > 8192) return fail("Invalid LCD background rectangle");
 				break;
 			case Opcode::CLIP: {
 				if (size != 20 || read_u32(p + offset) > 1) return fail("Invalid clip payload");
@@ -376,6 +383,16 @@ public:
 				active_target = handle;
 				target_pass_open = true;
 				if (handle) slots[uint32_t(handle)].referenced = true;
+				continue;
+			}
+			if (command.opcode == Opcode::LCD_BACKGROUND) {
+				const auto target = slots.find(uint32_t(active_target));
+				if (!target_pass_open || !active_target || target == slots.end() || !target->second.live ||
+						target->second.generation != uint32_t(active_target >> 32) || !target->second.render_target ||
+						uint64_t(command.x) + command.width > target->second.width ||
+						uint64_t(command.y) + command.height > target->second.height) return false;
+				target->second.referenced = true;
+				pass_has_draws = true;
 				continue;
 			}
 			if (command.opcode == Opcode::END_PASS) {

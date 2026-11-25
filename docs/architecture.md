@@ -6,7 +6,9 @@ JavaFX 是 Java 的桌面界面工具：程序用它创建按钮、文字、表�
 
 例如，一段普通 JavaFX 程序创建一个按钮并注册点击回调。按钮的布局、文字、CSS 和回调仍由 JavaFX 处理；按钮画面最终由 Godot 提交给 GPU，点击则从 Godot 的窗口输入返回 JavaFX。VFX 是用来验证这套运行时的真实 JavaFX 控件库和 Demo，不是另一套渲染引擎。
 
-当前平台是 Windows x64 和 macOS arm64（Apple 芯片）。图形驱动决定 Godot 用哪套系统接口绘图。Windows 默认用 Direct3D 12（`d3d12`），也支持 `vulkan` 和 `opengl`。macOS 默认用 `metal`，也支持 `opengl`（OpenGL）。Media 音视频在范围内；WebKit 网页组件和 3D 不在当前范围。主要功能已实现，但这不表示兼容全部 JavaFX 应用。具体证据和缺口以 [验收状态](acceptance-status.md) 为准。
+图形驱动决定 Godot 用哪套系统接口绘图。Windows x64 默认用 Direct3D 12，也支持 Vulkan 和 OpenGL。macOS arm64 默认用 Metal，也支持 OpenGL。Linux x64 在 WSL2 中使用 Vulkan（Godot 的 `mobile` 渲染器）或 OpenGL（`gl_compatibility` 渲染器）。两者都通过 Wayland 创建窗口。Wayland 的合成器负责把各个窗口放到桌面上，并决定哪个窗口接收键盘输入。因此，窗口层级和焦点的验收还要考虑合成器提供的能力。具体结果见[验收状态](acceptance-status.md)。
+
+Media 音视频在范围内。WebKit 网页组件和 JavaFX 自身的 3D 绘制在当前范围之外。两个 3D 示例都由 Godot 绘制三维场景，JavaFX 提供其中的界面控件。
 
 ## 先认识这些名字
 

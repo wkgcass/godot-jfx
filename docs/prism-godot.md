@@ -52,7 +52,7 @@ presentation/pass completion protocol is described in bridge-protocol.md.
 
 The pool accounts 16 GPU image bytes per pixel for FLOAT_XYZW, one for R8 media
 planes, and four for ordinary byte/integer textures,
-with a 512 MiB reclamation target and 1 GiB hard maximum. Native admission
+with an initial reclamation target of 256 MiB on Linux and 512 MiB on Windows and macOS. The pool can grow to a 1 GiB maximum when live textures need more room. Native admission
 separately bounds live and retired image revisions to 1 GiB. The reclamation
 target is not a second allocation limit. These numbers do not measure
 driver allocations or CPU image-shadow memory. Shared texture wrappers use
@@ -135,9 +135,16 @@ shader code or replacing the parameter dictionary after recording geometry
 starts a new CanvasItem/material/shader segment. Sibling draw indices preserve
 submission order. Unchanged state keeps appending to the same item. Clear frees
 retained segments before releasing meshes and retired texture revisions; tree
-removal frees all segments. This surface path duplicates shaders per state change. The offscreen
-JavaFXRenderTarget viewport path has a bounded 64-entry shader cache. Do not
-interpret this surface limitation as absence of all native shader caching.
+removal frees all segments. This surface path duplicates shaders per state change. Each offscreen
+`JavaFXRenderTarget` retains up to 64 distinct shader sources. Live targets
+with identical source share one immutable RenderingServer shader. Each target
+keeps its own materials, uniform values and draw slots. Releasing a target
+drops its references after destroying its materials and slots. The last
+reference frees the shader. Additional sources above the per-target limit
+remain pass-owned. In `get_texture_resource_stats()`, `shared_target_shaders`
+counts unique pooled programs across live targets, and each target's `shaders`
+field counts its local references. Direct-surface and pass-owned programs
+have separate lifetimes.
 
 The generated-shader fixture checks real overlapping red/green/blue GPU pixels
 after changes to both uniforms and shader source. It repeats 100 clear/draw
@@ -299,13 +306,29 @@ attributes. The viewport path records draws into owned or reused CanvasItems.
 Ordering is preserved
 between copies and mesh batches.
 
-Unchanged geometry is not re-encoded either: the Java render-command encoder
-content-hashes each quad batch and redraws repeats through a QUADS_REF handle
-(see bridge-protocol.md), so a batch under a translating parent neither
-re-serializes its vertices nor re-decodes them on the host. Offscreen targets
+Prism-Godot skips a 2D node whose complete device bounds (including its
+effects) fall outside the active render target or scissor. It keeps a
+two-device-pixel margin for edge coverage and text snapping. This check also
+applies inside nested clips and their offscreen passes.
+
+The Java encoder hashes each quad batch and can redraw matching vertices and
+colors with an existing QUADS_REF handle (see bridge-protocol.md). For a stock
+shader and identity transform, device-space vertices can share a mesh across
+translations: the encoder puts the integer origin in the draw transform when
+the local offsets reproduce every original coordinate exactly. Custom shader
+draws retain their original local coordinates. LCD screen sampling uses a
+constant unused second UV set, so moving the text does not change the mesh
+through those UVs. Texture coordinates used to sample the glyph atlas remain
+part of the mesh key.
+
+Offscreen targets
 additionally keep one persistent draw slot per batch position (CanvasItem plus
-attached material reused across passes; only the command list and draw index
-refresh) and share immutable (shader, parameters) materials, including validated
+attached material reused across passes). A slot keeps its mesh commands when
+mesh, material, texture, clip, transform and opacity match. Instance uniform
+updates are compared separately, so a changed uniform does not require recording
+the same mesh again. At the end of the pass, slots beyond the last draw have
+their commands cleared; a shorter or empty pass cannot show the old suffix.
+Targets share immutable (shader, parameters) materials, including validated
 live texture RID bindings. A slot is recreated when a shader change or omitted
 instance parameter requires resetting prior defaults. Two
 Godot behaviors bound this design: `canvas_item_set_visible(false)` interacts
@@ -378,6 +401,9 @@ Host stop wakes the caller with failure and leaves its output buffer untouched.
 rectangle rows, heap/direct/sliced buffers, validation, stale handles and drawing
 after readback. `-Snapshot` exercises standard synchronous Node/Scene snapshots
 and an asynchronous Node snapshot with FX-thread callback and pixel checks.
+After the first Godot readback into a new snapshot image, Quantum releases the
+temporary render target on the render thread. The image retains its own pixels.
+Subsequent snapshots into the same WritableImage can reuse a cached target.
 `-StopDuringRead` withholds host processing until a request is observed pending,
 then checks cancellation without partial writes. GL/safe and Vulkan/separate
 direct/snapshot probes pass; Vulkan/separate snapshot and stop
@@ -526,7 +552,15 @@ submissions, is invalidated at every host-side reset point (target
 selection, pass completion, presentation, frame begin, clear, texture
 disposal) and disables itself entirely if a second command encoder ever
 exists in the process, since two streams interleave at submission time.
+Constants compare their type, component count, array flag and raw word contents,
+not the identities of the arrays that transported them. An equal immutable
+snapshot and the same texture handles can reuse the previously validated state;
+changed texture generations, including replacements in the same slot, cannot.
+An upload to a currently bound sampler invalidates the cached state: the
+host may allocate new texture storage even if the Java handle stays the same.
 `GODOT_JFX_STATE_SUPPRESS=0` opts out.
+
+The queued-texture regression now draws a red left half, replaces the sampler contents with blue under the same handle, and draws the right half in the same pass. Before sampler invalidation, both B390 drivers returned red at pixel 8, the first pixel in the right half. With invalidation, all 128 pixels matched on both drivers. The two encoders compared here were loaded from separate test JARs with the same native library. The four raw readback results are under `restart-suite-n8jhXQQK/constant-state-NJO6L221/{original,fixed}-{vulkan,opengl}-revision/` in the Wayland interaction archive.
 
 Measured outcome (alternating same-binary A/B, all runs focused, mobile/
 safe): the 68-page transition benchmark is neutral within run-to-run noise
@@ -575,6 +609,8 @@ the memo is cleared once at SCENE, while the relevant services still exist.
 
 ### Stock LCD shader rewrite consistency (2026-11-10)
 
+On Linux, small LCD samples can use an explicit background copy inside the current offscreen pass. The default on Wayland with Mesa D3D12 OpenGL uses this path for unclipped text when its padded area occupies at most 1/32 of its target. The host detects the active renderer and adapter when it starts. The diagnostic override and opcode are documented in [the bridge protocol](bridge-protocol.md).
+
 When LCD screen sampling is enabled, the context no longer provides the old
 LCDBuffer. The generated shader loader must therefore complete its destination
 sampler rewrite. If the expected source markers are absent, loading now raises
@@ -590,6 +626,8 @@ that candidate before removing its pool entry. The reuse probe tracks lock
 counts and orders a lost candidate before a valid one in each traversal mode;
 previous no-op lock methods could not detect the imbalance. This is a resource
 lifecycle correction, not evidence of a measured frame-rate improvement.
+
+A single Prism quad supplies four vertices in top-left, bottom-left, top-right and bottom-right order. A triangle strip draws that quad without allocating a separate six-index GPU buffer. Batches containing multiple quads use indexed triangles. On Linux OpenGL with a Mesa D3D12 adapter, the host requests dynamic buffer storage for Prism meshes. Godot also applies this upload hint to the index buffer of dynamic 2D meshes on that adapter. Previously recorded draws retain their original mesh. See the [WSL2 drag measurements](frame-benchmark.md#linux-table-dragging-on-the-published-runtime).
 
 ### Shared target geometry budget (2026-11-11)
 

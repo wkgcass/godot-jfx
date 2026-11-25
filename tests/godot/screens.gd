@@ -26,7 +26,10 @@ func _ready() -> void:
 		var screen_index:=title.get_slice(" ",3).to_int()-1
 		var bounds:=Rect2i(DisplayServer.screen_get_position(screen_index),DisplayServer.screen_get_size(screen_index))
 		var work:=DisplayServer.screen_get_usable_rect(screen_index)
-		var expected:=[screen_index+1,bounds.position.x,bounds.position.y,bounds.size.x,bounds.size.y,work.position.x,work.position.y,work.size.x,work.size.y,DisplayServer.screen_get_dpi(screen_index)]
+		var dpi:=DisplayServer.screen_get_dpi(screen_index)
+		if OS.get_name() in ["macOS", "Linux"]:
+			dpi=roundi(DisplayServer.screen_get_scale(screen_index)*96.0)
+		var expected:=[screen_index+1,bounds.position.x,bounds.position.y,bounds.size.x,bounds.size.y,work.position.x,work.position.y,work.size.x,work.size.y,dpi]
 		for i in range(10):
 			if title.get_slice(" ",i+3).to_int()!=expected[i]:
 				push_error("Screen metadata differs from DisplayServer"); get_tree().quit(1); return

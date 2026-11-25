@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
 RUNTIME=0
-DRIVER="metal"
+DRIVER="$native_driver"
 while [ $# -gt 0 ]; do
     case "$1" in
         --driver) DRIVER="${2-}"; shift ;;
@@ -16,7 +16,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
 [ -x "$JDK/bin/javac" ] || { echo "javac not found under $JDK" >&2; exit 1; }
@@ -57,7 +57,7 @@ if [ "$RUNTIME" -eq 1 ]; then
     mkdir -p "$FIXTURE"
     cp tests/godot/window.tscn tests/godot/window_test.gd "$FIXTURE/"
     sed 's|res://main.tscn|res://window.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
-    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/$source_editor" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Runtime fixture import failed. See $LOG.import" >&2; exit 1; fi
     (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \
         --quit-after 3000) || CODE=$?

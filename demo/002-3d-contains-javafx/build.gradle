@@ -7,8 +7,10 @@ def root = file('../..')
 def distribution = new File(root, 'artifacts/godot-library')
 def fxVersion = new File(distribution, 'version.txt').text.trim()
 def mac = System.getProperty('os.name') == 'Mac OS X'
-def platform = mac ? 'mac-aarch64' : 'win'
-def editor = new File(root, 'godot/bin/' + (mac ? 'godot.macos.editor.arm64' : 'godot.windows.editor.x86_64.exe'))
+def linux = System.getProperty('os.name') == 'Linux'
+def platform = linux ? 'linux' : mac ? 'mac-aarch64' : 'win'
+def editor = new File(root, 'godot/bin/' + (linux ? 'godot.linuxbsd.editor.x86_64' :
+        mac ? 'godot.macos.editor.arm64' : 'godot.windows.editor.x86_64.exe'))
 repositories {
     exclusiveContent {
         forRepository { maven { url = new File(distribution, 'repository').toURI() } }

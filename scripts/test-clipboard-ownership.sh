@@ -2,6 +2,9 @@
 set -eu
 . "$(dirname "$0")/macos-jdk.sh"
 cd "$(dirname "$0")/.."
+if [ "$(uname -s)" = Linux ]; then
+    exec scripts/linux-clipboard-interop.sh
+fi
 jdk="$JAVA_HOME"
 mkdir -p artifacts/native-tests
 clang++ -std=c++17 -fobjc-arc -framework AppKit -framework UniformTypeIdentifiers -O2 \

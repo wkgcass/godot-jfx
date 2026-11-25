@@ -1,4 +1,4 @@
-"""Launch the macOS measurement probes with the same SDK and fixtures as the regressions."""
+"""Launch Unix desktop measurement probes with the SDK and fixtures used by the regressions."""
 import os
 from pathlib import Path
 import re
@@ -8,6 +8,8 @@ import sys
 
 from jdk_home import configure_jdk
 from godot_driver import check_driver
+import native_prism
+from native_prism import PRISM as NATIVE_PRISM
 
 ROOT = Path(__file__).resolve().parents[1]
 SDK = ROOT / "jfx/build/sdk/lib"
@@ -17,6 +19,10 @@ CP = os.pathsep.join(map(str, [OUT, *(ROOT / "artifacts/vfx" / path for path in 
     "classes/java/main", "classes/java/test", "resources/main", "resources/test", "dependencies/*"))]))
 GRAPHICS = ["javafx.graphics/com.sun.prism", "javafx.graphics/com.sun.glass.ui"]
 MEDIA = ["javafx.media/com.sun.media.jfxmedia" + suffix for suffix in ("", ".control", ".events")]
+if sys.platform == "linux":
+    NATIVE_MARKER = "glass=com.sun.glass.ui.gtk.GtkApplication prism=com.sun.prism.es2.ES2Pipeline"
+else:
+    NATIVE_MARKER = "glass=com.sun.glass.ui.mac.MacApplication prism=com.sun.prism.mtl.MTLPipeline"
 
 
 def compile_probe(*classes, modules="javafx.controls", exports=()):
@@ -55,7 +61,8 @@ def isolated_project(scene, directory, settings=""):
         shutil.copyfile(source / dependency, target)
     project = (source / "project.godot").read_text().replace("res://main.tscn", f"res://{scene}.tscn")
     (directory / "project.godot").write_text(project + settings)
-    run([ROOT / "godot/bin/godot.macos.editor.arm64", "--headless", "--path", directory, "--editor", "--import"],
+    from library_test_platform import EDITOR
+    run([EDITOR, "--headless", "--path", directory, "--editor", "--import"],
         LOGS / (directory.name + "-import.log"))
     return directory
 
@@ -69,6 +76,6 @@ def scene_probe(scene, driver, log, env=None, args=(), project=None):
 
 
 def native_probe(name, log, modules, options=(), env=None):
-    return run([configure_jdk() / "bin/java", "-Dglass.platform=Mac", "-Dprism.order=mtl", "--module-path", SDK,
+    return run([configure_jdk() / "bin/java", *(f"-D{k}={v}" for k, v in native_prism.properties().items()), "--module-path", SDK,
                 "--add-modules", modules, "--enable-native-access=javafx.graphics,ALL-UNNAMED" +
-                (",javafx.media" if "javafx.media" in modules else ""), *options, "-cp", CP, name], log, env)
+                (",javafx.media" if "javafx.media" in modules else ""), *options, "-cp", CP, name], log, native_prism.environment() | (env or {}))

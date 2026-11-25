@@ -8,6 +8,10 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Exercises Glass window routing without selecting a substitute Prism backend. */
 public final class GlassWindowProbe {
     private static final boolean MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
+    private static final boolean LINUX = System.getProperty("os.name", "").equals("Linux");
+    private static final int ORIGIN_X = LINUX ? 0 : 120;
+    private static final int ORIGIN_Y = LINUX ? 0 : 100;
+
     private static void require(boolean value, String message) {
         if (!value) throw new AssertionError(message);
     }
@@ -32,7 +36,7 @@ public final class GlassWindowProbe {
                     @Override public void handleWindowEvent(Window w, long time, int type) {
                         if (type != 521) return;
                         require(Application.isEventThread(), "Close request on wrong thread");
-                        require(boundaries.get() == 3, "Mouse boundary notifications missing");
+                        require(boundaries.get() == 3, "Mouse boundary notifications missing, mask=" + boundaries.get());
                         if (closeRequests.incrementAndGet() == 1) {
                             require(!w.isClosed(), "Close request destroyed window before application decision");
                             w.setTitle("Close request vetoed");
@@ -61,7 +65,7 @@ public final class GlassWindowProbe {
                         int[] expected = {224, 221, 223, 222};
                         require(index < expected.length && type == expected[index], "Mouse event order differs: " + type);
                         require(button == (index == 0 ? 211 : 212), "Mouse button differs");
-                        require(sx == 193 && sy == 191, "Screen coordinates differ");
+                        require(sx == ORIGIN_X + x && sy == ORIGIN_Y + y, "Screen coordinates differ: " + sx + "," + sy);
                         require(modifiers == (index == 1 || index == 2 ? 37 : 5), "Mouse modifiers differ");
                     }
                     @Override public void handleScrollEvent(View v, long time, int x, int y, int sx, int sy,
@@ -72,7 +76,8 @@ public final class GlassWindowProbe {
                         // contract (kind 17); a plain scroll event must not exist.
                         require(!MAC, "macOS must deliver wheel input as a scroll gesture");
                         require(inputIndex.getAndIncrement() == 4, "Scroll order differs");
-                        require(dx == 0 && dy == 0.5 && modifiers == 5, "Fractional scroll differs");
+                        // The injected Shift modifier exchanges the scroll axes on GTK.
+                        require(dx == (LINUX ? 0.5 : 0) && dy == (LINUX ? 0 : 0.5) && modifiers == 5, "Fractional scroll differs");
                     }
                     @Override public void handleScrollGestureEvent(View v, long time, int type, int modifiers,
                             boolean isDirect, boolean isInertia, int touchCount, int x, int y, int sx, int sy,
@@ -115,12 +120,12 @@ public final class GlassWindowProbe {
             long tick = 0, deadline = System.nanoTime() + 5_000_000_000L;
             while (System.nanoTime() < deadline) {
                 int[] info = GodotBridge.hostInfo();
-                if (info[0] == 800 && info[1] == 480 && info[3] == 120 && info[4] == 100) break;
+                if (info[0] == 800 && info[1] == 480 && info[3] == ORIGIN_X && info[4] == ORIGIN_Y) break;
                 tick = GodotBridge.awaitTick(tick, 1000);
             }
             int[] info = GodotBridge.hostInfo();
             require(info[0] == 800 && info[1] == 480, "Godot did not resize");
-            require(info[3] == 120 && info[4] == 100, "Godot did not move");
+            require(info[3] == ORIGIN_X && info[4] == ORIGIN_Y, "Unexpected native origin: " + info[3] + "," + info[4]);
             require(info[5] > 0 && info[6] > 0, "Monitor metrics missing");
             Application.invokeAndWait(() -> {
                 require(window.get().getView().getWidth() == 800, "Glass view size differs");

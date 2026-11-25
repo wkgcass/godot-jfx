@@ -7,7 +7,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 PROBE="FailureShutdownProbe"
 RUNTIME=0
@@ -21,7 +21,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 case "$PROBE" in FailureShutdownProbe|FailureApplicationProbe) ;; *) echo "invalid probe: $PROBE" >&2; exit 2 ;; esac
 
@@ -65,7 +65,7 @@ if [ "$RUNTIME" -eq 1 ]; then
     mkdir -p "$FIXTURE"
     cp tests/godot/failure_shutdown.tscn tests/godot/failure_shutdown.gd "$FIXTURE/"
     sed 's|res://main.tscn|res://failure_shutdown.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
-    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/$source_editor" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Failure runtime fixture import failed: $LOG.import" >&2; exit 1; fi
     (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \
         --render-thread "$RENDER_THREAD" --quit-after 4000) || CODE=$?

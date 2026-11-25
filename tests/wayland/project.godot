@@ -1,0 +1,7 @@
+config_version=5
+[application]
+config/name="Wayland native window probe"
+[display]
+window/size/viewport_width=320
+window/size/viewport_height=200
+window/subwindows/embed_subwindows=false

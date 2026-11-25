@@ -6,7 +6,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 RUNTIME=0
 while [ $# -gt 0 ]; do
@@ -18,7 +18,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -60,7 +60,7 @@ if [ "$RUNTIME" -eq 1 ]; then
     mkdir -p "$FIXTURE"
     cp tests/godot/host_lifetime.tscn tests/godot/host_lifetime_test.gd "$FIXTURE/"
     sed 's|res://main.tscn|res://host_lifetime.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
-    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/$source_editor" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Runtime fixture import failed: $LOG.import" >&2; exit 1; fi
     (cd "$FIXTURE" && run_watchdog "$LOG" 240 python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \
         --render-thread "$RENDER_THREAD" --quit-after 10000) || CODE=$?

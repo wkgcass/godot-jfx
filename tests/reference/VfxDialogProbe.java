@@ -91,6 +91,12 @@ public class VfxDialogProbe extends IntroFXMain {
                         String title="VfxDialog "+step+" "+x+" "+y+" "+id;
                         if (!title.equals(previous)) { previous=title; stable=0; }
                         if (++stable==2) {
+                            if (dialog != null && targetWindow == dialog) {
+                                double requestedWidth = step == 1 ? 900 : 720;
+                                if (Math.abs(dialog.getWidth() - requestedWidth) > 1)
+                                    throw new AssertionError("VFX dialog width at step " + step + ": requested "
+                                            + requestedWidth + ", got " + dialog.getWidth());
+                            }
                             if (x<0 || y<0 || x>=targetWindow.getWidth() || y>=targetWindow.getHeight())
                                 throw new AssertionError("VFX dialog target outside its window: "+step+" "+x+","+y);
                             // Two unchanged layout observations plus a render-queue

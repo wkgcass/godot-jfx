@@ -74,11 +74,18 @@ public final class VfxBlackholeProbe extends IntroFXMain {
             // Select a static original Demo page; its action also closes the drawer.
             children.stream().filter(n -> n instanceof FusionButton).skip(1)
                 .map(n -> (FusionButton)n).findFirst().orElseThrow().getOnAction().handle(null);
-            later(this::baselineReady);
+            long deadline = System.nanoTime() + 10_000_000_000L;
+            later(() -> baselineReady(deadline));
         });
     }
 
-    private void baselineReady() throws Exception {
+    private void baselineReady(long deadline) throws Exception {
+        // VScene detaches the drawer at the end of its hide animation.
+        if (toggle.getScene() != null) {
+            require(System.nanoTime() < deadline, "Menu drawer remained attached after page selection");
+            later(() -> baselineReady(deadline));
+            return;
+        }
         freeze(stage.getScene().getRoot());
         unfiltered = capture("off");
         move(30, 60, MouseEvent.MOUSE_MOVED);
@@ -91,6 +98,40 @@ public final class VfxBlackholeProbe extends IntroFXMain {
         // Compare unchanged content using the same offscreen compositing path.
         move(-10000, -10000, MouseEvent.MOUSE_MOVED);
         baseline = capture("unwarped");
+        if ("1".equals(System.getenv("GODOT_JFX_BLACKHOLE_PROFILE"))) {
+            profileMovingLens();
+        } else {
+            checkMovingLens();
+        }
+    }
+
+    private void profileMovingLens() {
+        new javafx.animation.AnimationTimer() {
+            final long[] intervals = new long[90];
+            int frame;
+            long previous;
+            @Override public void handle(long now) {
+                if (previous != 0) intervals[frame - 1] = now - previous;
+                if (frame == intervals.length) {
+                    stop();
+                    java.util.Arrays.sort(intervals);
+                    long sum = java.util.Arrays.stream(intervals).sum();
+                    System.out.printf(java.util.Locale.ROOT,
+                            "BLACKHOLE_MOTION intervals=%d pulse_fps=%.3f p95_ms=%.3f%n",
+                            intervals.length, intervals.length * 1e9 / sum,
+                            intervals[(int)Math.ceil(intervals.length * 0.95) - 1] / 1e6);
+                    checkMovingLens();
+                    return;
+                }
+                // Two sweeps across the same static Demo page with its real shader enabled.
+                move(420 + 12 * Math.abs(frame % 60 - 30), 350, MouseEvent.MOUSE_MOVED);
+                previous = now;
+                frame++;
+            }
+        }.start();
+    }
+
+    private void checkMovingLens() {
         move(600, 350, MouseEvent.MOUSE_MOVED);
         later(() -> {
             WritableImage on = capture("on");
@@ -197,8 +238,11 @@ public final class VfxBlackholeProbe extends IntroFXMain {
     }
     private static void requireSameAlpha(WritableImage a, WritableImage b) {
         for(int y=0;y<a.getHeight();y++) for(int x=0;x<a.getWidth();x++) {
-            double difference=Math.abs(a.getPixelReader().getColor(x,y).getOpacity()-b.getPixelReader().getColor(x,y).getOpacity());
-            require(difference < 0.01,"Effect changed window alpha at "+x+","+y);
+            int before = a.getPixelReader().getArgb(x,y) >>> 24;
+            int after = b.getPixelReader().getArgb(x,y) >>> 24;
+            if (Math.abs(before - after) / 255.0 >= 0.01) {
+                throw new AssertionError("Effect changed window alpha at " + x + "," + y + " from " + before + " to " + after);
+            }
         }
     }
     private static void freeze(Node node) {

@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
 RENDER_THREAD="safe"
-DRIVER="metal"
+DRIVER="$native_driver"
 while [ $# -gt 0 ]; do
     case "$1" in
         --driver) DRIVER="${2-}"; shift ;;
@@ -16,7 +16,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"

@@ -18,6 +18,7 @@
 //   guard-selftest                     pure arithmetic guard checks; never
 //                                      touches the system clipboard.
 #import <AppKit/AppKit.h>
+#include "clipboard_snapshot_guard.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -27,27 +28,12 @@
 
 namespace {
 
-constexpr uint64_t MAX_SNAPSHOT_BYTES = 256ULL * 1024 * 1024;
+using clipboard_snapshot::add_bytes;
+using clipboard_snapshot::require_unchanged;
 
 [[noreturn]] void fail(const std::string &message) {
 	fprintf(stderr, "clipboard peer: %s\n", message.c_str());
 	exit(1);
-}
-
-// Exact counterpart of ClipboardSnapshot.AddSnapshotBytes: bound the complete
-// backup, not each format independently.
-uint64_t add_snapshot_bytes(uint64_t total, uint64_t size) {
-	if (total > MAX_SNAPSHOT_BYTES || size == 0 || size > MAX_SNAPSHOT_BYTES - total) {
-		fail("Clipboard snapshot exceeds 256 MiB total or contains an empty block; writes refused");
-	}
-	return total + size;
-}
-
-// Counterpart of ClipboardSnapshot.RequireUnchanged.
-void require_unchanged(int64_t expected, int64_t actual) {
-	if (expected < 0 || actual < 0 || expected != actual) {
-		fail("Clipboard changed or change count unavailable; newer content preserved");
-	}
 }
 
 std::string utf8(NSString *value) {
@@ -176,7 +162,7 @@ void mode_backup(const char *dir) {
 			// refuse the test before any destructive write, like the Windows
 			// guard refuses unknown registered formats.
 			if (!data) fail("Unreadable macOS pasteboard type " + utf8(type) + "; test writes refused");
-			total = add_snapshot_bytes(total, [data length]);
+			total = add_bytes(total, [data length]);
 			[manifest appendFormat:@"%lu\t%@\n", (unsigned long)index, type];
 			if (![data writeToFile:[root stringByAppendingFormat:@"/data-%lu", (unsigned long)index] atomically:NO]) {
 				fail("Cannot write clipboard snapshot block");
@@ -287,36 +273,18 @@ void mode_exchange(const char *sync_path) {
 	}
 }
 
-// Pure arithmetic counterparts of the Windows snapshot guard checks; this
-// mode never opens the system clipboard.
-void mode_guard_selftest() {
-	if (add_snapshot_bytes(0, 1) != 1) fail("Small snapshot accounting differs");
-	if (add_snapshot_bytes(MAX_SNAPSHOT_BYTES - 1, 1) != MAX_SNAPSHOT_BYTES) fail("Exact snapshot budget refused");
-	const uint64_t budget_cases[][2] = { {0, 0}, {MAX_SNAPSHOT_BYTES, 1}, {MAX_SNAPSHOT_BYTES - 1, 2}, {UINT64_MAX, 1}, {0, UINT64_MAX} };
-	for (const auto &pair : budget_cases) {
-		// add_snapshot_bytes exits the process on refusal, so probe via the
-		// same predicate the function guards with.
-		bool rejected = pair[0] > MAX_SNAPSHOT_BYTES || pair[1] == 0 || pair[1] > MAX_SNAPSHOT_BYTES - pair[0];
-		if (!rejected) fail("Invalid aggregate clipboard size accepted");
-	}
-	printf("CLIPBOARD_SNAPSHOT_BUDGET_PASS (no clipboard access)\n");
-	require_unchanged(42, 42);
-	const int64_t sequence_cases[][2] = { {42, 43}, {-1, -1}, {42, -1}, {-1, 42} };
-	for (const auto &pair : sequence_cases) {
-		bool rejected = pair[0] < 0 || pair[1] < 0 || pair[0] != pair[1];
-		if (!rejected) fail("Changed or unavailable clipboard sequence accepted");
-	}
-	printf("CLIPBOARD_SNAPSHOT_GUARD_PASS (no clipboard access)\n");
-}
-
 } // namespace
 
 int main(int argc, char **argv) {
 	if (argc < 2) fail("usage: macos_clipboard_peer backup <dir> | restore <dir> <count> | exchange <sync> | guard-selftest");
 	std::string mode = argv[1];
-	if (mode == "backup" && argc == 3) { mode_backup(argv[2]); return 0; }
-	if (mode == "restore" && argc == 4) { mode_restore(argv[2], argv[3]); return 0; }
-	if (mode == "exchange" && argc == 3) { mode_exchange(argv[2]); return 0; }
-	if (mode == "guard-selftest" && argc == 2) { mode_guard_selftest(); return 0; }
+	try {
+		if (mode == "backup" && argc == 3) { mode_backup(argv[2]); return 0; }
+		if (mode == "restore" && argc == 4) { mode_restore(argv[2], argv[3]); return 0; }
+		if (mode == "exchange" && argc == 3) { mode_exchange(argv[2]); return 0; }
+		if (mode == "guard-selftest" && argc == 2) { clipboard_snapshot::selftest(); return 0; }
+	} catch (const std::exception &error) {
+		fail(error.what());
+	}
 	fail("unknown mode");
 }

@@ -9,7 +9,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 JDK="$JAVA_HOME"
-DRIVER="metal"
+DRIVER="$native_driver"
 RENDER_THREAD="safe"
 RUNTIME=0
 while [ $# -gt 0 ]; do
@@ -21,7 +21,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$DRIVER" in metal|opengl) ;; *) echo "expected --driver metal or opengl" >&2; exit 2 ;; esac
+check_desktop_driver "$DRIVER" || exit 2
 case "$RENDER_THREAD" in safe) ;; *) echo "invalid render thread: $RENDER_THREAD" >&2; exit 2 ;; esac
 
 FIXTURE_LAUNCHER="$PWD/scripts/godot-fixture.py"
@@ -33,7 +33,7 @@ mkdir -p artifacts/reference agentdir/logs
     -encoding UTF-8 -d artifacts/reference tests/reference/EffectsProbe.java || { echo "Effects probe compilation failed" >&2; exit 1; }
 
 CODE=0
-"$JDK/bin/java" -Dglass.platform=Mac --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
+python3 "$PWD/scripts/native_prism.py" "$JDK/bin/java" --module-path jfx/build/sdk/lib --add-modules javafx.controls,javafx.swing \
     --add-exports javafx.graphics/com.sun.javafx.tk.godot=ALL-UNNAMED \
     -Deffects.reference=artifacts/reference/d3d-effects.png \
     -cp artifacts/reference EffectsProbe >agentdir/logs/effects-mac-native.log 2>&1 || CODE=$?
@@ -51,7 +51,7 @@ if [ "$RUNTIME" -eq 1 ]; then
     cp tests/godot/effects.tscn tests/godot/effects_test.gd "$FIXTURE/"
     sed 's|res://main.tscn|res://effects.tscn|' tests/godot/project.godot > "$FIXTURE/project.godot"
     CODE=0
-    "$PWD/godot/bin/godot.macos.editor.arm64" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
+    "$PWD/godot/bin/$source_editor" --headless --path "$FIXTURE" --editor --import >"$LOG.import" 2>&1 || CODE=$?
     if [ "$CODE" -ne 0 ]; then echo "Effects runtime import failed: $LOG.import" >&2; exit 1; fi
     CODE=0
     (cd "$FIXTURE" && python3 "$FIXTURE_LAUNCHER" --driver "$DRIVER" \

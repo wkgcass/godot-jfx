@@ -18,13 +18,16 @@
 // so the host loop keeps running while a chooser is open. The Cocoa half lives
 // in macos_dialogs.mm; this header stays Objective-C free because the host's
 // JNI translation unit is plain C++.
-namespace godot_javafx::macos_dialogs {
+namespace godot_javafx::unix_dialogs {
 struct Request {
 	int64_t owner = -1;
 	int mode = 0, selected = 0; // open, multi-open, save, directory
 	std::u16string folder, filename, title;
 	std::vector<std::u16string> names, patterns, files;
 	std::string error;
+#ifdef LINUXBSD_ENABLED
+	std::string exported_parent;
+#endif
 	std::atomic<bool> cancel{ false }, done{ false };
 	bool started = false;
 };
@@ -39,6 +42,9 @@ class Service;
 void *panel_present(const std::shared_ptr<Request> &p_request, Service *p_service, void *p_owner);
 void panel_abort(void *p_panel);
 void panel_detach(Service *p_service);
+#ifdef LINUXBSD_ENABLED
+void panel_pump();
+#endif
 
 class Service {
 	std::mutex mutex;
@@ -179,6 +185,9 @@ public:
 	// Main thread, every frame: dismiss a presented panel once cancellation is
 	// requested from the FX thread (dialogCancel is not an AppKit thread).
 	void pump() {
+#ifdef LINUXBSD_ENABLED
+		panel_pump();
+#endif
 		std::shared_ptr<Request> r;
 		void *target = nullptr;
 		{

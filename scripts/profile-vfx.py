@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Measure VFX frames, transition rendering, GPU commands, menu interaction or loading on macOS."""
+"""Measure VFX frames, transition rendering, GPU commands, menu interaction or loading."""
 import argparse
 import re
 
 from jdk_home import add_jdk_argument, configure_jdk
+from godot_driver import DEFAULT_DRIVER, add_driver_argument
+from macos_probe import NATIVE_PRISM, NATIVE_MARKER
 from macos_probe import GRAPHICS, LOGS, ROOT, compile_probe, isolated_project, native_probe, require, scene_probe
 
 PROBES = {
@@ -22,17 +24,17 @@ def main():
         p = commands.add_parser(mode)
         add_jdk_argument(p)
         backend = p.add_mutually_exclusive_group()
-        backend.add_argument("--driver", choices=["metal", "opengl"])
+        add_driver_argument(backend)
         if mode == "frames":
-            backend.add_argument("--native", action="store_true", help="use the SDK's Mac Glass and Prism Metal")
+            backend.add_argument("--native", action="store_true", help="use the SDK's native Glass and Prism pipeline")
             p.add_argument("--trace", action="store_true")
-        if mode in ("frames", "gpu"):
-            p.add_argument("--host120", action="store_true")
+        if mode in ("frames", "gpu", "menu"):
+            p.add_argument("--host120", action="store_true", help="disable VSync and run the Godot host with a 120 FPS cap")
         if mode == "menu":
             p.add_argument("--full-uploads", action="store_true")
     args = parser.parse_args()
     configure_jdk(args.jdk)
-    driver = args.driver or "metal"
+    driver = args.driver or DEFAULT_DRIVER
     native = getattr(args, "native", False)
     host120 = getattr(args, "host120", False)
     trace = getattr(args, "trace", False)
@@ -41,7 +43,7 @@ def main():
     name, scene, marker = PROBES[args.mode]
     extras = ["ThreadStackSampler"] if args.mode == "transitions" else []
     compile_probe(name, *extras, exports=GRAPHICS)
-    label = "native-mtl" if native else driver
+    label = f"native-{NATIVE_PRISM}" if native else driver
     flags = "".join("-" + opt for opt in ("trace", "host120", "full_uploads") if getattr(args, opt, False))
     log = LOGS / f"vfx-{args.mode}-{label}{flags}.log"
     env = {"GODOT_JFX_BENCHMARK_TRACE": str(int(trace)), "GODOT_JFX_BENCHMARK_MAILBOX": "0"}
@@ -53,7 +55,7 @@ def main():
     if native:
         output = native_probe(name, log, "javafx.controls,javafx.swing",
                               [f"--add-exports={p}=ALL-UNNAMED" for p in GRAPHICS], env)
-        require(output, "glass=com.sun.glass.ui.mac.MacApplication prism=com.sun.prism.mtl.MTLPipeline")
+        require(output, NATIVE_MARKER)
     else:
         project = None
         host_args = ["--disable-vsync", "--max-fps", "120"] if host120 else []

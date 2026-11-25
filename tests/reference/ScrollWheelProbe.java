@@ -17,6 +17,7 @@ import javafx.stage.Stage;
 // formula of the current platform.
 public final class ScrollWheelProbe extends Application {
     private static final boolean MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
+    private static final boolean LINUX = System.getProperty("os.name", "").equals("Linux");
     private static Throwable failure;
     private static boolean complete;
     private final java.util.List<Double> deltas = new java.util.ArrayList<>();
@@ -31,6 +32,13 @@ public final class ScrollWheelProbe extends Application {
                 double expected;
                 if (MAC) {
                     expected = -10.0; // MacGestureSupport: line delta x 10px multiplier
+                } else if (LINUX) {
+                    if (e.getTextDeltaYUnits() != ScrollEvent.VerticalTextScrollUnits.NONE || e.getTextDeltaY() != 0) {
+                        failure = new AssertionError("GTK wheel reported text scrolling units");
+                        Platform.exit();
+                        return;
+                    }
+                    expected = -40.0;
                 } else if (e.getTextDeltaYUnits() == ScrollEvent.VerticalTextScrollUnits.PAGES) {
                     expected = -40.0; // page-scroll setting: multiplier stays 40
                 } else {

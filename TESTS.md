@@ -2,6 +2,53 @@
 
 ## 跨平台待验证项的维护规则
 
+Linux x64 用 `python3 scripts/run-linux-tests.py --group NonRobot --driver all --list`
+列出 Vulkan/OpenGL 矩阵；去掉 `--list` 后按顺序执行，可用 `--test NAME`
+只运行指定脚本。Robot 组同样支持列出用例，但实际操作桌面前仍需授权。
+列出不代表通过；部分外部桌面互操作探针还需要 Linux 对端。
+
+VFX 源码构建后，可以在独立 Wayland 会话验证动画的首帧、跨段计时和反向播放。用例在 JavaFX 应用线程上传入固定的纳秒时间戳，失败会抛出断言并以非零状态退出。
+
+```sh
+driver=vulkan  # 或 opengl
+scripts/wsl-wayland-session.sh --isolate-wslg scripts/wsl-gpu.sh "$driver" \
+    "$JAVA_HOME/bin/java" --enable-native-access=ALL-UNNAMED "-Djavafx.godot.driver=$driver" \
+    -cp artifacts/vfx/classes/java/test:artifacts/vfx/libs/vfx-demo.jar \
+    io.vproxy.vfx.test.TestMain io.vproxy.vfx.test.AnimationTimingTest
+```
+
+Linux 的独立 Robot 用例 `WaylandVStageGeometry` 启动 VFX Intro，通过标题栏移动窗口，再向外和向内拖右下角。每一步都从合成器的输出图像测量四条窗口边界。它需要已构建的 VFX JAR 和提供虚拟指针与输出捕获协议的隔离 labwc。两种驱动串行执行。
+
+```sh
+mkdir -p artifacts/reference/vstage-geometry
+jar=artifacts/vfx/libs/vfx-demo.jar
+"$JAVA_HOME/bin/javac" -cp "$jar" -d artifacts/reference/vstage-geometry tests/reference/WaylandVStageGeometry.java
+for driver in vulkan opengl; do
+    scripts/wsl-wayland-session.sh --isolate-wslg --compositor labwc --test-layout 1920x1200+60+80 \
+        scripts/wsl-gpu.sh "$driver" "$JAVA_HOME/bin/java" --enable-native-access=ALL-UNNAMED \
+        "-Djavafx.godot.driver=$driver" -cp "artifacts/reference/vstage-geometry:$jar" WaylandVStageGeometry || exit 1
+done
+```
+
+`WaylandOwnedStack` 在同一轮 JavaFX 事件处理中依次显示父窗口和所属子窗口。从隔离桌面取样父窗口独有、交叠、子窗口独有的三个区域，再点击交叠处检查哪个窗口收到了事件。用例还覆盖点击父窗口，以及隐藏和重新显示子窗口。
+
+```sh
+jar=artifacts/vfx/libs/vfx-demo.jar
+mkdir -p artifacts/reference/owned-stack
+"$JAVA_HOME/bin/javac" -cp "$jar" -d artifacts/reference/owned-stack tests/reference/WaylandOwnedStack.java
+for driver in vulkan opengl; do
+    scripts/wsl-wayland-session.sh --isolate-wslg --compositor labwc --test-layout 1920x1200+490+230 \
+        scripts/wsl-gpu.sh "$driver" "$JAVA_HOME/bin/java" --enable-native-access=ALL-UNNAMED \
+        "-Djavafx.godot.driver=$driver" -cp "artifacts/reference/owned-stack:$jar" WaylandOwnedStack || exit 1
+done
+```
+
+Linux 的 `test-clipboard-encoding.sh` 还会在内存中往返 Wayland MIME 数据，检查混合 URI 列表、无效路径、仅 URL 的格式枚举和半透明 PNG。该用例清除显示地址，验证格式转换可独立于图形环境运行。
+
+Linux 的 `test-clipboard.sh` 使用独立的 GTK 3 对端。它读取 JavaFX 发布的中文、HTML、RTF、URL、文件、PNG 和自定义 MIME，再发布两组数据供 JavaFX 读取。Wayland 模式需要两个客户端在同一个 seat 上依次获得键盘焦点。直接在 WSLg 上执行时，这些测试窗口会出现在 Windows 桌面上。
+
+`scripts/linux-clipboard-interop.sh` 另用两个 JVM 验证所有权转移和非法写入。两个进程各自通过发行库创建 Wayland 窗口。可用 `--jdk DIRECTORY` 指定 JDK 25。
+
 本节规则长期保留。开发或修复涉及其他平台、且当前环境无法完成验证时，执行工作的开发者或代理必须在本文件的“跨平台待验证清单”中记录目标平台、受影响行为、验证入口与参数、通过条件和已知限制。
 
 在目标平台用包含对应改动的源码产物完成验证后，执行验证的开发者或代理应在同一次工作中自动删除已满足全部通过条件的待办条目，无需另行请求确认；同时同步其他文档和脚本注释中对应的待验证状态。部分通过时仅删除已验证的范围，保留剩余平台、后端或场景。验证证据记录到对应验收文档，包含源码版本及本地差异、平台、后端、命令、日志和必要的图像。上游旧版本的通过记录、其他平台通过、跳过或仅编译成功均不足以删除条目。清单清空时保留本规则和清单标题，注明当前无待验证项。
@@ -16,6 +63,97 @@ macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。日常只
 | macOS arm64，独立 IME 窗口的点击坐标 | 获得 Robot 授权后，在 Retina 屏运行 `./scripts/test-native-ime.sh --driver metal` 和 `--driver opengl` | 从已显示的子窗口尺寸换算点击位置，焦点离开输入框后取消预编辑，按钮动作完成，根文本与资源清理断言通过，并恢复光标。 |
 
 ## Viewport＋safe 支持边界
+
+### Linux 原生 Wayland 窗口
+
+在独立桌面运行 `scripts/wsl-wayland-session.sh --isolate-wslg scripts/run-linux-tests.py --group NonRobot --driver all --test test-wayland-msaa` 可验证视口的多重采样抗锯齿。源码 Editor 切换单采样、请求 2×、再恢复单采样，检查中心颜色、边缘像素变化以及恢复后逐字节一致的画面。两种后端均检查 3D 边缘。Vulkan 还检查 2D 三角形的边缘。OpenGL 的 2D 多重采样在 Godot GLES3 中尚未实现，单独验证明确警告及逐字节保持单采样的图像。设备、驱动、渲染方法和像素计数写入 `agentdir/logs/wayland-msaa-{vulkan,opengl}.log`。
+
+在 WSLg 中依次运行 `scripts/wsl-gpu.sh vulkan scripts/test-wayland-windows.sh vulkan` 和 `scripts/wsl-gpu.sh opengl scripts/test-wayland-windows.sh opengl`。测试使用源码 Editor 和 Wayland，核对独立窗口的表面、像素、子窗口隐藏重显、所属关系、最小化请求的目标及进程正常退出。脚本把完整协议跟踪写到 `agentdir/logs/wayland-windows-{vulkan,opengl}.log`。设置 `WAYLAND_DEBUG=client` 也会在标准输出打印跟踪。在 Wayland 会话中用 `scripts/run-linux-tests.py --group NonRobot --driver all --test test-wayland-windows` 可以串行运行这两项。xdg-shell 允许客户端请求最小化；合成器不向应用报告实际最小化状态，也没有由客户端取消最小化的请求。JavaFX 宿主测试另外检查发行库的 `GODOT_LIBRARY_DISPLAY_DRIVER Wayland` 日志。
+
+发行包测试还用上游 JavaFX GTK/Prism ES2 生成独立的像素对照。对照进程需要自己的图形环境，并采用 Wayland 输出的缩放比例。
+
+在 Ubuntu 26.04 的独立桌面运行测试前，先安装 Weston 14 和隔离会话依赖：
+
+```bash
+sudo apt install weston libweston-14-dev libwayland-dev libpixman-1-dev libxkbcommon-dev dbus-daemon bubblewrap
+```
+
+保持 `GODOT_JFX_WESTON_ROOT` 未设置，脚本就会从 `PATH` 启动系统 Weston。若仍导出了旧临时目录，先运行 `unset GODOT_JFX_WESTON_ROOT`。普通用例可直接连接 Weston。下方基本 Robot 用例在 Weston 内启动 labwc，由 labwc 提供虚拟输入，`wlr-randr` 设置测试用的屏幕尺寸。Ubuntu 26.04 安装这两个工具的命令如下。
+
+```bash
+sudo apt install labwc wlr-randr
+```
+
+使用系统安装版时，保持 `GODOT_JFX_LABWC_ROOT` 未设置。系统 Weston 14.0.2 和 labwc 0.9.3 下的基本 `test-robot` 已在 Vulkan、OpenGL 上分别通过。
+
+```sh
+scripts/wsl-wayland-session.sh scripts/run-linux-tests.py --group NonRobot --driver all --test test-vfx-animation
+```
+
+大表格拖动可以和 VFX 菜单中的黑洞透镜一起测量。默认的 96 次应用内拖动同时更新表格位置和透镜中心。用例检查菜单选项、实际挂载的效果、滚动位移和退出清理。去掉 `--blackhole` 可以取得同后端的无透镜对照。默认纵拖表体。在命令前加 `GODOT_JFX_DRAG_AXIS=h` 横拖整张表；核对日志的 `VFX_TABLE_AXIS h` 和 `displaced_px`。两个驱动串行运行。
+
+```sh
+scripts/wsl-wayland-session.sh --isolate-wslg scripts/wsl-gpu.sh vulkan scripts/test-vfx-table-scroll.sh --driver vulkan --blackhole --profile
+scripts/wsl-wayland-session.sh --isolate-wslg scripts/wsl-gpu.sh opengl scripts/test-vfx-table-scroll.sh --driver opengl --blackhole --profile
+```
+
+这个入口创建 Weston 的 headless 输出和仅属于本次测试的虚拟键鼠。客户端连接私有 Wayland 套接字。窗口管理行为以该 Weston 会话为准，WSLg 和 Windows 桌面的前台切换需要单独验收。
+
+可选的 `--compositor labwc` 在该私有 Weston 桌面内启动 labwc，供应用连接其原生 Wayland 显示。需要已安装的 labwc，或用 `GODOT_JFX_LABWC_ROOT` 指向按 Ubuntu 软件包布局解包的 labwc 及依赖。此模式可以验证支持 `xdg-toplevel-icon-v1` 和 `xdg-activation-v1` 的桌面。两种协议的可用性取决于合成器。
+
+```sh
+scripts/wsl-wayland-session.sh --isolate-wslg --compositor labwc scripts/run-linux-tests.py --group NonRobot --driver all --test test-window-icon test-vfx-window-controls
+```
+
+私有 labwc 的默认服务端装饰会占用最大化窗口的客户区。本机在 1280×720 输出上测得 1280×694。VFX 自绘标题栏用例需要核对完整工作区，可用下面的命令为夹具选择客户端装饰，同时保留尺寸、最小化和恢复断言。
+
+```sh
+scripts/wsl-wayland-session.sh --isolate-wslg --compositor labwc --test-layout 1280x720+0+0 scripts/run-linux-tests.py --group NonRobot --driver all --test test-vfx-window-controls
+```
+
+在 labwc 的 `test-wayland-windows` 中，原生子窗口在首次显示后开启模态，隐藏、重显后再取消。脚本校验两个原生表面的角色申请、模态设置和销毁，成功时输出 `WAYLAND_DIALOG_ROLE_PASS`。缺少 xdg-dialog-v1 的合成器仍执行父子关系、窗口寿命、尺寸与 GPU 像素检查。
+
+隔离会话没有外网。用 `test-godot-library` 和 `test-shadow-jar` 验证发行包时，可从已校验的本地缓存准备公共 Maven/Gradle 插件及其依赖的文件镜像。Maven 用当前进程的 `MAVEN_ARGS=-s <settings.xml>` 将 `central` 指向镜像；Gradle 在会话私有的 `init.d` 下通过 `beforeSettings` 将该镜像加入 `pluginManagement.repositories`。镜像排除项目发行模块。Maven 用例仍用全新的本地仓库从夹具的回环 HTTP 服务解析模块并核对哈希，Shadow 用例仍从本次暂存仓库构建 JAR。11 月 24 日的镜像配置与用例日志位于 `agentdir/artifacts/wayland-release-nOfa55Xe/`。
+
+在 WSL2 中给该入口加 `--isolate-wslg` 会使用 bubblewrap 隔离宿主显示和输入设备。运行前可用 `scripts/run-linux-tests.py --group Robot --driver all --list` 查看 22 项清单。默认的私有 Weston 14 缺少公共 Robot 所需的虚拟输入和截图协议。获得桌面输入授权后，可按下列 labwc 和 niri 分组串行执行整份清单。虚拟键盘用例检查未支持请求的日志和后续宿主帧，两项 PASS 仅覆盖这个约定。Robot 指针、按键、像素采样与跨窗口拖放有各自的检查。
+
+在提供虚拟指针、虚拟键盘和输出图像复制的 labwc 上，公共 JavaFX Robot 可以驱动 Wayland 图形测试。桌面坐标用例依赖窗口的实际位置。下面的命令在私有合成器中设置 2560×1800、1 倍缩放的输出，并把窗口放到用例请求的逻辑坐标。每条命令使用新的桌面，保留原有动作、像素和资源断言。使用单独解包的 labwc 时，`GODOT_JFX_LABWC_ROOT` 指向包含 `usr/bin/labwc`、`wlr-randr` 和依赖库的目录。
+
+```bash
+scripts/wsl-wayland-session.sh --isolate-wslg --compositor labwc --test-layout 2560x1800+40+80 scripts/run-linux-tests.py --group Robot --driver all --test test-drag-drop
+for driver in vulkan opengl; do
+    for cases in default variants; do
+        scripts/wsl-wayland-session.sh --isolate-wslg --compositor labwc --test-layout 2560x1800+80+80 scripts/run-linux-tests.py --group Robot --driver "$driver" --cases "$cases" --test test-robot
+    done
+done
+scripts/wsl-wayland-session.sh --isolate-wslg --compositor labwc --test-layout 2560x1800+640+333 scripts/run-linux-tests.py --group Robot --driver all --test test-vfx-table-scroll test-hover-demo
+scripts/wsl-wayland-session.sh --isolate-wslg --compositor labwc --test-layout 2560x1800+120+120 scripts/run-linux-tests.py --group Robot --driver all --test test-hover-flicker
+scripts/wsl-wayland-session.sh --isolate-wslg --compositor labwc scripts/run-linux-tests.py --group Robot --driver all --test test-native-ime test-virtual-keyboard
+scripts/wsl-wayland-session.sh --isolate-wslg --compositor labwc --test-layout 2560x1800+300+300 scripts/run-linux-tests.py --group Robot --driver all --test test-physical-drag
+```
+
+跨进程 GTK 拖放的四个 Robot 用例可以在私有 Weston 内另启 niri。已验证的 niri 版本为 `02ee0585`，支持 Esc 取消原生拖放、虚拟指针和键盘，以及输出图像复制。准备该可执行文件、GTK 3、grim 和 Pillow。若 niri 和依赖单独解包，设置 `GODOT_JFX_NIRI_BIN` 和 `GODOT_JFX_NIRI_LIBRARY_PATH`。下列命令在同一私有桌面依次运行两个驱动的默认和 runtime 用例。
+
+```sh
+scripts/wsl-wayland-session.sh --isolate-wslg tests/wayland/niri-external-drag.sh --driver all
+```
+
+GTK 对端在拖动时用 grim 连同光标截图。测试光标在中心四周各有一个可见标记，留出中央像素测量半透明的 8×6 拖动预览。脚本同时校验四个标记、图像尺寸和颜色。JavaFX 拖出、GTK 拖入及 Esc 取消各有独立断言。labwc 0.9.3 在 Esc 后释放按钮时仍完成 COPY，详情见[原生拖放的实测记录](docs/glass-godot.md#drag-and-drop-on-linux-wayland)。
+
+Wayland 的外部拖放注入用例需要 Weston 14 开发头、Wayland Server、pixman 和 xkbcommon 开发头。若 Weston 头文件单独解包，使用 `GODOT_JFX_WESTON_INCLUDE` 指向包含 `libweston/libweston.h` 的目录。`test-drag-drop-ole-inject.sh` 在临时 Weston 中加载测试模块，按夹具 PID 和标题选取接收表面，通过原生 `wl_data_offer.receive` 管道交付文本、URL、文件、HTML、RTF 和自定义格式。成功的复制需要收到 `wl_data_offer.finish`。Java 观察器校验每种格式，等待宿主读到成功标题后关闭 Stage。超时变体还要求阻塞的 FX 线程拒绝前一个请求。测试模块仅使用私有显示。隔离 Weston 的外拖手势、拒收和返回本应用的专项结果见 [Wayland 拖放记录](docs/glass-godot.md#drag-and-drop-on-linux-wayland)。标准 JavaFX Robot 组另有独立结果。
+
+授权使用隔离输入后，可以用 Weston 的任务切换器恢复 VFX 子窗口。在私有 Weston 会话中，测试先选择主窗口，确认 JavaFX 子窗口仍为最小化，再选回子窗口，核对 Wayland 座席焦点、原窗口尺寸、VFX 关闭按钮和资源清理。可分别选择 `vulkan`、`opengl`，加 `--runtime` 验证独立夹具项目。普通 `test-vfx-window-controls.sh` 继续单独检查应用请求恢复的行为。
+
+```sh
+scripts/wsl-wayland-session.sh --isolate-wslg scripts/wsl-gpu.sh vulkan scripts/test-vfx-window-controls.sh --driver vulkan --weston-restore
+```
+
+Linux 的 `test-startup.sh` 在原生 Wayland 上以 xdg_toplevel 和对应 wl_surface 的有效缓冲提交检查首次显示、实际标题、隐藏重显和次级窗口映射。logo、hidden 和各自的取消场景
+还会在 Godot 内检查首帧及启动动画。
+
+Linux 的 `test-native-stage.sh` 还会在同一次 FX 回调里依次请求最小化与恢复、
+最大化与恢复。窗口管理器处理完请求后，用例核对 JavaFX Stage 属性、Godot
+原生窗口模式、原始位置和尺寸，以及子窗口实际呈现的颜色。
 
 ### 安装开发测试的 Maven Local 依赖
 
@@ -47,7 +185,7 @@ python scripts/test-godot-library.py --runtime artifacts/godot-library --group s
 
 Java 发送端使用发行模块的公开 API，检查非 FX 线程、空引用、空字符串和超长主题的拒绝行为。Godot 场景根节点检查主线程、五条消息的主题与整数值、重复消息和顺序，覆盖 128 个 UTF-16 码元的主题及 32 位整数上下界。通过时输出 `PASS scene-message`，证据目录中的 `scene-message.log` 记录两端标记及应用退出标记。
 
-启动组覆盖显式与自动初始化、无 main 的类、模块化入口、并发、配置冲突、隐藏最后窗口后再次显示以及退出。失败组要求重复初始化和等待者观察到同一错误，约定退出码为 31；显式退出用例应保留 37。绘制组使用 Godot 合成输入、独立 Stage、GodotView 像素、Node Shader 原有断言及 Effect 的 D3D 参考图，还验证本地视频的暂停、seek、重播和释放。
+启动组覆盖显式与自动初始化、无 main 的类、模块化入口、并发、配置冲突、隐藏最后窗口后再次显示以及退出。失败组要求重复初始化和等待者观察到同一错误，约定退出码为 31；显式退出用例应保留 37。启动组的 `exit-toolkit` 在 JVM 关闭钩子中等候宿主开始停止，然后调用 `Platform.isFxApplicationThread()`。钩子须取得已有 Toolkit，报告 `SHUTDOWN_TOOLKIT_PASS` 并保留退出码 37；显式重启宿主仍须被拒绝。绘制组使用 Godot 合成输入、独立 Stage、GodotView 像素、Node Shader 原有断言及 Effect 的 D3D 参考图，还验证本地视频的暂停、seek、重播和释放。
 
 Shadow 脚本通过 Gradle Wrapper 和 Shadow 插件在独立目录构建消费应用。首次构建需要联网解析插件。它把单 JAR 复制到空目录，清理启动环境，核对应用 PID、实际映射的 DLL 与 JAR 资源哈希、Stage、外来工程隔离和视频；另构建带场景包和带损坏包的 JAR，检查 GodotView 合成像素、第二个 Stage、引擎合成输入和启动失败。控制台输出日志和截图目录。用相同 Maven 版本号重新发布后，两条验收命令均使用新的工作目录，避免上次的 release 缓存参加验证。
 
@@ -75,13 +213,13 @@ false/true 值，以及 true/false 结果缓存。需 `PRISM_GODOT_DETECTION_PAS
 `-Driver opengl` 验证 OpenGL；仅支持 safe 线程模式。
 需要源码 Editor、SDK、已发布的 Windows 平台 JAR 和 VFX 产物，不需要真实键鼠授权。
 
-夹具检查实际 Intro 抽屉菜单末尾的复选框、效果只附着于内容 VSceneGroup、
+夹具在 Intro 菜单抽屉从场景图移除后采集基线，检查菜单末尾的复选框、效果只附着于内容 VSceneGroup、
 标题栏和底部导航不变、开关恢复、鼠标移动/拖动和缩放后的
 位置映射、鼠标位于组外时对组内边缘图形的扭曲，并读回 GPU 图像断言可见特效、鼠标静止时的画面稳定性、范围外不变和
 透明边缘保持；退出后检查窗口与
 宿主资源释放。必须同时有 `VFX_BLACKHOLE_PROBE_PASS`、`GODOT_VFX_BLACKHOLE_PASS`
 且无异常或着色器错误。`-NativeD3D` 只验证原生对照中不添加该选项，不代表 Godot
-特效通过。日志和逐步截图使用 `vfx-blackhole-<driver>-safe` 前缀。
+特效通过。日志和逐步截图使用 `vfx-blackhole-<driver>-safe` 前缀。 Linux 的 `scripts/test-vfx-blackhole.sh --profile --driver vulkan|opengl` 还会在相同页面移动镜头，记录 90 个脉冲间隔，再继续原有像素检查。
 
 ## 运行前
 
@@ -175,7 +313,7 @@ PowerShell 开关对应小写长选项：`-Driver d3d12` → `--driver metal`、
 以下为 macOS 的夹具行为和实机观察。当前 JAR 构建的结果见[验收记录](docs/acceptance-status.md#macos-arm64-verification-scope)。
 
 - `test-window-icon.sh` 驱动两个 Stage 完成七轮设置、替换和清除图标，检查每一步的宿主查询均返回 `installed=false`，并检查窗口和资源回收。Dock 图标由 NSApplication 管理。
-- `test-scroll-pan.sh`（macOS 专有，无 Windows 对应）：触控板 pan 流契约探针。Godot 侧按阶段标题注入 `InputEventPanGesture` 流（向下、过冲、向上、过冲、松手静置），Java 探针断言 vvalue 单调、两端精确钳制、松手后不再移动，并比对注入数与 ScrollEvent 数精确相等（exactly-once；上游 Godot 对手势事件双重派发，本 fork 已修复为单次）。双渲染器通过。
+- `test-scroll-pan.sh`（macOS、Linux，无 Windows 对应）：触控板 pan 流契约探针。Godot 侧按阶段标题注入 `InputEventPanGesture` 流（向下、过冲、向上、过冲、松手静置），Java 探针断言 vvalue 单调、两端精确钳制、松手后不再移动，并比对注入数与 ScrollEvent 数精确相等（exactly-once；上游 Godot 对手势事件双重派发，本 fork 已修复为单次）。双渲染器通过。
 - 四个原生组件测试有同名 `.sh` 入口。`test-clipboard-ownership` 检查 Java 文本复制及拒绝无效输入时的 NSPasteboard 所有权，`test-dnd-drag-image` 检查 Cocoa 拖动预览的像素和锚点，`test-dnd-helper-lifetime` 检查 JNI 回调失败及关闭竞争（支持 `--asan`），`test-tabtip-result` 检查 macOS 键盘请求与释放返回不支持。`test-virtual-keyboard.sh --robot` 使用同一个 Java 探针，检查请求和释放后的宿主 tick、警告和清理。
 - Robot 物理夹具在 macOS 的运行现状（均需用户授权、保持桌面空闲，启动 Java 的应用需辅助功能与屏幕录制权限）：`test-robot.sh`、`test-drag-drop.sh --robot`、`test-physical-drag.sh --robot`、`test-hover-flicker.sh --robot`、`test-hover-demo.sh`、`test-drag-drop-external.sh` 均已用本机发布的 dylib 在两个渲染器下运行。hover-flicker mobile 曾偶发 Fusion 定居亮度抖动（单帧 502/584 不亮），修复后复跑 3 次全部通过，按环境性抖动记录、机制未定位。hover-demo 的 GAP 像素判定曾按帧数跳过过渡期（31 帧），但 VFX 退出过渡是墙钟驱动、帧率下降时跨越更多帧，GAP 按墙钟留出 500ms 过渡。观察器在鼠标进入空白区后标记 GAP，在移向按钮前结束 GAP；5% 亮度误差阈值沿用原值。Robot 坐标在 macOS 走真实 CGEvent；窗口允许置于菜单栏之上（与 Windows 离屏一致），macOS 原生边缘缩放在 FX 宿主窗口关闭（热区会吞掉角落按下，FX 缩放把手收不到事件），本机 scale=1，HiDPI 未验证。
 - `test-clipboard.sh` 用 macOS 原生对端直接读写共享 NSPasteboard，校验两个方向的实际格式交换。
@@ -194,9 +332,9 @@ PowerShell 开关对应小写长选项：`-Driver d3d12` → `--driver metal`、
 | `run-windows-tests.ps1` | `run-macos-tests.py --group NonRobot\|Robot --driver metal\|opengl\|all` |
 | `godot-fixture.ps1`、`native-output.ps1` | `godot-fixture.py` 与 shell 的标准输出及退出状态。原生构建日志在 `agentdir/logs/build-macos-*.log` |
 | `benchmark-vfx-frames.ps1`、`benchmark-vfx-transitions.ps1` | `profile-vfx.py frames`、`profile-vfx.py transitions`。可用 `--driver` 选择后端。`frames --native` 使用原生 Mac Glass 和 Prism Metal |
-| `profile-vfx-gpu.ps1`、`profile-vfx-menu.ps1`、`profile-vfx-loading.ps1` | `profile-vfx.py gpu`、`profile-vfx.py menu`、`profile-vfx.py loading`，分别采集 GPU、菜单和加载测量 |
+| `profile-vfx-gpu.ps1`、`profile-vfx-menu.ps1`、`profile-vfx-loading.ps1` | `profile-vfx.py gpu`、`profile-vfx.py menu`、`profile-vfx.py loading`，分别采集 GPU、菜单和加载测量。Linux 菜单用例可加 `--host120` 对照 CPU 限帧时的交互表现。 |
 | `make-media-fixture.ps1`、`benchmark-media-frames.ps1` | `make-media-fixture.py` 通过 ffmpeg 生成并读回 960 帧 1080p60 H.264 视频。`benchmark-media-frames.py --native60` 验证清单和哈希后测量帧率，也可使用默认 Oracle 样本 |
-| `capture-vfx-reference.ps1` | `capture-vfx-reference.py` 截取原生 Mac Glass / Metal 页面，支持 `--freeze-fusion`、`--page-limit`。使用 `.tools/pyenv/bin/python scripts/compare-vfx-pages.py --driver metal` 对比页面 |
+| `capture-vfx-reference.ps1` | `capture-vfx-reference.py` 截取原生 JavaFX 页面。Linux ES2 基线保存在 `agentdir/artifacts/vfx-pages-es2/`（冻结动画时为 `vfx-pages-es2-frozen/`），比较脚本从同一位置读取。macOS 使用 Mac Glass / Metal。支持 `--freeze-fusion`、`--page-limit`。使用 `.tools/pyenv/bin/python scripts/compare-vfx-pages.py --driver metal` 对比页面 |
 | `repro-hover-manual.ps1` | `repro-hover-manual.py` 启动带 hover 采样的窗口，关闭后分析停顿与亮度。传入 `--log-path` 可分析已有记录 |
 
 ## 拖放专项
@@ -242,6 +380,8 @@ macOS 等价入口（同样三阶段、同样需要授权与空闲桌面）：
 前置条件为 G+J，不移动系统鼠标、不要求测试窗口前台（窗口仍需可见、会话解锁）。宿主用模块自己的 OLE 源 `DataObject` 装入 text/URL/文件列表/自定义格式负载，直接调用真实的入站拖放委托（DragEnter→Drop），观察器断言 Dragboard 读回与写入完全一致（`OLE_INJECT_PROBE_PASS` + `GODOT_OLE_INJECT_PASS`，无 ERROR）。它验证 OLE DataObject 的格式暴露、`extract`/自定义格式发现（EnumFormatEtc 枚举）和 FX 分发；跨进程 COM 封送和模态 OLE 循环仍由上面的 Robot 夹具负责。可选参数为 `-Jdk`、`-Driver`、`-RenderThread`。
 
 macOS 等价入口为 `sh scripts/test-drag-drop-ole-inject.sh`（`--driver`、`--render-thread`、`--timeout` 参数同名小写），夹具与判定标记不变；宿主改用私有 NSPasteboard 发布负载并驱动同一入站状态机。它不验证真实 NSDraggingSession 跨进程手势。
+
+Linux 的跨进程 Robot 入口为 `scripts/test-drag-drop-external.sh --driver vulkan|opengl`。在隔离 labwc 上，使用 `--test-layout 2560x1800+300+300` 放置三个原生窗口，GTK 目标在真实拖动时调用 grim 读取光标周围的像素，用 Pillow 测量预览图像的宽高并检查半透明颜色。应在合成器所在系统安装 grim，或通过 `GODOT_JFX_LABWC_ROOT` 提供。两种渲染驱动都检查拖入的 COPY 回复。完整用例还检查 Escape 取消。本机 WSLg 未公布这些 Robot 用例需要的虚拟输入和输出图像复制协议；独立 niri 的完整用例运行方式见上文。
 
 拖放预览图注册机制的原生组件测试：
 
@@ -305,6 +445,8 @@ macOS 等价入口为 `sh scripts/test-file-dialog.sh`（`--driver`、`--render-
 `test-render-targets.ps1` 在既有 100 轮复制/透明度/资源检查之前，增加 128 次
 Viewport 目标提交后立即释放，检查 safe 模式下绘制和资源销毁顺序。
 即使最终有 PASS，日志中的失效对象回调 ERROR 仍判失败。此检查不使用真实键鼠。
+
+着色器缓存用例还会让两个离屏目标用同一段代码绘制不同颜色，读回各自的像素，检查实际只创建一个共享程序。释放首个目标后，第二个目标须能继续正确绘制；最后一个目标释放后，共享程序数应回到测试前的值。Linux 的入口为 `scripts/test-shader-cache.sh --driver vulkan|opengl`。
 
 `test-shader-cache.ps1` 还要求 `SAMPLER_MATERIAL_COLLISION_PASS`：夹具创建 96 个
 真实纹理目标，在有界的三采样器组合中寻找实际 Dictionary 哈希碰撞，然后验证
@@ -405,7 +547,7 @@ Java 调用、宿主 tick 和清理均通过也不能证明系统键盘已显示
 | `.\scripts\test-stage-churn.ps1 -Driver d3d12` | 重复创建销毁 JavaFX Stage。前置：G+J；Cycles 6–1000，HeapMiB 可限 Java 堆。 | Java 周期样本为 Cycles，原生为 Cycles+1；资源/退出断言；无强制 GC。 | `-Jdk`、`-Driver`、`-RenderThread` |
 | `.\scripts\test-transparent-stage.ps1 -Driver d3d12` | 透明 Scene/Stage 的空白区与边缘 alpha。前置：G+J；宿主项目允许逐像素透明。 | GPU alpha 和清理断言；不验收用户放弃的白线。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
 | `.\scripts\test-render-scale.ps1 -Driver d3d12` | 逻辑尺寸与像素尺寸、渲染缩放。前置：G+J。 | 缩放后布局/像素断言；不代替跨真实显示器移动。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
-| `.\scripts\test-screens.ps1 -Driver d3d12` | 从宿主枚举屏幕到 JavaFX。前置：G+J。 | 屏幕快照、坐标/工作区等断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-screens.ps1 -Driver d3d12` | 从宿主枚举屏幕到 JavaFX。前置：G+J。 | 核对屏幕快照、坐标和工作区。超时会记录子窗口的实际及期望坐标、屏幕关联和观察器标题；FX 线程无响应时单独报告。 | `-Jdk`、`-Driver`、`-RenderThread` |
 | `.\scripts\test-screen-layout.ps1` | 屏幕布局计算。前置：J。 | 纯 Java 布局边界断言；不要求真实多显示器。 | `-Jdk` |
 | `.\scripts\test-ime.ps1 -Driver d3d12` | 输入法组合文本基础桥接。前置：G+J。 | 合成文本、提交/取消等注入断言。 | `-Jdk`、`-Driver` |
 | `.\scripts\test-image-cursor.ps1 -Driver d3d12` | 自定义图像光标与热点。前置：G+J。 | 图像/热点/生命周期断言；`CURSOR_RESTORE_ONCE_PASS` 检查退出后应用新设光标不被宿主析构覆盖。使用合成输入，不移动真实鼠标；不等于所有桌面外观已人工确认。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
@@ -417,9 +559,9 @@ Java 调用、宿主 tick 和清理均通过也不能证明系统键盘已显示
 | `.\scripts\test-clipboard.ps1 -Driver d3d12` | 文本、HTML、RTF、Unicode URL、文件列表(CF_HDROP)、图片(CF_DIB)、ANSI-only URL 回退与自定义格式(application/x-godot-custom-*)的系统剪贴板互通。前置：G+J；见剪贴板特别说明。 | Java 与原生对端的格式、内容断言均通过，宿主正常退出。 | `-Jdk`、`-Driver`、`-Runtime` |
 | `.\scripts\test-virtual-keyboard.ps1 -Robot` | 虚拟键盘 `_requestInput`/`_releaseInput` 到 Windows 触摸键盘(TabTip)的调用链路，正常运行会请求系统键盘。前置：G+J；`-CompileOnly` 只需 J，编译后退出，不调用系统键盘。 | Java 调用不抛异常、宿主 tick 必须实际前进、等待 FX 清理完成后输出 `VIRTUAL_KEYBOARD_PASS`；超时/中断取消尚未运行的任务，退出尝试释放输入请求并关闭 Stage，宿主移除后资源归零。原生失败记首次 WARNING；PASS 不证明 OS 调用成功或键盘可见/关闭，须另行设备验收。后续系统链路已运行，关闭请求出现拒绝访问 HRESULT；详见上文记录，不能以 Java PASS 证明键盘实际关闭。 | `-Jdk`、`-CompileOnly` |
 | `.\scripts\test-popups.ps1 -Driver d3d12` | 弹出控件的基本显示与交互。前置：G+J。 | Popup 内容、交互和生命周期断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
-| `.\scripts\test-popup-bounds.ps1 -Driver d3d12` | Popup 屏幕边界约束。前置：G+J。 | 位置/边界规则断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-popup-bounds.ps1 -Driver d3d12` | Popup 屏幕边界约束。前置：G+J。 | 按已绘制的帧核对八步几何和像素。最后一次关闭后按主循环检查窗口、合成和资源清理。 | `-Jdk`、`-Driver`、`-RenderThread` |
 | `.\scripts\test-popup-edge.ps1 -Driver d3d12` | 靠近边缘时 Popup 定位与自动修正。前置：G+J。 | 边缘放置和 autoFix 相关断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
-| `.\scripts\test-nested-menu.ps1 -Driver d3d12` | 嵌套菜单与事件循环。前置：G+J。 | 子菜单交互/返回及清理断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
+| `.\scripts\test-nested-menu.ps1 -Driver d3d12` | 嵌套菜单与事件循环。前置：G+J。 | 校验子菜单的独立窗口、实际绘制、选择和点击外部关闭。最后一次关闭后按逻辑帧检查宿主退出和窗口、资源清理。 | `-Jdk`、`-Driver`、`-RenderThread` |
 | `.\scripts\test-modals.ps1 -Driver d3d12` | 窗口模态、所有者和交互阻止。前置：G+J。 | 应被阻止/允许的输入与模态释放断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
 
 ### 历史窗口与底层合成诊断
@@ -441,6 +583,7 @@ Java 调用、宿主 tick 和清理均通过也不能证明系统键盘已显示
 | `.\scripts\test-shaders.ps1 -Driver d3d12` | 生成 Shader 的完整性与 Godot 解析。前置：G+J；需要 JFX 构建生成资源。 | 与 D3D 变体集合及 SDK 内容一致；全部解析，部分像素检查，退出场景树后资源及几何缓存归零。 | `-Driver` |
 | `.\scripts\test-shader-state.ps1` | Java Shader 描述符、常量与快照。前置：J。 | ShaderStateProbe 断言；不证明所有 GPU shader 编译成功。 | `-Jdk` |
 | `.\scripts\test-shader-source-cache.ps1` | Shader 源码编码缓存。前置：J。 | 缓存命中/边界等 Java 断言。 | `-Jdk` |
+| `test-render-command-validation.sh` / `.ps1` | 从项目 Maven Local 加载发行模块，在两个独立 JVM 中分别关闭和开启 shader 状态去重。使用 JDK 25。 | 检查相同常量的编码字节数，并验证哈希碰撞、常量类型、采样纹理更新、目标切换及多个编码器。两次结果分别写入 `agentdir/logs/shader-state-suppression-{0,1}.log`。 | `--jdk` / `-Jdk` |
 | `.\scripts\test-texture-lookup.ps1 -Driver d3d12` | Godot 纹理查询/生命周期诊断。前置：G。 | TEXTURE_LOOKUP_PASS 及无非预期错误。 | `-Driver`、`-RenderThread` |
 | `.\scripts\test-render-targets.ps1 -Driver d3d12` | 离屏渲染目标、采样和释放。前置：G。 | GPU 颜色/复制及生命周期断言。 | `-Driver`、`-RenderThread` |
 | `.\scripts\test-mesh-transform.ps1 -Driver d3d12` | QUADS 局部顶点随变换命令绘制（离屏 pass 与 surface 共享命令项两条路径，含变换复位）。前置：G；无 Java 探针。 | MESH_TRANSFORM_PROBE_PASS 与像素边界断言。 | `-Driver` |
@@ -648,7 +791,7 @@ VFX 翻页基准可用 `GODOT_JFX_STACK_SAMPLE` 启用采样；必须是正整�
 
 ## LCD 重叠文字对照
 
-`.\scripts\test-lcd-overlap.ps1 [-RenderThread safe]` 需要 G+J，默认使用 D3D12/mobile + Viewport。两次运行分别启用原有 LCDBuffer 路径和屏幕采样路径，绘制同位置错开的蓝/红、绿/黑中英文 LCD 文字。两次都是 Godot 后端，不是原生 D3D 对照。脚本要求每次 Java/宿主完成标记及无错误，截图等待新一帧绘制完成，空图像或 PNG 保存失败立即报错；第二次全图 RGBA 差异不超过 2/255、图像包含足够文字像素，并打印 `LCD_OVERLAP_DIFF_PASS`。日志为 `lcd-overlap-<thread>-0/1.log`，截图为 `lcd-overlap-0/1.png`。退出确认使用 Godot 合成点击，不移动真实鼠标或键盘；测试串行运行，期间保持显示缩放和字体环境一致。该夹具覆盖相邻文字节点重叠，不是全部字体或 LCD 兼容性证明。
+`.\scripts\test-lcd-overlap.ps1 [-RenderThread safe]` 需要 G+J，默认使用 D3D12/mobile + Viewport。两次运行分别启用原有 LCDBuffer 路径和屏幕采样路径，绘制同位置错开的蓝/红、绿/黑中英文 LCD 文字。Linux 夹具在相同大小的窗口里额外绘制缓存图层，包含短字符重叠以及带裁剪的字符。屏幕采样的像素仍需与 LCDBuffer 对照一致。两次都是 Godot 后端，不是原生 D3D 对照。脚本要求每次 Java/宿主完成标记及无错误，截图等待新一帧绘制完成，空图像或 PNG 保存失败立即报错；第二次全图 RGBA 差异不超过 2/255、图像包含足够文字像素，并打印 `LCD_OVERLAP_DIFF_PASS`。日志为 `lcd-overlap-<thread>-0/1.log`，截图为 `lcd-overlap-0/1.png`。退出确认使用 Godot 合成点击，不移动真实鼠标或键盘；测试串行运行，期间保持显示缩放和字体环境一致。该夹具覆盖相邻文字节点重叠，不是全部字体或 LCD 兼容性证明。
 
 ## 已排队纹理版本
 
@@ -726,6 +869,16 @@ Java/宿主协议连续复用同一离屏目标：显式红色、参数省略后
 不启动 JVM/GPU，也不证明 GPU 分配失败或 Java 编码端的所有行为。
 
 ### 快速拖出窗口测试的当前验证
+
+Linux 在私有 Weston 上运行 NonRobot 分组时，`test-physical-drag` 会单独启动没有原生输入设备的 Weston。Godot 仍通过真实 Wayland 窗口接收夹具注入的按下、移动和释放事件。这样，窗口扩大到桌面光标下面时，合成器不会在按住按钮的合成手势中插入来自桌面座位的无按键移动。Java 端仍检查全部 10 次拖动、8 次调整大小、最终几何及释放。单独复现双驱动用例可执行：
+
+```sh
+scripts/wsl-wayland-session.sh --isolate-wslg --no-input scripts/run-linux-tests.py --group NonRobot --driver all --test test-physical-drag
+```
+
+同组的 `test-hover-flicker` 也使用无原生输入设备的 Weston。该夹具为每次悬停注入一次鼠标移动，再逐帧检查按钮颜色。窗口初次调整大小时，真实座位的指针离开事件可以抵消这次合成移动。单独运行双驱动悬停检查时，将上面命令的 `--test` 参数改为 `test-hover-flicker`。
+
+Robot 用例继续在带输入设备的桌面上运行。
 
 `test-physical-drag.ps1` 的合成输入按初始窗口实际像素尺寸与 420×320 逻辑尺寸
 换算，不再固定为 2 倍。真实 Robot 结束时依次尝试释放按键、恢复原光标位置、
@@ -916,6 +1069,12 @@ both `VFX_LOADING_PERF_PASS` and `GODOT_VFX_LOADING_PERF_PASS`; `LOADING_PERF`
 reports per-phase pulse rate. The fixture uses synthetic events and does not
 operate physical input devices. See
 [loading profiling](docs/frame-benchmark.md#loading-window-and-ripple-profiling).
+
+The queued texture test begins with a same-pass sampler revision check.
+Before any other encoder is created, it draws two quads
+in one pass with the same sampler handle, separated by an upload. All 128
+readback pixels must show the original red left half and updated blue right
+half (`SAME_PASS_SAMPLER_REVISION_PASS`).
 
 `test-queued-texture-update.ps1` now also requires `PARTIAL_TEXTURE_UPDATE_PASS`:
 a partial upload before any draw must preserve untouched pixels, and a second

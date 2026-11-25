@@ -86,6 +86,24 @@ func _ready() -> void:
 	print("MESH_TRANSFORM_PROBE red_bounds=", red_min, "..", red_max, " (want 20,40..40,60)")
 	var translated := image.get_pixel(130, 50)
 	var identity := image.get_pixel(110, 32)
+	# A second pass keeps the first draw and drops the translated red draw.
+	# An empty clearing pass must then retire the remaining blue draw.
+	for keep_blue in [true, false]:
+		target.finish_pass()
+		target.begin_pass(true)
+		if keep_blue:
+			target.draw_prism_quads(control, white, code_blue, {}, false, Rect2i())
+		target.end_pass()
+		for frame in range(3):
+			await RenderingServer.frame_pre_draw
+			await RenderingServer.frame_post_draw
+		var updated := get_viewport().get_texture().get_image()
+		var background := updated.get_pixel(55, 50)
+		if not updated.get_pixel(30, 50).is_equal_approx(background):
+			push_error("A removed translated draw reappeared"); get_tree().quit(1); return
+		var blue := updated.get_pixel(8, 32)
+		if (keep_blue and (blue.b < 0.98 or blue.r > 0.02)) or (not keep_blue and not blue.is_equal_approx(background)):
+			push_error("Retained or retired blue draw differs: " + str(blue)); get_tree().quit(1); return
 	remove_child(surface)
 	surface.free()
 	remove_child(green_surface)

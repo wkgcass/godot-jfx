@@ -24,8 +24,10 @@ def native_command(target):
         # Use the same SDK locations, custom modules and target options as the build.
         return ["pwsh.exe", "-NoProfile", "-File", str(ROOT / "scripts/build-windows.ps1"),
                 "-Target", target, "-Clean"]
+    if sys.platform == "linux" and platform.machine() == "x86_64":
+        return [str(ROOT / "scripts/build-linux.sh"), "--target", target, "--clean"]
     if sys.platform != "darwin" or platform.machine() != "arm64":
-        raise ValueError("Native clean targets require Windows x64 or macOS arm64.")
+        raise ValueError("Native clean targets require Windows x64, macOS arm64 or Linux x64.")
     if target == "jfx":
         return [str(ROOT / "jfx/gradlew"), "-p", str(ROOT / "jfx"), "cleanAll", "--no-problems-report", "--no-daemon"]
     command = [str(ROOT / ".tools/pyenv/bin/scons"), "-C", str(ROOT / "godot"), "--clean",
@@ -68,7 +70,7 @@ def clean(target, dry_run, jdk=None):
     uses_gradle = "jfx" in targets or (target == "packages" and any((ROOT / p).exists() for p in PACKAGE_GRADLE_DIRS))
     if uses_gradle or "godot-library" in targets:
         env["JAVA_HOME"] = str(configure_jdk(jdk))
-        if sys.platform == "darwin" and "jfx" in targets:
+        if sys.platform in ("darwin", "linux") and "jfx" in targets:
             env["ANT_HOME"] = env.get("ANT_HOME") or str(ROOT / ".tools/apache-ant-1.10.15")
             ant = Path(env["ANT_HOME"]) / "bin/ant"
             if not dry_run and not os.access(ant, os.X_OK):
@@ -89,6 +91,11 @@ def clean(target, dry_run, jdk=None):
                                for path in artifacts.glob(pattern) if path.is_dir())
                 paths.extend((artifacts / "reference", artifacts / "native-tests", artifacts / "vfx-gpu-profile", artifacts / "pulse-stop-patch",
                               artifacts / "texture-cancellation-patch", ROOT / "tests/godot/.godot"))
+                if sys.platform == "linux":
+                    paths.append(artifacts / "linux-clipboard")
+                wayland_cache = ROOT / "tests/wayland/__pycache__"
+                if wayland_cache.is_dir():
+                    paths.append(wayland_cache)
             for path in paths:
                 remove_directory(path, dry_run)
         else:

@@ -14,11 +14,15 @@ if [ "$#" -gt 0 ]; then
 fi
 cd "$(dirname "$0")/.."
 sdk=jfx/build/sdk
-engine=godot/bin/libgodot.macos.template_release.arm64.library.dylib
-for required in "$engine" "$sdk/lib/libjfxmedia_avf.dylib" "$sdk/lib/javafx.controls.jar"; do
+case "$(uname -s):$(uname -m)" in
+    Linux:x86_64) classifier=linux; engine=godot/bin/libgodot.linuxbsd.template_release.x86_64.library.so ;;
+    Darwin:arm64) classifier=mac-aarch64; engine=godot/bin/libgodot.macos.template_release.arm64.library.dylib ;;
+    *) echo "Unsupported staging platform" >&2; exit 1 ;;
+esac
+for required in "$engine" "$sdk/lib/javafx.controls.jar"; do
     [ -f "$required" ] || { echo "Missing source build product: $required" >&2; exit 1; }
 done
 mkdir -p "$out/legal"
 cp -R "$sdk/legal/." "$out/legal/"
 cp godot/LICENSE.txt godot/COPYRIGHT.txt LICENSE "$out/"
-python3 scripts/publish-godot-modules.py "$out" "$JAVA_HOME/bin/jar" --classifier mac-aarch64 --engine "$engine"
+python3 scripts/publish-godot-modules.py "$out" "$JAVA_HOME/bin/jar" --classifier "$classifier" --engine "$engine"

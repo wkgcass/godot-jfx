@@ -7,6 +7,7 @@ import javafx.scene.control.Button;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -20,6 +21,32 @@ public final class ScreensProbe {
     static void place() {
         var screen=javafx.stage.Screen.getScreens().get(index);
         child.setX(screen.getVisualBounds().getMinX()+40); child.setY(screen.getVisualBounds().getMinY()+40);
+    }
+    private static String pendingState() throws InterruptedException {
+        var snapshot = new FutureTask<String>(() -> {
+            if (root == null || child == null) return "stages not created";
+            var childPeer = WindowHelper.getPeer(child);
+            var screens = com.sun.glass.ui.Screen.getScreens();
+            boolean ready = index < screens.size();
+            long handle = childPeer == null ? 0 : childPeer.getRawHandle();
+            var peer = com.sun.glass.ui.Window.getWindows().stream()
+                    .filter(window -> window.getNativeWindow() == handle).findFirst().orElse(null);
+            return "index=" + index + " screens=" + screens.size() + " title=" + root.getTitle()
+                    + " childShowing=" + child.isShowing() + " handle=" + handle
+                    + " screenMatches=" + (ready && peer != null && peer.getScreen() == screens.get(index))
+                    + " xy=(" + child.getX() + "," + child.getY() + ")"
+                    + (ready ? " expected=(" + (screens.get(index).getVisibleX() + 40) + ","
+                            + (screens.get(index).getVisibleY() + 40) + ")" : "");
+        });
+        Platform.runLater(snapshot);
+        try {
+            return snapshot.get(1, TimeUnit.SECONDS);
+        } catch (java.util.concurrent.TimeoutException timeout) {
+            snapshot.cancel(false);
+            return "FX thread did not answer within one second";
+        } catch (java.util.concurrent.ExecutionException error) {
+            return "FX state unavailable: " + error.getCause();
+        }
     }
     public static void main(String[] args) throws Exception {
         Platform.startup(() -> {
@@ -67,9 +94,13 @@ public final class ScreensProbe {
                 }
             }.start();
         });
-        boolean completed=done.await(30,TimeUnit.SECONDS); Platform.exit();
-        if(failure.get()!=null) throw new AssertionError(failure.get());
-        require(completed,"Screen enumeration/window association timed out");
+        try {
+            if (!done.await(30,TimeUnit.SECONDS))
+                throw new AssertionError("Screen enumeration/window association timed out: " + pendingState());
+            if (failure.get()!=null) throw new AssertionError(failure.get());
+        } finally {
+            Platform.exit();
+        }
         System.out.println("SCREENS_PROBE_PASS count="+data.length/10);
     }
 }

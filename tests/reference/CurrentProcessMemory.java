@@ -1,18 +1,22 @@
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
+import java.lang.management.ManagementFactory;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
-/** Read-only per-OS metrics for this JVM's own host process (Windows x64 and macOS). */
+/** Read-only per-OS metrics for the JVM hosting the media pipeline. */
 final class CurrentProcessMemory {
     private static final long ORIGIN=System.nanoTime();
     private static final String OS=System.getProperty("os.name","");
     private static final boolean MAC=OS.startsWith("Mac");
+    private static final boolean LINUX=OS.equals("Linux");
     private static final MethodHandle CURRENT, MEMORY, HANDLES;
     static {
-        if(MAC) {
+        if(MAC || LINUX) {
             CURRENT=null;MEMORY=null;HANDLES=null;
         } else {
             if(!OS.startsWith("Windows") || ValueLayout.ADDRESS.byteSize()!=8)
-                throw new UnsupportedOperationException("Process metrics require Windows x64 or macOS");
+                throw new UnsupportedOperationException("Unsupported process metrics platform: " + OS);
             var lookup=SymbolLookup.libraryLookup("kernel32.dll",Arena.global());
             var linker=Linker.nativeLinker();
             CURRENT=linker.downcallHandle(lookup.find("GetCurrentProcess").orElseThrow(),FunctionDescriptor.of(ValueLayout.ADDRESS));
@@ -25,7 +29,23 @@ final class CurrentProcessMemory {
     }
     static void report(String prefix,int cycle) throws Throwable {
         long privateBytes,workingSet,handles;
-        if(MAC) {
+        if (LINUX) {
+            long rss = -1, clean = -1, dirty = -1, huge = 0;
+            for (String line : Files.readAllLines(Path.of("/proc/self/smaps_rollup"))) {
+                String[] fields = line.trim().split("\\s+");
+                switch (fields[0]) {
+                    case "Rss:" -> rss = Long.parseLong(fields[1]);
+                    case "Private_Clean:" -> clean = Long.parseLong(fields[1]);
+                    case "Private_Dirty:" -> dirty = Long.parseLong(fields[1]);
+                    case "Private_Hugetlb:" -> huge = Long.parseLong(fields[1]);
+                }
+            }
+            if (rss <= 0 || clean < 0 || dirty < 0) throw new IllegalStateException("Incomplete smaps_rollup");
+            workingSet = Math.multiplyExact(rss, 1024L);
+            privateBytes = Math.multiplyExact(clean + dirty + huge, 1024L);
+            handles = ManagementFactory.getPlatformMXBean(com.sun.management.UnixOperatingSystemMXBean.class)
+                    .getOpenFileDescriptorCount();
+        } else if(MAC) {
             // FFM downcalls to proc_pid_rusage/proc_pidinfo reliably crash this
             // JDK (Temurin 25.0.5+8, aarch64 C2: compiledIC "stub not found" and
             // metaspace corruption), so sample the process from userland tools:
