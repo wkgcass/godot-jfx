@@ -245,10 +245,11 @@ GPU/GUI 测试串行执行；性能测试期间保持窗口前台，不进行其
 | --- | --- | --- | --- |
 | Windows | `-Driver d3d12`、`-Driver vulkan`、`-Driver opengl` | D3D12 | `run-windows-tests.ps1 -Driver all` |
 | macOS | `--driver metal`、`--driver opengl` | Metal | `run-macos-tests.py --driver all` |
+| Linux x64（Wayland） | `--driver vulkan`、`--driver opengl` | Vulkan | `run-linux-tests.py --driver all`，WSL2 使用[隔离桌面](#linux-原生-wayland-窗口) |
 
 Demo、Shader 和 Effect 观察器，以及 Unicode 路径的目录和 PCK 验收，均由标准 JavaFX 入口自动启动 Godot。仅 `LibraryLifecycle` 的专用 API 用例显式初始化，以检查重复调用、并发、失败传播和冲突配置。
 
-Python 发布验收脚本在两平台均使用 `--driver`。普通 JavaFX 应用使用 `-Djavafx.godot.driver=<驱动>`，Demo JAR 也接受 `-jar vfx-demo.jar --driver <驱动>`。引擎日志使用 Godot 原生名称，`opengl` 对应 `opengl3`。原生 JavaFX 对照通过 `-NativeD3D` 或 `-Backend d3d` 启动，该档省略 Godot 的 `-Driver`。
+Python 发布验收脚本在三个平台均使用 `--driver`。普通 JavaFX 应用使用 `-Djavafx.godot.driver=<驱动>`，Demo JAR 也接受 `-jar vfx-demo.jar --driver <驱动>`。引擎日志使用 Godot 原生名称，`opengl` 对应 `opengl3`。原生 JavaFX 对照通过 `-NativeD3D` 或 `-Backend d3d` 启动，该档省略 Godot 的 `-Driver`。
 
 Windows DLL 回归用 `./scripts/run-windows-tests.ps1 -Group NonRobot` 或获得授权后的 `-Group Robot`。两组都支持 `-List` 预览。Robot 组包含系统虚拟键盘、原生 IME、文件对话框、外部拖放和显式物理输入档，即使没有移动鼠标，只要入口会唤起触摸键盘也归入这一组。虚拟键盘的 `-CompileOnly` 只编译，`test-tabtip-result.cmd` 使用模拟接口，均不请求系统键盘。NonRobot 也运行上节的模块路径、Shadow 和完整 Demo JAR 三个 Python 验收入口。
 
@@ -265,7 +266,7 @@ Windows DLL 回归用 `./scripts/run-windows-tests.ps1 -Group NonRobot` 或获�
 
 默认的 `-Cases All` 还覆盖支持 `-Runtime` 的独立项目和专项渲染场景，包括 GodotView 变换、命令批次边界、快照读回、媒体样本和窗口生命周期。用 `-Cases Default` 或 `-Cases Variants` 可分别运行基础用例或专项用例；`-List` 打印实际参数。可调的循环次数、采样时长和性能分析开关沿用各入口的专项说明。
 
-运行前重新构建并发布 Godot 共享库，然后用 `python scripts/maven_local.py install --runtime artifacts/godot-library` 刷新本地测试模块。场景夹具、模块路径应用、Shadow 消费者和 Demo JAR 均用 JVM 属性 `-Djavafx.godot.driver=<驱动>` 选择驱动。脚本的 `-Driver` 或 `--driver` 会传入该属性；单项脚本与回归运行器共用同一启动入口。Windows 和 macOS 的回归运行器从本用例新写入的场景日志逐份检查 `Using Device` 行，同一用例启动多个夹具时分别核对。用例日志保留设备原文。模块路径、Shadow 和 Demo JAR 测试直接核对各自 JVM 的启动日志。原生 JavaFX 对照、纯 CPU 测试和引擎启动前即被拒绝的配置无需设备行。结果目录的 `results.csv` 按用例和驱动记录退出码、耗时及日志位置；场景日志和截图按驱动分别留存。三个 Python 发布测试的日志给出各自的验收位置。
+运行前重新构建并发布 Godot 共享库，然后用 `python scripts/maven_local.py install --runtime artifacts/godot-library` 刷新本地测试模块。场景夹具、模块路径应用、Shadow 消费者和 Demo JAR 均用 JVM 属性 `-Djavafx.godot.driver=<驱动>` 选择驱动。脚本的 `-Driver` 或 `--driver` 会传入该属性；单项脚本与回归运行器共用同一启动入口。回归运行器从本用例新写入的场景日志逐份检查 `Using Device` 行，同一用例启动多个夹具时分别核对。用例日志保留设备原文。模块路径、Shadow 和 Demo JAR 测试直接核对各自 JVM 的启动日志。原生 JavaFX 对照、纯 CPU 测试和引擎启动前即被拒绝的配置无需设备行。结果目录的 `results.csv` 按用例和驱动记录退出码、耗时及日志位置；场景日志和截图按驱动分别留存。三个 Python 发布测试的日志给出各自的验收位置。
 
 **前台与真实输入要求要分别判断**：Godot 合成输入和模块测试钩子不占用真实键鼠，但是否允许失焦取决于夹具；只有明确注明免前台的测试（如 ole-inject）才可据此后台运行。性能比较始终要求保持焦点并避免其他重负载。Robot 物理夹具会占用输入设备，须先获得用户授权、保持桌面空闲；同一会话中已有明确授权且未撤销时不必重复询问，开始前说明会操作真实输入。原生 IME 夹具（`test-native-ime.ps1` / `test-native-ime.sh`）调用 `DisplayServer.warp_mouse` 移动系统光标，运行非物理输入测试时须排除整个入口。文件对话框专项使用限定本轮进程/标题的系统消息驱动，具体方式见该节。GPU/GUI 测试仍串行执行。
 
@@ -273,7 +274,7 @@ Windows DLL 回归用 `./scripts/run-windows-tests.ps1 -Group NonRobot` 或获�
 
 ## 驱动配置验收
 
-在仓库根目录运行 `python scripts/maven_local.py install --runtime artifacts/godot-library` 准备本平台的发布模块，使用 JDK 25。Windows 用 `python`，macOS 也可用 `python3`。
+在仓库根目录运行 `python scripts/maven_local.py install --runtime artifacts/godot-library` 准备本平台的发布模块，使用 JDK 25。Windows 用 `python`，macOS 和 Linux 可用 `python3`。
 
 ```sh
 python scripts/test-driver-config.py
@@ -281,13 +282,13 @@ python scripts/test-driver-config.py --driver opengl
 python scripts/test-driver-config.py --driver all
 ```
 
-**Windows 和 macOS 均以 Godot 的 `Using Device` 设备行判定实际驱动。** 每次需要验收驱动的引擎启动都须输出一条设备行。行首的 `D3D12`、`Vulkan`、`Metal`、`OpenGL API` 分别对应 `d3d12`、`vulkan`、`metal`、`opengl`。设备行缺失、重复、API 无法识别、与预期不符，或宿主标记 `GODOT_LIBRARY_DRIVER` 缺失或不一致，均判失败。M1、网格变换、生成着色器、渲染线程退出和 Demo 启动脚本单独运行时也执行这项检查。
+**三个平台均以 Godot 的 `Using Device` 设备行判定实际驱动。** 每次需要验收驱动的引擎启动都须输出一条设备行。行首的 `D3D12`、`Vulkan`、`Metal`、`OpenGL API` 分别对应 `d3d12`、`vulkan`、`metal`、`opengl`。设备行缺失、重复、API 无法识别、与预期不符，或宿主标记 `GODOT_LIBRARY_DRIVER` 缺失或不一致，均判失败。M1、网格变换、生成着色器、渲染线程退出和 Demo 启动脚本单独运行时也执行这项检查。
 
 驱动配置专测为每种配置启动一个新的普通 JavaFX 应用 JVM，同时核对窗口启动与关闭。控制台的 `actual` 来自设备行。例如 `OpenGL API … - Using Device: …` 对应 `actual=opengl`，宿主标记应为 `opengl3`。
 
-应用显示窗口后，测试用 JDK 25 的 `jcmd <PID> VM.dynlibs` 读取该 JVM 已加载的动态库，完整清单保存在同一日志目录的 `<配置>-modules.txt`。Windows 还要求存在 `godot.dll` 和对应的 API 库（`D3D12.dll`、`vulkan-1.dll` 或 `opengl32.dll`）；macOS 检查 `libgodot.dylib`，并列出观察到的 Metal/OpenGL 框架。多个 API 库可以同时出现，活动后端由 `Using Device` 行判定。macOS 真机复测时也需核对动态库清单。
+应用显示窗口后，测试用 JDK 25 的 `jcmd <PID> VM.dynlibs` 读取该 JVM 已加载的动态库，完整清单保存在同一日志目录的 `<配置>-modules.txt`。Windows 还要求存在 `godot.dll` 和对应的 API 库（`D3D12.dll`、`vulkan-1.dll` 或 `opengl32.dll`）；macOS 检查 `libgodot.dylib` 并列出观察到的 Metal/OpenGL 框架，Linux 检查 `libgodot.so`。多个 API 库可以同时出现，活动后端由 `Using Device` 行判定。macOS 真机复测时也需核对动态库清单。
 
-无参数时只测平台默认后端，同时覆盖省略 JVM 属性、显式传入默认值和拒绝无效值。单选其他驱动只启动一次。`--driver all` 在 Windows 上覆盖 D3D12、Vulkan、OpenGL，在 macOS 上覆盖 Metal 和 OpenGL。此用例已纳入两平台 NonRobot 组。macOS 真机验收需运行全驱动命令并核对本机 GPU。
+无参数时只测平台默认后端，同时覆盖省略 JVM 属性、显式传入默认值和拒绝无效值。单选其他驱动只启动一次。`--driver all` 在 Windows 上覆盖 D3D12、Vulkan、OpenGL，在 macOS 上覆盖 Metal 和 OpenGL，在 Linux 上覆盖 Vulkan 和 OpenGL。三个平台的 NonRobot 组均包含此用例。WSL2 可用 `scripts/wsl-wayland-session.sh --isolate-wslg scripts/run-linux-tests.py --test test-driver-config --driver all`，由运行器为每个驱动选择对应的 GPU 环境。macOS 真机验收需运行全驱动命令并核对本机 GPU。
 
 ## macOS arm64 入口
 

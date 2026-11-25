@@ -1,6 +1,6 @@
 # Acceptance status
 
-Last cross-platform review on 2026-11-19. This page describes the supported configuration and
+The 2026-11-26 Wayland merge review covered Windows x64 and WSL2 Linux x64. Full post-merge regression on macOS arm64 is pending. This page describes the supported configuration and
 validation limits. Earlier implementation rounds and removed-mode measurements
 are historical evidence in [progress](../agentdir/docs/progress.md) and Git history; current
 commands are in [TESTS.md](../TESTS.md).

@@ -1,6 +1,6 @@
 # Linux x64 源码构建与 WSL2 运行
 
-此副本已在 `Ubuntu-WSL2` 的 Linux 文件系统中构建。Linux 回归使用隔离 Weston 上的原生 Wayland 窗口。WSLg 在 Windows 桌面的显示和交互单独验证。Vulkan 对应 `mobile`，桌面 OpenGL 对应 `gl_compatibility`。可用下面的 PowerShell 命令进入已验证的工作目录。
+Linux x64 已在 `Ubuntu-WSL2` 的 Linux 文件系统中构建并验证。Linux 回归使用隔离 Weston 上的原生 Wayland 窗口。WSLg 在 Windows 桌面的显示和交互单独验证。Vulkan 对应 `mobile`，桌面 OpenGL 对应 `gl_compatibility`。可用下面的 PowerShell 命令进入已验证的工作目录。
 
 ```powershell
 wsl.exe -d Ubuntu-WSL2 --cd /home/wkgcass/godot-jfx-wsl2
@@ -43,6 +43,8 @@ sudo apt install libpulse0 libasound2-plugins
 ```bash
 sudo apt install libavcodec62 libavformat62 libavutil60 libswscale9
 ```
+
+WSLg 上，JavaFX Media 的 GStreamer 音频输出通过 ALSA 的 PulseAudio 插件连接到系统音频服务。本机用 Vulkan 和 OpenGL 运行时均连接到双声道 `RDPSink`。若使用私有运行库，`scripts/wsl-gpu.sh` 会将 `.tools/linux/pulse` 中的 PulseAudio 库和 `.tools/linux/ffmpeg-runtime` 中的 FFmpeg 8 库加入子进程的库搜索路径。私有 ALSA 配置和插件就绪时，脚本通过 `ALSA_CONFIG_PATH` 将默认 PCM 设备接入 WSLg。
 
 构建和运行需要带桌面组件的完整 Linux x64 JDK 25。已有 JDK 时，将 `JAVA_HOME` 指向其目录即可。本机使用 `$HOME/graalvm-jdk-25.0.3+9.1`。使用 Ubuntu 提供的 JDK 时执行：
 

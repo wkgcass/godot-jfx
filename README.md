@@ -6,10 +6,7 @@ JavaFX retains its Application Thread, render jobs, scene graph, controls, CSS
 and FXML. The primary Stage uses the Godot root window; additional Stages use
 independent Godot-owned native windows. GodotView embeds a Godot 2D scene inside
 JavaFX, and GodotShaderEffect applies CanvasItem shaders to individual nodes.
-Windows x64 is the reference platform. The macOS arm64 library targets Metal and OpenGL. Build steps are in
-[macOS source builds](docs/build-macos.md) and platform-specific limits in the
-macOS sections of [acceptance status](docs/acceptance-status.md) and
-[TESTS.md](TESTS.md).
+Windows x64 is the reference platform. Linux x64 uses native Wayland windows and has been validated on WSL2 with Vulkan and OpenGL. See the build guides for [Windows](docs/build-windows.md), [macOS](docs/build-macos.md) and [Linux](docs/build-linux.md).
 
 The VFX Demo builds against the local JavaFX SDK. Its Intro menu now includes an
 optional Blackhole Effect on the Demo content VSceneGroup and a Ripple Effect
@@ -19,37 +16,13 @@ implementation, not a declaration of complete JavaFX
 compatibility. See [acceptance status](docs/acceptance-status.md) for evidence and
 remaining work. The user's remaining white-edge issue is explicitly waived.
 
-## 阅读入口
+## Project guides and demos
 
-Linux x64 副本已在 WSL2 原生 Wayland 上构建，VFX 和两个独立 Demo 均在 Vulkan 和 OpenGL 上运行通过。344 项回归已全部执行，同一发行包计入复测后，非 Robot 通过 312/322 项，Robot 通过 20/22 项。余下 12 项涉及全局窗口层级、绝对定位、置底或应用主动取消最小化，见 [Linux 验收记录](docs/acceptance-status.md#linux-x64-on-wsl2)。环境变量、构建顺序、两个额外 Demo 的打包命令及 WSLg 双后端启动示例见 [Linux x64 构建与运行](docs/build-linux.md)。Linux 源码构建入口为
-`scripts/build-linux.sh --target godot-editor|godot-library|jfx`，可用
-`--jobs N` 控制并发；共享库和 JavaFX SDK 构建需要 Linux JDK 25。
-Linux 窗口验收目标为原生 Wayland，驱动目标为 `vulkan`（mobile）和 `opengl`（gl_compatibility）。
-Linux 宿主通过 Wayland 创建窗口和交换拖放数据，使用 GTK 3 显示原生文件对话框。构建需要 Wayland、xkbcommon 和 GTK 3 开发文件。
-Linux 发布入口为 `scripts/build-vfx.sh`，从源码 SDK 和 Godot 共享库暂存
-`linux` classifier 后再打包；两个独立 Demo 各自通过 Gradle 的
-`shadowJar` 任务调用 Linux Editor 导出场景。打包不等于运行验收。
-WSL2 可直接运行 `scripts/run-vfx-demo.sh`（默认 Vulkan）或加 `--driver opengl`；启动脚本检测到 `/dev/dxg` 后自动选择对应的 GPU 环境。
-其他命令可用 `scripts/wsl-gpu.sh vulkan|opengl COMMAND ...` 为单次运行选择 Mesa
-后端。Ubuntu WSL2 的 Vulkan 驱动 Dozen 由 `python3 scripts/setup-env.py` 准备（可用 `WSL_DZN_ROOT` 指定根目录），
-OpenGL 使用 Gallium D3D12；启动 Java 时仍需选择匹配的 `javafx.godot.driver`。
-在 Intel Arc B390 的隔离 Wayland 桌面上，同一份 Linux VFX JAR 已分别用 Vulkan 和 OpenGL 启动、关闭，并验证主窗口和所属窗口的标题栏拖动。两个独立 Demo 也在双后端运行：三棱锥检查暂停、拖动与恢复，房间检查墙面设备和鼠标捕获。35 页画面对照、往返导航及资源计数按发布版本记录在 [VFX 验收](docs/vfx-demo.md) 和 [内存验证](docs/memory-validation.md)。
-
-运行图形回归用 `scripts/wsl-wayland-session.sh --isolate-wslg` 隔离 Windows 桌面和输入设备。常规 xdg-shell 应用不能指定顶层窗口的绝对桌面坐标、读取全局层级或主动撤销最小化；模态窗口关闭时的焦点时序另见 [窗口验收与限制](docs/acceptance-status.md#linux-x64-on-wsl2)。
-WSLg 音频需能加载 PulseAudio 客户端；本机两种渲染后端均连接到双声道
-`RDPSink`。如果将发行版的 PulseAudio 客户端及其依赖解包在
-`.tools/linux/pulse`，启动脚本会为子进程添加对应的库目录。
-Linux JavaFX Media 的 GStreamer 音频输出使用 ALSA。本机在私有目录内提供
-ALSA 的 PulseAudio 插件，并用进程级 `ALSA_CONFIG_PATH` 将默认 PCM 接入
-WSLg。FFmpeg 8 的运行库及缺失依赖位于 `.tools/linux/ffmpeg-runtime`，
-启动脚本将其加入当前进程的库搜索路径。
-使用带桌面组件的完整 JDK 25。Wayland 剪贴板通过当前座席的 MIME 数据交换，桌面 Robot 则需要合成器提供虚拟键鼠和图像捕获协议。隔离 Linux 桌面的剪贴板测试不证明与 Windows 应用之间的互操作。
-
-- [AGENTS.md](AGENTS.md)：构建、运行、仓库约束与文档地图。
-- [TESTS.md](TESTS.md)：按用途选择测试，查看前置条件、命令和验收方式。
-- [架构说明](docs/architecture.md)：从组件分工到画面、输入、线程和资源生命周期。
-- [彩色三棱锥 Demo](demo/001-3d-in-javafx/README.md)：在 JavaFX 控件里嵌入 Godot 3D 场景，用按钮控制自转、用鼠标拖动视角。
-- [栖居 · 房间控制 Demo](demo/002-3d-contains-javafx/README.md) 将 JavaFX 的 VFX 控件装在 Godot 房间的墙上，用准星操作灯光和空调。
+- [Repository guide](AGENTS.md) covers builds, launch commands and repository conventions.
+- [Test guide](TESTS.md) lists prerequisites, commands and acceptance criteria by test.
+- [Architecture](docs/architecture.md) explains how input, rendering, threads and resource ownership fit together.
+- [Pyramid demo](demo/001-3d-in-javafx/README.md) embeds a Godot 3D scene in JavaFX. Use its buttons to control rotation and drag to orbit the scene.
+- [Room controls demo](demo/002-3d-contains-javafx/README.md) places JavaFX controls on a Godot room's walls. Use the crosshair to operate the lights and air conditioning.
 
 ## Build and run
 
@@ -67,12 +40,13 @@ java -jar artifacts/vfx/libs/vfx-demo.jar
 | --- | --- | --- |
 | Windows x64 | `d3d12` (Direct3D 12) | `vulkan`, `opengl` |
 | macOS arm64 | `metal` | `opengl` |
+| Linux x64 (Wayland) | `vulkan` | `opengl` |
 
 JavaFX applications and the VFX Demo start Godot automatically with the platform default.
 To select a driver, pass `-Djavafx.godot.driver=<driver>` before `-jar` or the main class.
 For example, `java "-Djavafx.godot.driver=vulkan" -jar artifacts/vfx/libs/vfx-demo.jar`
 selects Vulkan on Windows. The Demo also accepts `--driver` after the JAR name, such as
-`java -jar artifacts/vfx/libs/vfx-demo.jar --driver opengl` on either platform.
+`java -jar artifacts/vfx/libs/vfx-demo.jar --driver opengl` on all three platforms.
 Neither form requires a Godot project file.
 
 To confirm the active driver, read the graphics API at the start of the engine’s
@@ -82,12 +56,10 @@ After installing the test modules, run `python scripts/test-driver-config.py --d
 to verify each driver on the current platform. [Driver configuration test](TESTS.md#驱动配置验收)
 
 Both `scripts/run-vfx-demo.ps1` and `scripts/run-vfx-demo.sh` launch this JAR
-by default. Add `-Smoke` on Windows or `--smoke` on macOS for a bounded run.
-Build the Windows x64 JAR on Windows and the macOS arm64 JAR on macOS.
-The standalone Intro JAR has been launched on both platforms. See [acceptance status](docs/acceptance-status.md).
+by default. Add `-Smoke` on Windows or `--smoke` on macOS and Linux for a bounded run.
+Build each JAR on its target OS and architecture. On WSLg, use `./scripts/run-vfx-demo.sh` to select the GPU environment for Vulkan or OpenGL. The packaged Intro Demo has run on all three platforms. [Acceptance results](docs/acceptance-status.md)
 
-Use PowerShell 7.4.1 or later (`pwsh`) at this directory (macOS uses the shell equivalents in
-[macOS source builds](docs/build-macos.md)). The scripts use JDK 25 from `JAVA_HOME`
+On Windows, use PowerShell 7.4.1 or later (`pwsh`) at the repository root. The scripts use JDK 25 from `JAVA_HOME`
 (or an explicit `-Jdk` override), Visual Studio 2022/MSVC, Windows SDK and
 SCons 4.10.1.
 For initial dependency setup and alternate JDK paths, follow
@@ -111,6 +83,16 @@ On macOS arm64, set `JAVA_HOME` to your JDK 25 home and run the corresponding co
 ./scripts/build-vfx.sh
 ```
 
+On Linux x64, install the platform packages and set `JAVA_HOME` to a Linux JDK 25 before running these commands from Bash. [Ubuntu dependencies and WSLg setup](docs/build-linux.md#构建环境)
+
+```sh
+python3 scripts/setup-env.py
+./scripts/build-linux.sh --target godot-editor
+./scripts/build-linux.sh --target godot-library
+./scripts/build-linux.sh --target jfx
+./scripts/build-vfx.sh
+```
+
 To preview a project clean, run `python scripts/clean.py --dry-run` (macOS and Linux:
 `./scripts/clean.py --dry-run`). Omit `--dry-run` to clean the current
 platform's Godot editor and shared library with SCons, run OpenJFX's Gradle
@@ -131,7 +113,7 @@ and `artifacts/scene-fixtures-*`, including their Godot import caches. It also r
 state. Tests recreate the projects they need from `tests/godot`. The same target
 cleans `artifacts/pulse-stop-patch/` and `artifacts/texture-cancellation-patch/`.
 Both probes recompile their module patches from the JFX sources on every run.
-It also removes `tests/wayland/__pycache__/` when present and `artifacts/native-tests/`. The Windows and macOS test scripts
+It also removes `tests/wayland/__pycache__/` when present and `artifacts/native-tests/`. The test scripts
 rebuild their native tests and helpers from repository sources when needed.
 It removes the entire `artifacts/reference/` directory, including compiled
 probes, generated fixtures, screenshots and reports. Archive any results you
@@ -152,12 +134,12 @@ The OpenJFX clean also removes `jfx/buildSrc/build` and suppresses the HTML
 report in `jfx/build/reports`. It invokes Apache Ant for the sample applications.
 The JFX scripts use `ANT_HOME` when set and otherwise use
 `.tools/apache-ant-1.10.15` in the checkout. Run `python scripts/setup-env.py`
-on Windows or `./scripts/setup-env.py` on macOS to initialize missing Godot,
+on Windows or `./scripts/setup-env.py` on macOS and Linux to initialize missing Godot,
 JFX and VFX submodules and prepare the build dependencies under `.tools/`.
 The submodule URLs in `.gitmodules` use GitHub SSH. Setup prepares the Oracle
 sample and `Lk.mp4` in `agentdir/media/` and reuses each after checking its
-SHA-256. See the [Windows](docs/build-windows.md#tool-installation-paths) and
-[macOS](docs/build-macos.md#toolchain) guides for system prerequisites.
+SHA-256. See the [Windows](docs/build-windows.md#tool-installation-paths),
+[macOS](docs/build-macos.md#toolchain) and [Linux](docs/build-linux.md#构建环境) guides for system prerequisites.
 
 On Windows, the launcher, regression runner and individual rendering tests default to Godot D3D12 (`mobile`)
 with `safe` threading. Use `scripts/run-windows-tests.ps1 -Group NonRobot -Test test-godot-view`
@@ -174,7 +156,7 @@ the normal launcher remains interactive until the Demo is closed.
 
 ## Implementation and delivery map
 
-On Windows x64 and macOS arm64, a JavaFX application can ship as a single Shadow JAR and start with `java -jar app.jar` on JDK 25. The application's Stage controls the window. A regular application needs no Godot project. An application that embeds a custom GodotView scene can include its resource pack in the same JAR. Build the source SDK and publish its platform artifacts for the application build. [Single-JAR specification](docs/godot-library-spec.md) · [Windows build instructions](docs/build-windows.md#java-launched-library).
+On Windows x64, macOS arm64 and Linux x64, a JavaFX application can ship as a single Shadow JAR and start with `java -jar app.jar` on JDK 25. The application's Stage controls the window. A regular application needs no Godot project. An application that embeds a custom GodotView scene can include its resource pack in the same JAR. Build the source SDK and publish its platform artifacts for the application build. [Single-JAR specification](docs/godot-library-spec.md) · [Windows build instructions](docs/build-windows.md#java-launched-library).
 
 | Area | Source / documentation |
 | --- | --- |
@@ -215,12 +197,10 @@ Run `./scripts/capture-vfx-reference.py` for the native JavaFX Metal reference, 
 - WebKit support is excluded by the user. Media native SDK build, silent PCM
   and local MP4 MediaView playback pass. Encoded 1080p60 and the documented
   120-player churn pass their bounded acceptance checks; physical audio output,
-  A/V synchronization and broader codec/workload coverage remain unverified. System menus and
-  the virtual keyboard remain unsupported.
-  Windows native file/directory choosers are implemented; see docs/glass-godot.md
-  for validation and the current single-active-chooser limit.
-  Application-local drag/drop is implemented; cross-application OLE transfer and
-  drag preview/cursor feedback remain incomplete.
+  A/V synchronization and broader codec/workload coverage remain unverified. System menus remain unsupported.
+  File choosers use the Windows native dialog, the macOS system panel or GTK 3 on Linux.
+  External drag and drop uses OLE on Windows, Cocoa on macOS and the Wayland data-device protocol on Linux.
+  Platform-specific input and window limitations are recorded in [Glass-Godot](docs/glass-godot.md).
   Robot keyboard/mouse and desktop pixel capture pass Vulkan/OpenGL and packaged
   Vulkan Runtime at 2× DPI. OS-synthesized input also passes the seven application-local
   drag/drop cases; this does not prove cross-application OLE transfer.
@@ -228,7 +208,7 @@ Run `./scripts/capture-vfx-reference.py` for the native JavaFX Metal reference, 
   for text, HTML, RTF, URLs, file lists, bitmap pixels and a custom format.
   The test overwrites the system clipboard and leaves its final contents in place.
 - Physical IME/device input, mixed-monitor transitions and OS-desktop visual
-  acceptance remain incomplete. 3D is outside the requested 2D scope.
+  acceptance remain incomplete. JavaFX 3D is outside the requested scope. The two standalone 3D demos use Godot to render their scenes.
 
 Subsystem documents provide reproducible test commands and explain their limits.
 Compilation or a single passing fixture does not establish overall completion.

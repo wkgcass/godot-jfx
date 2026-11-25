@@ -11,9 +11,10 @@ or pass `--driver opengl` after the Demo JAR name for OpenGL. The Demo CLI takes
 precedence over the JVM property. JavaFX starts the host automatically after the Demo configures the driver and startup window.
 On macOS, omit the property for the Metal default or use
 `java -Djavafx.godot.driver=metal -jar artifacts/vfx/libs/vfx-demo.jar` to request Metal explicitly.
+On Linux, `./scripts/run-vfx-demo.sh --smoke` uses Vulkan/mobile. Add `--driver opengl` for OpenGL/gl_compatibility. On WSL2 the launcher selects the matching Mesa GPU environment.
 To check startup and shutdown, add `--smoke` to the JAR command. This starts the
 same Intro UI, checks the visible Stage and its menu, then sends a close request.
-[Windows build](build-windows.md) · [macOS build](build-macos.md).
+[Windows build](build-windows.md) · [macOS build](build-macos.md) · [Linux build](build-linux.md).
 
 The host uses Viewport + safe on mobile or OpenGL. Dated RD/separate results
 below describe prior builds, not current backend choices or current-build

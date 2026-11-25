@@ -70,11 +70,11 @@ Godot 收到系统窗口事件后，记录窗口身份、坐标、按键或输�
 
 系统剪贴板让不同程序交换复制的内容。当前适配层支持文本、HTML、RTF、URL、图片、文件列表和约定名称的自定义格式；例如 URL 使用 Unicode 字符串保存中文地址。写入前先检查数据是否合法，再替换系统内容，避免错误参数清掉原有内容。系统互操作测试直接覆盖剪贴板并检查原生对端读取的数据。
 
-拖放是“拖出数据 → 判断目标是否接收 → 放下或取消”的过程，不只是按住鼠标移动。当前应用内拖放使用单独的数据容器，支持在同一窗口或两个 Stage 之间传递内容；它不会覆盖用户的系统剪贴板。JavaFX 负责触发控件的拖放回调，适配层负责传递坐标、协商复制/移动/链接操作，并在完成或取消时清理状态。跨应用拖放已接入 Windows 的 OLE 数据交换机制：它让两个进程协商要传递的格式及是否接收（macOS 上使用系统的 Cocoa 拖放协议完成同样的事）。当前真实辅助窗口测试已验证双向文本、URL、文件、自定义数据和拖动图像；这不代表所有外部应用都已验证。
+拖放是“拖出数据 → 判断目标是否接收 → 放下或取消”的过程，不只是按住鼠标移动。当前应用内拖放使用单独的数据容器，支持在同一窗口或两个 Stage 之间传递内容；它不会覆盖用户的系统剪贴板。JavaFX 负责触发控件的拖放回调，适配层负责传递坐标、协商复制/移动/链接操作，并在完成或取消时清理状态。跨应用拖放已接入 Windows 的 OLE 数据交换机制，让两个进程协商要传递的格式及是否接收。macOS 使用 Cocoa 拖放，Linux 通过 Wayland 合成器在拖放双方之间传递数据。当前真实辅助窗口测试已验证双向文本、URL、文件、自定义数据和拖动图像；这不代表所有外部应用都已验证。
 
 外部拖放可能在 Java 程序退出时到达。为避免回调进入已经销毁的 Java 运行环境，适配层用同一把锁协调“允许回调进入”和“关闭入口”：已进入的回调先完成并释放临时数据，退出线程随后关闭入口，再释放桥接资源。入口关闭后的拖放直接拒绝。这里的锁只保护拖放回调，不参与逐帧绘制。
 
-文件对话框、Robot 和剪贴板也属于 Glass 的系统接口。它们不必由 Godot 绘制：当前文件对话框使用 Windows 原生界面，并关联 Godot 管理的实际窗口。例如子窗口打开文件选择器时，适配层会暂时禁止操作它和它的上级所属窗口，关闭选择器后恢复；等待选择期间仍处理 JavaFX 事件和动画。Windows 对话框在单独的系统线程运行，Godot 宿主退出时负责协调关闭。目前一次只允许打开一个文件或目录选择器。macOS 上同一套“提交请求、等待结果、可取消”的约定由系统的 NSOpenPanel/NSSavePanel 面板承担。Robot 是 JavaFX 提供的模拟键鼠、读取屏幕像素的工具。在 Windows 上它通过 Windows 系统接口发送输入和截图，在 macOS 上改用 CoreGraphics 系统接口；两者都把 JavaFX 的逻辑坐标转换成显示器像素坐标，例如 2× 缩放下，20 个界面单位的截图可以保留为 40 个实际像素。这个按需截图功能与普通控件的 GPU 绘制是不同路径，不参与每帧显示。这些功能的实现与验证情况见验收清单。
+文件对话框、Robot 和剪贴板也属于 Glass 的系统接口。它们不必由 Godot 绘制：当前文件对话框使用 Windows 原生界面，并关联 Godot 管理的实际窗口。例如子窗口打开文件选择器时，适配层会暂时禁止操作它和它的上级所属窗口，关闭选择器后恢复；等待选择期间仍处理 JavaFX 事件和动画。Windows 对话框在单独的系统线程运行，Godot 宿主退出时负责协调关闭。目前一次只允许打开一个文件或目录选择器。macOS 上同一套“提交请求、等待结果、可取消”的约定由系统的 NSOpenPanel/NSSavePanel 面板承担。Linux 使用 GTK 3 文件选择器，并通过 Wayland 关联所属窗口。Robot 是 JavaFX 提供的模拟键鼠、读取屏幕像素的工具。在 Windows 上它通过 Windows 系统接口发送输入和截图，在 macOS 上改用 CoreGraphics 系统接口；两者都把 JavaFX 的逻辑坐标转换成显示器像素坐标，例如 2× 缩放下，20 个界面单位的截图可以保留为 40 个实际像素。Linux 的 Robot 依赖 Wayland 合成器提供虚拟输入和屏幕捕获协议，所以测试会选择提供这些协议的桌面。三个平台都只在应用请求截图时读取屏幕像素。这些功能的实现与验证情况见验收清单。
 
 ## Stage 与 GodotView 的区别
 
@@ -133,7 +133,7 @@ JavaFX 宿主只保留 Viewport＋safe：通过 Godot 视口生成纹理，并�
 | --- | --- |
 | JavaFX 加载和启动 Godot 引擎 | `jfx/modules/javafx.graphics/src/main/java/com/sun/javafx/tk/godot/LibraryGodotEngine.java`、`native/godot_modules/javafx/javafx_library.cpp` |
 | 宿主节点连接现有 JVM、释放桥接资源 | `native/godot_modules/javafx/javafx_host.cpp` |
-| 原生窗口注册与操作 | `native/godot_modules/javafx/javafx_host_windows.cpp`（Windows）、`javafx_host_macos.mm`（macOS）、`javafx_native_window.*` |
+| 原生窗口注册与操作 | `native/godot_modules/javafx/javafx_host_windows.cpp`（Windows）、`javafx_host_macos.mm`（macOS）、`javafx_host_linux.cpp`（Linux）、`javafx_native_window.*` |
 | 命令和资源合法性 | `native/godot_modules/javafx/frame_protocol.h`、Java `GodotRenderCommands` |
 | 原生纹理、离屏绘制、窗口合成 | `javafx_render_surface.*`、`javafx_render_target.*`、`javafx_window_surface.*` |
 | JavaFX 系统接口 | `jfx/modules/javafx.graphics/src/main/java/com/sun/glass/ui/godot/` |

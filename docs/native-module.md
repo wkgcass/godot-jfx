@@ -8,8 +8,7 @@
 
 
 This document explains the original M1 primitive and the module built on it.
-In the Linux worktree, native Stage creation, Glass event signal binding and
-window lookup now share one implementation with Windows and macOS. Linux uses
+Native Stage creation, Glass event signal binding and window lookup share an implementation across Windows, macOS and Linux. Linux uses
 Godot transients to identify each Stage's owner. With a Wayland connection the
 Linux library creates native Wayland windows. The compositor places toplevels
 and controls their stacking order. The GTK 3 file chooser
@@ -195,12 +194,12 @@ in both render-thread modes), so commands produced in response to the current
 frame's input still affect that frame's presentation; see glass-godot.md for
 the input-side wake-up path.
 
-## Java 启动的 Godot 库
+## Loading the Godot library from Java
 
-Linux x64 的 JavaFX 宿主固定使用 Wayland。宿主为 Vulkan 选择 mobile，为 OpenGL 选择 gl_compatibility。
+The Linux x64 JavaFX host uses native Wayland windows. It selects `mobile` for Vulkan and `gl_compatibility` for OpenGL.
 
-Linux 共享库动态链接系统的 libstdc++，使 JVM 内的引擎和显卡驱动使用同一套 C++ 运行库。在 WSL2 上，若 Mesa 已经加载 D3D12Core，宿主会将该库保留到进程退出。这样，Godot 停止后退出的线程仍能调用驱动登记的清理函数。
+The Linux shared library links dynamically to the system's `libstdc++` so the engine and GPU driver in the JVM use the same C++ runtime. On WSL2, if Mesa has loaded D3D12Core, the host keeps it loaded until process exit. Threads that exit after Godot stops can then call the cleanup functions registered by the driver.
 
-使用 `scripts/build-windows.ps1 -Target godot-library` 将模块编入共享库。macOS 通过 SCons 的 `library_type=shared_library` 构建 dylib。Java 加载当前平台的原生库后，Windows 在专用引擎线程上运行，macOS 在 AppKit 主线程上运行。库入口创建并启动 GodotInstance，将 JavaFXHost 挂到 SceneTree 根窗口，注册现有 JVM 的 JNI 方法并运行 iteration。默认的资源文件系统为空；可选的 JAR 场景包在内存中挂载，再由 GodotView 按路径加载。只有显式选择外部工程或主 PCK 才进入 Godot 的工程启动流程。[单 JAR 规格](godot-library-spec.md)
+On Windows, `scripts/build-windows.ps1 -Target godot-library` compiles the module into the shared library. On macOS, SCons builds the dylib with `library_type=shared_library`. After Java loads the platform library, the engine runs on a dedicated thread on Windows and on the AppKit main thread on macOS. The library entry point creates and starts `GodotInstance`, attaches `JavaFXHost` to the `SceneTree` root window, registers native methods with the existing JVM and runs the engine loop. The resource filesystem starts empty. An application can mount a scene pack from its JAR in memory and load its resources by path through GodotView. Godot runs its project startup sequence only when the application explicitly selects an external project or a main PCK. [Single-JAR specification](godot-library-spec.md)
 
-macOS arm64 的共享库入口将同一启动和退出流程调度到 AppKit 主线程，在每帧处理系统窗口事件。构建 VFX Demo 时，`./scripts/build-vfx.sh` 把本机的 dylib 随应用打入 JAR。[macOS 构建与运行](build-macos.md)
+On macOS arm64 the shared library schedules startup and shutdown on the AppKit main thread, which processes native window events each frame. `./scripts/build-vfx.sh` packages the locally built dylib in the VFX Demo JAR. [macOS build guide](build-macos.md)

@@ -236,7 +236,7 @@ contract the scroll-pan probe pins by comparing injected and received event
 counts. Godot supplies
 no gesture phase or momentum flags, so macOS produces SCROLL events without
 SCROLL_STARTED/FINISHED and without inertia marking. Remote-desktop tools
-(ToDesk/UU 远程) inject scroll as phase-less precise-delta events with their
+(ToDesk and UU Remote) inject scroll as phase-less precise-delta events with their
 own synthesized inertia; such streams contain micro oscillations and burst
 deltas produced by the injector, which the bridge delivers verbatim (as does
 native Mac Glass). Jitter observed only under remote control is therefore

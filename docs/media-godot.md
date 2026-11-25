@@ -100,10 +100,9 @@ pipeline. Glass and JavaFX continue to handle UI events on their existing thread
 .\scripts\test-media-audio.ps1 -Codec all
 ```
 
-On Windows and macOS, playback uses `media-silence.wav`, `media-tone.mp3` or
+On Windows, macOS and Linux, the audio playback tests use `media-silence.wav`, `media-tone.mp3` or
 `media-tone.aiff` from `agentdir/media/`. Audio-only churn uses
-`media-churn-silence.wav` there. Each test reuses existing files and generates
-only the requested files that are missing. Both WAVs contain two seconds of
+`media-churn-silence.wav` there. The tests reuse existing files. Linux can generate the WAV and MP3 fixtures. Provide `media-tone.aiff` before running the AIFF case on Linux, since the Unix fixture generator invokes the macOS `afconvert` tool for that format. Both WAVs contain two seconds of
 mono 16-bit 44.1-kHz silence. On Windows, generating an MP3 or AIFF builds `tests/native/make_audio_fixture.cpp`
 with the MSVC toolchain and encodes a two-second 440 Hz sample: MP3 through
 Media Foundation, AIFF as a hand-written big-endian container (Python 3.14 no

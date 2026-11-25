@@ -51,7 +51,7 @@ Java 启动器若找到该资源，就把字节交给引擎。引擎启动空场
 
 本地 Maven 仓库发布六个 `io.vproxy:godot-jfx-<模块>` 构件，模块为 base、graphics、controls、fxml、media、swing。Java 模块名沿用 `javafx.base`、`javafx.graphics` 等。Windows x64 的 graphics 和 media 使用 `win`，macOS arm64 使用 `mac-aarch64`，Linux x64 使用 `linux`。
 
-三个平台共用根目录的 [release.properties](../release.properties)。每次发行更新 `port.version`；同步上游基线时，更新对应的 `godot.upstream.commit` 或 `jfx.upstream.commit` 为完整上游提交哈希。打包脚本取两个哈希各自的前 8 位，按 `适配版本-Godot基线-JFX基线` 生成六个构件共用的版本，并写入发行目录的 `version.txt`。下面的消费示例通过 Gradle 参数 `-PjavafxVersion` 接收该文件中的版本。
+三个平台共用根目录的 [release.properties](../release.properties)。每次发行更新 `port.version`；同步上游基线时，更新对应的 `godot.upstream.commit` 或 `jfx.upstream.commit` 为完整上游提交哈希。打包脚本取两个哈希各自的前 8 位，按 `适配版本-Godot基线-JFX基线` 生成六个构件共用的版本，并写入发行目录的 `version.txt`。下面的 Windows 消费示例使用 `win`，在 Linux x64 上将两个 classifier 改为 `linux`，在 macOS arm64 上改为 `mac-aarch64`。示例通过 Gradle 参数 `-PjavafxVersion` 接收该文件中的版本。
 
 ```groovy
 plugins {
@@ -84,7 +84,7 @@ OpenJFX 的原生库加载器根据平台文件名读取需要的 JAR 资源，�
 
 同一进程拥有一个引擎实例。已创建的 Toolkit 在 JVM 关闭期间仍供 FX 回调查询线程身份。只有首次创建 Toolkit 才会触发宿主初始化检查，显式调用 `GodotRuntime.init()` 仍会在宿主停止期间报错。JavaFX 自动初始化和用户显式初始化共用状态，并发等待者观察相同的就绪状态或错误。已就绪后重复使用相同配置会复用宿主，冲突配置会失败。Windows 在专用平台线程处理消息并迭代引擎；JavaFX Application Thread、Prism 渲染线程和有界命令队列维持原有职责。关闭最后一个窗口遵守 implicitExit；显式退出保留应用的退出码。
 
-Windows x64 使用 `win` 构件，macOS arm64 使用本机 SDK 生成的 `mac-aarch64` 构件。Windows 使用专用引擎线程；macOS 将引擎创建、窗口事件、逐帧运行和销毁交给 AppKit 主线程。Linux 同样在调用方 JVM 中运行引擎。完整 VFX Demo 的首选入口是 `java -jar artifacts/vfx/libs/vfx-demo.jar`。Windows x64 和 macOS arm64 均已实机运行完整 Demo。macOS 的两个渲染器分别通过 JAR 启动与关闭检查。WSL2 的 Intel Arc B390 已通过 Vulkan/mobile 和 OpenGL/gl_compatibility 两种 VFX JAR 启动与关闭检查。[测试入口与平台范围](../TESTS.md)
+Windows 使用专用引擎线程；macOS 将引擎创建、窗口事件、逐帧运行和销毁交给 AppKit 主线程。Linux 同样在调用方 JVM 中运行引擎。完整 VFX Demo 的首选入口是 `java -jar artifacts/vfx/libs/vfx-demo.jar`。Windows x64 和 macOS arm64 均已实机运行完整 Demo。macOS 的两个渲染器分别通过 JAR 启动与关闭检查。WSL2 的 Intel Arc B390 已通过 Vulkan/mobile 和 OpenGL/gl_compatibility 两种 VFX JAR 启动与关闭检查。[测试入口与平台范围](../TESTS.md)
 
 ## 验收
 

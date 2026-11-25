@@ -1,8 +1,8 @@
 # JNI bridge and batch protocol
 
-各 JNI downcall 和 upcall 的参数、返回值及平台差异见[基线以来的跨语言调用清单](bridge-call-inventory.md)。
+The [JNI call inventory](bridge-call-inventory.md) lists the parameters, return values and platform-specific behavior of each downcall and upcall.
 
-Java 从平台 JAR 加载引擎库。引擎线程从当前 JNI 调用取得 JavaVM 和应用传入的桥接类，完成注册和屏幕快照后向 Java 发布 READY。停止宿主会关闭 JNI 请求入口、唤醒队列和读回等待者，待已进入的调用返回后释放回调的全局引用。库模式的生命周期到进程退出结束。
+Java loads the engine library from the platform JAR. The engine thread obtains the JavaVM and the application's bridge class from the current JNI call. After registering the native methods and taking a screen snapshot, it signals READY to Java. On shutdown, the host closes the JNI request entry points and wakes threads waiting on the queue or on pixel readback. It releases global callback references once calls already in progress have returned. In library mode, the lifecycle ends when the process exits.
 
 > Current configuration (2026-11-13): JavaFX hosting supports only Viewport +
 > safe. Custom RD-direct and separate-thread host support have been removed.
@@ -820,12 +820,9 @@ cross-process end-to-end proof. Drag preview images ride the outbound OLE
 transport as described above; a preview inside the local (in-window) portion
 of a gesture is not drawn, and non-Windows OLE endpoints remain unsupported.
 
-## 四边形批次容量检查（2026-11-10）
+## Quad batch capacity checks (2026-11-10)
 
-Java 编码器负责完整绘制、缓存引用及几何淘汰的容量检查，调用端不重复预估长度。
-完整未带纹理 QUADS 含命令头共 `48 + 32 × 顶点数` 字节，QUADS_REF 为 52 字节，
-GEOMETRY_FREE 为 16 字节；剩余空间不足或命令数量已到 65536 时先提交当前批次。
-本次修复未改变线上格式、4 MiB 批次限制或资源预算。
+The Java encoder checks capacity for full draw commands, references to cached geometry and geometry eviction. Callers rely on that check. An untextured `QUADS` command uses `48 + 32 × vertex count` bytes including its header. `QUADS_REF` uses 52 bytes and `GEOMETRY_FREE` uses 16. The encoder submits the current batch before appending a command if there is too little space or the batch already contains 65,536 commands. The fix preserves the wire format, the 4 MiB batch limit and the resource budgets.
 
 
 On Linux, the experimental LCD region-copy path emits opcode 31 with four little-endian unsigned 32-bit fields (x, y, width, height) in target pixels. The selected offscreen render target must be live, its pass open and the nonempty rectangle fully inside it. The consumer inserts a backbuffer copy at the current canvas draw index. Subsequent LCD glyphs can sample preceding draws, including overlapping text. On native Wayland with Mesa D3D12 OpenGL, Prism selects a region copy for unclipped text when its padded rectangle occupies at most 1/32 of the target. Other samples use the existing pass boundary. On Linux, setting `GODOT_JFX_LCD_REGION_COPY=1` requests region copies for all eligible text, and `0` selects pass boundaries throughout. The native protocol test covers malformed rectangles, target bounds, default-target rejection and atomic retry.

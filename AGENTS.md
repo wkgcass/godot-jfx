@@ -1,6 +1,6 @@
 # 仓库工作指南
 
-本文件适用于根目录及其子目录。目标是 Windows x64、macOS arm64 与 Linux x64 上的 Godot 承载 JavaFX 运行时；Media 在范围内，WebKit 和 3D 不在当前范围。每个次级 Stage 是独立原生窗口，GodotView 才是嵌入界面的场景控件。
+本文件适用于根目录及其子目录。目标是 Windows x64、macOS arm64 与 Linux x64 上的 Godot 承载 JavaFX 运行时；Media 在范围内，WebKit 和 JavaFX 自身的 3D 绘制不在当前范围。两个 3D Demo 的场景由 Godot 绘制。每个次级 Stage 是独立原生窗口，GodotView 才是嵌入界面的场景控件。
 
 ## 先读哪里
 
@@ -15,7 +15,7 @@
 - `scripts/`：构建、启动、测试和分析入口。`tests/godot/` 为宿主测试场景，`tests/reference/` 为 Java 观察器/对照，`tests/native/` 为 C++ 测试。
 - `.tools/` 存放本地工具，`.gradle-cache/` 存放 Gradle 缓存。
 - `artifacts/` 存放构建、运行和测试使用的输入与产物。Maven 模块暂存在 `artifacts/godot-library/`，Demo 打包到 `artifacts/vfx/`，本地生成的媒体夹具、测试截图和基准报告放在 `artifacts/reference/`。完整清理和 `--target test-projects` 会删除整个 `artifacts/reference/`；需留存的验收结果在清理前归档。Git 忽略整个目录。
-- `agentdir/media/` 存放跨次测试复用的音视频。初始化脚本下载并校验 Oracle 和 Lk 样本，测试通过 `setup-env.py --sample-path oracle|lk` 获取路径。Windows 的 `scripts/make-media-fixture.ps1` 在此生成 `media-1080p60.mp4` 和同名 JSON，供 `benchmark-media-frames.ps1 -Native60` 读取。macOS 用 `./scripts/make-media-fixture.py` 生成相同规格的视频和校验清单，用 `./scripts/benchmark-media-frames.py --native60` 验收。Windows 和 macOS 音频播放及纯音频 churn 测试在此按需生成 WAV、MP3 和 AIFF，已有文件直接复用。
+- `agentdir/media/` 存放跨次测试复用的音视频。初始化脚本下载并校验 Oracle 和 Lk 样本，测试通过 `setup-env.py --sample-path oracle|lk` 获取路径。Windows 的 `scripts/make-media-fixture.ps1` 在此生成 `media-1080p60.mp4` 和同名 JSON，供 `benchmark-media-frames.ps1 -Native60` 读取。macOS 用 `./scripts/make-media-fixture.py` 生成相同规格的视频和校验清单，用 `./scripts/benchmark-media-frames.py --native60` 验收。各平台的音频测试在此复用 WAV、MP3 和 AIFF。Linux 可按需生成 WAV 和 MP3，运行 AIFF 用例时需预先提供 `media-tone.aiff`，生成脚本的 Unix 分支使用 macOS 的 `afconvert`。
 - `agentdir/logs/` 存放本次构建、测试和 Demo 的运行日志。脚本在这里写日志，也从这里读取日志判断是否通过。
 - `agentdir/artifacts/` 归档一次性调查材料，例如临时探针、故障现场、修复前后的截图对照和旧验收日志。归档前先核对脚本的读写路径，把仍会复用的文件保留在原位。
 - `agentdir/docs/` 存放从现行文档拆出的历史实施、审查和验收记录。现行命令与限制保留在原文档，按需链接到归档。Git 默认忽略 `agentdir/` 下的内容，仅 `agentdir/docs/*.md` 可提交。
@@ -25,7 +25,7 @@
 
 以下 Windows 命令从仓库根目录用 PowerShell 7.4.1 或更高版本（`pwsh`）执行，推荐从 Microsoft Store 安装。当前脚本默认从 `$env:JAVA_HOME` 获取 JDK 25（可用 `-Jdk` 覆盖），Visual Studio 2022 Community/MSVC 与 Windows SDK；不要用机器默认的旧 Java 代替。Python 可通过 `python` 调用；SCons 使用 `.tools/python/Scripts/python.exe`。Media 构建使用 `MSYS2_ROOT`（默认 `D:\msys64`）中的 make/cygpath/sh 和 UCRT64 GCC；JFX/辅助测试的 Visual Studio 路径通过 `VSINSTALLDIR` 配置，默认 `%ProgramFiles%\Microsoft Visual Studio\2022\Community`。
 
-首次环境准备、依赖下载和路径覆盖参数见 [build-windows.md](docs/build-windows.md) 和 [build-macos.md](docs/build-macos.md)。运行 `python scripts/setup-env.py`（macOS 直接运行 `./scripts/setup-env.py`）初始化缺少的 Godot、JFX、VFX 子模块，并准备仓库 `.tools` 内的 Ant、Maven 和本平台所需工具，已有安装直接复用。JFX 脚本优先读取 `ANT_HOME`。不要把下面的增量构建命令当成完整工具安装步骤。构建脚本对环境变量的修改应限于当前进程并恢复。
+首次环境准备、依赖下载和路径覆盖参数见 [Windows](docs/build-windows.md)、[macOS](docs/build-macos.md) 和 [Linux](docs/build-linux.md) 构建指南。运行 `python scripts/setup-env.py`（macOS 和 Linux 可直接运行 `./scripts/setup-env.py`）初始化缺少的 Godot、JFX、VFX 子模块，并准备仓库 `.tools` 内的 Ant、Maven 和本平台所需工具，已有安装直接复用。JFX 脚本优先读取 `ANT_HOME`。不要把下面的增量构建命令当成完整工具安装步骤。构建脚本对环境变量的修改应限于当前进程并恢复。
 
 ```powershell
 .\scripts\build-windows.ps1 -Target godot-editor
@@ -45,15 +45,15 @@ zsh -ic './scripts/build-vfx.sh'
 
 mac 上 Media 由这一次 Gradle SDK 构建启用（AVFoundation 后端），没有单独的 Media 构建脚本；渲染器 `mobile` 使用 Metal（本机 M1 的发行库报告 Metal 3.1）、`gl_compatibility` 走 OpenGL 4.1，未构建 Vulkan（未安装 MoltenVK）。
 
-顺序执行原生构建；构建前关闭正在使用相应产物 的测试或 Demo，避免链接/复制冲突。JavaFX 模块编入共享库，Editor 负责导入与导出资源。Windows 的 `-Target jfx` 和 macOS 的 `--target jfx`都启用 Media 并关闭 WebKit。不使用预编译 Godot/JavaFX SDK 替代本仓库源码产物；JVM 使用已安装版本，不需要自行构建。
+顺序执行原生构建；构建前关闭正在使用相应产物 的测试或 Demo，避免链接/复制冲突。JavaFX 模块编入共享库，Editor 负责导入与导出资源。Windows 的 `-Target jfx` 以及 macOS 和 Linux 的 `--target jfx` 都启用 Media 并关闭 WebKit。不使用预编译 Godot/JavaFX SDK 替代本仓库源码产物；JVM 使用已安装版本，不需要自行构建。
 
 产物：`godot/bin/godot.windows.editor.x86_64.exe`、`godot/bin/godot.windows.template_release.x86_64.library.dll`（macOS 对应 `godot.macos.editor.arm64`、`libgodot.macos.template_release.arm64.library.dylib`）、`jfx/build/sdk/`（mac 的 dylib 在 `lib/` 而非 `bin/`）、`artifacts/vfx/`。JNI 桥接在 Godot 模块内，没有独立桥接 DLL，也不依赖 godot-cpp。
 
-本 Linux x64 副本在 WSL2 的 Linux 文件系统内构建。使用完整 Linux JDK 25；编译工具、Wayland 开发文件、私有依赖路径和 Maven 发布命令见 [build-linux.md](docs/build-linux.md)。Vulkan 使用 `mobile`，OpenGL 使用 `gl_compatibility`。在此副本中通过 `scripts/wsl-wayland-session.sh --isolate-wslg` 启动桌面回归，保持系统桌面和输入设备隔离。
+Linux x64 已在 WSL2 的 Linux 文件系统内构建。使用完整 Linux JDK 25，在 Bash 中依次运行 `scripts/build-linux.sh --target godot-editor`、`--target godot-library`、`--target jfx` 和 `scripts/build-vfx.sh`。Editor 为 `godot/bin/godot.linuxbsd.editor.x86_64`，共享库为 `godot/bin/libgodot.linuxbsd.template_release.x86_64.library.so`。Ubuntu 系统依赖和 WSLg 的 dzn 准备方式见 [Linux 构建指南](docs/build-linux.md#构建环境)。
 
 ## 运行与常用验证
 
-项目清理入口为 `python scripts/clean.py`（macOS 用 `./scripts/clean.py`）。默认清理全部五项，加 `--dry-run` 可预览命令与目录。`--target godot-editor|godot-library|jfx|packages|test-projects` 可单独清理，其中 `test-projects` 清理生成的 Godot 测试项目。具体范围见 [README](README.md#build-and-run)。
+项目清理入口为 `python scripts/clean.py`（macOS 和 Linux 用 `./scripts/clean.py`）。默认清理全部五项，加 `--dry-run` 可预览命令与目录。`--target godot-editor|godot-library|jfx|packages|test-projects` 可单独清理，其中 `test-projects` 清理生成的 Godot 测试项目。具体范围见 [README](README.md#build-and-run)。
 
 ```powershell
 # 首选直接启动本平台完整 Demo JAR；两个 run-vfx-demo 脚本默认也启动此 JAR
@@ -89,7 +89,9 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 ./scripts/test-vfx-intro.sh --driver metal --all-pages
 ```
 
-场景测试用 classpath 加载本机发布的平台 JAR，由同一 Java 进程加载 `godot.dll` 或 `libgodot.dylib` 并运行夹具。准备好源码 Editor、Godot 共享库和启用 Media 的 SDK 后，运行 `.\scripts\build-vfx.ps1` 一并刷新发行包。Editor 用于导入/导出资源；`-Runtime` 使用单独的夹具项目目录。Windows 非 Robot 组也包含模块路径、Shadow 和 Demo JAR 消费验收。
+场景测试用 classpath 加载本机发布的平台 JAR，由同一 Java 进程加载 `godot.dll`、`libgodot.dylib` 或 `libgodot.so` 并运行夹具。准备好源码 Editor、Godot 共享库和启用 Media 的 SDK 后，运行本平台的 `build-vfx.ps1` 或 `build-vfx.sh` 一并刷新发行包。Editor 用于导入/导出资源；`-Runtime` 使用单独的夹具项目目录。Windows 非 Robot 组也包含模块路径、Shadow 和 Demo JAR 消费验收。
+
+Linux Demo 使用 `scripts/run-vfx-demo.sh`，默认 Vulkan/mobile，可用 `--driver opengl` 选择 OpenGL/gl_compatibility。WSL2 的非 Robot 双后端回归用 `scripts/wsl-wayland-session.sh --isolate-wslg scripts/run-linux-tests.py --group NonRobot --driver all`，在独立 Wayland 桌面串行执行。获得授权后可用 `--group Robot` 运行 Robot 组。
 
 按改动范围选测试，详见 TESTS.md。Windows 回归分组和适用的单项测试均默认只跑 Godot D3D12。回归耗时较长，平时优先用 `-Test` 选择相关用例。NonRobot 和 Robot 两组均支持 `-Driver vulkan`、`-Driver opengl` 和三后端矩阵 `-Driver all`，用 `-List` 可预览。macOS 的分组和适用单项默认只跑 Metal，显式用 `--driver opengl` 选择 OpenGL，或用 `--driver all` 跑双后端。两组都可用 `--list` 预览、`--test` 选择脚本、`--cases default|variants` 选择基础或专项用例。GUI 和性能测试串行运行，保持测试窗口前台，不与构建或其他 GPU 重负载并行。默认 VFX/Media 基准为 Godot；显式 `-Backend d3d` 或 `-NativeD3D` 是原生 JavaFX 对照，不能当作 Godot 验收。
 
@@ -110,7 +112,7 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 | [README.md](README.md) | 项目入口、快速构建运行、当前结果摘要 |
 | [TESTS.md](TESTS.md) | 测试用途、前置条件、命令、判定方式 |
 | [architecture.md](docs/architecture.md) | 面向新读者的组件分工、画面和输入流程、线程及资源生命周期 |
-| [godot-library-spec.md](docs/godot-library-spec.md) | Windows 与 macOS 单 JAR 启动、Stage 窗口、GodotView 场景资源及跨平台边界 |
+| [godot-library-spec.md](docs/godot-library-spec.md) | Windows、macOS 与 Linux 的单 JAR 启动、Stage 窗口、GodotView 场景资源及跨平台边界 |
 | [acceptance-status.md](docs/acceptance-status.md) | 初始需求逐项证据、当前缺口、验收限制和交付位置 |
 | [build-windows.md](docs/build-windows.md) | Windows 工具链准备、源码构建、输出路径、Media 依赖 |
 | [build-macos.md](docs/build-macos.md) | macOS arm64 工具链准备、源码构建、输出路径、已知平台限制 |
@@ -129,6 +131,10 @@ macOS 等价入口为同名 `.sh` 脚本，参数为小写长选项：
 | [memory-validation.md](docs/memory-validation.md) | 长时间导航、进程/GPU/Java 内存采样及趋势解释 |
 | [review-open-items.md](agentdir/docs/review-open-items.md) | 固定范围的历史审查、修复前后对照及当时的验证限制 |
 | [progress.md](agentdir/docs/progress.md) | 逆序历史工作记录；旧结论可能被上方新记录取代 |
+
+## 文档语言
+
+新文档默认使用英文。编辑现有文档时，若正文以中文撰写，继续使用中文；其余文档的标题、正文、表格、示例注释和链接文字统一使用英文。命令、路径、标识符、链接目标，以及需要逐字核对的界面文字、测试输入和日志保留原文。
 
 ## 修改代码后的文档检查
 
