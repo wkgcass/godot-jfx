@@ -40,6 +40,10 @@ JDK's Java executable. It reads resident and private pages from
 The report uses the common `working_set`, `private_bytes` and `handles` fields
 for RSS, private memory and descriptor count respectively.
 
+On macOS the sampler reads the process name and resident size together with
+`ps`. Sampling starts once the fixture launcher has executed Java. The report
+stores RSS in both memory fields and uses zero as a placeholder for handles.
+
 The Linux `texture_bytes` sample comes from Godot's `RENDER_TEXTURE_MEM_USED` monitor. Vulkan sums texture allocation sizes reported to RenderingDevice by the Vulkan driver. The OpenGL compatibility renderer adds its own texture and renderbuffer byte counters, using sizes recorded by Godot at allocation and resize. Compare trends within each driver. These counters do not measure physical GPU residency and cannot be added to the Linux process-private total. [RenderingDevice accounting](../godot/servers/rendering/rendering_device.cpp) and [OpenGL accounting](../godot/drivers/gles3/storage/utilities.cpp).
 
 The analyzer compares the same page and direction in the first and final rounds,

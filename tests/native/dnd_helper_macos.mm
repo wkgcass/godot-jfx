@@ -40,24 +40,17 @@ static NSString *pasteboard_text(NSPasteboard *pasteboard, NSPasteboardType type
 
 - (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender {
 	NSPoint point = [sender draggingLocation];
-	// Observe the drag image the source registered through its dragging item
-	// (the JavaFX Dragboard.setDragView pixels); the frame is in view points.
+	// AppKit reports the item frame in points. The Robot samples the composited
+	// preview on this panel while the pointer is held over it.
 	__block NSSize size = NSZeroSize;
-	__block unsigned long bytes = 0;
 	[sender enumerateDraggingItemsWithOptions:0 forView:self
 			classes:@[ [NSPasteboardItem class] ] searchOptions:@{}
 			usingBlock:^(NSDraggingItem *item, NSInteger idx, BOOL *stop) {
-		size = [item draggingFrame].size;
-		for (NSDraggingImageComponent *component in [item imageComponents]) {
-			if ([component.contents isKindOfClass:[NSImage class]]) {
-				bytes = (unsigned long)[[(NSImage *)component.contents TIFFRepresentation] length];
-				break;
-			}
-		}
+		size = item.draggingFrame.size;
 		*stop = YES;
 	}];
-	log_line([NSString stringWithFormat:@"DND_HELPER_ENTER x=%ld y=%ld effect=1 image=%dx%d bytes=%lu",
-			(long)point.x, (long)point.y, (int)size.width, (int)size.height, bytes]);
+	log_line([NSString stringWithFormat:@"DND_HELPER_ENTER x=%ld y=%ld effect=1 image=%dx%d",
+			(long)point.x, (long)point.y, (int)size.width, (int)size.height]);
 	return NSDragOperationCopy;
 }
 

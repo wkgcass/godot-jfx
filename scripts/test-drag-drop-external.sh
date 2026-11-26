@@ -131,11 +131,13 @@ if ! grep -qF 'DND_HELPER_DROP text=[外部 OLE 拖放 text] url=[https://exampl
     echo "Helper drop payload mismatch: $TARGET_LOG" >&2
     exit 1
 fi
-# Dragboard.setDragView(8x6, offset 5,3) must reach the destination: the
-# helper observes the Cocoa draggingImage during DragEnter. The offset is a
-# source-side cursor anchor and is not observable through NSDraggingInfo, so
-# the macOS assertion covers the image size only.
-if ! grep -E 'DND_HELPER_ENTER .*image=8x6 bytes=[1-9][0-9]*' "$TARGET_LOG" >/dev/null; then
+# Cocoa exposes the cross-process item frame but can proxy the image contents.
+# Verify its visible pixels in the Java Robot capture and its frame at the receiver.
+if [ "$(uname -s)" = Darwin ]; then
+    grep -Eq 'DND_HELPER_ENTER .*image=8x6$' "$TARGET_LOG" &&
+        grep -q '^COCOA_DRAG_PREVIEW_PASS ' "$LOG" ||
+        { echo "Missing 8x6 Cocoa drag preview or screen pixels: $TARGET_LOG / $LOG" >&2; exit 1; }
+elif ! grep -E 'DND_HELPER_ENTER .*image=8x6 bytes=[1-9][0-9]*' "$TARGET_LOG" >/dev/null; then
     echo "Helper did not observe the drag image (8x6): $TARGET_LOG" >&2
     exit 1
 fi

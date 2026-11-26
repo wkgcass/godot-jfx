@@ -6,7 +6,8 @@ func _ready() -> void:
 	var stopped:=false
 	var deadline:=Time.get_ticks_msec()+60000
 	while host.get_runtime_status()!="finished":
-		await RenderingServer.frame_post_draw
+		# Closing the last Stage can stop drawing on macOS while the probe exits.
+		await get_tree().process_frame
 		if not stopped and OS.get_environment("GODOT_JFX_DIALOG_STOP")=="1" and FileAccess.file_exists(OS.get_environment("GODOT_JFX_DIALOG_READY")):
 			stopped=true
 			host.stop_host()

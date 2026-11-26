@@ -23,6 +23,7 @@ public final class ExternalDragProbe {
     // file items for missing paths in cross-process drags, so the macOS
     // wrapper touches both files (Windows OLE tolerated any C:/ string).
     static final boolean WINDOWS = System.getProperty("os.name","").toLowerCase().contains("win");
+    static final boolean MAC = System.getProperty("os.name", "").startsWith("Mac");
     static final File DRAG_FILE = new File(WINDOWS ? "C:/drag-test.txt" : "/tmp/drag-test.txt");
     static final File HELPER_FILE = new File(WINDOWS ? "C:/helper-source.txt" : "/tmp/helper-source.txt");
     static final DataFormat CUSTOM = new DataFormat("application/x-godot-custom-token");
@@ -98,6 +99,15 @@ public final class ExternalDragProbe {
                     var view = new javafx.scene.image.WritableImage(8, 6);
                     byte[] viewPixels = new byte[8 * 6 * 4];
                     java.util.Arrays.fill(viewPixels, (byte) 0x80); // semi-visible BGRA
+                    if (MAC) {
+                        // Tag the preview so the file icon and the Cocoa item-count badge
+                        // can be distinguished from the application's own pixels.
+                        for (int i = 0; i < viewPixels.length; i += 4) {
+                            viewPixels[i] = (byte) 255;
+                            viewPixels[i + 1] = 0;
+                            viewPixels[i + 2] = (byte) 255;
+                        }
+                    }
                     view.getPixelWriter().setPixels(0, 0, 8, 6,
                             javafx.scene.image.PixelFormat.getByteBgraInstance(),
                             viewPixels, 0, 32);
@@ -269,6 +279,27 @@ public final class ExternalDragProbe {
         }
     }
 
+    static void checkCocoaDragPreview() {
+        var image = robot.getScreenCapture(null, targetX - 16, targetY - 12, 32, 24, true);
+        var reader = image.getPixelReader();
+        int minX = 32, minY = 24, maxX = -1, maxY = -1, visible = 0;
+        for (int y = 0; y < 24; y++) {
+            for (int x = 0; x < 32; x++) {
+                var color = reader.getColor(x, y);
+                if (color.getRed() - color.getGreen() < 0.15 || color.getBlue() - color.getGreen() < 0.15) continue;
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
+                visible++;
+            }
+        }
+        check(maxX - minX + 1 == 8 && maxY - minY + 1 == 6 && visible == 48,
+                "Expected an 8x6 tagged Cocoa preview over the destination, got bounds "
+                        + minX + "," + minY + ".." + maxX + "," + maxY + " with " + visible + " pixels");
+        System.out.println("COCOA_DRAG_PREVIEW_PASS visible_pixels=" + visible);
+    }
+
     static void startOutboundDriver() {
         drive("outbound", java.util.List.of(
                 () -> { probe("target", targetX, targetY); probe("stage", sceneX(90), sceneY(80)); robot.mouseMove(sceneX(90), sceneY(80)); },
@@ -281,7 +312,7 @@ public final class ExternalDragProbe {
                 // OLE owns the pointer already and ignores them).
                 () -> robot.mouseMove(targetX + 4, targetY),
                 () -> robot.mouseMove(targetX, targetY),
-                () -> { /* hold: OLE takes over, helper receives DragEnter */ },
+                () -> { if (MAC) checkCocoaDragPreview(); }, // hold while the helper receives DragEnter
                 () -> robot.mouseRelease(MouseButton.PRIMARY)     // drop on the helper
         ));
     }

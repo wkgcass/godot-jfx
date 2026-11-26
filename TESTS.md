@@ -61,6 +61,7 @@ macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。日常只
 | --- | --- | --- |
 | macOS arm64，Retina 与混合缩放多屏下的共享窗口夹具 | 在 Retina 单屏和不同缩放双屏环境运行 `test-logical-windows.sh`、`test-window-order.sh`、`test-window-composition.sh`，将主窗口置于屏幕交界附近，覆盖子窗口落在另一屏的情况；记录各窗口所在屏幕、缩放和位置 | 核对窗口尺寸、相对位置、输入坐标与 GPU 像素。当前部分断言用主窗口屏幕缩放计算子窗口采样点，可能误判；如需修正，应依据各窗口实际坐标与渲染尺寸。缺少对应显示器环境时保留该范围的待办。 |
 | macOS arm64，独立 IME 窗口的点击坐标 | 获得 Robot 授权后，在 Retina 屏运行 `./scripts/test-native-ime.sh --driver metal` 和 `--driver opengl` | 从已显示的子窗口尺寸换算点击位置，焦点离开输入框后取消预编辑，按钮动作完成，根文本与资源清理断言通过，并恢复光标。 |
+| Windows x64、Linux x64，共享文件选择器夹具改用主循环检查退出 | Windows 获得 Robot 授权后运行 `scripts/test-file-dialog.ps1`，另测 `-StopHost`、`-Runtime`；Linux 运行 `scripts/run-linux-tests.py --group NonRobot --test test-file-dialog --driver all` | 核对选择与取消结果、退出和资源回收；停止宿主时须有 `FILE_DIALOG_HOST_STOP_RETURNED`。本次仅在 macOS 复验。 |
 
 ## Viewport＋safe 支持边界
 
@@ -370,7 +371,7 @@ macOS 等价入口（同样三阶段、同样需要授权与空闲桌面）：
 ./scripts/test-drag-drop-external.sh --driver opengl
 ```
 
-脚本编译 `tests/native/dnd_helper_macos.mm` 为 Cocoa helper（一个 NSPasteboard 放入目标、一个 mouseDragged 起拖源，均为无边框置顶 NSPanel），探针同为 `ExternalDragProbe`。macOS 与 Windows 的机制差异已在实现侧对齐：AppKit 只在真实 mouseDragged 事件分发内启动的 `NSDraggingSession` 才能跟踪物理按键，因此宿主的拖出会话推迟到下一次真实拖动事件启动（探针在 OLE 交接位置后多走两步微小移动触发，Windows 下为无害空操作）；若按键在任何拖动事件前释放，挂起的启动被取消并回报 effect 0。自定义格式在拖放路径发布为 UTI 孪生名 `application.x-godot-custom-*`（macOS 26 的 NSPasteboardItem 拒绝含 `/` 的非 UTI 类型串），入站提取时解码回 MIME 名；文件以 per-item NSURL writer 承载，跨进程序列化会静默丢弃路径不存在的文件项，脚本因此在 /tmp 下创建真实夹具文件并在退出时删除（Windows 可用不存在的 C:/ 路径）。helper 判定串与 Windows 相同（放入负载完全一致、DragEnter 观察到 8×6 预览图、源端 COPY）；预览偏移在 NSDraggingInfo 不可观测，mac 判定只覆盖尺寸。
+脚本编译 `tests/native/dnd_helper_macos.mm` 为 Cocoa helper（一个 NSPasteboard 放入目标、一个 mouseDragged 起拖源，均为无边框置顶 NSPanel），探针同为 `ExternalDragProbe`。macOS 与 Windows 的机制差异已在实现侧对齐：AppKit 只在真实 mouseDragged 事件分发内启动的 `NSDraggingSession` 才能跟踪物理按键，因此宿主的拖出会话推迟到下一次真实拖动事件启动（探针在 OLE 交接位置后多走两步微小移动触发，Windows 下为无害空操作）；若按键在任何拖动事件前释放，挂起的启动被取消并回报 effect 0。自定义格式在拖放路径发布为 UTI 孪生名 `application.x-godot-custom-*`（macOS 26 的 NSPasteboardItem 拒绝含 `/` 的非 UTI 类型串），入站提取时解码回 MIME 名；文件以 per-item NSURL writer 承载，跨进程序列化会静默丢弃路径不存在的文件项，脚本因此在 /tmp 下创建真实夹具文件并在退出时删除（Windows 可用不存在的 C:/ 路径）。Cocoa 接收端逐项核对放入负载和 8×6 的拖动项尺寸，源端须收到 COPY。macOS 可用代理对象提供跨进程预览，接收端无法保证读取到 NSImage 的 TIFF 数据。Robot 在真实拖动停留期间对目标窗口取样，要求正好 48 个带标记颜色的像素组成 8×6 矩形，并输出 `COCOA_DRAG_PREVIEW_PASS`。源端锚点由 `test-dnd-drag-image.sh` 独立验证。
 
 不需要物理输入的 OLE 负载路径组件测试：
 

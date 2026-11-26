@@ -66,7 +66,8 @@ while kill -0 "$PID" 2>/dev/null; do
             ' "/proc/$PID/smaps_rollup" 2>/dev/null >>"$SAMPLES"
         fi
     else
-        RSS=$(ps -o rss= -p "$PID" 2>/dev/null | tr -d ' ')
+        # The PID initially belongs to godot-fixture.py, before it execs Java.
+        RSS=$(ps -p "$PID" -o rss=,ucomm= 2>/dev/null | awk '$2 == "java" && $1 > 0 { print $1 }')
         if [ -n "$RSS" ]; then
             printf '{"elapsed_ms":%d,"private_bytes":%d,"working_set":%d,"handles":0}\n' \
                 "$((ELAPSED * 1000))" "$((RSS * 1024))" "$((RSS * 1024))" >>"$SAMPLES"
