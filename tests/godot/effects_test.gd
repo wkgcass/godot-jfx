@@ -38,22 +38,24 @@ func compare_pixels(host) -> bool:
 			get_tree().quit(1)
 			return false
 		await get_tree().process_frame
-	# A larger effect graph can need more than a fixed number of host frames.
-	# Wait for its completed window publication, not an intermediate clear.
-	while host.get_window_content_size(1)==Vector2i() or host.is_composition_pending():
-		if host.get_runtime_status()=="failed" or Time.get_ticks_msec()>deadline:
-			push_error("Effect window publication did not complete"); get_tree().quit(1); return false
-		await RenderingServer.frame_post_draw
-	await RenderingServer.frame_post_draw
-	var actual := get_viewport().get_texture().get_image()
-	actual.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/godot-effects.png"))
 	var expected := Image.load_from_file(ProjectSettings.globalize_path("res://../../artifacts/reference/d3d-effects.png"))
 	if expected == null:
 		push_error("Missing or unreadable native effects reference")
 		return false
+	# The first published window can still have the startup viewport's height.
+	# Compare a completed frame at the reference dimensions, including the last row of effects.
+	var texture := get_viewport().get_texture()
+	while host.get_window_content_size(1) == Vector2i() or host.is_composition_pending() or Vector2i(texture.get_size()) != expected.get_size():
+		if host.get_runtime_status() in ["failed", "finished"] or Time.get_ticks_msec() > deadline:
+			push_error("Effect window publication did not complete: expected %s, viewport %s, content %s" % [
+				expected.get_size(), texture.get_size(), host.get_window_content_size(1)])
+			return false
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var actual := texture.get_image()
+	actual.save_png(ProjectSettings.globalize_path("res://../../artifacts/reference/godot-effects.png"))
 	if actual.get_size() != expected.get_size():
-		push_error("Effect reference dimensions differ")
-		get_tree().quit(1)
+		push_error("Effect reference dimensions differ: expected %s, captured %s" % [expected.get_size(), actual.get_size()])
 		return false
 	var names := ["None","GaussianBlur","BoxBlur","DropShadow","InnerShadow","Glow","Bloom","ColorAdjust","Reflection","MotionBlur","Lighting","Blend","DisplacementMap","DisplacementMapWrap","SepiaTone","Shadow","PerspectiveTransform","ImageInput","ColorInput","ChainedBlurSepiaShadow"]
 	var failed := false

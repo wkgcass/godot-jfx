@@ -29,6 +29,22 @@ reflection/virtual callbacks and resource-lifetime fixes are retained.
 
 ## Validation evidence
 
+### Windows and Wayland verification after the macOS fixture fixes
+
+On 26 November 2026, the shared file-dialog fixture from `e8f5ee7` passed all nine Windows invocations on D3D12, Vulkan and OpenGL and all six Ubuntu-WSL2 Wayland invocations on Vulkan and OpenGL. The default and separate-project runs each checked six chooser cases. Each host-stop run recorded `FILE_DIALOG_HOST_STOP_RETURNED` and a normal fixture exit. Windows drove the native chooser and checked its owner. Linux used the dialog test hook on a private Wayland desktop.
+
+The Windows ledgers are under `agentdir/logs/regression-e8f5ee7-20261126-1137/`. The Ubuntu-WSL2 ledgers and per-case host logs are under `agentdir/artifacts/regression-e8f5ee7-20261126-1137/` in the Linux checkout.
+
+Windows x64 passed 446 of 457 NonRobot invocations on the first run and all 457 after repeats. All 42 Robot invocations passed on the first run. Seven initial NonRobot failures occurred during Maven or Gradle plugin resolution. The repeats used a local mirror for build tools and verified the JavaFX modules from the newly staged repository. The Windows fixture logs identified the rebuilt engine `a77cd3abca87…` on the Intel Arc B390.
+
+Once Maven resolution succeeded, the Vulkan library consumer captured the top 1174 rows of an expected 800 × 1600 effects reference. The pixel observer now waits for the reference-sized viewport and a completed draw before readback. All six Windows scene invocations and the three rendering consumers passed. Each consumer compared all 39 effect tiles in an 800 × 1600 capture. Both Ubuntu-WSL2 rendering consumers also passed all 39 comparisons with the updated observer.
+
+On Windows, the first synthetic hover lost the green button fill for the entire first hold on D3D12 and OpenGL. After the fixture waited for two host frames following `Stage.show()`, the original pixel checks passed on all three drivers. The first hold then missed the fill in 6 of 180 D3D12 samples, 6 of 180 Vulkan samples and 5 of 178 OpenGL samples. All three physical Robot hover cases passed.
+
+The Windows blackhole lens initially retained the previous image after a Vulkan drag and changed pixels during an OpenGL stationary hold. All three drivers passed on repeat with pointer-event logging. The passing traces kept the pointer at (600, 350) during the hold and moved it to (800, 430) on drag. The first attempts had no pointer trace, so the cause remains unconfirmed.
+
+Ubuntu-WSL2 ran all 344 manifest invocations on private Wayland desktops using the Intel Arc B390. NonRobot passed 312 of 322 and Robot passed 20 of 22. Each of the twelve failures matched its previous assertion and arguments. Six required global stacking order, two required global placement and lowering, two required application-initiated restoration after minimization, and two required an absolute Stage position after dragging. The four cross-application drag tests passed. Separate Robot checks on both drivers confirmed that a title-bar gesture moved the window, a corner drag resized it in both directions, and an overlapping owned Stage received the click. Vulkan and OpenGL each completed 205 soak page samples and released all tracked host resources and shared target shaders.
+
 ### Wayland merge compatibility review
 
 This review restored desktop-coordinate pointer routing on Windows and macOS and restricted the Wayland-only native window flags to Linux. The Windows x64 build ran on Intel Arc B390 with D3D12/mobile, Vulkan/mobile and OpenGL/gl_compatibility. The first run passed 453 of 457 NonRobot invocations and all 42 Robot invocations. All 457 NonRobot invocations passed including repeats. The Vulkan/runtime clipboard peer initially missed its custom format. The D3D12 resize check initially sampled a black pixel with one retained layer. Both passed unchanged on repeat.

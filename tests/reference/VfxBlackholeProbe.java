@@ -33,6 +33,7 @@ public final class VfxBlackholeProbe extends IntroFXMain {
     private Node effectTarget;
     private WritableImage baseline;
     private WritableImage unfiltered;
+    private MouseEvent lastPointer;
     private final Path output = Path.of(System.getenv("GODOT_JFX_BLACKHOLE_OUTPUT"));
 
     @Override public void start(Stage primary) {
@@ -87,6 +88,11 @@ public final class VfxBlackholeProbe extends IntroFXMain {
             return;
         }
         freeze(stage.getScene().getRoot());
+        stage.addEventFilter(MouseEvent.ANY, event -> {
+            var type = event.getEventType();
+            if (type == MouseEvent.MOUSE_MOVED || type == MouseEvent.MOUSE_DRAGGED
+                    || type == MouseEvent.MOUSE_PRESSED || type == MouseEvent.MOUSE_EXITED) lastPointer = event;
+        });
         unfiltered = capture("off");
         move(30, 60, MouseEvent.MOUSE_MOVED);
         toggle.fire();
@@ -221,6 +227,11 @@ public final class VfxBlackholeProbe extends IntroFXMain {
             false,false,false,false,false,false,false,false,false,false,new PickResult(stage.getScene().getRoot(),x,y)));
     }
     private WritableImage capture(String name) throws Exception {
+        if (lastPointer != null) {
+            System.out.printf(java.util.Locale.ROOT, "BLACKHOLE_POINTER capture=%s type=%s scene=(%.1f,%.1f) target=%s%n",
+                    name, lastPointer.getEventType(), lastPointer.getSceneX(), lastPointer.getSceneY(),
+                    lastPointer.getTarget().getClass().getSimpleName());
+        }
         var parameters = new SnapshotParameters();
         parameters.setFill(javafx.scene.paint.Color.TRANSPARENT);
         parameters.setViewport(new javafx.geometry.Rectangle2D(0,0,stage.getScene().getWidth(),stage.getScene().getHeight()));

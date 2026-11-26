@@ -48,7 +48,7 @@ Linux 使用 Wayland 专用的剪贴板和 Robot 入口，文件选择器经 GTK
 | `submit(ByteBuffer frame, int byteLength)` | `boolean`。从直接缓冲区复制并校验命令批次。`true` 表示已入队，`false` 表示队列已满，可用同一序号重试。非法批次或宿主停止会抛异常。 | 各平台共用批次和队列。Linux 文字渲染实验路径在同一批次中提交操作码 31，携带目标像素矩形，在下一个 LCD 文字绘制前复制背景。mobile 在 Windows 可使用 Vulkan 或 D3D12，在 macOS 使用 Metal。 | **高** · 每个非空绘制批次提交一次，一帧可有多个批次；队列满时重试。 |
 | `readPixels(long handle, long sequence, int x, int y, int width, int height)` | `int[]`。在指定渲染序号完成后读回目标矩形，逐行紧排 ARGB_PRE 像素。读回等待遇宿主停止可返回 null。 | 各平台共用 | **中** · 应用请求快照或显式读回像素时调用；连续截图时可升高。 |
 | `awaitTick(long after, int timeoutMillis)` | `long`。宿主通用唤醒计数。 | 各平台共用 | **中** · 默认在遇到背压、等待窗口创建或输入法确认时调用。设置 `GODOT_JFX_FRAME_PULSE=0` 后为高，调度线程循环调用。 |
-| `awaitFrameTick(long after, int timeoutMillis)` | `long`。宿主帧计数。 | 各平台共用。Windows 外拖时 OLE 模态循环可暂停宿主帧通知；macOS 外拖会话异步运行。 | **高** · Glass 帧接收线程持续等待。收到帧或超时后再次调用，返回 -1 时在线程队列中安排 JavaFX 退出。场景夹具共用此退出路径。 |
+| `awaitFrameTick(long after, int timeoutMillis)` | `long`。宿主帧计数。 | 各平台共用。Windows 外拖时 OLE 模态循环可暂停宿主帧通知；macOS 外拖会话异步运行。 | **高** · Glass 帧接收线程持续等待。收到帧或超时后再次调用，返回 -1 时在线程队列中安排 JavaFX 退出。场景夹具共用此退出路径。Windows 合成悬停探针在首次注入移动前读取帧号，再等待两次宿主帧推进。 |
 | `awaitInputTick(long after, int timeoutMillis)` | `long`。输入到达计数。 | 各平台共用 | **高** · 输入接收线程持续等待，点击、移动等事件可将其唤醒；空闲时最长等一秒再调用。 |
 | `pollInput()` | `double[]`。取走队列内全部事件，每条 9 项，空队列返回空数组。 | 各平台共用 | **低** · 窗口测试探针直接调用，探针等待事件时可重复读取。 |
 | `pollWindowInputV2()` | `double[]`。取走同一队列内全部事件，每条 12 项。Wayland 按键按下（kind 5）的索引 3 记录入队时源原生窗口是否有焦点，Glass 在向该窗口派发按键前同步已确认的焦点。指针事件携带源窗口 ID、窗口内坐标和屏幕坐标。Glass 向源窗口派发时使用原始窗口内坐标，向其他捕获窗口派发时根据屏幕坐标换算。 | 三个平台共用。Windows 滚轮使用种类 4，Windows 读取系统滚动行数和字符数。macOS 滚轮以及 macOS、Linux 的 Godot 平移手势使用种类 17。Linux 离散滚轮沿用 GTK 的每刻度 40 像素，文本单位为零。 | **高** · 每次 Glass 帧回调以及输入到达后的派发任务均可读取，一次取走一批点击、移动等事件。 |

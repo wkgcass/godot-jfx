@@ -130,6 +130,16 @@ public final class HoverFlickerProbe {
             }
             return null;
         });
+        if (!ROBOT_MODE && System.getProperty("os.name").startsWith("Windows")) {
+            // Showing the Stage relocates the native host. Let Godot apply the
+            // move and dispatch the resulting WM_MOUSELEAVE before the first HOLD.
+            long frame = GodotBridge.awaitFrameTick(0, 1000);
+            for (int i = 0; i < 2; i++) {
+                long next = GodotBridge.awaitFrameTick(frame, 1000);
+                if (frame < 0 || next <= frame) throw new AssertionError("Host did not advance after Stage.show()");
+                frame = next;
+            }
+        }
         for (int phase = 0; phase < 2; ++phase) {
             final boolean animated = phase == 1;
             if (animated) fx(() -> { timer.start(); return null; });

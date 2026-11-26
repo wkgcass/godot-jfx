@@ -61,7 +61,7 @@ macOS 验证前按 `docs/build-macos.md` 从源码重建对应产物。日常只
 | --- | --- | --- |
 | macOS arm64，Retina 与混合缩放多屏下的共享窗口夹具 | 在 Retina 单屏和不同缩放双屏环境运行 `test-logical-windows.sh`、`test-window-order.sh`、`test-window-composition.sh`，将主窗口置于屏幕交界附近，覆盖子窗口落在另一屏的情况；记录各窗口所在屏幕、缩放和位置 | 核对窗口尺寸、相对位置、输入坐标与 GPU 像素。当前部分断言用主窗口屏幕缩放计算子窗口采样点，可能误判；如需修正，应依据各窗口实际坐标与渲染尺寸。缺少对应显示器环境时保留该范围的待办。 |
 | macOS arm64，独立 IME 窗口的点击坐标 | 获得 Robot 授权后，在 Retina 屏运行 `./scripts/test-native-ime.sh --driver metal` 和 `--driver opengl` | 从已显示的子窗口尺寸换算点击位置，焦点离开输入框后取消预编辑，按钮动作完成，根文本与资源清理断言通过，并恢复光标。 |
-| Windows x64、Linux x64，共享文件选择器夹具改用主循环检查退出 | Windows 获得 Robot 授权后运行 `scripts/test-file-dialog.ps1`，另测 `-StopHost`、`-Runtime`；Linux 运行 `scripts/run-linux-tests.py --group NonRobot --test test-file-dialog --driver all` | 核对选择与取消结果、退出和资源回收；停止宿主时须有 `FILE_DIALOG_HOST_STOP_RETURNED`。本次仅在 macOS 复验。 |
+| macOS arm64，Effect 像素夹具等待视口达到参考图尺寸 | `scripts/run-macos-tests.py --group NonRobot --driver all --test test-effects test-godot-library` | Metal 和 OpenGL 的普通项目、独立项目及模块消费者都应对比完整原生参考图，包括最后一行效果。 |
 
 ## Viewport＋safe 支持边界
 
@@ -597,7 +597,7 @@ Java 调用、宿主 tick 和清理均通过也不能证明系统键盘已显示
 | `.\scripts\test-node-shaders.ps1 -Driver d3d12` | 指定 Node/子树的 Godot Shader。前置：G+J。 | uniform、裁剪、透明度、子树隔离及 GPU 像素断言。 | `-Jdk`、`-Driver`、`-RenderThread` |
 | `.\scripts\test-scene-views.ps1 -Driver d3d12` | Godot SubViewport 场景原生基础。前置：G。 | 场景渲染、混合和生命周期断言。 | `-Driver` |
 | `.\scripts\test-scene-textures.ps1 -Driver d3d12` | 场景纹理命令、resize 和加载失败。前置：G+J；MissingScene 是预期故障模式。 | 正常像素/身份保持；等待只统计实际推进的 host tick，每段 10 秒总期限；故障模式要求明确失败传播标记。 | `-Jdk`、`-Driver`、`-Resize`、`-MissingScene` |
-| `.\scripts\test-hover-flicker.ps1 -Driver d3d12` | Viewport 呈现侧悬停回归。前置：G+J+V（探针使用 FusionButton）。默认合成模式：GDScript 按探针标题注入 motion 事件（HOLD 停按钮中心、GAP 移出窗口），不动真实鼠标、不需要置顶；加 `-Robot` 走 Glass Robot 物理档（真实 OS 光标停留在按钮，需桌面空闲、窗口置顶，运行期间勿操作鼠标）。 | 逐帧采样画面，普通按钮悬停色缺失帧 >5% 失败；FusionButton 要求六轮 HOLD/GAP 各有越过 23 帧过渡期的样本，稳定期亮/暗错误比例 >5% 失败。按当前屏幕缩放映射坐标；120 秒宿主期限、Java 侧每次 FX 调用 10 秒超时；FX 异常向主线程传播，退出时停止动画、尝试恢复 Robot 原光标位置并关闭窗口，清理成功后才输出 Java PASS；宿主节点移除后资源必须为零，要求 HOVER_RESOURCE_CLEANUP_PASS。JVM 失败和日志 ERROR/SHADER ERROR 均失败，要求 HOVER_FUSION_PIXEL_PASS。批量提交期呈现竞态（悬停闪回/拖动顿挫同类）回归门。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Robot` |
+| `.\scripts\test-hover-flicker.ps1 -Driver d3d12` | Viewport 呈现侧悬停回归。前置：G+J+V（探针使用 FusionButton）。Windows 合成模式在显示 Stage 后先等待宿主推进两帧，让启动时移动窗口产生的鼠标离开事件先送达。随后 GDScript 按探针标题注入 motion 事件（HOLD 移到按钮、GAP 移出窗口），无需移动真实鼠标或置顶窗口；加 `-Robot` 走 Glass Robot 物理档（真实 OS 光标停留在按钮，需桌面空闲、窗口置顶，运行期间勿操作鼠标）。 | 逐帧采样画面，普通按钮悬停色缺失帧 >5% 失败；FusionButton 要求六轮 HOLD/GAP 各有越过 23 帧过渡期的样本，稳定期亮/暗错误比例 >5% 失败。按当前屏幕缩放映射坐标；120 秒宿主期限、Java 侧每次 FX 调用 10 秒超时；FX 异常向主线程传播，退出时停止动画、尝试恢复 Robot 原光标位置并关闭窗口，清理成功后才输出 Java PASS；宿主节点移除后资源必须为零，要求 HOVER_RESOURCE_CLEANUP_PASS。JVM 失败和日志 ERROR/SHADER ERROR 均失败，要求 HOVER_FUSION_PIXEL_PASS。批量提交期呈现竞态（悬停闪回/拖动顿挫同类）回归门。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Robot` |
 | `.\scripts\repro-hover-manual.ps1` | 带 HOVER_TAP/HOVER_SAMPLE 启动 VFX，用户操作并关窗后汇总；前置 G+J+V。`-LogPath` 只分析已有日志，无窗口/构建依赖。 | 诊断入口，无功能 PASS；恒定亮度可能是静态内容，时间相近也不能单独证明因果。原生非零退出或错误日志明确失败。 | `-Jdk`、`-Driver`、`-RenderThread`、`-NoSample`、`-LogPath` |
 | `.\scripts\test-godot-view.ps1 -Driver d3d12` | JavaFX GodotView 布局、场景与输入。前置：G+J；Transform 模式另跑 D3D 参考。 | 场景像素、透明度/裁剪、输入坐标和资源释放断言。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
 | `.\scripts\test-fxml.ps1 -Driver d3d12` | FXML 加载与标准控件集成。前置：G+J；FXML 资源由脚本安排。 | 控制器、include、资源、输入、多窗口及画面断言。 | `-Jdk`、`-Driver`、`-RenderThread`、`-Runtime` |
